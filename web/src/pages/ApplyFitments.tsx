@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { 
   Grid, 
   Card, 
@@ -19,6 +19,9 @@ import {
   ScrollArea
 } from '@mantine/core'
 import { IconSearch, IconDownload, IconCar, IconSettings } from '@tabler/icons-react'
+import { vcdbService, partsService, fitmentsService } from '../api/services'
+import { useApi, useAsyncOperation } from '../hooks/useApi'
+import toast from 'react-hot-toast'
 
 export default function ApplyFitments() {
   const [selectedConfigs, setSelectedConfigs] = useState<string[]>([])
@@ -33,29 +36,125 @@ export default function ApplyFitments() {
     numDoors: '',
     bodyType: ''
   })
+  const [fitmentForm, setFitmentForm] = useState({
+    partId: '',
+    partTypeId: '',
+    position: '',
+    quantity: 1,
+    wheelType: '',
+    liftHeight: '',
+    wheelDiameter1: '',
+    wheelDiameter2: '',
+    wheelDiameter3: '',
+    tireDiameter1: '',
+    tireDiameter2: '',
+    tireDiameter3: '',
+    backspacing1: '',
+    backspacing2: '',
+    backspacing3: '',
+    title: '',
+    description: '',
+    notes: ''
+  })
 
-  // Mock data for demo
-  const mockConfigurations = [
-    { id: 'cfg-1001', year: 2025, make: 'Acura', model: 'ADX', submodel: 'Advance', driveType: 'AWD', fuelType: 'Gas', numDoors: 4, bodyType: 'Crossover' },
-    { id: 'cfg-1002', year: 2024, make: 'Acura', model: 'ADX', submodel: 'Advance', driveType: 'AWD', fuelType: 'Gas', numDoors: 4, bodyType: 'Crossover' },
-    { id: 'cfg-1003', year: 2024, make: 'Toyota', model: 'RAV4', submodel: 'XLE', driveType: 'AWD', fuelType: 'Gas', numDoors: 4, bodyType: 'Crossover' }
-  ]
+  // API hooks
+  const { data: yearRange } = useApi(() => vcdbService.getYearRange(), [])
+  const { data: parts } = useApi(() => partsService.getParts({ 'with-fitments': false }), [])
+  const { data: partTypes } = useApi(() => partsService.getPartTypes(), [])
+  const { data: configurationsData, loading: configsLoading, refetch: refetchConfigs } = useApi(
+    () => vcdbService.getConfigurations(filters),
+    [filters]
+  )
+  const { execute: applyFitment, loading: applyingFitment } = useAsyncOperation()
 
-  const mockParts = [
-    { id: 'P-12345', description: 'Premium Brake Pad Set', status: 0 },
-    { id: 'P-67890', description: 'Performance Air Filter', status: 0 },
-    { id: 'P-11111', description: 'Oil Filter Assembly', status: 1 }
-  ]
+  // Update year range when data loads
+  useEffect(() => {
+    if (yearRange) {
+      setFilters(prev => ({
+        ...prev,
+        yearFrom: yearRange.minYear,
+        yearTo: yearRange.maxYear
+      }))
+    }
+  }, [yearRange])
 
-  const mockPartTypes = [
-    { id: 'PT-22', description: 'Brake Pads' },
-    { id: 'PT-33', description: 'Air Filters' },
-    { id: 'PT-44', description: 'Oil Filters' }
-  ]
+  const configurations = configurationsData?.configurations || []
 
   const positions = ['Front', 'Rear', 'Front Left', 'Front Right', 'Rear Left', 'Rear Right']
   const wheelTypes = ['Steel', 'Alloy', 'Forged', 'Carbon Fiber']
   const liftHeights = ['Stock', '0-1in', '1-2in', '2-3in', '3-4in', '4+in']
+
+  const handleSearchVehicles = async () => {
+    try {
+      await refetchConfigs()
+      toast.success('Vehicle configurations updated')
+    } catch (error) {
+      toast.error('Failed to fetch configurations')
+    }
+  }
+
+  const handleApplyFitment = async () => {
+    if (selectedConfigs.length === 0 || !fitmentForm.partId || !fitmentForm.partTypeId) {
+      toast.error('Please select configurations and complete the fitment form')
+      return
+    }
+
+    const fitmentData = {
+      partIDs: [fitmentForm.partId],
+      partTypeID: fitmentForm.partTypeId,
+      configurationIDs: selectedConfigs,
+      quantity: fitmentForm.quantity,
+      position: fitmentForm.position,
+      liftHeight: fitmentForm.liftHeight,
+      wheelType: fitmentForm.wheelType,
+      wheelParameters: [
+        {
+          wheelDiameter: fitmentForm.wheelDiameter1,
+          tireDiameter: fitmentForm.tireDiameter1,
+          backspacing: fitmentForm.backspacing1
+        },
+        {
+          wheelDiameter: fitmentForm.wheelDiameter2,
+          tireDiameter: fitmentForm.tireDiameter2,
+          backspacing: fitmentForm.backspacing2
+        },
+        {
+          wheelDiameter: fitmentForm.wheelDiameter3,
+          tireDiameter: fitmentForm.tireDiameter3,
+          backspacing: fitmentForm.backspacing3
+        }
+      ].filter(param => param.wheelDiameter || param.tireDiameter || param.backspacing),
+      title: fitmentForm.title,
+      description: fitmentForm.description,
+      notes: fitmentForm.notes
+    }
+
+    const result = await applyFitment(() => fitmentsService.createFitment(fitmentData))
+    if (result) {
+      toast.success(`Fitment applied to ${selectedConfigs.length} configurations`)
+      setSelectedConfigs([])
+      setFitmentForm({
+        partId: '',
+        partTypeId: '',
+        position: '',
+        quantity: 1,
+        wheelType: '',
+        liftHeight: '',
+        wheelDiameter1: '',
+        wheelDiameter2: '',
+        wheelDiameter3: '',
+        tireDiameter1: '',
+        tireDiameter2: '',
+        tireDiameter3: '',
+        backspacing1: '',
+        backspacing2: '',
+        backspacing3: '',
+        title: '',
+        description: '',
+        notes: ''
+      })
+    }
+  }
 
   return (
     <div style={{ padding: '24px 0' }}>
@@ -158,6 +257,8 @@ export default function ApplyFitments() {
                 fullWidth 
                 leftSection={<IconSearch size={16} />}
                 variant="filled"
+                onClick={handleSearchVehicles}
+                loading={configsLoading}
               >
                 Display Vehicles
               </Button>
@@ -171,7 +272,7 @@ export default function ApplyFitments() {
             <Group justify="space-between" mb="md">
               <div>
                 <Title order={4}>Matched Vehicle Configurations</Title>
-                <Text size="sm" c="dimmed">{mockConfigurations.length} configurations found</Text>
+                <Text size="sm" c="dimmed">{configurations.length} configurations found</Text>
               </div>
               <ActionIcon variant="light" size="lg">
                 <IconDownload size={16} />
@@ -184,11 +285,11 @@ export default function ApplyFitments() {
                   <Table.Tr>
                     <Table.Th>
                       <Checkbox
-                        checked={selectedConfigs.length === mockConfigurations.length}
-                        indeterminate={selectedConfigs.length > 0 && selectedConfigs.length < mockConfigurations.length}
+                        checked={selectedConfigs.length === configurations.length}
+                        indeterminate={selectedConfigs.length > 0 && selectedConfigs.length < configurations.length}
                         onChange={(event) => {
                           if (event.currentTarget.checked) {
-                            setSelectedConfigs(mockConfigurations.map(config => config.id))
+                            setSelectedConfigs(configurations.map((config: any) => config.id))
                           } else {
                             setSelectedConfigs([])
                           }
@@ -203,7 +304,7 @@ export default function ApplyFitments() {
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {mockConfigurations.map((config) => (
+                  {configurations.map((config: any) => (
                     <Table.Tr key={config.id}>
                       <Table.Td>
                         <Checkbox
@@ -233,7 +334,7 @@ export default function ApplyFitments() {
             {selectedConfigs.length > 0 && (
               <Group justify="space-between" mt="md" p="sm" style={{ backgroundColor: 'var(--mantine-color-blue-0)', borderRadius: 4 }}>
                 <Text size="sm" fw={500}>
-                  {selectedConfigs.length} of {mockConfigurations.length} selected
+                  {selectedConfigs.length} of {configurations.length} selected
                 </Text>
                 <Button size="xs" variant="light" onClick={() => setSelectedConfigs([])}>
                   Clear Selection
@@ -255,9 +356,11 @@ export default function ApplyFitments() {
               <Select
                 label="Part Name"
                 placeholder="Select part"
-                data={mockParts.map(part => ({
-                  value: part.id,
-                  label: `${part.id} - ${part.description}${part.status !== 0 ? ' (Inactive)' : ''}`
+                value={fitmentForm.partId}
+                onChange={(value) => setFitmentForm(prev => ({ ...prev, partId: value || '' }))}
+                data={(parts || []).map((part: any) => ({
+                  value: part.id || part.hash,
+                  label: `${part.id || part.hash} - ${part.description}${part.itemStatus !== 0 ? ' (Inactive)' : ''}`
                 }))}
                 searchable
               />
@@ -265,7 +368,9 @@ export default function ApplyFitments() {
               <Select
                 label="Part Type"
                 placeholder="Select part type"
-                data={mockPartTypes.map(type => ({
+                value={fitmentForm.partTypeId}
+                onChange={(value) => setFitmentForm(prev => ({ ...prev, partTypeId: value || '' }))}
+                data={(partTypes || []).map((type: any) => ({
                   value: type.id,
                   label: type.description
                 }))}
@@ -274,6 +379,8 @@ export default function ApplyFitments() {
               <Select
                 label="Position"
                 placeholder="Select position"
+                value={fitmentForm.position}
+                onChange={(value) => setFitmentForm(prev => ({ ...prev, position: value || '' }))}
                 data={positions}
               />
 
@@ -282,11 +389,14 @@ export default function ApplyFitments() {
                   label="Quantity"
                   placeholder="1"
                   min={1}
-                  defaultValue={1}
+                  value={fitmentForm.quantity}
+                  onChange={(val) => setFitmentForm(prev => ({ ...prev, quantity: typeof val === 'number' ? val : 1 }))}
                 />
                 <Select
                   label="Wheel Type"
                   placeholder="Select wheel type"
+                  value={fitmentForm.wheelType}
+                  onChange={(value) => setFitmentForm(prev => ({ ...prev, wheelType: value || '' }))}
                   data={wheelTypes}
                 />
               </Group>
@@ -294,6 +404,8 @@ export default function ApplyFitments() {
               <Select
                 label="Lift Height"
                 placeholder="Select lift height"
+                value={fitmentForm.liftHeight}
+                onChange={(value) => setFitmentForm(prev => ({ ...prev, liftHeight: value || '' }))}
                 data={liftHeights}
               />
 
@@ -331,14 +443,32 @@ export default function ApplyFitments() {
                 </Grid.Col>
               </Grid>
 
-              <TextInput label="Title" placeholder="Standard fit" />
-              <TextInput label="Description" placeholder="Works with OEM wheel" />
-              <Textarea label="Notes" placeholder="Check brake clearance" rows={3} />
+              <TextInput 
+                label="Title" 
+                placeholder="Standard fit"
+                value={fitmentForm.title}
+                onChange={(event) => setFitmentForm(prev => ({ ...prev, title: event.currentTarget.value }))}
+              />
+              <TextInput 
+                label="Description" 
+                placeholder="Works with OEM wheel"
+                value={fitmentForm.description}
+                onChange={(event) => setFitmentForm(prev => ({ ...prev, description: event.currentTarget.value }))}
+              />
+              <Textarea 
+                label="Notes" 
+                placeholder="Check brake clearance" 
+                rows={3}
+                value={fitmentForm.notes}
+                onChange={(event) => setFitmentForm(prev => ({ ...prev, notes: event.currentTarget.value }))}
+              />
 
               <Button 
                 fullWidth 
                 size="md"
-                disabled={selectedConfigs.length === 0}
+                disabled={selectedConfigs.length === 0 || !fitmentForm.partId || !fitmentForm.partTypeId}
+                loading={applyingFitment}
+                onClick={handleApplyFitment}
                 style={{ marginTop: 16 }}
               >
                 Apply Fitment ({selectedConfigs.length} configs)
