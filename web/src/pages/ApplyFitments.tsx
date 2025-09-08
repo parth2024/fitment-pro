@@ -157,14 +157,70 @@ export default function ApplyFitments() {
   }
 
   return (
-    <div style={{ padding: '24px 0' }}>
-      <Grid gutter="lg">
+    <div style={{ 
+      padding: '32px 24px', 
+      background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+      minHeight: 'calc(100vh - 64px)'
+    }}>
+      <div style={{ marginBottom: '32px' }}>
+        <h1 style={{ 
+          fontSize: '32px', 
+          fontWeight: 700, 
+          background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          marginBottom: '8px',
+          margin: 0
+        }}>
+          Apply Fitments
+        </h1>
+        <p style={{ 
+          color: '#64748b', 
+          fontSize: '18px', 
+          margin: 0,
+          fontWeight: 400
+        }}>
+          Apply automotive parts to compatible vehicle configurations
+        </p>
+      </div>
+      
+      <Grid gutter="xl">
         {/* Left Pane: Vehicle Configuration Filters */}
         <Grid.Col span={4}>
-          <Card shadow="sm" padding="lg" radius="md" withBorder>
-            <Group justify="space-between" mb="md">
-              <Title order={4}>Specify Vehicle Configurations</Title>
-              <IconCar size={20} />
+          <Card 
+            shadow="lg" 
+            padding="xl" 
+            radius="xl" 
+            withBorder
+            style={{
+              background: 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
+              border: '1px solid #e2e8f0',
+              transition: 'all 0.3s ease',
+            }}
+          >
+            <Group justify="space-between" mb="xl">
+              <div>
+                <Title order={3} style={{ 
+                  color: '#1e293b', 
+                  fontWeight: 700,
+                  marginBottom: '4px'
+                }}>
+                  Vehicle Filters
+                </Title>
+                <Text size="sm" c="dimmed" style={{ fontWeight: 500 }}>
+                  Specify target configurations
+                </Text>
+              </div>
+              <div style={{
+                background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+                borderRadius: '12px',
+                padding: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <IconCar size={20} color="white" />
+              </div>
             </Group>
             
             <Stack gap="md">
@@ -256,9 +312,17 @@ export default function ApplyFitments() {
               <Button 
                 fullWidth 
                 leftSection={<IconSearch size={16} />}
-                variant="filled"
+                variant="gradient"
+                gradient={{ from: 'primary.6', to: 'secondary.6', deg: 135 }}
                 onClick={handleSearchVehicles}
                 loading={configsLoading}
+                size="lg"
+                radius="lg"
+                style={{
+                  fontWeight: 600,
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                  transition: 'all 0.2s ease'
+                }}
               >
                 Display Vehicles
               </Button>
@@ -268,14 +332,48 @@ export default function ApplyFitments() {
 
         {/* Center Pane: Matched Vehicle Configurations */}
         <Grid.Col span={4}>
-          <Card shadow="sm" padding="lg" radius="md" withBorder h="100%">
-            <Group justify="space-between" mb="md">
+          <Card 
+            shadow="lg" 
+            padding="xl" 
+            radius="xl" 
+            withBorder 
+            h="100%"
+            style={{
+              background: 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
+              border: '1px solid #e2e8f0',
+              transition: 'all 0.3s ease',
+            }}
+          >
+            <Group justify="space-between" mb="xl">
               <div>
-                <Title order={4}>Matched Vehicle Configurations</Title>
-                <Text size="sm" c="dimmed">{configurations.length} configurations found</Text>
+                <Title order={3} style={{ 
+                  color: '#1e293b', 
+                  fontWeight: 700,
+                  marginBottom: '4px'
+                }}>
+                  Vehicle Configurations
+                </Title>
+                <Text size="sm" style={{ 
+                  color: '#64748b',
+                  fontWeight: 500,
+                  background: configurations.length > 0 ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#6b7280',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent'
+                }}>
+                  {configurations.length} configurations found
+                </Text>
               </div>
-              <ActionIcon variant="light" size="lg">
-                <IconDownload size={16} />
+              <ActionIcon 
+                variant="gradient" 
+                gradient={{ from: 'primary.6', to: 'secondary.6', deg: 135 }}
+                size="lg"
+                radius="lg"
+                style={{
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <IconDownload size={18} />
               </ActionIcon>
             </Group>
 
@@ -332,11 +430,27 @@ export default function ApplyFitments() {
             </ScrollArea>
 
             {selectedConfigs.length > 0 && (
-              <Group justify="space-between" mt="md" p="sm" style={{ backgroundColor: 'var(--mantine-color-blue-0)', borderRadius: 4 }}>
-                <Text size="sm" fw={500}>
+              <Group justify="space-between" mt="xl" p="lg" style={{ 
+                background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+                borderRadius: '16px',
+                border: '1px solid #93c5fd'
+              }}>
+                <Text size="sm" fw={600} style={{ 
+                  color: '#1e40af',
+                  fontSize: '14px'
+                }}>
                   {selectedConfigs.length} of {configurations.length} selected
                 </Text>
-                <Button size="xs" variant="light" onClick={() => setSelectedConfigs([])}>
+                <Button 
+                  size="xs" 
+                  variant="light" 
+                  onClick={() => setSelectedConfigs([])}
+                  radius="lg"
+                  style={{
+                    fontWeight: 500,
+                    transition: 'all 0.2s ease'
+                  }}
+                >
                   Clear Selection
                 </Button>
               </Group>
@@ -346,10 +460,41 @@ export default function ApplyFitments() {
 
         {/* Right Pane: Define Part Fitment */}
         <Grid.Col span={4}>
-          <Card shadow="sm" padding="lg" radius="md" withBorder>
-            <Group justify="space-between" mb="md">
-              <Title order={4}>Define Part Fitment</Title>
-              <IconSettings size={20} />
+          <Card 
+            shadow="lg" 
+            padding="xl" 
+            radius="xl" 
+            withBorder 
+            h="100%"
+            style={{
+              background: 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
+              border: '1px solid #e2e8f0',
+              transition: 'all 0.3s ease',
+            }}
+          >
+            <Group justify="space-between" mb="xl">
+              <div>
+                <Title order={3} style={{ 
+                  color: '#1e293b', 
+                  fontWeight: 700,
+                  marginBottom: '4px'
+                }}>
+                  Part Fitment
+                </Title>
+                <Text size="sm" c="dimmed" style={{ fontWeight: 500 }}>
+                  Configure part application
+                </Text>
+              </div>
+              <div style={{
+                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                borderRadius: '12px',
+                padding: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <IconSettings size={20} color="white" />
+              </div>
             </Group>
 
             <Stack gap="md">
@@ -465,11 +610,21 @@ export default function ApplyFitments() {
 
               <Button 
                 fullWidth 
-                size="md"
+                size="lg"
+                variant="gradient"
+                gradient={{ from: 'accent.6', to: 'success.6', deg: 135 }}
                 disabled={selectedConfigs.length === 0 || !fitmentForm.partId || !fitmentForm.partTypeId}
                 loading={applyingFitment}
                 onClick={handleApplyFitment}
-                style={{ marginTop: 16 }}
+                radius="lg"
+                style={{ 
+                  marginTop: 24,
+                  fontWeight: 600,
+                  fontSize: '16px',
+                  height: '48px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                  transition: 'all 0.2s ease'
+                }}
               >
                 Apply Fitment ({selectedConfigs.length} configs)
               </Button>
