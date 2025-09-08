@@ -1,0 +1,1077 @@
+Replit Build Prompt — Mass Fitment Tool (MFT) Rebuild
+Goal: Rebuild the current Mass Fitment Tool on PostgreSQL + FastAPI (Python) + React (TypeScript), with no auth. Must preserve the UX and flows shown in the screenshots (Apply Fitments, Fitments, Bulk Upload, Coverage, Potential Fitments, Admin). Target runtime is a single Replit project with a managed Postgres instance.
+Use this as an executable spec for a Replit agent (and any human teammate). It spells out what to build, how it should work, and how to run it.
+
+0) TL;DR for the Replit Agent
+Spin up a monorepo with backend (/api) and frontend (/web) services.
+
+
+Import data in this order: 1) VCDB, 2) Parts, 3) Fitments.
+
+
+Build pages matching the screenshots (file references below) with modern, clear UI.
+
+
+Implement all endpoints under /api exactly as defined, including CSV behaviors.
+
+
+Default pagination: limit=100, offset=0. Query params are kebab-case; JSON is camelCase.
+
+
+Add basic diagnostics: /ping, /healthy, /metrics, /api/version.
+
+
+Screenshots for visual parity (stored in the Replit FS):
+/mnt/data/Screenshot 2025-09-07 at 1.43.46 PM.png
+
+
+/mnt/data/Screenshot 2025-09-07 at 1.44.06 PM.png
+
+
+/mnt/data/Screenshot 2025-09-07 at 1.44.16 PM.png
+
+
+/mnt/data/Screenshot 2025-09-07 at 1.44.46 PM.png
+
+
+
+1) Project Layout
+/ (repo root)
+├─ api/                         # FastAPI + SQLAlchemy + Alembic
+│  ├─ app/
+│  │  ├─ main.py                # FastAPI app factory, routers, CORS, static
+│  │  ├─ deps.py                # DB session, pagination parsing, etc.
+│  │  ├─ config.py              # env, settings (APP_VERSION, DATABASE_URL, STORAGE_DIR)
+│  │  ├─ db/
+│  │  │  ├─ base.py             # SQLAlchemy Base
+│  │  │  ├─ models.py           # ORM models
+│  │  │  ├─ schema_sql/         # raw SQL views/materialized views
+│  │  │  └─ seeds/              # seed CSVs + loader
+│  │  ├─ routers/
+│  │  │  ├─ diagnostics.py      # /ping, /healthy, /metrics, /api/version
+│  │  │  ├─ vcdb.py             # /api/vcdb/*
+│  │  │  ├─ parts.py            # /api/parts, /api/parts/types
+│  │  │  ├─ fitments.py         # /api/fitments*, properties, coverage
+│  │  │  ├─ potential.py        # /api/potential-fitments/:partId
+│  │  │  └─ admin.py            # /api/azure/import/*, /api/azure/export/*
+│  │  ├─ services/              # query/command services
+│  │  ├─ schemas/               # Pydantic (camelCase)
+│  │  └─ utils/                 # csv io, pagination, sorting, errors
+│  ├─ alembic/                  # migrations
+│  └─ tests/                    # pytest api tests + dev dataset
+│
+├─ web/                         # React + Vite + TypeScript + react-bootstrap
+│  ├─ src/
+│  │  ├─ api/                   # axios instance (base=/api), helpers
+│  │  ├─ components/            # shared inputs, tables, csv button, modals
+│  │  ├─ pages/
+│  │  │  ├─ ApplyFitments.tsx
+│  │  │  ├─ Fitments.tsx
+│  │  │  ├─ BulkUpload.tsx
+│  │  │  ├─ Coverage.tsx
+│  │  │  ├─ PotentialFitments.tsx
+│  │  │  └─ Admin.tsx
+│  │  ├─ App.tsx                # tabbed layout mirroring current UI
+│  │  └─ types/                 # TS interfaces matching API schemas
+│  └─ public/
+│
+├─ .env.example
+├─ Makefile                     # dev targets
+├─ Procfile                     # optional: run both services
+└─ README.md
+
+
+2) Environment & Run
+Environment variables
+DATABASE_URL — Postgres connection string.
+
+
+APP_VERSION — e.g., 1.0.0.
+
+
+STORAGE_DIR — local dir for CSV import/export (e.g., ./storage).
+
+
+Start commands
+Backend: uvicorn app.main:app --host 0.0.0.0 --port 8081
+
+
+Frontend (dev): npm run dev (Vite)
+
+
+Frontend (prod): npm run build then let FastAPI serve /web/dist statically at /.
+
+
+In Replit
+Prefer serving the built frontend from FastAPI at /.
+
+
+API lives under /api/*. Also expose /ping, /healthy, /metrics.
+
+
+
+3) Database Schema (PostgreSQL)
+Core tables (minimum viable)
+vcdb_base_vehicle (base_vehicle_id PK, make, model)
+
+
+vcdb_vehicle (vehicle_id PK, base_vehicle_id FK, year, fuel_type, drive_type)
+
+
+vcdb_submodel (vehicle_id FK, submodel)
+
+
+vcdb_body_num_doors (vehicle_id FK, num_doors)
+
+
+vcdb_body_type (vehicle_id FK, body_type)
+
+
+vehicle_configurations
+ (id PK, vehicle_id FK, base_vehicle_id, year, make, model, submodel, drive_type, fuel_type, num_doors, body_type)
+
+
+ Pre-flattened view/materialized snapshot to speed queries.
+
+
+
+parts (id PK, description, unit_of_measure, item_status INT, hash TEXT UNIQUE)
+
+
+part_types (id PK, description)
+
+
+positions (id PK, position)
+
+
+part_type_positions (part_type_id FK, position_id FK, PRIMARY KEY (part_type_id, position_id))
+
+
+fitments
+ (hash PK, part_id FK, part_type_id FK, configuration_id FK, quantity INT, position_id FK, lift_height TEXT, wheel_type TEXT, tire_diameter1 TEXT, tire_diameter2 TEXT, tire_diameter3 TEXT, wheel_diameter1 TEXT, wheel_diameter2 TEXT, wheel_diameter3 TEXT, backspacing1 TEXT, backspacing2 TEXT, backspacing3 TEXT, title TEXT, description TEXT, notes TEXT, created_at TIMESTAMPTZ, created_by TEXT, updated_at TIMESTAMPTZ, updated_by TEXT)
+
+
+imports (id PK, data_kind TEXT, status TEXT, created_at TIMESTAMPTZ, details JSONB)
+
+
+Indexes
+ Add BTREE indexes on: vehicle_configurations(year, make, model, submodel, base_vehicle_id, drive_type, fuel_type, num_doors, body_type), fitments(part_id, configuration_id, position_id, updated_at), and parts(item_status).
+Views
+ Optional materialized view for a flattened, denormalized fitments listing to match the “Fitments” table shape.
+
+4) API (FastAPI) — Base path /api
+Conventions
+JSON keys: camelCase
+
+
+Query params: kebab-case
+
+
+Pagination: limit, offset (defaults 100/0; max limit 1000)
+
+
+Sorting: sort-by, order in {asc, desc}
+
+
+CSV: when ?format=csv, return text/csv with appropriate filename
+
+
+Diagnostics (outside /api except version)
+GET /ping → 200 OK with "pong"
+
+
+GET /healthy → DB connectivity check {status:"ok"}
+
+
+GET /metrics → JSON (counts: parts, fitments, covered/uncovered)
+
+
+GET /api/version → version object {version, buildDate}
+
+
+VCDB
+GET /api/vcdb/version → dataset version string/date
+
+
+GET /api/vcdb/year-range → {minYear:int, maxYear:int}
+
+
+GET /api/vcdb/property/:property
+ property ∈ {makes, models, submodels, drive-types, door-nums, fuel-types, base-vehicles, body-types}
+ Filters (optional): year-from, year-to, makes, models, submodels, drive-types, num-doors, fuel-types, base-vehicles, body-types, with-fitments
+ → Array of unique values (type-appropriate).
+
+
+GET /api/vcdb/configurations
+ Either provide filter params (same as above) with pagination/sorting; or ids=comma-separated.
+ ?format=csv → configurations.csv
+ JSON: {configurations:[VehicleConfiguration], totalCount:int}
+
+
+Parts
+GET /api/parts?with-fitments=true|false
+ → Array of Part (when with-fitments=true, only parts that have at least one fitment).
+
+
+GET /api/parts/types → Array of PartType
+
+
+Fitments
+GET /api/fitments
+ Params: part-id (optional), expanded (bool), limit, offset, sort-by, order, format=csv
+ JSON: {fitments:[FlattenedAppliedFitment], totalCount:int}
+ CSV filename: fitments.csv
+
+
+GET /api/fitments/coverage?year-from&year-to
+ → Array of {make, configsCount, fittedConfigsCount}
+
+
+GET /api/fitments/property/:property
+ property ∈ {position, lift-height, wheel-type, wheel-diameter, tire-diameter, backspacing}
+
+
+For position, allow part-type filter and return [{id:int, position:string}]
+
+
+Others return string[]
+
+
+POST /api/fitments
+ Body (Fitment):
+
+ {
+  title?, description?, notes?,
+  partIDs:[string], partTypeID:string,
+  configurationIDs:[string],              # if omitted/empty, use VCDB filter via query
+  quantity:int, position:string, liftHeight:string, wheelType:string,
+  wheelParameters:[{wheelDiameter, tireDiameter, backspacing}]
+}
+ If configurationIDs empty, read same filter params as /api/vcdb/configurations from query string and apply to all matching configs.
+ → 201 Created (no body).
+
+
+DELETE /api/fitments?part-fitments=...&part-ids=...&expanded=bool
+ → 204 No Content
+
+
+POST /api/fitments/validate (multipart)
+ File field: fitments (CSV ≤ 10MB).
+ → FitmentValidationResult:
+
+ {
+  repairedRows: { [rowIndex]: { [column]: value } },
+  invalidRows:  { [rowIndex]: { [column]: value } },
+  ignoredColumns: string[]
+}
+
+
+POST /api/fitments/submit
+ Submit the most recently validated dataset in memory (simple in-process store) or via a temp table.
+ → 200 OK
+
+
+Potential Fitments
+GET /api/potential-fitments/:partId?method=similarity|base-vehicle
+ → Array of PotentialVehicleConfiguration (VehicleConfiguration + relevance:int)
+ MVP logic:
+
+
+base-vehicle: use baseVehicleIds already covered by the part’s fitments, suggest other configs with same baseVehicleId
+
+
+similarity: same make+model+nearby years; simple heuristic score
+
+
+Admin (local storage emulating Azure)
+GET /api/azure/export/fitments?format=both|compressed|expanded&num-days=N
+ Generate CSV files into STORAGE_DIR (include a timestamp in filenames).
+ → 204 No Content
+
+
+GET /api/azure/import/:dataKind where dataKind ∈ {vcdb, customer}
+ Load CSVs from STORAGE_DIR/<dataKind>/*.csv into DB, upserting as needed.
+ → Return array of import problems (if any) or a concise summary.
+
+
+Errors
+JSON error format (all endpoints):
+{ "statusCode": 400, "status": "Bad Request", "message": "reason..." }
+
+
+5) Data Models (JSON)
+VehicleConfiguration
+{
+  id, vehicleId, baseVehicleId, year,
+  make, model, submodel, driveType, fuelType, numDoors, bodyType
+}
+
+Part
+{ hash, id, description, unitOfMeasure, itemStatus }   # itemStatus mapping: 0=Active,1=Inactive,3=Sunset
+
+PartType
+{ id, description, partPositionIds:[int] }
+
+Fitment (POST input)
+{
+  title?, description?, notes?,
+  partIDs:[string], partTypeID:string,
+  configurationIDs:[string],
+  quantity:int, position:string, liftHeight:string, wheelType:string,
+  wheelParameters:[{ wheelDiameter, tireDiameter, backspacing }]
+}
+
+FlattenedAppliedFitment (GET output row)
+{
+  hash, partId, itemStatus, itemStatusCode,
+  baseVehicleId, year, makeName, modelName, subModelName,
+  driveTypeName, fuelTypeName, bodyNumDoors, bodyTypeName,
+  ptid, partTypeDescriptor, uom, quantity,
+  fitmentTitle, fitmentDescription, fitmentNotes,
+  position, positionId, liftHeight, wheelType,
+  tireDiameter1, tireDiameter2, tireDiameter3,
+  wheelDiameter1, wheelDiameter2, wheelDiameter3,
+  backSpacing1, backSpacing2, backSpacing3,
+  createdAt, createdBy, updatedAt, updatedBy
+}
+
+Coverage
+{ make:string, configsCount:int, fittedConfigsCount:int }
+
+FitmentValidationResult
+{
+  repairedRows: { [rowIndex]: { [column]: value } },
+  invalidRows:  { [rowIndex]: { [column]: value } },
+  ignoredColumns: string[]
+}
+
+
+6) CSV Contracts
+/api/vcdb/configurations?format=csv
+Filename: configurations.csv
+
+
+Columns: fields of VehicleConfiguration in the order given above.
+
+
+/api/fitments?format=csv
+Filename: fitments.csv
+
+
+Columns: fields of FlattenedAppliedFitment in the order given above.
+
+
+Import (validate/submit)
+Accept a header-compatible CSV with enough columns to map to FlattenedAppliedFitment. Extra columns are allowed but must appear in ignoredColumns.
+
+
+Limits
+Max upload: 10 MB → return 413 Payload Too Large if exceeded.
+
+
+
+7) Frontend (React + Vite + TypeScript)
+Global
+Base API path: /api via axios instance.
+
+
+Component library: react-bootstrap for quick, consistent UI.
+
+
+CSV downloads: request ?format=csv, blob to client, auto-name per spec.
+
+
+Error handling: one modal to show API errors; show form-level validation.
+
+
+App layout
+Tabs across the top: Apply Fitments, Fitments, Bulk Upload, Coverage, Potential Fitments, Admin (matching screenshots).
+
+
+A) Apply Fitments (screenshot parity)
+Left pane: VCDB filters
+
+
+year-from / year-to (prefill using /api/vcdb/year-range)
+
+
+Dropdowns for make, model, submodel, drive-type, fuel-type, num-doors, body-type
+
+
+Use /api/vcdb/property/:property to populate options based on current filters (debounced).
+
+
+“Display Vehicles” fetches /api/vcdb/configurations (paginated table with selectable rows; supports CSV download).
+
+
+Right pane: Define Part Fitment
+
+
+Select Part Name (fetch /api/parts?with-fitments=false), display as “<id> - <description> (status when != Active)”
+
+
+Select Part Type → then Position dropdown uses /api/fitments/property/position?part-type=...
+
+
+Quantity, Wheel Type, Lift Height
+
+
+Wheel Parameters grid with 3 rows: Wheel Diameter, Tire Diameter, Backspacing
+
+
+Title / Description / Notes text fields
+
+
+Apply Fitment button posts to /api/fitments:
+
+
+If any configuration rows are checked, send those IDs in configurationIDs.
+
+
+If none selected, send the current filter as query params to apply to all matching configurations.
+
+
+After success, show toast “Fitment applied”.
+
+
+B) Fitments
+Table with server pagination + sorting (sort-by, e.g., part-id).
+
+
+Toggle Expanded (bool) → controls presence of denormalized attrs (but default flattened structure works for both).
+
+
+Optional filter by part-id.
+
+
+Bulk actions:
+
+
+Export (calls /api/fitments?format=csv).
+
+
+Delete selected (DELETE /api/fitments?part-fitments=...&part-ids=...).
+
+
+C) Bulk Upload
+Upload CSV → /api/fitments/validate
+
+
+Show repaired rows and invalid rows in two tables (with row indices).
+
+
+If no blocking errors, enable Submit → /api/fitments/submit
+
+
+Show the ignored columns list in an info callout.
+
+
+D) Coverage
+Year range pickers; defaults from /api/vcdb/year-range
+
+
+Fetch /api/fitments/coverage and render:
+
+
+A simple bar chart of make vs fittedConfigsCount / configsCount (%)
+
+
+A sortable summary table below.
+
+
+E) Potential Fitments
+Select Part; toggle method similarity | base-vehicle
+
+
+Call /api/potential-fitments/:partId?method=...
+
+
+Show a table with: year, make, model, submodel, driveType, relevance
+
+
+Provide a button “Apply Selected” → pre-fills the Apply Fitments form with those config IDs.
+
+
+F) Admin
+Import VCDB button → calls /api/azure/import/vcdb
+
+
+Import Customer button → /api/azure/import/customer
+
+
+Export Fitments form
+
+
+format (radio: both | compressed | expanded), num-days (int)
+
+
+Calls /api/azure/export/fitments and shows location of generated files (STORAGE_DIR).
+
+
+Show dataset versions (/api/vcdb/version) and app version (/api/version).
+
+
+Accessibility & UX
+All forms keyboard-accessible; inputs labeled
+
+
+Debounce filter requests (300ms)
+
+
+Loading spinners on tables; empty-state messages
+
+
+Sticky action buttons on long forms (like Apply Fitments)
+
+
+
+8) Flow Order (very important)
+Admin → Import VCDB (load VCDB CSVs first).
+
+
+Admin → Import Customer (parts, positions, part types).
+
+
+Apply Fitments
+
+
+Choose VCDB filters → display configurations
+
+
+Define fitment (pick part, type, position, etc.)
+
+
+Apply to selected configurations or to all matching the current filter.
+
+
+Fitments
+
+
+Verify applied rows; export if needed
+
+
+Delete if needed
+
+
+Coverage
+
+
+Review make-level coverage for selected year range
+
+
+Potential Fitments
+
+
+Get recommendations for a part and apply more, if desired.
+
+
+
+9) CSV Locations & Templates
+Replit storage path from STORAGE_DIR (e.g., ./storage):
+
+
+storage/vcdb/*.csv
+
+
+storage/customer/*.csv
+
+
+Exports: storage/exports/fitments_expanded_<timestamp>.csv, fitments_compressed_<timestamp>.csv
+
+
+Provide minimal seed CSVs under api/app/db/seeds/ for local dev.
+
+
+
+10) Testing & Acceptance
+Automated (pytest)
+Diagnostics: /ping, /healthy, /api/version
+
+
+VCDB: properties filter cascade, configurations pagination, CSV stream
+
+
+Parts: list + with-fitments filter
+
+
+Fitments: list/sort/export, apply (by IDs & by filter), delete
+
+
+Fitment properties: /api/fitments/property/*
+
+
+Bulk: validate (repaired/invalid/ignored), submit
+
+
+Coverage: correct ratios with seed data
+
+
+Potential: returns ordered results with relevance scores
+
+
+Admin: import (vcdb, customer) and export write files to STORAGE_DIR
+
+
+Manual (UI)
+Pages match screenshots for structure and naming.
+
+
+CSV downloads open/save with the exact filenames.
+
+
+Input → action → toast/success flows behave as described.
+
+
+
+11) Non-Functional Requirements
+Typical paged responses in < 500 ms on seed data.
+
+
+Limit JSON payloads; stream CSV responses when feasible.
+
+
+Logging: concise request logs; errors include stack traces (no secrets).
+
+
+Safe defaults for limit (100) and max limit (1000).
+
+
+Robust query validation; unknown sort-by → 400 Bad Request.
+
+
+
+12) Stretch (optional)
+Materialized view refresh endpoint for flattened fitments.
+
+
+Debounced queries + query-state in URL.
+
+
+Prometheus-format /metrics (in addition to JSON).
+
+
+
+13) Example Calls
+Configurations (filtered)
+GET /api/vcdb/configurations?year-from=2024&year-to=2026&makes=Acura&models=ADX&submodels=Advance&limit=100&offset=0
+
+Apply fitment to selected configurations
+POST /api/fitments
+Body:
+{
+  "partIDs": ["P-12345"],
+  "partTypeID": "PT-22",
+  "configurationIDs": ["cfg-1001","cfg-1002"],
+  "quantity": 1,
+  "position": "Front",
+  "liftHeight": "0-1in",
+  "wheelType": "Alloy",
+  "wheelParameters": [
+    { "wheelDiameter":"18", "tireDiameter":"255/55R18", "backspacing":"35mm" }
+  ],
+  "title": "Standard fit",
+  "description": "Works with OEM wheel",
+  "notes": "Check brake clearance"
+}
+
+Apply fitment by VCDB filter (no explicit IDs)
+POST /api/fitments?year-from=2024&year-to=2026&makes=Acura&models=ADX&submodels=Advance
+Body: { ...same as above but configurationIDs omitted... }
+
+Export fitments
+GET /api/fitments?format=csv&limit=1000
+
+Delete
+DELETE /api/fitments?part-fitments=fh1,fh2,fh3&part-ids=P-12345
+
+
+14) UI Parity Notes (re: screenshots)
+Keep the Apply Fitments two-pane layout:
+
+
+Left: Specify Vehicle Configurations (filters + “Display Vehicles”)
+
+
+Mid: Matched Vehicle Configurations table with multi-select
+
+
+Right: Define Part Fitment (same field order & labels as shown)
+
+
+The Fitments tab has a Filter Mode concept in the current app. We simplify to part-id filter and a radio for ALL vs ANY (optional), but behavior must allow showing combined fitments across configurations, with a CSV export and delete.
+
+
+
+15) Item Status Mapping (Frontend)
+When rendering part dropdown items:
+ Label as: <id> - <description> (Inactive) or (Sunset) only if itemStatus != 0.
+
+
+
+16) Done When
+Data import flow (VCDB first) is working.
+
+
+You can select Acura ADX Advance (as in screenshots), see the single configuration row, define a fitment, apply it, see it in Fitments, export CSV, and view coverage and potential lists.
+
+
+Admin export creates files under STORAGE_DIR/exports and returns 204.
+
+
+
+If anything is ambiguous during implementation, prefer the behavior described above and keep parameter names exactly as specified. The end result should feel fast, clean, and friendly, while matching the current tool’s workflow shown in the screenshots.
+Got it—here’s an addendum you can paste right under the previous “Replit Build Prompt — MFT Rebuild.” It tightens the brief for a next-level, professional UI and adds demo-grade dummy data + seeding flow so everything looks and feels great for a client walkthrough.
+
+Addendum: Modern UI/UX + Demo-Ready Seed Data
+17) Modern UI/UX Requirements (Professional Design)
+Objective: deliver a polished, modern, responsive UI that feels premium on first use and mirrors the screenshots’ flows with better ergonomics. Prioritize clarity, speed, and low-friction “first minute” experience.
+17.1 Design system
+UI kit: Prefer Mantine v7 (TypeScript, accessible, themeable).
+ Fallback: if Mantine isn’t available, keep React-Bootstrap and apply the same tokens/styles.
+
+
+Icons: Tabler Icons.
+
+
+Charts: Recharts.
+
+
+Tables: TanStack Table (sticky header, resizable columns, server-side pagination).
+
+
+Forms: React Hook Form + Zod (instant validation + helpful messages).
+
+
+Toasts: react-hot-toast (top-right).
+
+
+17.2 Theme & tokens
+8-pt spacing grid; rounded corners (6px), shadows for elevation.
+
+
+Light & dark modes, automatic by OS preference; toggle in header.
+
+
+Brand tokens (CSS variables):
+
+
+--color-primary: #1F6FEB (action/links)
+
+
+--color-accent: #FF6A00 (highlights, matches FOX vibe)
+
+
+--color-bg: #0B0D12 (dark) / #FFFFFF (light)
+
+
+--color-muted: #667085
+
+
+Success #12B76A, Warning #F79009, Error #F04438
+
+
+Typography: Inter (or system UI), sizes 12/14/16/20/24 with 1.25 line-height. Use 14 for table cells, 16 for forms.
+
+
+17.3 Layout & navigation
+App shell: top header (logo, tabs, dark toggle) + content container (max 1440px).
+
+
+Tabs exactly as current: Apply Fitments, Fitments, Bulk Upload, Coverage, Potential Fitments, Admin.
+
+
+Sticky actions: “Apply Fitment,” “Export,” and “Show Fitments” stay visible on scroll.
+
+
+17.4 UX patterns (first-time experience)
+First-run stepper (modal):
+
+
+Import VCDB → 2) Import Customer data → 3) Open Apply Fitments.
+ If DB is empty, show this automatically (“Demo Mode wizard”).
+
+
+Guided tour tooltips (shepherd.js or simple custom): 4–6 steps highlighting filter panel, results table, and apply form.
+
+
+Empty states: clear illustrations + calls to action (“No configurations yet—import VCDB or adjust filters.”).
+
+
+Skeleton loaders for tables and cards (perceived speed).
+
+
+Inline validation (labels show error text; no blocking alerts).
+
+
+Keyboard support & a11y: focus rings, ESC to close modals, ARIA labels, table sorting via keyboard.
+
+
+17.5 Tables & forms polish
+Column resize + show/hide; remember user prefs in localStorage.
+
+
+Row selection with checkbox in header; “Select N of M” helper line.
+
+
+CSV download buttons with file names per spec; show toast “Export started”.
+
+
+Debounced filter requests (300 ms).
+
+
+Copy-to-clipboard on IDs (configs, parts).
+
+
+Confirmation modal for deletes (“This removes N fitments—continue?”).
+
+
+17.6 Performance & quality
+Client caching for dropdown reference data (VCDB properties, part types).
+
+
+Suspense-like loaders (fallback skeletons).
+
+
+No layout shift; reserve space for async sections.
+
+
+17.7 Visual parity with screenshots
+Maintain the two-pane Apply Fitments card:
+ left = “Specify Vehicle Configurations”; center = “Matched Vehicle Configurations”; right = “Define Part Fitment”.
+
+
+Keep terminology, field order, and labels consistent with screenshots.
+
+
+
+18) Demo / Dummy Data – Seed Everything Automatically
+Goal: on first run (or when DEMO_MODE=true), load a compact yet realistic dataset so every tab works instantly. Provide both CSV seeds and a programmatic seeder.
+18.1 Env flags
+DEMO_MODE=true → on app start:
+
+
+Run migrations
+
+
+Load VCDB seed
+
+
+Load customer seed (parts, positions, part types)
+
+
+Load a few fitments
+
+
+Optional reset endpoint (convenience): POST /api/admin/reset-demo → truncate & reseed. (No auth.)
+
+
+18.2 Minimal but rich dataset (sample values)
+VCDB — base vehicles
+base_vehicle_id,make,model
+180952,Acura,ADX
+140100,Toyota,RAV4
+150200,Ford,F-150
+160300,Jeep,Wrangler
+
+VCDB — vehicles
+vehicle_id,base_vehicle_id,year,fuel_type,drive_type
+500001,180952,2025,Gas,AWD
+500002,180952,2024,Gas,AWD
+500101,140100,2024,Gas,AWD
+500201,150200,2024,Gas,4WD
+500301,160300,2024,Gas,4WD
+
+VCDB — submodels
+vehicle_id,submodel
+500001,Advance
+500002,Advance
+500101,XLE
+500201,Lariat
+500301,Rubicon
+
+VCDB — doors
+vehicle_id,num_doors
+500001,4
+500002,4
+500101,4
+500201,4
+500301,2
+
+VCDB — body types
+vehicle_id,body_type
+500001,Crossover
+500002,Crossover
+500101,Crossover
+500201,Pickup
+500301,SUV
+
+Vehicle configurations (flattened, can be generated or pre-seeded)
+id,vehicle_id,base_vehicle_id,year,make,model,submodel,drive_type,fuel_type,num_doors,body_type
+700001,500001,180952,2025,Acura,ADX,Advance,AWD,Gas,4,Crossover
+700002,500002,180952,2024,Acura,ADX,Advance,AWD,Gas,4,Crossover
+700101,500101,140100,2024,Toyota,RAV4,XLE,AWD,Gas,4,Crossover
+700201,500201,150200,2024,Ford,F-150,Lariat,4WD,Gas,4,Pickup
+700301,500301,160300,2024,Jeep,Wrangler,Rubicon,4WD,Gas,2,SUV
+
+Parts
+id,description,unit_of_measure,item_status,hash
+P-ADX-ADV-KIT1,Fox Shock Kit - ADX Advance,EA,0,hash-1001
+P-ADX-ADV-KIT2,Fox Lift Kit - ADX Advance,EA,0,hash-1002
+P-RAV4-XLE-SK1,Performance Shock Kit - RAV4 XLE,EA,0,hash-2001
+P-F150-LAR-RT1,Rear Tow Kit - F-150 Lariat,EA,0,hash-3001
+P-JEEP-RUB-SK1,Trail Shock Kit - Wrangler Rubicon,EA,0,hash-4001
+
+Part types
+id,description
+PT-SHOCK,Shock Kit
+PT-LIFT,Lift Kit
+PT-TOW,Tow Kit
+
+Positions
+id,position
+1,Front
+2,Rear
+3,Front & Rear
+
+Part type ↔ position
+part_type_id,position_id
+PT-SHOCK,1
+PT-SHOCK,2
+PT-SHOCK,3
+PT-LIFT,3
+PT-TOW,2
+
+Initial fitments (so coverage & lists aren’t empty)
+hash,part_id,part_type_id,configuration_id,quantity,position_id,lift_height,wheel_type,tire_diameter1,tire_diameter2,tire_diameter3,wheel_diameter1,wheel_diameter2,wheel_diameter3,backspacing1,backspacing2,backspacing3,title,description,notes,created_at,created_by,updated_at,updated_by
+FH-0001,P-ADX-ADV-KIT1,PT-SHOCK,700001,1,3,,Alloy,255/55R18,,,18,,,35mm,,,Standard fit,Works with OEM wheel,Verify brake clearance,2025-01-01T10:00:00Z,seed,2025-01-01T10:00:00Z,seed
+FH-0002,P-RAV4-XLE-SK1,PT-SHOCK,700101,1,1,,Alloy,235/60R18,,,18,,,38mm,,,Front shock kit,Comfort tune,,2025-01-01T10:00:00Z,seed,2025-01-01T10:00:00Z,seed
+FH-0003,P-F150-LAR-RT1,PT-TOW,700201,1,2,,Steel,,,,,,,"2.5in",,,Tow compatible,Rear tow kit,,2025-01-01T10:00:00Z,seed,2025-01-01T10:00:00Z,seed
+
+These rows guarantee the Acura ADX Advance example from the screenshots appears, and also give variety for Coverage and Potential Fitments.
+18.3 Seeder behavior
+Location: api/app/db/seeds/
+
+
+vcdb/*.csv, customer/*.csv, fitments/*.csv
+
+
+Script: python -m app.db.seeds.load_demo --drop
+ Steps:
+
+
+Create tables (via Alembic)
+
+
+Truncate (if --drop)
+
+
+Load CSVs (upsert on natural keys)
+
+
+Build vehicle_configurations if not preseeded
+
+
+Also allow GET /api/azure/import/vcdb and GET /api/azure/import/customer to read from STORAGE_DIR so Admin buttons work in the demo.
+
+
+18.4 Frontend demo helpers
+If DEMO_MODE=true and VCDB empty:
+
+
+Show First-Run Wizard (3-step) with large primary CTA buttons that call Admin import endpoints (or in-process seed function).
+
+
+After import, auto-navigate to Apply Fitments with preselected values (Year 2024–2026, Make Acura, Model ADX, Submodel Advance) and show the matched configuration row.
+
+
+Add “Load Demo Data” button in Admin (visible only when DB empty), calling /api/admin/reset-demo for one-click setup.
+
+
+
+19) “First-Minute” Client Demo Script (happy path)
+Open the app — dark/light toggle shows; First-Run Wizard appears.
+
+
+Click Import VCDB → toast “VCDB imported”.
+
+
+Click Import Customer → toast “Customer dataset imported”.
+
+
+Click Go to Apply Fitments → filters prefilled (2024–2026, Acura ADX Advance).
+
+
+Click Display Vehicles → shows one row (2025 Acura ADX Advance AWD).
+
+
+On the right, pick Part: P-ADX-ADV-KIT1, Part Type: Shock Kit → Position auto-filters to Front & Rear.
+
+
+Enter Quantity = 1, Wheel Type Alloy. Click Apply Fitment → success toast.
+
+
+Go to Fitments tab → row appears; Export CSV works.
+
+
+Go to Coverage → Acura shows 1 fitted vs 1 total; others show partial coverage.
+
+
+Go to Potential Fitments, choose P-ADX-ADV-KIT1, method base-vehicle → see 2024 ADX suggestions.
+
+
+Back to Admin, run Export Fitments → files appear under STORAGE_DIR/exports.
+
+
+
+20) Additional Acceptance Criteria (UI polish)
+No unlabeled controls; every input has helper text or placeholder.
+
+
+All network calls show inline loading states (spinners/skeletons); buttons disable during requests.
+
+
+Errors display as readable messages with context (field-level where possible).
+
+
+High contrast and WCAG AA color ratios.
+
+
+On mobile (<768px): tables collapse to cards; actions reachable.
+
+
+
+21) Quick Commands (for the agent)
+Run backend: uvicorn app.main:app --host 0.0.0.0 --port 8081
+
+
+Run frontend (dev): npm run dev
+
+
+Build frontend: npm run build (then FastAPI serves /)
+
+
+Migrate: alembic upgrade head
+
+
+Seed demo data: python -m app.db.seeds.load_demo --drop
+ (or) set DEMO_MODE=true and start the app
+
+
+Reset demo (optional endpoint): POST /api/admin/reset-demo
+
+
+
+Notes to the AI implementer
+Keep all API routes and query/JSON casing exactly as specified in the base prompt.
+
+
+Implement the First-Run Wizard only when the DB lacks VCDB data or DEMO_MODE=true.
+
+
+Ensure Acura → ADX → Advance works exactly like the screenshots from the start.
+
+
+Prioritize smooth animations, quick perceived load (skeletons), and crisp typography—this is a client demo.
+
+
+
