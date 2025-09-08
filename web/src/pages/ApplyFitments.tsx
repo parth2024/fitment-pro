@@ -507,7 +507,7 @@ export default function ApplyFitments() {
               </div>
             </Group>
 
-            <Stack gap="md">
+            <Stack gap={{ base: 'sm', md: 'md' }}>
               <Select
                 label="Part Name"
                 placeholder="Select part"
@@ -518,6 +518,13 @@ export default function ApplyFitments() {
                   label: `${part.id || part.hash} - ${part.description}${part.itemStatus !== 0 ? ' (Inactive)' : ''}`
                 }))}
                 searchable
+                size="md"
+                styles={{
+                  input: { 
+                    fontSize: 'clamp(14px, 3vw, 16px)',
+                    height: 'clamp(42px, 8vw, 48px)'
+                  }
+                }}
               />
 
               <Select
@@ -529,6 +536,13 @@ export default function ApplyFitments() {
                   value: type.id,
                   label: type.description
                 }))}
+                size="md"
+                styles={{
+                  input: { 
+                    fontSize: 'clamp(14px, 3vw, 16px)',
+                    height: 'clamp(42px, 8vw, 48px)'
+                  }
+                }}
               />
 
               <Select
@@ -537,6 +551,13 @@ export default function ApplyFitments() {
                 value={fitmentForm.position}
                 onChange={(value) => setFitmentForm(prev => ({ ...prev, position: value || '' }))}
                 data={positions}
+                size="md"
+                styles={{
+                  input: { 
+                    fontSize: 'clamp(14px, 3vw, 16px)',
+                    height: 'clamp(42px, 8vw, 48px)'
+                  }
+                }}
               />
 
               <Group grow>
