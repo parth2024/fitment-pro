@@ -1,1 +1,6 @@
 export { default as ApplyFitments } from './ApplyFitments'
+export { default as Fitments } from './Fitments'
+export { default as BulkUpload } from './BulkUpload'
+export { default as Coverage } from './Coverage'
+export { default as PotentialFitments } from './PotentialFitments'
+export { default as Admin } from './Admin'

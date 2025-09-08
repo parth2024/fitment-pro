@@ -1,6 +1,11 @@
 import { AppShell, Container, Tabs, Title, Badge } from '@mantine/core'
 import { IconCar, IconTable, IconUpload, IconChartBar, IconBulb, IconSettings } from '@tabler/icons-react'
 import ApplyFitments from './pages/ApplyFitments'
+import Fitments from './pages/Fitments'
+import BulkUpload from './pages/BulkUpload'
+import Coverage from './pages/Coverage'
+import PotentialFitments from './pages/PotentialFitments'
+import Admin from './pages/Admin'
 
 function App() {
   return (
@@ -43,29 +48,24 @@ function App() {
               <ApplyFitments />
             </Tabs.Panel>
 
-            <Tabs.Panel value="fitments" pt="xl">
-              <Title order={2} mb="md">Fitments Management</Title>
-              <div>Coming soon - Table with pagination, sorting, and bulk actions</div>
+            <Tabs.Panel value="fitments">
+              <Fitments />
             </Tabs.Panel>
 
-            <Tabs.Panel value="bulk" pt="xl">
-              <Title order={2} mb="md">Bulk Upload</Title>
-              <div>Coming soon - CSV upload with validation</div>
+            <Tabs.Panel value="bulk">
+              <BulkUpload />
             </Tabs.Panel>
 
-            <Tabs.Panel value="coverage" pt="xl">
-              <Title order={2} mb="md">Coverage Analysis</Title>
-              <div>Coming soon - Charts showing fitment coverage</div>
+            <Tabs.Panel value="coverage">
+              <Coverage />
             </Tabs.Panel>
 
-            <Tabs.Panel value="potential" pt="xl">
-              <Title order={2} mb="md">Potential Fitments</Title>
-              <div>Coming soon - AI-powered similarity recommendations</div>
+            <Tabs.Panel value="potential">
+              <PotentialFitments />
             </Tabs.Panel>
 
-            <Tabs.Panel value="admin" pt="xl">
-              <Title order={2} mb="md">Admin Panel</Title>
-              <div>Coming soon - Data import/export and system management</div>
+            <Tabs.Panel value="admin">
+              <Admin />
             </Tabs.Panel>
           </Tabs>
         </Container>
