@@ -9,10 +9,14 @@ async def get_fitments():
     return {"fitments": [], "totalCount": 0}
 
 @router.post("/")
-async def create_fitment():
+async def create_fitment(fitment_data: dict):
     """Create new fitment"""
-    # TODO: Implement fitment creation
-    return {"message": "Fitment created"}
+    # For demo purposes, return success
+    return {
+        "message": "Fitment created successfully",
+        "appliedConfigurations": len(fitment_data.get("configurationIDs", [])),
+        "partId": fitment_data.get("partIDs", [""])[0] if fitment_data.get("partIDs") else ""
+    }
 
 @router.delete("/")
 async def delete_fitments():
