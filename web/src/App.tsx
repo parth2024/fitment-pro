@@ -23,7 +23,7 @@ function App() {
           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
         }}
       >
-        <Container size="xl" h="100%" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Container size="xl" h="100%" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'clamp(12px, 3vw, 24px)' }}>
           <Group gap="lg">
             <div style={{
               background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
@@ -41,7 +41,8 @@ function App() {
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 fontWeight: 700,
-                marginBottom: '4px'
+                marginBottom: '4px',
+                fontSize: 'clamp(20px, 4vw, 28px)'
               }}>
                 Mass Fitment Tool
               </Title>
@@ -60,15 +61,17 @@ function App() {
       </AppShell.Header>
 
       <AppShell.Main>
-        <Container size="xl" style={{ padding: 0 }}>
+        <Container size="xl" style={{ padding: 0, overflow: 'hidden' }}>
           <Tabs defaultValue="apply" orientation="horizontal">
             <Tabs.List 
               style={{
                 background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
                 border: 'none',
                 borderBottom: '2px solid #e2e8f0',
-                padding: '16px 24px 0',
-                marginBottom: '0'
+                padding: 'clamp(8px, 2vw, 16px) clamp(12px, 3vw, 24px) 0',
+                marginBottom: '0',
+                overflowX: 'auto',
+                flexWrap: 'nowrap'
               }}
             >
               <Tabs.Tab 
@@ -76,10 +79,12 @@ function App() {
                 leftSection={<IconCar size={16} />}
                 style={{
                   fontWeight: 600,
-                  fontSize: '15px',
-                  padding: '16px 24px',
+                  fontSize: 'clamp(13px, 2.5vw, 15px)',
+                  padding: 'clamp(12px, 3vw, 16px) clamp(16px, 4vw, 24px)',
                   borderRadius: '12px 12px 0 0',
-                  transition: 'all 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap',
+                  minWidth: 'fit-content'
                 }}
               >
                 Apply Fitments
@@ -89,10 +94,12 @@ function App() {
                 leftSection={<IconTable size={16} />}
                 style={{
                   fontWeight: 600,
-                  fontSize: '15px',
-                  padding: '16px 24px',
+                  fontSize: 'clamp(13px, 2.5vw, 15px)',
+                  padding: 'clamp(12px, 3vw, 16px) clamp(16px, 4vw, 24px)',
                   borderRadius: '12px 12px 0 0',
-                  transition: 'all 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap',
+                  minWidth: 'fit-content'
                 }}
               >
                 Fitments
@@ -102,10 +109,12 @@ function App() {
                 leftSection={<IconUpload size={16} />}
                 style={{
                   fontWeight: 600,
-                  fontSize: '15px',
-                  padding: '16px 24px',
+                  fontSize: 'clamp(13px, 2.5vw, 15px)',
+                  padding: 'clamp(12px, 3vw, 16px) clamp(16px, 4vw, 24px)',
                   borderRadius: '12px 12px 0 0',
-                  transition: 'all 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap',
+                  minWidth: 'fit-content'
                 }}
               >
                 Bulk Upload
@@ -115,10 +124,12 @@ function App() {
                 leftSection={<IconChartBar size={16} />}
                 style={{
                   fontWeight: 600,
-                  fontSize: '15px',
-                  padding: '16px 24px',
+                  fontSize: 'clamp(13px, 2.5vw, 15px)',
+                  padding: 'clamp(12px, 3vw, 16px) clamp(16px, 4vw, 24px)',
                   borderRadius: '12px 12px 0 0',
-                  transition: 'all 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap',
+                  minWidth: 'fit-content'
                 }}
               >
                 Coverage
@@ -128,10 +139,12 @@ function App() {
                 leftSection={<IconBulb size={16} />}
                 style={{
                   fontWeight: 600,
-                  fontSize: '15px',
-                  padding: '16px 24px',
+                  fontSize: 'clamp(13px, 2.5vw, 15px)',
+                  padding: 'clamp(12px, 3vw, 16px) clamp(16px, 4vw, 24px)',
                   borderRadius: '12px 12px 0 0',
-                  transition: 'all 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap',
+                  minWidth: 'fit-content'
                 }}
               >
                 Potential Fitments
@@ -141,10 +154,12 @@ function App() {
                 leftSection={<IconSettings size={16} />}
                 style={{
                   fontWeight: 600,
-                  fontSize: '15px',
-                  padding: '16px 24px',
+                  fontSize: 'clamp(13px, 2.5vw, 15px)',
+                  padding: 'clamp(12px, 3vw, 16px) clamp(16px, 4vw, 24px)',
                   borderRadius: '12px 12px 0 0',
-                  transition: 'all 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap',
+                  minWidth: 'fit-content'
                 }}
               >
                 Admin

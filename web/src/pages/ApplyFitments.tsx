@@ -158,56 +158,60 @@ export default function ApplyFitments() {
 
   return (
     <div style={{ 
-      padding: '32px 24px', 
+      padding: 'clamp(16px, 4vw, 32px)', 
       background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-      minHeight: 'calc(100vh - 64px)'
+      minHeight: 'calc(100vh - 80px)'
     }}>
-      <div style={{ marginBottom: '32px' }}>
+      <div style={{ marginBottom: 'clamp(20px, 4vw, 32px)' }}>
         <h1 style={{ 
-          fontSize: '32px', 
+          fontSize: 'clamp(24px, 5vw, 32px)', 
           fontWeight: 700, 
           background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
           marginBottom: '8px',
-          margin: 0
+          margin: 0,
+          lineHeight: 1.2
         }}>
           Apply Fitments
         </h1>
         <p style={{ 
           color: '#64748b', 
-          fontSize: '18px', 
+          fontSize: 'clamp(14px, 3vw, 18px)', 
           margin: 0,
-          fontWeight: 400
+          fontWeight: 400,
+          lineHeight: 1.4
         }}>
           Apply automotive parts to compatible vehicle configurations
         </p>
       </div>
       
-      <Grid gutter="xl">
+      <Grid gutter={{ base: 'md', md: 'xl' }}>
         {/* Left Pane: Vehicle Configuration Filters */}
-        <Grid.Col span={4}>
+        <Grid.Col span={{ base: 12, md: 4 }} order={{ base: 1, md: 1 }}>
           <Card 
             shadow="lg" 
-            padding="xl" 
+            padding={{ base: 'lg', md: 'xl' }}
             radius="xl" 
             withBorder
             style={{
               background: 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
               border: '1px solid #e2e8f0',
               transition: 'all 0.3s ease',
+              marginBottom: 'clamp(16px, 3vw, 0)'
             }}
           >
-            <Group justify="space-between" mb="xl">
+            <Group justify="space-between" mb={{ base: 'lg', md: 'xl' }}>
               <div>
-                <Title order={3} style={{ 
+                <Title order={{ base: 4, md: 3 }} style={{ 
                   color: '#1e293b', 
                   fontWeight: 700,
-                  marginBottom: '4px'
+                  marginBottom: '4px',
+                  fontSize: 'clamp(18px, 4vw, 24px)'
                 }}>
                   Vehicle Filters
                 </Title>
-                <Text size="sm" c="dimmed" style={{ fontWeight: 500 }}>
+                <Text size={{ base: 'xs', md: 'sm' }} c="dimmed" style={{ fontWeight: 500 }}>
                   Specify target configurations
                 </Text>
               </div>
@@ -316,10 +320,12 @@ export default function ApplyFitments() {
                 gradient={{ from: 'primary.6', to: 'secondary.6', deg: 135 }}
                 onClick={handleSearchVehicles}
                 loading={configsLoading}
-                size="lg"
+                size="md"
                 radius="lg"
                 style={{
                   fontWeight: 600,
+                  fontSize: 'clamp(14px, 3vw, 16px)',
+                  height: 'clamp(44px, 8vw, 48px)',
                   boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                   transition: 'all 0.2s ease'
                 }}
@@ -331,17 +337,18 @@ export default function ApplyFitments() {
         </Grid.Col>
 
         {/* Center Pane: Matched Vehicle Configurations */}
-        <Grid.Col span={4}>
+        <Grid.Col span={{ base: 12, md: 4 }} order={{ base: 3, md: 2 }}>
           <Card 
             shadow="lg" 
-            padding="xl" 
+            padding={{ base: 'lg', md: 'xl' }}
             radius="xl" 
             withBorder 
-            h="100%"
+            h={{ base: 'auto', md: '100%' }}
             style={{
               background: 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
               border: '1px solid #e2e8f0',
               transition: 'all 0.3s ease',
+              marginBottom: 'clamp(16px, 3vw, 0)'
             }}
           >
             <Group justify="space-between" mb="xl">
@@ -377,7 +384,7 @@ export default function ApplyFitments() {
               </ActionIcon>
             </Group>
 
-            <ScrollArea h={400}>
+            <ScrollArea h={{ base: 'auto', md: 400 }} style={{ maxHeight: '60vh' }}>
               <Table striped highlightOnHover>
                 <Table.Thead>
                   <Table.Tr>
@@ -392,13 +399,14 @@ export default function ApplyFitments() {
                             setSelectedConfigs([])
                           }
                         }}
+                        size="sm"
                       />
                     </Table.Th>
-                    <Table.Th>Year</Table.Th>
-                    <Table.Th>Make</Table.Th>
-                    <Table.Th>Model</Table.Th>
-                    <Table.Th>Submodel</Table.Th>
-                    <Table.Th>Drive</Table.Th>
+                    <Table.Th style={{ fontSize: 'clamp(12px, 2.5vw, 14px)' }}>Year</Table.Th>
+                    <Table.Th style={{ fontSize: 'clamp(12px, 2.5vw, 14px)' }}>Make</Table.Th>
+                    <Table.Th style={{ fontSize: 'clamp(12px, 2.5vw, 14px)' }} visibleFrom="md">Model</Table.Th>
+                    <Table.Th style={{ fontSize: 'clamp(12px, 2.5vw, 14px)' }} visibleFrom="md">Submodel</Table.Th>
+                    <Table.Th style={{ fontSize: 'clamp(12px, 2.5vw, 14px)' }} visibleFrom="md">Drive</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
@@ -414,14 +422,15 @@ export default function ApplyFitments() {
                               setSelectedConfigs(prev => prev.filter(id => id !== config.id))
                             }
                           }}
+                          size="sm"
                         />
                       </Table.Td>
-                      <Table.Td>{config.year}</Table.Td>
-                      <Table.Td>{config.make}</Table.Td>
-                      <Table.Td>{config.model}</Table.Td>
-                      <Table.Td>{config.submodel}</Table.Td>
-                      <Table.Td>
-                        <Badge variant="light" size="sm">{config.driveType}</Badge>
+                      <Table.Td style={{ fontSize: 'clamp(11px, 2.5vw, 14px)', padding: 'clamp(8px, 2vw, 12px)' }}>{config.year}</Table.Td>
+                      <Table.Td style={{ fontSize: 'clamp(11px, 2.5vw, 14px)', padding: 'clamp(8px, 2vw, 12px)' }}>{config.make}</Table.Td>
+                      <Table.Td style={{ fontSize: 'clamp(11px, 2.5vw, 14px)', padding: 'clamp(8px, 2vw, 12px)' }} visibleFrom="md">{config.model}</Table.Td>
+                      <Table.Td style={{ fontSize: 'clamp(11px, 2.5vw, 14px)', padding: 'clamp(8px, 2vw, 12px)' }} visibleFrom="md">{config.submodel}</Table.Td>
+                      <Table.Td visibleFrom="md">
+                        <Badge variant="light" size="xs">{config.driveType}</Badge>
                       </Table.Td>
                     </Table.Tr>
                   ))}
@@ -459,17 +468,18 @@ export default function ApplyFitments() {
         </Grid.Col>
 
         {/* Right Pane: Define Part Fitment */}
-        <Grid.Col span={4}>
+        <Grid.Col span={{ base: 12, md: 4 }} order={{ base: 2, md: 3 }}>
           <Card 
             shadow="lg" 
-            padding="xl" 
+            padding={{ base: 'lg', md: 'xl' }}
             radius="xl" 
             withBorder 
-            h="100%"
+            h={{ base: 'auto', md: '100%' }}
             style={{
               background: 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
               border: '1px solid #e2e8f0',
               transition: 'all 0.3s ease',
+              marginBottom: 'clamp(16px, 3vw, 0)'
             }}
           >
             <Group justify="space-between" mb="xl">
@@ -610,7 +620,7 @@ export default function ApplyFitments() {
 
               <Button 
                 fullWidth 
-                size="lg"
+                size="md"
                 variant="gradient"
                 gradient={{ from: 'accent.6', to: 'success.6', deg: 135 }}
                 disabled={selectedConfigs.length === 0 || !fitmentForm.partId || !fitmentForm.partTypeId}
@@ -618,10 +628,10 @@ export default function ApplyFitments() {
                 onClick={handleApplyFitment}
                 radius="lg"
                 style={{ 
-                  marginTop: 24,
+                  marginTop: 'clamp(16px, 4vw, 24px)',
                   fontWeight: 600,
-                  fontSize: '16px',
-                  height: '48px',
+                  fontSize: 'clamp(14px, 3.5vw, 16px)',
+                  height: 'clamp(44px, 8vw, 48px)',
                   boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                   transition: 'all 0.2s ease'
                 }}
