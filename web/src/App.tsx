@@ -1,5 +1,6 @@
-import { AppShell, Container, Tabs, Title, Text, Badge } from '@mantine/core'
+import { AppShell, Container, Tabs, Title, Badge } from '@mantine/core'
 import { IconCar, IconTable, IconUpload, IconChartBar, IconBulb, IconSettings } from '@tabler/icons-react'
+import ApplyFitments from './pages/ApplyFitments'
 
 function App() {
   return (
@@ -38,34 +39,33 @@ function App() {
               </Tabs.Tab>
             </Tabs.List>
 
-            <Tabs.Panel value="apply" pt="xl">
-              <Title order={2} mb="md">Apply Fitments</Title>
-              <Text c="dimmed">Configure vehicle fitments for specific parts</Text>
+            <Tabs.Panel value="apply">
+              <ApplyFitments />
             </Tabs.Panel>
 
             <Tabs.Panel value="fitments" pt="xl">
               <Title order={2} mb="md">Fitments Management</Title>
-              <Text c="dimmed">View and manage existing fitments</Text>
+              <div>Coming soon - Table with pagination, sorting, and bulk actions</div>
             </Tabs.Panel>
 
             <Tabs.Panel value="bulk" pt="xl">
               <Title order={2} mb="md">Bulk Upload</Title>
-              <Text c="dimmed">Upload CSV files to import fitments in bulk</Text>
+              <div>Coming soon - CSV upload with validation</div>
             </Tabs.Panel>
 
             <Tabs.Panel value="coverage" pt="xl">
               <Title order={2} mb="md">Coverage Analysis</Title>
-              <Text c="dimmed">Analyze fitment coverage across vehicle configurations</Text>
+              <div>Coming soon - Charts showing fitment coverage</div>
             </Tabs.Panel>
 
             <Tabs.Panel value="potential" pt="xl">
               <Title order={2} mb="md">Potential Fitments</Title>
-              <Text c="dimmed">Discover potential fitments using similarity algorithms</Text>
+              <div>Coming soon - AI-powered similarity recommendations</div>
             </Tabs.Panel>
 
             <Tabs.Panel value="admin" pt="xl">
               <Title order={2} mb="md">Admin Panel</Title>
-              <Text c="dimmed">Manage data imports, exports, and system configuration</Text>
+              <div>Coming soon - Data import/export and system management</div>
             </Tabs.Panel>
           </Tabs>
         </Container>
