@@ -218,6 +218,60 @@ function App() {
           top: 0,
         }}
       >
+        {/* Logo Section */}
+        <div
+          style={{
+            height: "90px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            borderBottom: "1px solid #e2e8f0",
+            background: "linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)",
+            padding: "0 16px",
+          }}
+        >
+          <Group gap="sm">
+            <div
+              style={{
+                background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                borderRadius: "12px",
+                padding: "8px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <IconCar size={24} color="white" />
+            </div>
+            <div>
+              <Title
+                order={4}
+                style={{
+                  background: "linear-gradient(135deg, #1e293b 0%, #3b82f6 100%)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  fontWeight: 700,
+                  fontSize: "16px",
+                  lineHeight: 1.2,
+                }}
+              >
+                MFT
+              </Title>
+              <Text
+                size="xs"
+                c="dimmed"
+                style={{
+                  fontWeight: 500,
+                  fontSize: "10px",
+                }}
+              >
+                v2.0
+              </Text>
+            </div>
+          </Group>
+        </div>
+
+        {/* Navigation Section */}
         <Stack gap={0} p="md">
           <Text
             size="xs"
@@ -315,7 +369,8 @@ function App() {
       <AppShell.Main
         style={{
           background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
-          minHeight: "calc(100vh - 70px)",
+          minHeight: "calc(100vh - 90px)",
+          marginTop: "90px",
         }}
       >
         <Box p="lg" style={{ height: "100%" }}>
