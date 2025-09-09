@@ -1719,42 +1719,10 @@ export default function ApplyFitments() {
             </Stack>
           </Card>
         </div>
+        )}
 
-        {/* Success Message Section */}
-        {appliedFitmentsCount !== null && (
-          <Card
-            shadow="lg"
-            padding="xl"
-            radius="xl"
-            withBorder
-            style={{
-              background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-              border: "2px solid #10b981",
-              marginBottom: "24px",
-            }}
-          >
-            <Stack gap="lg" align="center">
-              <Group gap="sm">
-                <IconCheck size={32} color="white" />
-                <Title order={3} c="white">
-                  Fitments Applied Successfully!
-                </Title>
-              </Group>
-              <Text size="lg" c="white" ta="center" fw={500}>
-                {appliedFitmentsCount} AI-generated fitments have been applied
-                to your database.
-              </Text>
-              <Group>
-                <Button
-                  variant="white"
-                  color="green"
-                  size="lg"
-                  leftSection={<IconDownload size={16} />}
-                  onClick={() => (window.location.href = "/fitments")}
-                >
-                  View Applied Fitments
-                </Button>
-                <Button
+        {/* Step 2 AI Fitment Processing */}
+        {currentStep === 2 && selectedMethod === "ai" && (
                   variant="outline"
                   color="white"
                   size="lg"
