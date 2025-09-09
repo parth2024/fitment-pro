@@ -10,6 +10,7 @@ import {
   Avatar,
   Menu,
   Button,
+  Flex,
   Box,
   ThemeIcon,
   Notification,
@@ -24,6 +25,7 @@ import {
   IconUser,
   IconLogout,
   IconBell,
+  IconSearch,
   IconChevronRight,
   IconDashboard,
 } from "@tabler/icons-react";
@@ -96,8 +98,8 @@ function App() {
 
   return (
     <AppShell
-      header={{ height: 90, offset: false }}
-      navbar={{ width: 240, breakpoint: 0 }}
+      header={{ height: 90 }}
+      navbar={{ width: 240, breakpoint: 0 }} // 👈 NEW
       padding="0"
       style={{
         background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
@@ -109,8 +111,6 @@ function App() {
           background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
           borderBottom: "1px solid #e2e8f0",
           boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
-          left: 240,
-          width: "calc(100% - 240px)",
         }}
       >
         <Container
@@ -214,8 +214,6 @@ function App() {
           background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
           borderRight: "1px solid #e2e8f0",
           boxShadow: "2px 0 8px rgba(0, 0, 0, 0.06)",
-          height: "100vh",
-          top: 0,
         }}
       >
         <Stack gap={0} p="md">
