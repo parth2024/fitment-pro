@@ -446,38 +446,160 @@ export default function ApplyFitments() {
   return (
     <div
       style={{
-        padding: "clamp(16px, 4vw, 32px)",
-        background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
+        padding: "0",
+        background: "linear-gradient(145deg, #0f172a 0%, #1e293b 25%, #334155 50%, #475569 75%, #64748b 100%)",
         minHeight: "calc(100vh - 80px)",
+        position: "relative",
+        overflow: "hidden"
       }}
     >
-      <div style={{ marginBottom: "clamp(20px, 4vw, 32px)" }}>
-        <h1
-          style={{
-            fontSize: "clamp(24px, 5vw, 32px)",
-            fontWeight: 700,
-            background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            marginBottom: "8px",
-            margin: 0,
-            lineHeight: 1.2,
-          }}
-        >
-          Apply Fitments
-        </h1>
-        <p
-          style={{
-            color: "#64748b",
-            fontSize: "clamp(14px, 3vw, 18px)",
-            margin: 0,
-            fontWeight: 400,
-            lineHeight: 1.4,
-          }}
-        >
-          Upload files and apply fitments using manual or AI-powered methods
-        </p>
-      </div>
+      {/* Animated Background Elements */}
+      <div style={{
+        position: "absolute",
+        top: "-20%",
+        left: "-10%",
+        width: "400px",
+        height: "400px",
+        background: "radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%)",
+        borderRadius: "50%",
+        animation: "float 8s ease-in-out infinite",
+        pointerEvents: "none"
+      }} />
+      <div style={{
+        position: "absolute",
+        bottom: "-15%",
+        right: "-5%",
+        width: "350px",
+        height: "350px",
+        background: "radial-gradient(circle, rgba(139, 92, 246, 0.12) 0%, transparent 70%)",
+        borderRadius: "50%",
+        animation: "float 10s ease-in-out infinite reverse",
+        pointerEvents: "none"
+      }} />
+      <div style={{
+        position: "absolute",
+        top: "30%",
+        right: "10%",
+        width: "200px",
+        height: "200px",
+        background: "radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 70%)",
+        borderRadius: "50%",
+        animation: "float 12s ease-in-out infinite",
+        pointerEvents: "none"
+      }} />
+
+      {/* Main Content Container */}
+      <div style={{
+        position: "relative",
+        zIndex: 1,
+        padding: "clamp(24px, 4vw, 48px)",
+      }}>
+        {/* Stunning Header Section */}
+        <div style={{ 
+          marginBottom: "clamp(32px, 4vw, 48px)",
+          textAlign: "center",
+          position: "relative"
+        }}>
+          {/* Floating Particles */}
+          <div style={{
+            position: "absolute",
+            top: "20%",
+            left: "15%",
+            width: "8px",
+            height: "8px",
+            background: "#3b82f6",
+            borderRadius: "50%",
+            animation: "pulse 3s ease-in-out infinite",
+            opacity: 0.7
+          }} />
+          <div style={{
+            position: "absolute",
+            top: "60%",
+            right: "20%",
+            width: "6px",
+            height: "6px",
+            background: "#8b5cf6",
+            borderRadius: "50%",
+            animation: "pulse 2s ease-in-out infinite",
+            opacity: 0.6
+          }} />
+          <div style={{
+            position: "absolute",
+            bottom: "10%",
+            left: "25%",
+            width: "4px",
+            height: "4px",
+            background: "#10b981",
+            borderRadius: "50%",
+            animation: "pulse 4s ease-in-out infinite",
+            opacity: 0.5
+          }} />
+
+          {/* Premium Icon Container */}
+          <div style={{
+            display: "inline-block",
+            background: "linear-gradient(145deg, #667eea 0%, #764ba2 50%, #f093fb 100%)",
+            borderRadius: "32px",
+            padding: "32px",
+            marginBottom: "32px",
+            boxShadow: "0 25px 50px rgba(102, 126, 234, 0.3), inset 0 1px 0 rgba(255,255,255,0.2)",
+            position: "relative",
+            overflow: "hidden"
+          }}>
+            <div style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "150%",
+              height: "150%",
+              background: "conic-gradient(from 0deg, transparent 0deg, rgba(255,255,255,0.1) 90deg, transparent 180deg)",
+              animation: "spin 8s linear infinite"
+            }} />
+            <IconSettings size={64} color="white" style={{ position: "relative", zIndex: 1 }} />
+          </div>
+
+          <h1
+            style={{
+              fontSize: "clamp(32px, 8vw, 64px)",
+              fontWeight: 900,
+              background: "linear-gradient(145deg, #ffffff 0%, #e2e8f0 25%, #cbd5e1 50%, #94a3b8 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              marginBottom: "16px",
+              margin: 0,
+              lineHeight: 1.1,
+              letterSpacing: "-0.02em",
+              textShadow: "0 4px 8px rgba(0,0,0,0.1)"
+            }}
+          >
+            Apply Fitments
+          </h1>
+          <p
+            style={{
+              color: "#cbd5e1",
+              fontSize: "clamp(16px, 4vw, 24px)",
+              margin: 0,
+              fontWeight: 500,
+              lineHeight: 1.5,
+              maxWidth: "800px",
+              marginLeft: "auto",
+              marginRight: "auto",
+              textShadow: "0 2px 4px rgba(0,0,0,0.3)"
+            }}
+          >
+            Upload files and apply fitments using manual or AI-powered methods
+          </p>
+
+          {/* Gradient Divider */}
+          <div style={{
+            width: "200px",
+            height: "4px",
+            background: "linear-gradient(90deg, transparent 0%, #3b82f6 25%, #8b5cf6 50%, #10b981 75%, transparent 100%)",
+            margin: "32px auto 0 auto",
+            borderRadius: "2px"
+          }} />
+        </div>
 
       {/* File Upload Section */}
       {!uploadedFiles.vcdb || !uploadedFiles.products ? (
