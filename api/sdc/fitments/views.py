@@ -2,10 +2,15 @@ from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.db.models import Q
-from django.http import StreamingHttpResponse
+from django.http import StreamingHttpResponse, HttpResponse
 from .models import Fitment
 import os
 import csv
+import json
+import openpyxl
+from openpyxl.styles import Font, PatternFill
+from io import BytesIO
+import uuid
 
 
 # Create your views here.
@@ -309,3 +314,246 @@ def coverage_export(request):
     response = StreamingHttpResponse(row_iter(), content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="coverage.csv"'
     return response
+
+
+@api_view(["GET"]) 
+def export_ai_fitments(request):
+    """
+    Export AI fitments in JSON, XLS, or CSV export_format.
+    Query parameters:
+    - export_format: json|xls|csv (default: json)
+    - session_id: UUID for session tracking (optional)
+    - fitment_ids: comma-separated list of fitment hashes (optional)
+    """
+    format_type = request.query_params.get('export_format', 'json').lower()
+    session_id = request.query_params.get('session_id')
+    fitment_ids_param = request.query_params.get('fitment_ids', '')
+    
+    # Parse fitment IDs
+    fitment_ids = []
+    if fitment_ids_param:
+        fitment_ids = [id.strip() for id in fitment_ids_param.split(',') if id.strip()]
+    
+    # Get fitments based on parameters
+    if fitment_ids:
+        # Filter by specific fitment IDs
+        qs = Fitment.objects.filter(hash__in=fitment_ids)
+    elif session_id:
+        # For session-based filtering, we'll use a simple approach
+        # In a real implementation, you might have a session model
+        # For now, we'll filter by createdBy='api' and recent creation
+        qs = Fitment.objects.filter(createdBy='api').order_by('-createdAt')[:100]
+    else:
+        # Get all fitments
+        qs = Fitment.objects.all()
+    
+    # Apply additional filters if needed
+    qs = _apply_filters(qs, request.query_params)
+    qs = _apply_sort(qs, request.query_params.get("sortBy"), request.query_params.get("sortOrder"))
+    
+    # Convert to list of dictionaries
+    fitments_data = list(qs.values())
+    
+    if format_type == 'json':
+        return Response({
+            'session_id': session_id,
+            'fitment_ids': fitment_ids,
+            'total_count': len(fitments_data),
+            'fitments': fitments_data
+        })
+    
+    elif format_type == 'csv':
+        return _export_csv_response(fitments_data, 'ai_fitments')
+    
+    elif format_type in ['xls', 'xlsx']:
+        return _export_xls_response(fitments_data, 'ai_fitments')
+    
+    else:
+        return Response({'error': 'Invalid export_format. Use json, csv, or xlsx'}, status=400)
+
+
+def _export_csv_response(fitments_data, filename_prefix):
+    """Helper function to create CSV export response"""
+    pseudo_buffer = Echo()
+    writer = csv.writer(pseudo_buffer)
+    headers = [
+        "hash","partId","itemStatus","itemStatusCode","baseVehicleId","year","makeName","modelName","subModelName",
+        "driveTypeName","fuelTypeName","bodyNumDoors","bodyTypeName","ptid","partTypeDescriptor","uom","quantity",
+        "fitmentTitle","fitmentDescription","fitmentNotes","position","positionId","liftHeight","wheelType","createdAt","createdBy","updatedAt","updatedBy"
+    ]
+    
+    def row_iter():
+        yield writer.writerow(headers)
+        for f in fitments_data:
+            yield writer.writerow([
+                f.get('hash', ''), f.get('partId', ''), f.get('itemStatus', ''), f.get('itemStatusCode', ''),
+                f.get('baseVehicleId', ''), f.get('year', ''), f.get('makeName', ''), f.get('modelName', ''),
+                f.get('subModelName', ''), f.get('driveTypeName', ''), f.get('fuelTypeName', ''),
+                f.get('bodyNumDoors', ''), f.get('bodyTypeName', ''), f.get('ptid', ''),
+                f.get('partTypeDescriptor', ''), f.get('uom', ''), f.get('quantity', ''),
+                f.get('fitmentTitle', ''), f.get('fitmentDescription', '') or "", f.get('fitmentNotes', '') or "",
+                f.get('position', ''), f.get('positionId', ''), f.get('liftHeight', ''), f.get('wheelType', ''),
+                f.get('createdAt', ''), f.get('createdBy', ''), f.get('updatedAt', ''), f.get('updatedBy', '')
+            ])
+    
+    response = StreamingHttpResponse(row_iter(), content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="{filename_prefix}.csv"'
+    return response
+
+
+def _export_xls_response(fitments_data, filename_prefix):
+    """Helper function to create XLS export response"""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "AI Fitments"
+    
+    # Define headers
+    headers = [
+        "Hash", "Part ID", "Item Status", "Item Status Code", "Base Vehicle ID", "Year", "Make Name", "Model Name", "Sub Model Name",
+        "Drive Type Name", "Fuel Type Name", "Body Num Doors", "Body Type Name", "PTID", "Part Type Descriptor", "UOM", "Quantity",
+        "Fitment Title", "Fitment Description", "Fitment Notes", "Position", "Position ID", "Lift Height", "Wheel Type", "Created At", "Created By", "Updated At", "Updated By"
+    ]
+    
+    # Style for headers
+    header_font = Font(bold=True)
+    header_fill = PatternFill(start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
+    
+    # Write headers
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+    
+    # Write data
+    for row, fitment in enumerate(fitments_data, 2):
+        ws.cell(row=row, column=1, value=fitment.get('hash', ''))
+        ws.cell(row=row, column=2, value=fitment.get('partId', ''))
+        ws.cell(row=row, column=3, value=fitment.get('itemStatus', ''))
+        ws.cell(row=row, column=4, value=fitment.get('itemStatusCode', ''))
+        ws.cell(row=row, column=5, value=fitment.get('baseVehicleId', ''))
+        ws.cell(row=row, column=6, value=fitment.get('year', ''))
+        ws.cell(row=row, column=7, value=fitment.get('makeName', ''))
+        ws.cell(row=row, column=8, value=fitment.get('modelName', ''))
+        ws.cell(row=row, column=9, value=fitment.get('subModelName', ''))
+        ws.cell(row=row, column=10, value=fitment.get('driveTypeName', ''))
+        ws.cell(row=row, column=11, value=fitment.get('fuelTypeName', ''))
+        ws.cell(row=row, column=12, value=fitment.get('bodyNumDoors', ''))
+        ws.cell(row=row, column=13, value=fitment.get('bodyTypeName', ''))
+        ws.cell(row=row, column=14, value=fitment.get('ptid', ''))
+        ws.cell(row=row, column=15, value=fitment.get('partTypeDescriptor', ''))
+        ws.cell(row=row, column=16, value=fitment.get('uom', ''))
+        ws.cell(row=row, column=17, value=fitment.get('quantity', ''))
+        ws.cell(row=row, column=18, value=fitment.get('fitmentTitle', ''))
+        ws.cell(row=row, column=19, value=fitment.get('fitmentDescription', '') or '')
+        ws.cell(row=row, column=20, value=fitment.get('fitmentNotes', '') or '')
+        ws.cell(row=row, column=21, value=fitment.get('position', ''))
+        ws.cell(row=row, column=22, value=fitment.get('positionId', ''))
+        ws.cell(row=row, column=23, value=fitment.get('liftHeight', ''))
+        ws.cell(row=row, column=24, value=fitment.get('wheelType', ''))
+        ws.cell(row=row, column=25, value=str(fitment.get('createdAt', '')))
+        ws.cell(row=row, column=26, value=fitment.get('createdBy', ''))
+        ws.cell(row=row, column=27, value=str(fitment.get('updatedAt', '')))
+        ws.cell(row=row, column=28, value=fitment.get('updatedBy', ''))
+    
+    # Auto-adjust column widths
+    for column in ws.columns:
+        max_length = 0
+        column_letter = column[0].column_letter
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)
+        ws.column_dimensions[column_letter].width = adjusted_width
+    
+    # Save to BytesIO
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    response = HttpResponse(
+        output.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename_prefix}.xlsx"'
+    return response
+
+
+@api_view(["GET"]) 
+def ai_fitments_list(request):
+    """
+    Retrieve AI-generated fitments for a session.
+    Query parameters:
+    - session_id: UUID for session tracking (optional)
+    - limit: Number of results to return (default: 100)
+    - offset: Number of results to skip (default: 0)
+    """
+    session_id = request.query_params.get('session_id')
+    limit = int(request.query_params.get('limit', 100))
+    offset = int(request.query_params.get('offset', 0))
+    
+    # Get AI-generated fitments (those created by 'api' user)
+    qs = Fitment.objects.filter(createdBy='api')
+    
+    # Apply session filtering if provided
+    if session_id:
+        # For now, we'll use a simple approach based on creation time
+        # In a real implementation, you might have a session model
+        qs = qs.order_by('-createdAt')
+    
+    # Apply additional filters
+    qs = _apply_filters(qs, request.query_params)
+    qs = _apply_sort(qs, request.query_params.get("sortBy"), request.query_params.get("sortOrder"))
+    
+    # Apply pagination
+    total_count = qs.count()
+    fitments = list(qs[offset:offset + limit].values())
+    
+    return Response({
+        'session_id': session_id,
+        'total_count': total_count,
+        'limit': limit,
+        'offset': offset,
+        'fitments': fitments
+    })
+
+
+@api_view(["GET"]) 
+def applied_fitments_list(request):
+    """
+    Get all applied fitments with optional session filter.
+    Query parameters:
+    - session_id: UUID for session tracking (optional)
+    - limit: Number of results to return (default: 100)
+    - offset: Number of results to skip (default: 0)
+    """
+    session_id = request.query_params.get('session_id')
+    limit = int(request.query_params.get('limit', 100))
+    offset = int(request.query_params.get('offset', 0))
+    
+    # Get all fitments (applied fitments are those in the main Fitment table)
+    qs = Fitment.objects.all()
+    
+    # Apply session filtering if provided
+    if session_id:
+        # For session-based filtering, we'll use a simple approach
+        # In a real implementation, you might have a session model
+        qs = qs.filter(createdBy='api').order_by('-createdAt')
+    
+    # Apply additional filters
+    qs = _apply_filters(qs, request.query_params)
+    qs = _apply_sort(qs, request.query_params.get("sortBy"), request.query_params.get("sortOrder"))
+    
+    # Apply pagination
+    total_count = qs.count()
+    fitments = list(qs[offset:offset + limit].values())
+    
+    return Response({
+        'session_id': session_id,
+        'total_count': total_count,
+        'limit': limit,
+        'offset': offset,
+        'fitments': fitments
+    })

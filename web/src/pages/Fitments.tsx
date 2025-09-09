@@ -1,12 +1,12 @@
-import { useState } from 'react'
-import { 
-  Card, 
-  Title, 
-  Text, 
-  Button, 
-  Table, 
-  Checkbox, 
-  TextInput, 
+import { useState, useEffect } from "react";
+import {
+  Card,
+  Title,
+  Text,
+  Button,
+  Table,
+  Checkbox,
+  TextInput,
   Group,
   Stack,
   Badge,
@@ -17,156 +17,144 @@ import {
   Menu,
   Modal,
   Flex,
-  ScrollArea
-} from '@mantine/core'
-import { IconSearch, IconDownload, IconTrash, IconFilter, IconDots, IconEdit, IconEye } from '@tabler/icons-react'
+  ScrollArea,
+} from "@mantine/core";
+import {
+  IconSearch,
+  IconDownload,
+  IconTrash,
+  IconFilter,
+  IconDots,
+  IconEdit,
+  IconEye,
+  IconBrain,
+} from "@tabler/icons-react";
+import { useApi } from "../hooks/useApi";
+import {
+  fitmentsService,
+  fitmentUploadService,
+  type FlattenedAppliedFitment,
+} from "../api/services";
 
 export default function Fitments() {
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedFitments, setSelectedFitments] = useState<string[]>([])
-  const [expandedView, setExpandedView] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [sortBy, setSortBy] = useState('partId')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedFitments, setSelectedFitments] = useState<string[]>([]);
+  const [expandedView, setExpandedView] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [sortBy, setSortBy] = useState("partId");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const { data, loading, error, refetch } = useApi<{
+    fitments: FlattenedAppliedFitment[];
+    totalCount: number;
+  }>(
+    () =>
+      fitmentsService.getFitments({
+        search: searchTerm || undefined,
+        sortBy,
+        sortOrder,
+        page: currentPage,
+        pageSize: 50,
+      }),
+    [searchTerm, sortBy, sortOrder, currentPage]
+  );
 
-  // Mock fitments data based on your specification
-  const mockFitments = [
-    {
-      hash: 'fh001',
-      partId: 'P-12345',
-      itemStatus: 'Active',
-      itemStatusCode: 0,
-      baseVehicleId: '180952',
-      year: 2025,
-      makeName: 'Acura',
-      modelName: 'ADX',
-      subModelName: 'Advance',
-      driveTypeName: 'AWD',
-      fuelTypeName: 'Gas',
-      bodyNumDoors: 4,
-      bodyTypeName: 'Crossover',
-      ptid: 'PT-22',
-      partTypeDescriptor: 'Brake Pads',
-      uom: 'Set',
-      quantity: 1,
-      fitmentTitle: 'Standard Brake Fit',
-      fitmentDescription: 'OEM replacement brake pads',
-      position: 'Front',
-      positionId: 1,
-      liftHeight: 'Stock',
-      wheelType: 'Alloy',
-      createdAt: '2024-01-15T10:30:00Z',
-      createdBy: 'admin',
-      updatedAt: '2024-01-20T14:45:00Z',
-      updatedBy: 'admin'
-    },
-    {
-      hash: 'fh002',
-      partId: 'P-67890',
-      itemStatus: 'Active',
-      itemStatusCode: 0,
-      baseVehicleId: '140100',
-      year: 2024,
-      makeName: 'Toyota',
-      modelName: 'RAV4',
-      subModelName: 'XLE',
-      driveTypeName: 'AWD',
-      fuelTypeName: 'Gas',
-      bodyNumDoors: 4,
-      bodyTypeName: 'Crossover',
-      ptid: 'PT-33',
-      partTypeDescriptor: 'Air Filter',
-      uom: 'Each',
-      quantity: 1,
-      fitmentTitle: 'Performance Air Filter',
-      fitmentDescription: 'High-flow air filter for improved performance',
-      position: 'Engine Bay',
-      positionId: 2,
-      liftHeight: 'Stock',
-      wheelType: 'N/A',
-      createdAt: '2024-02-10T09:15:00Z',
-      createdBy: 'tech1',
-      updatedAt: '2024-02-12T16:20:00Z',
-      updatedBy: 'tech1'
-    },
-    {
-      hash: 'fh003',
-      partId: 'P-11111',
-      itemStatus: 'Inactive',
-      itemStatusCode: 1,
-      baseVehicleId: '150200',
-      year: 2024,
-      makeName: 'Ford',
-      modelName: 'F-150',
-      subModelName: 'Lariat',
-      driveTypeName: '4WD',
-      fuelTypeName: 'Gas',
-      bodyNumDoors: 4,
-      bodyTypeName: 'Truck',
-      ptid: 'PT-44',
-      partTypeDescriptor: 'Oil Filter',
-      uom: 'Each',
-      quantity: 1,
-      fitmentTitle: 'Heavy Duty Oil Filter',
-      fitmentDescription: 'Extended life oil filter',
-      position: 'Engine',
-      positionId: 3,
-      liftHeight: '0-1in',
-      wheelType: 'Steel',
-      createdAt: '2024-03-05T11:00:00Z',
-      createdBy: 'admin',
-      updatedAt: '2024-03-08T13:30:00Z',
-      updatedBy: 'admin'
-    }
-  ]
+  // Fetch AI-generated fitments from Django backend
+  const {
+    data: aiFitmentsData,
+    loading: aiLoading,
+    refetch: refetchAi,
+  } = useApi<{ fitments: any[]; total_fitments: number }>(
+    () => fitmentUploadService.getAppliedFitments(),
+    []
+  );
+
+  const fitments = data?.fitments ?? [];
+  const aiFitments = aiFitmentsData?.fitments ?? [];
+
+  // Debug logging
+  console.log("AI Fitments Data:", aiFitmentsData);
+  console.log("AI Fitments Array:", aiFitments);
+  useEffect(() => {
+    const onFocus = () => {
+      refetch();
+      refetchAi();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        refetch();
+        refetchAi();
+      }
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [refetch, refetchAi]);
+  const handleExport = () => {
+    const params = new URLSearchParams();
+    if (searchTerm) params.set("search", searchTerm);
+    if (sortBy) params.set("sortBy", sortBy);
+    if (sortOrder) params.set("sortOrder", sortOrder);
+    window.location.href = `http://localhost:8000/api/fitments/export?${params.toString()}`;
+  };
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedFitments(mockFitments.map(f => f.hash))
+      setSelectedFitments(fitments.map((f) => f.hash));
     } else {
-      setSelectedFitments([])
+      setSelectedFitments([]);
     }
-  }
+  };
 
   const handleSelectFitment = (hash: string, checked: boolean) => {
     if (checked) {
-      setSelectedFitments(prev => [...prev, hash])
+      setSelectedFitments((prev) => [...prev, hash]);
     } else {
-      setSelectedFitments(prev => prev.filter(h => h !== hash))
+      setSelectedFitments((prev) => prev.filter((h) => h !== hash));
     }
-  }
+  };
 
   const handleBulkDelete = () => {
-    console.log('Deleting fitments:', selectedFitments)
-    setSelectedFitments([])
-    setDeleteModalOpen(false)
-  }
+    console.log("Deleting fitments:", selectedFitments);
+    setSelectedFitments([]);
+    setDeleteModalOpen(false);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Active': return 'green'
-      case 'Inactive': return 'red'
-      case 'Sunset': return 'orange'
-      default: return 'gray'
+      case "Active":
+        return "green";
+      case "Inactive":
+        return "red";
+      case "Sunset":
+        return "orange";
+      default:
+        return "gray";
     }
-  }
+  };
 
   return (
-    <div style={{ padding: '24px 0' }}>
+    <div style={{ padding: "24px 0" }}>
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Stack gap="lg">
           {/* Header */}
           <Group justify="space-between">
             <div>
               <Title order={2}>Fitments Management</Title>
-              <Text c="dimmed">View and manage all fitments with advanced filtering</Text>
+              <Text c="dimmed">
+                View and manage all fitments with advanced filtering
+              </Text>
             </div>
             <Group>
               <Switch
                 label="Expanded View"
                 checked={expandedView}
-                onChange={(event) => setExpandedView(event.currentTarget.checked)}
+                onChange={(event) =>
+                  setExpandedView(event.currentTarget.checked)
+                }
               />
             </Group>
           </Group>
@@ -184,22 +172,22 @@ export default function Fitments() {
               <Select
                 placeholder="Sort by"
                 value={sortBy}
-                onChange={(value) => setSortBy(value || 'partId')}
+                onChange={(value) => setSortBy(value || "partId")}
                 data={[
-                  { value: 'partId', label: 'Part ID' },
-                  { value: 'makeName', label: 'Make' },
-                  { value: 'modelName', label: 'Model' },
-                  { value: 'year', label: 'Year' },
-                  { value: 'updatedAt', label: 'Last Updated' }
+                  { value: "partId", label: "Part ID" },
+                  { value: "makeName", label: "Make" },
+                  { value: "modelName", label: "Model" },
+                  { value: "year", label: "Year" },
+                  { value: "updatedAt", label: "Last Updated" },
                 ]}
                 leftSection={<IconFilter size={16} />}
               />
               <Select
                 value={sortOrder}
-                onChange={(value) => setSortOrder(value as 'asc' | 'desc')}
+                onChange={(value) => setSortOrder(value as "asc" | "desc")}
                 data={[
-                  { value: 'asc', label: 'Ascending' },
-                  { value: 'desc', label: 'Descending' }
+                  { value: "asc", label: "Ascending" },
+                  { value: "desc", label: "Descending" },
                 ]}
                 w={120}
               />
@@ -216,7 +204,11 @@ export default function Fitments() {
                   Delete ({selectedFitments.length})
                 </Button>
               )}
-              <Button leftSection={<IconDownload size={16} />} variant="filled">
+              <Button
+                leftSection={<IconDownload size={16} />}
+                variant="filled"
+                onClick={handleExport}
+              >
                 Export CSV
               </Button>
             </Group>
@@ -224,26 +216,321 @@ export default function Fitments() {
 
           {/* Selection Summary */}
           {selectedFitments.length > 0 && (
-            <Group justify="space-between" p="sm" style={{ backgroundColor: 'var(--mantine-color-blue-0)', borderRadius: 4 }}>
+            <Group
+              justify="space-between"
+              p="sm"
+              style={{
+                backgroundColor: "var(--mantine-color-blue-0)",
+                borderRadius: 4,
+              }}
+            >
               <Text size="sm" fw={500}>
-                {selectedFitments.length} of {mockFitments.length} fitments selected
+                {selectedFitments.length} of {fitments.length} fitments selected
               </Text>
-              <Button size="xs" variant="light" onClick={() => setSelectedFitments([])}>
+              <Button
+                size="xs"
+                variant="light"
+                onClick={() => setSelectedFitments([])}
+              >
                 Clear Selection
               </Button>
             </Group>
           )}
 
+          {/* AI Generated Fitments Section */}
+          {aiFitments.length > 0 ? (
+            <Card
+              shadow="lg"
+              padding="lg"
+              radius="xl"
+              withBorder
+              style={{
+                background: "linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%)",
+                border: "2px solid #8b5cf6",
+              }}
+            >
+              <Stack gap="lg">
+                <Group justify="space-between">
+                  <div>
+                    <Group gap="sm" mb="xs">
+                      <IconBrain size={24} color="#8b5cf6" />
+                      <Title order={3} c="violet">
+                        AI Generated Fitments
+                      </Title>
+                    </Group>
+                    <Text size="sm" c="dimmed">
+                      {aiFitments.length} fitments generated and applied by AI
+                    </Text>
+                  </div>
+                  <Group>
+                    <Button
+                      variant="light"
+                      color="violet"
+                      onClick={() => refetchAi()}
+                      loading={aiLoading}
+                    >
+                      Refresh
+                    </Button>
+                    <Button
+                      leftSection={<IconDownload size={16} />}
+                      variant="light"
+                      color="violet"
+                      onClick={() => {
+                        const blob = new Blob(
+                          [JSON.stringify(aiFitments, null, 2)],
+                          {
+                            type: "application/json",
+                          }
+                        );
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement("a");
+                        link.href = url;
+                        link.download = "ai-fitments.json";
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        window.URL.revokeObjectURL(url);
+                      }}
+                    >
+                      Export JSON
+                    </Button>
+                    <Button
+                      leftSection={<IconDownload size={16} />}
+                      variant="gradient"
+                      gradient={{ from: "violet.6", to: "purple.6", deg: 135 }}
+                      onClick={() => {
+                        // Export as CSV
+                        const headers = [
+                          "Part ID",
+                          "Part Description",
+                          "Year",
+                          "Make",
+                          "Model",
+                          "Submodel",
+                          "Drive Type",
+                          "Position",
+                          "Quantity",
+                          "Applied Date",
+                        ];
+                        const csvContent = [
+                          headers.join(","),
+                          ...aiFitments.map((fitment: any) =>
+                            [
+                              fitment.partId,
+                              `"${fitment.partDescription}"`,
+                              fitment.year,
+                              fitment.make,
+                              fitment.model,
+                              fitment.submodel,
+                              fitment.driveType,
+                              fitment.position || "Universal",
+                              fitment.quantity,
+                              new Date(fitment.appliedAt).toLocaleDateString(),
+                            ].join(",")
+                          ),
+                        ].join("\n");
+
+                        const blob = new Blob([csvContent], {
+                          type: "text/csv",
+                        });
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement("a");
+                        link.href = url;
+                        link.download = "ai-fitments.csv";
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        window.URL.revokeObjectURL(url);
+                      }}
+                    >
+                      Export CSV
+                    </Button>
+                  </Group>
+                </Group>
+
+                {/* AI Fitments Summary */}
+                <Group
+                  justify="space-between"
+                  p="md"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)",
+                    borderRadius: "12px",
+                    border: "1px solid #c4b5fd",
+                  }}
+                >
+                  <Group>
+                    <Badge variant="light" color="violet" size="lg">
+                      Total AI Fitments: {aiFitments.length}
+                    </Badge>
+                    <Badge variant="light" color="green" size="lg">
+                      Unique Parts:{" "}
+                      {new Set(aiFitments.map((f: any) => f.partId)).size}
+                    </Badge>
+                    <Badge variant="light" color="blue" size="lg">
+                      Unique Vehicles:{" "}
+                      {
+                        new Set(
+                          aiFitments.map(
+                            (f: any) => `${f.year}-${f.make}-${f.model}`
+                          )
+                        ).size
+                      }
+                    </Badge>
+                  </Group>
+                  <Text size="sm" fw={500} c="violet">
+                    Last Applied:{" "}
+                    {new Date(
+                      Math.max(
+                        ...aiFitments.map((f: any) =>
+                          new Date(f.appliedAt).getTime()
+                        )
+                      )
+                    ).toLocaleDateString()}
+                  </Text>
+                </Group>
+
+                <ScrollArea h={400}>
+                  <Table striped highlightOnHover>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Part ID</Table.Th>
+                        <Table.Th>Part Description</Table.Th>
+                        <Table.Th>Vehicle Details</Table.Th>
+                        <Table.Th>Position</Table.Th>
+                        <Table.Th>Quantity</Table.Th>
+                        <Table.Th>Applied Date</Table.Th>
+                        <Table.Th>Actions</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {aiFitments.map((fitment: any, index: number) => (
+                        <Table.Tr key={index}>
+                          <Table.Td>
+                            <Text fw={500} size="sm" c="violet">
+                              {fitment.partId}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm" lineClamp={2} maw={200}>
+                              {fitment.partDescription}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <div>
+                              <Text size="sm" fw={500}>
+                                {fitment.year} {fitment.make} {fitment.model}
+                              </Text>
+                              <Text size="xs" c="dimmed">
+                                {fitment.submodel} • {fitment.driveType}
+                              </Text>
+                            </div>
+                          </Table.Td>
+                          <Table.Td>
+                            <Badge variant="light" size="sm" color="cyan">
+                              {fitment.position || "Universal"}
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm" fw={500} ta="center">
+                              {fitment.quantity}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="xs" c="dimmed">
+                              {new Date(fitment.appliedAt).toLocaleDateString()}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Menu shadow="md" width={200}>
+                              <Menu.Target>
+                                <ActionIcon
+                                  variant="light"
+                                  size="sm"
+                                  color="violet"
+                                >
+                                  <IconDots size={16} />
+                                </ActionIcon>
+                              </Menu.Target>
+                              <Menu.Dropdown>
+                                <Menu.Item leftSection={<IconEye size={14} />}>
+                                  View Details
+                                </Menu.Item>
+                                <Menu.Item leftSection={<IconEdit size={14} />}>
+                                  Edit Fitment
+                                </Menu.Item>
+                                <Menu.Divider />
+                                <Menu.Item
+                                  leftSection={<IconTrash size={14} />}
+                                  color="red"
+                                >
+                                  Delete
+                                </Menu.Item>
+                              </Menu.Dropdown>
+                            </Menu>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </ScrollArea>
+              </Stack>
+            </Card>
+          ) : (
+            <Card
+              shadow="sm"
+              padding="xl"
+              radius="xl"
+              withBorder
+              style={{
+                background: "linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%)",
+                border: "2px dashed #8b5cf6",
+                textAlign: "center",
+              }}
+            >
+              <Stack gap="md" align="center">
+                <IconBrain size={48} color="#8b5cf6" />
+                <div>
+                  <Title order={3} c="violet" mb="xs">
+                    No AI Generated Fitments Yet
+                  </Title>
+                  <Text size="sm" c="dimmed" mb="lg">
+                    Upload your VCDB and Products files in the Apply Fitments
+                    page to generate AI-powered fitment suggestions.
+                  </Text>
+                </div>
+                <Button
+                  variant="gradient"
+                  gradient={{ from: "violet.6", to: "purple.6", deg: 135 }}
+                  leftSection={<IconBrain size={16} />}
+                  onClick={() => {
+                    // Navigate to Apply Fitments page
+                    window.location.href = "/apply-fitments";
+                  }}
+                >
+                  Go to Apply Fitments
+                </Button>
+              </Stack>
+            </Card>
+          )}
+
           {/* Table */}
+          {error && <Text c="red">{error}</Text>}
+          {(loading || aiLoading) && <Text>Loading...</Text>}
           <ScrollArea>
             <Table striped highlightOnHover>
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th>
                     <Checkbox
-                      checked={selectedFitments.length === mockFitments.length}
-                      indeterminate={selectedFitments.length > 0 && selectedFitments.length < mockFitments.length}
-                      onChange={(event) => handleSelectAll(event.currentTarget.checked)}
+                      checked={selectedFitments.length === fitments.length}
+                      indeterminate={
+                        selectedFitments.length > 0 &&
+                        selectedFitments.length < fitments.length
+                      }
+                      onChange={(event) =>
+                        handleSelectAll(event.currentTarget.checked)
+                      }
                     />
                   </Table.Th>
                   <Table.Th>Part ID</Table.Th>
@@ -265,26 +552,39 @@ export default function Fitments() {
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {mockFitments.map((fitment) => (
+                {fitments.map((fitment) => (
                   <Table.Tr key={fitment.hash}>
                     <Table.Td>
                       <Checkbox
                         checked={selectedFitments.includes(fitment.hash)}
-                        onChange={(event) => handleSelectFitment(fitment.hash, event.currentTarget.checked)}
+                        onChange={(event) =>
+                          handleSelectFitment(
+                            fitment.hash,
+                            event.currentTarget.checked
+                          )
+                        }
                       />
                     </Table.Td>
                     <Table.Td>
                       <Text fw={500}>{fitment.partId}</Text>
                     </Table.Td>
                     <Table.Td>
-                      <Badge variant="light" color={getStatusColor(fitment.itemStatus)} size="sm">
+                      <Badge
+                        variant="light"
+                        color={getStatusColor(fitment.itemStatus)}
+                        size="sm"
+                      >
                         {fitment.itemStatus}
                       </Badge>
                     </Table.Td>
                     <Table.Td>
                       <div>
-                        <Text size="sm" fw={500}>{fitment.year} {fitment.makeName} {fitment.modelName}</Text>
-                        <Text size="xs" c="dimmed">{fitment.subModelName} • {fitment.driveTypeName}</Text>
+                        <Text size="sm" fw={500}>
+                          {fitment.year} {fitment.makeName} {fitment.modelName}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          {fitment.subModelName} • {fitment.driveTypeName}
+                        </Text>
                       </div>
                     </Table.Td>
                     <Table.Td>{fitment.partTypeDescriptor}</Table.Td>
@@ -322,7 +622,10 @@ export default function Fitments() {
                             Edit Fitment
                           </Menu.Item>
                           <Menu.Divider />
-                          <Menu.Item leftSection={<IconTrash size={14} />} color="red">
+                          <Menu.Item
+                            leftSection={<IconTrash size={14} />}
+                            color="red"
+                          >
                             Delete
                           </Menu.Item>
                         </Menu.Dropdown>
@@ -337,9 +640,14 @@ export default function Fitments() {
           {/* Pagination */}
           <Flex justify="space-between" align="center">
             <Text size="sm" c="dimmed">
-              Showing 1-{mockFitments.length} of {mockFitments.length} fitments
+              Showing 1-{fitments.length} of{" "}
+              {data?.totalCount ?? fitments.length} fitments
             </Text>
-            <Pagination value={currentPage} onChange={setCurrentPage} total={5} />
+            <Pagination
+              value={currentPage}
+              onChange={setCurrentPage}
+              total={5}
+            />
           </Flex>
         </Stack>
       </Card>
@@ -353,8 +661,9 @@ export default function Fitments() {
       >
         <Stack gap="md">
           <Text>
-            Are you sure you want to delete {selectedFitments.length} fitment{selectedFitments.length !== 1 ? 's' : ''}? 
-            This action cannot be undone.
+            Are you sure you want to delete {selectedFitments.length} fitment
+            {selectedFitments.length !== 1 ? "s" : ""}? This action cannot be
+            undone.
           </Text>
           <Group justify="flex-end">
             <Button variant="light" onClick={() => setDeleteModalOpen(false)}>
@@ -367,5 +676,5 @@ export default function Fitments() {
         </Stack>
       </Modal>
     </div>
-  )
+  );
 }

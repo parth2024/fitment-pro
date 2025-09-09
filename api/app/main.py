@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 import os
 from pathlib import Path
 
-from .routers import diagnostics, vcdb, parts, fitments, potential, admin
+from .routers import diagnostics, vcdb, parts, fitments, potential, admin, tenants
 from .config import settings
 
 app = FastAPI(
@@ -30,6 +30,7 @@ app.include_router(parts.router, prefix="/api/parts", tags=["Parts"])
 app.include_router(fitments.router, prefix="/api/fitments", tags=["Fitments"])
 app.include_router(potential.router, prefix="/api/potential-fitments", tags=["Potential"])
 app.include_router(admin.router, prefix="/api/azure", tags=["Admin"])
+app.include_router(tenants.router)
 
 # Serve frontend static files
 if os.path.exists("web/dist"):

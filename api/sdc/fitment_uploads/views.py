@@ -9,7 +9,9 @@ from django.views import View
 import pandas as pd
 import json
 import asyncio
+import uuid
 from .models import FitmentUploadSession, AIFitmentResult, AppliedFitment
+from fitments.models import Fitment
 from .serializers import (
     FitmentUploadSessionSerializer, 
     AIFitmentResultSerializer, 
@@ -117,7 +119,7 @@ def process_ai_fitment(request):
         products_data = parse_file_data(session.products_file)
         
         # Process with AI
-        ai_fitments = asyncio.run(azure_ai_service.generate_fitments(vcdb_data, products_data))
+        ai_fitments = azure_ai_service.generate_fitments(vcdb_data, products_data)
         
         # Save AI results
         ai_results = []
@@ -194,6 +196,7 @@ def apply_ai_fitments(request):
         # Apply fitments
         applied_count = 0
         for ai_result in ai_results:
+            # Create AppliedFitment record
             applied_fitment = AppliedFitment.objects.create(
                 session=session,
                 ai_result=ai_result,
@@ -208,6 +211,36 @@ def apply_ai_fitments(request):
                 quantity=ai_result.quantity,
                 title=f"AI Generated Fitment",
                 description=ai_result.ai_reasoning
+            )
+            
+            # Create Fitment record
+            fitment = Fitment.objects.create(
+                hash=uuid.uuid4().hex,
+                partId=ai_result.part_id,
+                itemStatus='Active',
+                itemStatusCode=0,
+                baseVehicleId=str(ai_result.id),  # Using AI result ID as base vehicle ID
+                year=ai_result.year,
+                makeName=ai_result.make,
+                modelName=ai_result.model,
+                subModelName=ai_result.submodel,
+                driveTypeName=ai_result.drive_type,
+                fuelTypeName='Gas',  # Default value
+                bodyNumDoors=4,  # Default value
+                bodyTypeName='Sedan',  # Default value
+                ptid='PT-22',  # Default part type ID
+                partTypeDescriptor=ai_result.part_description,
+                uom='EA',  # Each
+                quantity=ai_result.quantity,
+                fitmentTitle=f"AI Generated Fitment - {ai_result.part_id}",
+                fitmentDescription=ai_result.ai_reasoning,
+                fitmentNotes=f"Generated from AI fitment result ID: {ai_result.id}",
+                position=ai_result.position or 'Front',
+                positionId=1,  # Default position ID
+                liftHeight='Stock',  # Default value
+                wheelType='Alloy',  # Default value
+                createdBy='ai_system',
+                updatedBy='ai_system'
             )
             
             # Mark AI result as applied
@@ -261,14 +294,51 @@ def get_session_status(request, session_id):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
-def export_fitments(request):
-    """Export fitments in various formats"""
+def get_ai_fitments(request):
+    """Get AI-generated fitments for a session"""
     try:
-        format_type = request.GET.get('format', 'csv').lower()
+        session_id = request.GET.get('session_id')
+        
+        if not session_id:
+            return Response(
+                {'error': 'Session ID is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            session = FitmentUploadSession.objects.get(id=session_id)
+        except FitmentUploadSession.DoesNotExist:
+            return Response(
+                {'error': 'Session not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Get AI results for this session
+        ai_results = AIFitmentResult.objects.filter(session=session)
+        results_serializer = AIFitmentResultSerializer(ai_results, many=True)
+        
+        return Response({
+            'session_id': str(session_id),
+            'fitments': results_serializer.data,
+            'total_fitments': len(ai_results)
+        })
+        
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to get AI fitments: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_applied_fitments(request):
+    """Get all applied fitments"""
+    try:
         session_id = request.GET.get('session_id')
         
         if session_id:
-            # Export from specific session
+            # Get fitments from specific session
             try:
                 session = FitmentUploadSession.objects.get(id=session_id)
                 fitments = AppliedFitment.objects.filter(session=session)
@@ -278,33 +348,142 @@ def export_fitments(request):
                     status=status.HTTP_404_NOT_FOUND
                 )
         else:
-            # Export all fitments
+            # Get all applied fitments
             fitments = AppliedFitment.objects.all()
         
-        # Convert to list of dictionaries
-        fitments_data = []
-        for fitment in fitments:
-            fitments_data.append({
-                'partId': fitment.part_id,
-                'partDescription': fitment.part_description,
-                'year': fitment.year,
-                'make': fitment.make,
-                'model': fitment.model,
-                'submodel': fitment.submodel,
-                'driveType': fitment.drive_type,
-                'position': fitment.position,
-                'quantity': fitment.quantity,
-                'title': fitment.title,
-                'description': fitment.description,
-                'notes': fitment.notes,
-                'appliedAt': fitment.applied_at.isoformat()
-            })
+        # Serialize results
+        fitments_serializer = AppliedFitmentSerializer(fitments, many=True)
         
+        return Response({
+            'fitments': fitments_serializer.data,
+            'total_fitments': len(fitments)
+        })
+        
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to get applied fitments: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def export_fitments(request):
+    """Export fitments in various formats"""
+    try:
+        format_type = request.GET.get('format', 'csv').lower()
+        session_id = request.GET.get('session_id')
+        export_type = request.GET.get('type', 'ai_fitments').lower()  # 'ai_fitments' or 'applied_fitments'
+        fitment_ids = request.GET.get('fitment_ids')  # Comma-separated list of fitment IDs
+        
+        # Validate required parameters
+        if export_type == 'ai_fitments' and not session_id:
+            return Response(
+                {'error': 'Session ID is required for AI fitments export'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get session if provided
+        session = None
+        if session_id:
+            try:
+                session = FitmentUploadSession.objects.get(id=session_id)
+            except FitmentUploadSession.DoesNotExist:
+                return Response(
+                    {'error': 'Session not found'}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        
+        # Get fitments data
+        fitments_data = []
+        
+        if export_type == 'ai_fitments':
+            # Export AI-generated fitments
+            if not session:
+                return Response(
+                    {'error': 'Session is required for AI fitments export'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            fitments = AIFitmentResult.objects.filter(session=session)
+            
+            # Filter by specific fitment IDs if provided
+            if fitment_ids:
+                try:
+                    fitment_id_list = [int(id.strip()) for id in fitment_ids.split(',') if id.strip()]
+                    fitments = fitments.filter(id__in=fitment_id_list)
+                except ValueError:
+                    return Response(
+                        {'error': 'Invalid fitment IDs provided'}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            # Convert to list of dictionaries
+            for fitment in fitments:
+                fitments_data.append({
+                    'id': str(fitment.id),
+                    'partId': fitment.part_id,
+                    'partDescription': fitment.part_description,
+                    'year': fitment.year,
+                    'make': fitment.make,
+                    'model': fitment.model,
+                    'submodel': fitment.submodel,
+                    'driveType': fitment.drive_type,
+                    'position': fitment.position or 'N/A',
+                    'quantity': fitment.quantity,
+                    'confidence': fitment.confidence,
+                    'aiReasoning': fitment.ai_reasoning,
+                    'isSelected': fitment.is_selected,
+                    'isApplied': fitment.is_applied,
+                    'createdAt': fitment.created_at.isoformat()
+                })
+        else:
+            # Export applied fitments
+            if session:
+                fitments = AppliedFitment.objects.filter(session=session)
+            else:
+                fitments = AppliedFitment.objects.all()
+            
+            # Convert to list of dictionaries
+            for fitment in fitments:
+                fitments_data.append({
+                    'partId': fitment.part_id,
+                    'partDescription': fitment.part_description,
+                    'year': fitment.year,
+                    'make': fitment.make,
+                    'model': fitment.model,
+                    'submodel': fitment.submodel,
+                    'driveType': fitment.drive_type,
+                    'position': fitment.position,
+                    'quantity': fitment.quantity,
+                    'title': fitment.title,
+                    'description': fitment.description,
+                    'notes': fitment.notes,
+                    'appliedAt': fitment.applied_at.isoformat()
+                })
+        
+        # Check if we have data to export
+        if not fitments_data:
+            return Response(
+                {'error': 'No fitments found to export'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Generate filename based on export type and selection
+        if export_type == 'ai_fitments':
+            if fitment_ids:
+                filename_prefix = f"ai_fitments_selected_{len(fitments_data)}"
+            else:
+                filename_prefix = f"ai_fitments_all_{len(fitments_data)}"
+        else:
+            filename_prefix = f"applied_fitments_{len(fitments_data)}"
+        
+        # Return data in requested format
         if format_type == 'csv':
             df = pd.DataFrame(fitments_data)
-            response = HttpResponse(content_type='text/csv')
-            response['Content-Disposition'] = 'attachment; filename="fitments.csv"'
-            df.to_csv(response, index=False)
+            response = HttpResponse(content_type='text/csv; charset=utf-8')
+            response['Content-Disposition'] = f'attachment; filename="{filename_prefix}.csv"'
+            df.to_csv(response, index=False, encoding='utf-8')
             return response
             
         elif format_type == 'xlsx':
@@ -312,7 +491,7 @@ def export_fitments(request):
             response = HttpResponse(
                 content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             )
-            response['Content-Disposition'] = 'attachment; filename="fitments.xlsx"'
+            response['Content-Disposition'] = f'attachment; filename="{filename_prefix}.xlsx"'
             df.to_excel(response, index=False, engine='openpyxl')
             return response
             
@@ -326,6 +505,129 @@ def export_fitments(request):
             )
             
     except Exception as e:
+        print(f"Export error: {str(e)}")
+        return Response(
+            {'error': f'Export failed: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def export_ai_fitments(request):
+    """Export AI-generated fitments in various formats"""
+    try:
+        format_type = request.GET.get('format', 'csv').lower()
+        session_id = request.GET.get('session_id')
+        fitment_ids = request.GET.get('fitment_ids')  # Comma-separated list of fitment IDs
+        
+        # Validate required parameters
+        if not session_id:
+            return Response(
+                {'error': 'Session ID is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get session
+        try:
+            session = FitmentUploadSession.objects.get(id=session_id)
+        except FitmentUploadSession.DoesNotExist:
+            return Response(
+                {'error': 'Session not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Get AI fitments
+        fitments = AIFitmentResult.objects.filter(session=session)
+        
+        # Filter by specific fitment IDs if provided
+        if fitment_ids:
+            try:
+                fitment_id_list = [int(id.strip()) for id in fitment_ids.split(',') if id.strip()]
+                fitments = fitments.filter(id__in=fitment_id_list)
+            except ValueError:
+                return Response(
+                    {'error': 'Invalid fitment IDs provided'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Convert to list of dictionaries
+        fitments_data = []
+        for fitment in fitments:
+            fitments_data.append({
+                'id': str(fitment.id),
+                'partId': fitment.part_id,
+                'partDescription': fitment.part_description,
+                'year': fitment.year,
+                'make': fitment.make,
+                'model': fitment.model,
+                'submodel': fitment.submodel,
+                'driveType': fitment.drive_type,
+                'position': fitment.position or 'N/A',
+                'quantity': fitment.quantity,
+                'confidence': fitment.confidence,
+                'aiReasoning': fitment.ai_reasoning,
+                'isSelected': fitment.is_selected,
+                'isApplied': fitment.is_applied,
+                'createdAt': fitment.created_at.isoformat()
+            })
+        
+        # Check if we have data to export
+        if not fitments_data:
+            return Response(
+                {'error': 'No AI fitments found to export'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Generate filename
+        if fitment_ids:
+            filename_prefix = f"ai_fitments_selected_{len(fitments_data)}"
+        else:
+            filename_prefix = f"ai_fitments_all_{len(fitments_data)}"
+        
+        # Return data in requested format
+        if format_type == 'csv':
+            # Create CSV manually to avoid pandas dependency issues
+            import csv
+            import io
+            
+            output = io.StringIO()
+            if fitments_data:
+                writer = csv.DictWriter(output, fieldnames=fitments_data[0].keys())
+                writer.writeheader()
+                writer.writerows(fitments_data)
+            
+            response = HttpResponse(output.getvalue(), content_type='text/csv; charset=utf-8')
+            response['Content-Disposition'] = f'attachment; filename="{filename_prefix}.csv"'
+            return response
+            
+        elif format_type == 'xlsx':
+            try:
+                df = pd.DataFrame(fitments_data)
+                response = HttpResponse(
+                    content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                )
+                response['Content-Disposition'] = f'attachment; filename="{filename_prefix}.xlsx"'
+                df.to_excel(response, index=False, engine='openpyxl')
+                return response
+            except Exception as e:
+                print(f"XLSX export error: {str(e)}")
+                return Response(
+                    {'error': f'XLSX export failed: {str(e)}'}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            
+        elif format_type == 'json':
+            return JsonResponse(fitments_data, safe=False)
+            
+        else:
+            return Response(
+                {'error': 'Unsupported format. Use csv, xlsx, or json'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+    except Exception as e:
+        print(f"AI fitments export error: {str(e)}")
         return Response(
             {'error': f'Export failed: {str(e)}'}, 
             status=status.HTTP_500_INTERNAL_SERVER_ERROR

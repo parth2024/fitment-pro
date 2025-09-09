@@ -43,7 +43,7 @@ class AIFitmentResult(models.Model):
     model = models.CharField(max_length=100)
     submodel = models.CharField(max_length=100, blank=True)
     drive_type = models.CharField(max_length=50, blank=True)
-    position = models.CharField(max_length=100, default='Front')
+    position = models.CharField(max_length=100, default='Front', blank=True, null=True)
     quantity = models.IntegerField(default=1)
     confidence = models.FloatField(default=0.0)
     ai_reasoning = models.TextField()

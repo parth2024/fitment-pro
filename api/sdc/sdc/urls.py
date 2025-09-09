@@ -19,7 +19,7 @@ from django.urls import path, include
 from tenants.views import TenantListCreateView
 from vcdb.views import version, year_range, configurations
 from parts.views import list_parts, list_part_types
-from fitments.views import fitments_root, coverage, property_values, validate, submit, export_csv, coverage_export
+from fitments.views import fitments_root, coverage, property_values, validate, submit, export_csv, coverage_export, export_ai_fitments, ai_fitments_list, applied_fitments_list
 from workflow.views import uploads as wf_uploads, ai_map, vcdb_validate, review_queue, review_actions, publish, presets as wf_presets, preset_detail, ai_fitments, apply_fitments_batch
 
 urlpatterns = [
@@ -37,6 +37,9 @@ urlpatterns = [
     path('api/fitments/validate', validate),
     path('api/fitments/submit', submit),
     path('api/fitments/export', export_csv),
+    path('api/export-ai-fitments/', export_ai_fitments),
+    path('api/ai-fitments/', ai_fitments_list),
+    path('api/applied-fitments/', applied_fitments_list),
     # Workflow
     path('api/uploads', wf_uploads),
     path('api/uploads/<str:upload_id>/ai-map', ai_map),
