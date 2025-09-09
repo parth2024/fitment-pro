@@ -601,108 +601,433 @@ export default function ApplyFitments() {
           }} />
         </div>
 
-      {/* File Upload Section */}
-      {!uploadedFiles.vcdb || !uploadedFiles.products ? (
-        <Card
-          shadow="lg"
-          padding="xl"
-          radius="xl"
-          withBorder
-          style={{ marginBottom: "24px" }}
-        >
-          <Stack gap="lg">
-            <Group justify="space-between">
-              <div>
-                <Title
-                  order={3}
-                  style={{
-                    color: "#1e293b",
-                    fontWeight: 700,
-                    marginBottom: "4px",
-                  }}
-                >
-                  Upload Required Files
-                </Title>
-                <Text size="sm" c="dimmed" style={{ fontWeight: 500 }}>
-                  Upload VCDB data and Products data to proceed
-                </Text>
-              </div>
-              <div
-                style={{
-                  background:
-                    "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                  borderRadius: "12px",
-                  padding: "12px",
+        {/* Premium File Upload Section */}
+        <div style={{
+          background: "linear-gradient(145deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%)",
+          borderRadius: "32px",
+          padding: "4px",
+          marginBottom: "48px",
+          position: "relative",
+          overflow: "hidden"
+        }}>
+          {/* Animated Background Orbs */}
+          <div style={{
+            position: "absolute",
+            top: "-15%",
+            left: "-8%",
+            width: "250px",
+            height: "250px",
+            background: "radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%)",
+            borderRadius: "50%",
+            animation: "float 6s ease-in-out infinite",
+            pointerEvents: "none"
+          }} />
+          <div style={{
+            position: "absolute",
+            bottom: "-15%",
+            right: "-8%",
+            width: "200px",
+            height: "200px",
+            background: "radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)",
+            borderRadius: "50%",
+            animation: "float 8s ease-in-out infinite reverse",
+            pointerEvents: "none"
+          }} />
+
+          <Card 
+            shadow="2xl" 
+            padding="48px" 
+            radius="28px" 
+            style={{
+              background: "linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%)",
+              backdropFilter: "blur(20px)",
+              border: "1px solid rgba(255,255,255,0.3)",
+              position: "relative",
+              overflow: "hidden"
+            }}
+          >
+            {/* Floating Sparkles */}
+            <div style={{
+              position: "absolute",
+              top: "15%",
+              left: "12%",
+              width: "6px",
+              height: "6px",
+              background: "#667eea",
+              borderRadius: "50%",
+              animation: "pulse 3s ease-in-out infinite",
+              opacity: 0.6
+            }} />
+            <div style={{
+              position: "absolute",
+              top: "25%",
+              right: "18%",
+              width: "4px",
+              height: "4px",
+              background: "#f093fb",
+              borderRadius: "50%",
+              animation: "pulse 2s ease-in-out infinite",
+              opacity: 0.5
+            }} />
+            <div style={{
+              position: "absolute",
+              bottom: "20%",
+              left: "22%",
+              width: "5px",
+              height: "5px",
+              background: "#4facfe",
+              borderRadius: "50%",
+              animation: "pulse 4s ease-in-out infinite",
+              opacity: 0.4
+            }} />
+
+            <Stack gap="xl" style={{ position: "relative", zIndex: 2 }}>
+              <Group justify="space-between">
+                <div>
+                  <Title
+                    order={2}
+                    style={{
+                      background: "linear-gradient(145deg, #1a1a2e 0%, #16213e 25%, #0f3460 75%, #e94560 100%)",
+                      WebkitBackgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                      fontWeight: 800,
+                      marginBottom: "8px",
+                      fontSize: "32px",
+                      letterSpacing: "-0.01em"
+                    }}
+                  >
+                    Upload Required Files
+                  </Title>
+                  <Text 
+                    size="lg" 
+                    style={{ 
+                      color: "#64748b",
+                      fontWeight: 500,
+                      fontSize: "18px"
+                    }}
+                  >
+                    Upload VCDB data and Products data to proceed
+                  </Text>
+                </div>
+                <div style={{
+                  background: "linear-gradient(145deg, #667eea 0%, #764ba2 50%, #f093fb 100%)",
+                  borderRadius: "24px",
+                  padding: "20px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                }}
-              >
-                <IconUpload size={20} color="white" />
+                  boxShadow: "0 15px 35px rgba(102, 126, 234, 0.3)",
+                  position: "relative",
+                  overflow: "hidden"
+                }}>
+                  <div style={{
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%, -50%)",
+                    width: "120%",
+                    height: "120%",
+                    background: "conic-gradient(from 0deg, transparent 0deg, rgba(255,255,255,0.1) 90deg, transparent 180deg)",
+                    animation: "spin 6s linear infinite"
+                  }} />
+                  <IconUpload size={32} color="white" style={{ position: "relative", zIndex: 1 }} />
+                </div>
+              </Group>
+
+              <Grid gutter="xl">
+                <Grid.Col span={6}>
+                  <div style={{
+                    position: "relative",
+                    height: "100%"
+                  }}>
+                    {/* VCDB File Input Card */}
+                    <div style={{
+                      background: "linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)",
+                      border: "3px solid transparent",
+                      backgroundClip: "padding-box",
+                      borderRadius: "20px",
+                      padding: "32px",
+                      position: "relative",
+                      overflow: "hidden",
+                      height: "100%",
+                      cursor: "pointer",
+                      transition: "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+                      boxShadow: "0 10px 25px rgba(0,0,0,0.1)"
+                    }}>
+                      {/* Gradient Border */}
+                      <div style={{
+                        position: "absolute",
+                        top: "0",
+                        left: "0",
+                        right: "0",
+                        bottom: "0",
+                        background: "linear-gradient(145deg, #3b82f6, #06b6d4, #8b5cf6)",
+                        borderRadius: "20px",
+                        padding: "3px"
+                      }}>
+                        <div style={{
+                          background: "linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)",
+                          borderRadius: "17px",
+                          height: "100%",
+                          width: "100%"
+                        }} />
+                      </div>
+
+                      <Stack align="center" gap="lg" style={{ position: "relative", zIndex: 1 }}>
+                        {/* Icon */}
+                        <div style={{
+                          background: "linear-gradient(145deg, #3b82f6 0%, #06b6d4 50%, #8b5cf6 100%)",
+                          borderRadius: "24px",
+                          padding: "24px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          boxShadow: "0 15px 30px rgba(59, 130, 246, 0.3)",
+                          position: "relative",
+                          overflow: "hidden"
+                        }}>
+                          <div style={{
+                            position: "absolute",
+                            top: "-50%",
+                            left: "-50%",
+                            width: "200%",
+                            height: "200%",
+                            background: "conic-gradient(from 0deg, transparent 0deg, rgba(255,255,255,0.1) 90deg, transparent 180deg)",
+                            animation: "spin 5s linear infinite"
+                          }} />
+                          <IconFileText size={48} color="white" style={{ position: "relative", zIndex: 1 }} />
+                        </div>
+
+                        <div style={{ textAlign: "center" }}>
+                          <Text fw={700} size="lg" mb="xs" style={{
+                            background: "linear-gradient(145deg, #1e293b 0%, #3b82f6 100%)",
+                            WebkitBackgroundClip: "text",
+                            WebkitTextFillColor: "transparent"
+                          }}>
+                            VCDB Data File
+                          </Text>
+                          <Text size="sm" c="dimmed" mb="md">
+                            Upload vehicle configuration database
+                          </Text>
+                        </div>
+
+                        <FileInput
+                          value={vcdbFile}
+                          onChange={setVcdbFile}
+                          accept=".csv,.xlsx,.json"
+                          placeholder={vcdbFile ? vcdbFile.name : "Select VCDB file (.csv, .xlsx, .json)"}
+                          style={{ width: "100%" }}
+                          styles={{
+                            input: {
+                              backgroundColor: "rgba(59, 130, 246, 0.05)",
+                              border: "2px dashed #3b82f6",
+                              borderRadius: "12px",
+                              padding: "16px",
+                              fontSize: "14px",
+                              fontWeight: 500,
+                              textAlign: "center"
+                            }
+                          }}
+                        />
+                      </Stack>
+                    </div>
+                  </div>
+                </Grid.Col>
+
+                <Grid.Col span={6}>
+                  <div style={{
+                    position: "relative",
+                    height: "100%"
+                  }}>
+                    {/* Products File Input Card */}
+                    <div style={{
+                      background: "linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)",
+                      border: "3px solid transparent",
+                      backgroundClip: "padding-box",
+                      borderRadius: "20px",
+                      padding: "32px",
+                      position: "relative",
+                      overflow: "hidden",
+                      height: "100%",
+                      cursor: "pointer",
+                      transition: "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+                      boxShadow: "0 10px 25px rgba(0,0,0,0.1)"
+                    }}>
+                      {/* Gradient Border */}
+                      <div style={{
+                        position: "absolute",
+                        top: "0",
+                        left: "0",
+                        right: "0",
+                        bottom: "0",
+                        background: "linear-gradient(145deg, #22c55e, #10b981, #06d6a0)",
+                        borderRadius: "20px",
+                        padding: "3px"
+                      }}>
+                        <div style={{
+                          background: "linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)",
+                          borderRadius: "17px",
+                          height: "100%",
+                          width: "100%"
+                        }} />
+                      </div>
+
+                      <Stack align="center" gap="lg" style={{ position: "relative", zIndex: 1 }}>
+                        {/* Icon */}
+                        <div style={{
+                          background: "linear-gradient(145deg, #22c55e 0%, #10b981 50%, #06d6a0 100%)",
+                          borderRadius: "24px",
+                          padding: "24px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          boxShadow: "0 15px 30px rgba(34, 197, 94, 0.3)",
+                          position: "relative",
+                          overflow: "hidden"
+                        }}>
+                          <div style={{
+                            position: "absolute",
+                            top: "-50%",
+                            left: "-50%",
+                            width: "200%",
+                            height: "200%",
+                            background: "conic-gradient(from 0deg, transparent 0deg, rgba(255,255,255,0.1) 90deg, transparent 180deg)",
+                            animation: "spin 5s linear infinite reverse"
+                          }} />
+                          <IconFileText size={48} color="white" style={{ position: "relative", zIndex: 1 }} />
+                        </div>
+
+                        <div style={{ textAlign: "center" }}>
+                          <Text fw={700} size="lg" mb="xs" style={{
+                            background: "linear-gradient(145deg, #1e293b 0%, #22c55e 100%)",
+                            WebkitBackgroundClip: "text",
+                            WebkitTextFillColor: "transparent"
+                          }}>
+                            Products Data File
+                          </Text>
+                          <Text size="sm" c="dimmed" mb="md">
+                            Upload products and parts data
+                          </Text>
+                        </div>
+
+                        <FileInput
+                          value={productsFile}
+                          onChange={setProductsFile}
+                          accept=".csv,.xlsx,.json"
+                          placeholder={productsFile ? productsFile.name : "Select Products file (.csv, .xlsx, .json)"}
+                          style={{ width: "100%" }}
+                          styles={{
+                            input: {
+                              backgroundColor: "rgba(34, 197, 94, 0.05)",
+                              border: "2px dashed #22c55e",
+                              borderRadius: "12px",
+                              padding: "16px",
+                              fontSize: "14px",
+                              fontWeight: 500,
+                              textAlign: "center"
+                            }
+                          }}
+                        />
+                      </Stack>
+                    </div>
+                  </div>
+                </Grid.Col>
+              </Grid>
+
+              {/* Upload Progress */}
+              {uploadStatus === "uploading" && (
+                <Card p="xl" radius="lg" style={{
+                  background: "linear-gradient(145deg, rgba(59, 130, 246, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%)",
+                  border: "2px solid rgba(59, 130, 246, 0.2)"
+                }}>
+                  <Stack gap="md">
+                    <Group justify="space-between">
+                      <Text fw={600} size="lg">
+                        Uploading Files...
+                      </Text>
+                      <Text fw={600} size="lg" c="blue">
+                        {uploadProgress}%
+                      </Text>
+                    </Group>
+                    <Progress 
+                      value={uploadProgress} 
+                      size="xl" 
+                      radius="xl"
+                      style={{
+                        background: "rgba(255,255,255,0.5)"
+                      }}
+                      styles={{
+                        bar: {
+                          background: "linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%)"
+                        }
+                      }}
+                    />
+                  </Stack>
+                </Card>
+              )}
+
+              {uploadStatus === "error" && (
+                <Alert
+                  icon={<IconAlertCircle size={20} />}
+                  color="red"
+                  variant="filled"
+                  radius="lg"
+                  style={{
+                    background: "linear-gradient(145deg, #ef4444 0%, #dc2626 100%)",
+                    border: "none"
+                  }}
+                >
+                  <Text fw={600} size="lg" color="white">
+                    Failed to upload files. Please try again.
+                  </Text>
+                </Alert>
+              )}
+
+              {/* Upload Button */}
+              <div style={{ textAlign: "center" }}>
+                <Button
+                  size="xl"
+                  leftSection={<IconUpload size={20} />}
+                  variant="gradient"
+                  gradient={{ from: '#667eea', to: '#764ba2', deg: 145 }}
+                  onClick={handleFileUpload}
+                  loading={uploadingFiles}
+                  disabled={!vcdbFile || !productsFile || uploadStatus === "uploading"}
+                  style={{
+                    borderRadius: "20px",
+                    fontSize: "18px",
+                    fontWeight: 700,
+                    padding: "20px 48px",
+                    boxShadow: "0 20px 40px rgba(102, 126, 234, 0.3), inset 0 1px 0 rgba(255,255,255,0.2)",
+                    border: "none",
+                    position: "relative",
+                    overflow: "hidden",
+                    minWidth: "280px",
+                    height: "64px"
+                  }}
+                >
+                  Upload Files
+                </Button>
               </div>
-            </Group>
+            </Stack>
+          </Card>
 
-            <Grid>
-              <Grid.Col span={6}>
-                <FileInput
-                  label="VCDB Data File"
-                  placeholder="Select VCDB file (.csv, .xlsx, .json)"
-                  value={vcdbFile}
-                  onChange={setVcdbFile}
-                  accept=".csv,.xlsx,.json"
-                  leftSection={<IconFileText size={16} />}
-                  size="md"
-                />
-              </Grid.Col>
-              <Grid.Col span={6}>
-                <FileInput
-                  label="Products Data File"
-                  placeholder="Select Products file (.csv, .xlsx, .json)"
-                  value={productsFile}
-                  onChange={setProductsFile}
-                  accept=".csv,.xlsx,.json"
-                  leftSection={<IconFileText size={16} />}
-                  size="md"
-                />
-              </Grid.Col>
-            </Grid>
-
-            {uploadStatus === "uploading" && (
-              <div>
-                <Text size="sm" fw={500} mb="xs">
-                  Uploading files...
-                </Text>
-                <Progress value={uploadProgress} size="lg" radius="xl" />
-              </div>
-            )}
-
-            {uploadStatus === "error" && (
-              <Alert
-                icon={<IconAlertCircle size={16} />}
-                color="red"
-                variant="light"
-              >
-                Failed to upload files. Please try again.
-              </Alert>
-            )}
-
-            <Button
-              fullWidth
-              leftSection={<IconUpload size={16} />}
-              variant="gradient"
-              gradient={{ from: "primary.6", to: "secondary.6", deg: 135 }}
-              onClick={handleFileUpload}
-              loading={uploadingFiles}
-              disabled={
-                !vcdbFile || !productsFile || uploadStatus === "uploading"
-              }
-              size="md"
-              radius="lg"
-            >
-              Upload Files
-            </Button>
-          </Stack>
-        </Card>
+          {/* CSS Animations */}
+          <style jsx>{`
+            @keyframes float {
+              0%, 100% { transform: translateY(0px) rotate(0deg); }
+              50% { transform: translateY(-20px) rotate(180deg); }
+            }
+            @keyframes pulse {
+              0%, 100% { opacity: 0.4; transform: scale(1); }
+              50% { opacity: 0.8; transform: scale(1.2); }
+            }
+            @keyframes spin {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
       ) : (
         /* Method Selection Section */
         <Card
