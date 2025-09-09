@@ -97,7 +97,7 @@ function App() {
   return (
     <AppShell
       header={{ height: 90, offset: false }}
-      navbar={{ width: 240, breakpoint: 0 }}
+      navbar={{ width: 280, breakpoint: 0 }}
       padding="0"
       style={{
         background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
@@ -109,8 +109,8 @@ function App() {
           background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
           borderBottom: "1px solid #e2e8f0",
           boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
-          left: 240,
-          width: "calc(100% - 240px)",
+          left: 280,
+          width: "calc(100% - 280px)",
         }}
       >
         <Container
