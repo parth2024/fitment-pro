@@ -57,9 +57,6 @@ export default function ApplyFitments() {
   }>({ vcdb: false, products: false });
   const [sessionId, setSessionId] = useState<string | null>(null);
 
-  // Step management for UI flow
-  const [currentStep, setCurrentStep] = useState<1 | 2>(1); // 1 = Upload Files, 2 = Choose Method
-
   // Fitment method selection
   const [selectedMethod, setSelectedMethod] = useState<"manual" | "ai" | null>(
     null,
@@ -189,8 +186,7 @@ export default function ApplyFitments() {
         setUploadStatus("completed");
         setUploadedFiles({ vcdb: true, products: true });
         setSessionId(result.data.session.id);
-        setCurrentStep(2); // Move to step 2 after successful upload
-        toast.success("Files uploaded successfully! Now choose your fitment method.");
+        toast.success("Files uploaded successfully!");
       } else {
         console.error("Invalid response structure:", result);
         throw new Error("Invalid response from server");
@@ -303,7 +299,6 @@ export default function ApplyFitments() {
         setSelectedMethod(null);
         setUploadedFiles({ vcdb: false, products: false });
         setSessionId(null);
-        setCurrentStep(1); // Reset to step 1
       }
     } catch (error) {
       toast.error("Failed to apply AI fitments");
@@ -640,19 +635,18 @@ export default function ApplyFitments() {
             }}
           />
         </div>
-        {/* Step 1: Premium File Upload Section */}
-        {currentStep === 1 && (
-          <div
-            style={{
-              background:
-                "linear-gradient(145deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%)",
-              borderRadius: "32px",
-              padding: "4px",
-              marginBottom: "48px",
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
+        {/* Premium File Upload Section */}
+        <div
+          style={{
+            background:
+              "linear-gradient(145deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%)",
+            borderRadius: "32px",
+            padding: "4px",
+            marginBottom: "48px",
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
           {/* Animated Background Orbs */}
           <div
             style={{
@@ -1171,10 +1165,6 @@ export default function ApplyFitments() {
             }
           `}</style>
         </div>
-        )}
-
-        {/* Step 2: Premium Method Selection Section */}
-        {currentStep === 2 && (
         <div
           style={{
             background:
@@ -2874,58 +2864,6 @@ export default function ApplyFitments() {
               </Grid.Col>
             </Grid>
           )}
-        </div>
-        )}
-
-        {/* Success Message Section */}
-        {appliedFitmentsCount !== null && (
-          <Card
-            shadow="lg"
-            padding="xl"
-            radius="xl"
-            withBorder
-            style={{
-              background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-              border: "2px solid #10b981",
-              marginBottom: "24px",
-            }}
-          >
-            <Stack gap="lg" align="center">
-              <Group gap="sm">
-                <IconCheck size={32} color="white" />
-                <Title order={3} c="white">
-                  Fitments Applied Successfully!
-                </Title>
-              </Group>
-              <Text size="lg" c="white" ta="center" fw={500}>
-                {appliedFitmentsCount} AI-generated fitments have been applied to
-                your database.
-              </Text>
-              <Group>
-                <Button
-                  variant="white"
-                  color="green"
-                  size="lg"
-                  leftSection={<IconDownload size={16} />}
-                  onClick={() => (window.location.href = "/fitments")}
-                >
-                  View Applied Fitments
-                </Button>
-                <Button
-                  variant="light"
-                  color="gray"
-                  size="lg"
-                  onClick={() => {
-                    setAppliedFitmentsCount(null);
-                    setCurrentStep(1);
-                  }}
-                >
-                  Start New Upload
-                </Button>
-              </Group>
-            </Stack>
-          </Card>
-        )}
       </div>
     </div>
   );
