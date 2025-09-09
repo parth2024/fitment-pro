@@ -1129,7 +1129,7 @@ export default function ApplyFitments() {
                 <div style={{ textAlign: "center" }}>
                   <Button
                     size="xl"
-                    leftSection={<IconUpload size={20} />}
+                    leftSection={<IconUpload size={window.innerWidth < 768 ? 16 : 20} />}
                     variant="gradient"
                     gradient={{ from: "#667eea", to: "#764ba2", deg: 145 }}
                     onClick={handleFileUpload}
@@ -1471,7 +1471,7 @@ export default function ApplyFitments() {
                                 />
                               )}
                               <IconSettings
-                                size={48}
+                                size={window.innerWidth < 768 ? 32 : 48}
                                 color="white"
                                 style={{ position: "relative", zIndex: 1 }}
                               />
@@ -1659,7 +1659,7 @@ export default function ApplyFitments() {
                                 />
                               )}
                               <IconBrain
-                                size={48}
+                                size={window.innerWidth < 768 ? 32 : 48}
                                 color="white"
                                 style={{ position: "relative", zIndex: 1 }}
                               />
