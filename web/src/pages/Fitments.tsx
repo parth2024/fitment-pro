@@ -56,7 +56,7 @@ export default function Fitments() {
         page: currentPage,
         pageSize: 50,
       }),
-    [searchTerm, sortBy, sortOrder, currentPage]
+    [searchTerm, sortBy, sortOrder, currentPage],
   );
 
   // Fetch AI-generated fitments from Django backend
@@ -66,7 +66,7 @@ export default function Fitments() {
     refetch: refetchAi,
   } = useApi<{ fitments: any[]; total_fitments: number }>(
     () => fitmentUploadService.getAppliedFitments(),
-    []
+    [],
   );
 
   const fitments = data?.fitments ?? [];
@@ -238,281 +238,6 @@ export default function Fitments() {
           )}
 
           {/* AI Generated Fitments Section */}
-          {aiFitments.length > 0 ? (
-            <Card
-              shadow="lg"
-              padding="lg"
-              radius="xl"
-              withBorder
-              style={{
-                background: "linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%)",
-                border: "2px solid #8b5cf6",
-              }}
-            >
-              <Stack gap="lg">
-                <Group justify="space-between">
-                  <div>
-                    <Group gap="sm" mb="xs">
-                      <IconBrain size={24} color="#8b5cf6" />
-                      <Title order={3} c="violet">
-                        AI Generated Fitments
-                      </Title>
-                    </Group>
-                    <Text size="sm" c="dimmed">
-                      {aiFitments.length} fitments generated and applied by AI
-                    </Text>
-                  </div>
-                  <Group>
-                    <Button
-                      variant="light"
-                      color="violet"
-                      onClick={() => refetchAi()}
-                      loading={aiLoading}
-                    >
-                      Refresh
-                    </Button>
-                    <Button
-                      leftSection={<IconDownload size={16} />}
-                      variant="light"
-                      color="violet"
-                      onClick={() => {
-                        const blob = new Blob(
-                          [JSON.stringify(aiFitments, null, 2)],
-                          {
-                            type: "application/json",
-                          }
-                        );
-                        const url = window.URL.createObjectURL(blob);
-                        const link = document.createElement("a");
-                        link.href = url;
-                        link.download = "ai-fitments.json";
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                        window.URL.revokeObjectURL(url);
-                      }}
-                    >
-                      Export JSON
-                    </Button>
-                    <Button
-                      leftSection={<IconDownload size={16} />}
-                      variant="gradient"
-                      gradient={{ from: "violet.6", to: "purple.6", deg: 135 }}
-                      onClick={() => {
-                        // Export as CSV
-                        const headers = [
-                          "Part ID",
-                          "Part Description",
-                          "Year",
-                          "Make",
-                          "Model",
-                          "Submodel",
-                          "Drive Type",
-                          "Position",
-                          "Quantity",
-                          "Applied Date",
-                        ];
-                        const csvContent = [
-                          headers.join(","),
-                          ...aiFitments.map((fitment: any) =>
-                            [
-                              fitment.partId,
-                              `"${fitment.partDescription}"`,
-                              fitment.year,
-                              fitment.make,
-                              fitment.model,
-                              fitment.submodel,
-                              fitment.driveType,
-                              fitment.position || "Universal",
-                              fitment.quantity,
-                              new Date(fitment.appliedAt).toLocaleDateString(),
-                            ].join(",")
-                          ),
-                        ].join("\n");
-
-                        const blob = new Blob([csvContent], {
-                          type: "text/csv",
-                        });
-                        const url = window.URL.createObjectURL(blob);
-                        const link = document.createElement("a");
-                        link.href = url;
-                        link.download = "ai-fitments.csv";
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                        window.URL.revokeObjectURL(url);
-                      }}
-                    >
-                      Export CSV
-                    </Button>
-                  </Group>
-                </Group>
-
-                {/* AI Fitments Summary */}
-                <Group
-                  justify="space-between"
-                  p="md"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)",
-                    borderRadius: "12px",
-                    border: "1px solid #c4b5fd",
-                  }}
-                >
-                  <Group>
-                    <Badge variant="light" color="violet" size="lg">
-                      Total AI Fitments: {aiFitments.length}
-                    </Badge>
-                    <Badge variant="light" color="green" size="lg">
-                      Unique Parts:{" "}
-                      {new Set(aiFitments.map((f: any) => f.partId)).size}
-                    </Badge>
-                    <Badge variant="light" color="blue" size="lg">
-                      Unique Vehicles:{" "}
-                      {
-                        new Set(
-                          aiFitments.map(
-                            (f: any) => `${f.year}-${f.make}-${f.model}`
-                          )
-                        ).size
-                      }
-                    </Badge>
-                  </Group>
-                  <Text size="sm" fw={500} c="violet">
-                    Last Applied:{" "}
-                    {new Date(
-                      Math.max(
-                        ...aiFitments.map((f: any) =>
-                          new Date(f.appliedAt).getTime()
-                        )
-                      )
-                    ).toLocaleDateString()}
-                  </Text>
-                </Group>
-
-                <ScrollArea h={400}>
-                  <Table striped highlightOnHover>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th>Part ID</Table.Th>
-                        <Table.Th>Part Description</Table.Th>
-                        <Table.Th>Vehicle Details</Table.Th>
-                        <Table.Th>Position</Table.Th>
-                        <Table.Th>Quantity</Table.Th>
-                        <Table.Th>Applied Date</Table.Th>
-                        <Table.Th>Actions</Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {aiFitments.map((fitment: any, index: number) => (
-                        <Table.Tr key={index}>
-                          <Table.Td>
-                            <Text fw={500} size="sm" c="violet">
-                              {fitment.partId}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="sm" lineClamp={2} maw={200}>
-                              {fitment.partDescription}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td>
-                            <div>
-                              <Text size="sm" fw={500}>
-                                {fitment.year} {fitment.make} {fitment.model}
-                              </Text>
-                              <Text size="xs" c="dimmed">
-                                {fitment.submodel} • {fitment.driveType}
-                              </Text>
-                            </div>
-                          </Table.Td>
-                          <Table.Td>
-                            <Badge variant="light" size="sm" color="cyan">
-                              {fitment.position || "Universal"}
-                            </Badge>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="sm" fw={500} ta="center">
-                              {fitment.quantity}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="xs" c="dimmed">
-                              {new Date(fitment.appliedAt).toLocaleDateString()}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td>
-                            <Menu shadow="md" width={200}>
-                              <Menu.Target>
-                                <ActionIcon
-                                  variant="light"
-                                  size="sm"
-                                  color="violet"
-                                >
-                                  <IconDots size={16} />
-                                </ActionIcon>
-                              </Menu.Target>
-                              <Menu.Dropdown>
-                                <Menu.Item leftSection={<IconEye size={14} />}>
-                                  View Details
-                                </Menu.Item>
-                                <Menu.Item leftSection={<IconEdit size={14} />}>
-                                  Edit Fitment
-                                </Menu.Item>
-                                <Menu.Divider />
-                                <Menu.Item
-                                  leftSection={<IconTrash size={14} />}
-                                  color="red"
-                                >
-                                  Delete
-                                </Menu.Item>
-                              </Menu.Dropdown>
-                            </Menu>
-                          </Table.Td>
-                        </Table.Tr>
-                      ))}
-                    </Table.Tbody>
-                  </Table>
-                </ScrollArea>
-              </Stack>
-            </Card>
-          ) : (
-            <Card
-              shadow="sm"
-              padding="xl"
-              radius="xl"
-              withBorder
-              style={{
-                background: "linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%)",
-                border: "2px dashed #8b5cf6",
-                textAlign: "center",
-              }}
-            >
-              <Stack gap="md" align="center">
-                <IconBrain size={48} color="#8b5cf6" />
-                <div>
-                  <Title order={3} c="violet" mb="xs">
-                    No AI Generated Fitments Yet
-                  </Title>
-                  <Text size="sm" c="dimmed" mb="lg">
-                    Upload your VCDB and Products files in the Apply Fitments
-                    page to generate AI-powered fitment suggestions.
-                  </Text>
-                </div>
-                <Button
-                  variant="gradient"
-                  gradient={{ from: "violet.6", to: "purple.6", deg: 135 }}
-                  leftSection={<IconBrain size={16} />}
-                  onClick={() => {
-                    // Navigate to Apply Fitments page
-                    window.location.href = "/apply-fitments";
-                  }}
-                >
-                  Go to Apply Fitments
-                </Button>
-              </Stack>
-            </Card>
-          )}
 
           {/* Table */}
           {error && <Text c="red">{error}</Text>}
@@ -560,7 +285,7 @@ export default function Fitments() {
                         onChange={(event) =>
                           handleSelectFitment(
                             fitment.hash,
-                            event.currentTarget.checked
+                            event.currentTarget.checked,
                           )
                         }
                       />

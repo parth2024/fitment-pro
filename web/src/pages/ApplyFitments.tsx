@@ -1345,9 +1345,9 @@ export default function ApplyFitments() {
                   )}
                 </Group>
 
-                <Grid gutter="xl">
+                <Grid gutter={{ base: "md", sm: "lg", md: "xl" }}>
                   {/* Manual Fitment Card */}
-                  <Grid.Col span={6}>
+                  <Grid.Col span={{ base: 12, sm: 12, md: 6 }}>
                     <div
                       style={{
                         position: "relative",
@@ -1404,7 +1404,7 @@ export default function ApplyFitments() {
                             height: "100%",
                             position: "relative",
                             zIndex: 1,
-                            padding: "48px 32px",
+                            padding: "clamp(24px, 5vw, 48px) clamp(16px, 4vw, 32px)",
                             overflow: "hidden",
                           }}
                         >
@@ -1438,8 +1438,8 @@ export default function ApplyFitments() {
                                   selectedMethod === "manual"
                                     ? "linear-gradient(145deg, #3b82f6 0%, #1d4ed8 50%, #2563eb 100%)"
                                     : "linear-gradient(145deg, #64748b 0%, #475569 100%)",
-                                borderRadius: "28px",
-                                padding: "32px",
+                                borderRadius: "clamp(20px, 4vw, 28px)",
+                                padding: "clamp(20px, 4vw, 32px)",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
@@ -1490,7 +1490,7 @@ export default function ApplyFitments() {
                                   WebkitBackgroundClip: "text",
                                   WebkitTextFillColor: "transparent",
                                   fontWeight: 700,
-                                  fontSize: "24px",
+                                  fontSize: "clamp(18px, 4vw, 24px)",
                                 }}
                               >
                                 Manual Fitment
@@ -1533,7 +1533,7 @@ export default function ApplyFitments() {
                   </Grid.Col>
 
                   {/* AI Fitment Card */}
-                  <Grid.Col span={6}>
+                  <Grid.Col span={{ base: 12, sm: 12, md: 6 }}>
                     <div
                       style={{
                         position: "relative",
@@ -1590,7 +1590,7 @@ export default function ApplyFitments() {
                             height: "100%",
                             position: "relative",
                             zIndex: 1,
-                            padding: "48px 32px",
+                            padding: "clamp(24px, 5vw, 48px) clamp(16px, 4vw, 32px)",
                             overflow: "hidden",
                           }}
                         >
@@ -1625,8 +1625,8 @@ export default function ApplyFitments() {
                                   selectedMethod === "ai"
                                     ? "linear-gradient(145deg, #8b5cf6 0%, #7c3aed 50%, #6d28d9 100%)"
                                     : "linear-gradient(145deg, #64748b 0%, #475569 100%)",
-                                borderRadius: "28px",
-                                padding: "32px",
+                                borderRadius: "clamp(20px, 4vw, 28px)",
+                                padding: "clamp(20px, 4vw, 32px)",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
@@ -1678,7 +1678,7 @@ export default function ApplyFitments() {
                                   WebkitBackgroundClip: "text",
                                   WebkitTextFillColor: "transparent",
                                   fontWeight: 700,
-                                  fontSize: "24px",
+                                  fontSize: "clamp(18px, 4vw, 24px)",
                                 }}
                               >
                                 AI Fitment
@@ -2881,54 +2881,6 @@ export default function ApplyFitments() {
       </div>
 
       {/* Success Message Section */}
-      {appliedFitmentsCount !== null && (
-        <Card
-          shadow="lg"
-          padding="xl"
-          radius="xl"
-          withBorder
-          style={{
-            background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-            border: "2px solid #10b981",
-            marginBottom: "24px",
-          }}
-        >
-          <Stack gap="lg" align="center">
-            <Group gap="sm">
-              <IconCheck size={32} color="white" />
-              <Title order={3} c="white">
-                Fitments Applied Successfully!
-              </Title>
-            </Group>
-            <Text size="lg" c="white" ta="center" fw={500}>
-              {appliedFitmentsCount} AI-generated fitments have been applied to
-              your database.
-            </Text>
-            <Group>
-              <Button
-                variant="white"
-                color="green"
-                size="lg"
-                leftSection={<IconDownload size={16} />}
-                onClick={() => (window.location.href = "/fitments")}
-              >
-                View Applied Fitments
-              </Button>
-              <Button
-                variant="light"
-                color="gray"
-                size="lg"
-                onClick={() => {
-                  setAppliedFitmentsCount(null);
-                  setCurrentStep(1);
-                }}
-              >
-                Start New Upload
-              </Button>
-            </Group>
-          </Stack>
-        </Card>
-      )}
     </div>
   );
 }
