@@ -956,11 +956,6 @@ export default function ApplyFitments() {
                       style={{
                         background: "rgba(255,255,255,0.5)"
                       }}
-                      styles={{
-                        bar: {
-                          background: "linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%)"
-                        }
-                      }}
                     />
                   </Stack>
                 </Card>
