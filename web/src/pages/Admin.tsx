@@ -142,91 +142,421 @@ export default function Admin() {
           </Grid>
         </Card>
 
-        {/* Data Import */}
-        <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <Title order={3} mb="md">Data Import</Title>
+        {/* Stunning Upload Required Files Section */}
+        <Card 
+          shadow="lg" 
+          padding="xl" 
+          radius="xl" 
+          withBorder
+          style={{
+            background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #e0f2fe 100%)",
+            border: "2px solid #e2e8f0",
+            overflow: "hidden",
+            position: "relative"
+          }}
+        >
+          <div style={{
+            position: "absolute",
+            top: "-50%",
+            right: "-50%",
+            width: "200%",
+            height: "200%",
+            background: "radial-gradient(circle, rgba(59, 130, 246, 0.03) 0%, transparent 70%)",
+            pointerEvents: "none"
+          }} />
           
-          <Text c="dimmed" mb="lg">
-            Import data from CSV files in the storage directory. Ensure files are placed in the correct subdirectories before importing.
-          </Text>
-
-          <Stack gap="lg">
-            {/* VCDB Import */}
+          <Group justify="space-between" mb="xl" style={{ position: "relative", zIndex: 1 }}>
             <div>
-              <Group justify="space-between" mb="sm">
-                <div>
-                  <Text fw={500}>1. VCDB Data</Text>
-                  <Text size="sm" c="dimmed">Vehicle configuration database (base vehicles, configurations, submodels)</Text>
-                </div>
-                <Badge 
-                  color={getStatusColor(mockImportStatus.vcdb.status)}
-                  variant="light"
-                >
-                  {mockImportStatus.vcdb.status}
-                </Badge>
-              </Group>
-              
-              <Group justify="space-between" align="flex-end">
-                <div>
-                  <Text size="xs" c="dimmed">
-                    Last run: {new Date(mockImportStatus.vcdb.lastRun).toLocaleString()}
-                  </Text>
-                  <Text size="xs" c="dimmed">
-                    Records processed: {mockImportStatus.vcdb.recordsProcessed.toLocaleString()}
-                  </Text>
-                  <Text size="xs" c="dimmed">
-                    Source: <Code>storage/vcdb/*.csv</Code>
-                  </Text>
-                </div>
-                <Button
-                  leftSection={<IconDatabase size={16} />}
-                  onClick={() => handleImportData('VCDB')}
-                  loading={importLoading}
-                >
-                  Import VCDB
-                </Button>
-              </Group>
+              <Title 
+                order={2} 
+                style={{
+                  background: "linear-gradient(135deg, #1e293b 0%, #3b82f6 100%)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  fontSize: "28px",
+                  fontWeight: 700,
+                  marginBottom: "8px"
+                }}
+              >
+                Upload Required Files
+              </Title>
+              <Text 
+                size="lg" 
+                c="dimmed" 
+                style={{ 
+                  fontSize: "16px",
+                  fontWeight: 500
+                }}
+              >
+                Upload your VCDB and Products data files to get started with the Mass Fitment Tool
+              </Text>
             </div>
-
-            <Divider />
-
-            {/* Customer Data Import */}
-            <div>
-              <Group justify="space-between" mb="sm">
-                <div>
-                  <Text fw={500}>2. Customer Data</Text>
-                  <Text size="sm" c="dimmed">Parts, part types, positions, and related reference data</Text>
-                </div>
-                <Badge 
-                  color={getStatusColor(mockImportStatus.customer.status)}
-                  variant="light"
-                >
-                  {mockImportStatus.customer.status}
-                </Badge>
-              </Group>
-              
-              <Group justify="space-between" align="flex-end">
-                <div>
-                  <Text size="xs" c="dimmed">
-                    Last run: {new Date(mockImportStatus.customer.lastRun).toLocaleString()}
-                  </Text>
-                  <Text size="xs" c="dimmed">
-                    Records processed: {mockImportStatus.customer.recordsProcessed.toLocaleString()}
-                  </Text>
-                  <Text size="xs" c="dimmed">
-                    Source: <Code>storage/customer/*.csv</Code>
-                  </Text>
-                </div>
-                <Button
-                  leftSection={<IconUpload size={16} />}
-                  onClick={() => handleImportData('Customer')}
-                  loading={importLoading}
-                >
-                  Import Customer Data
-                </Button>
-              </Group>
+            <div style={{
+              background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+              borderRadius: "20px",
+              padding: "20px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 10px 25px rgba(59, 130, 246, 0.3)"
+            }}>
+              <IconUpload size={40} color="white" />
             </div>
-          </Stack>
+          </Group>
+
+          <Grid gutter="xl" style={{ position: "relative", zIndex: 1 }}>
+            {/* VCDB Upload Section */}
+            <Grid.Col span={6}>
+              <Card 
+                shadow="md" 
+                padding="lg" 
+                radius="xl" 
+                withBorder
+                style={{
+                  background: "linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%)",
+                  border: "2px solid #dbeafe",
+                  transition: "all 0.3s ease",
+                  cursor: "pointer",
+                  position: "relative",
+                  overflow: "hidden"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-8px)";
+                  e.currentTarget.style.boxShadow = "0 20px 40px rgba(59, 130, 246, 0.15)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0px)";
+                  e.currentTarget.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1)";
+                }}
+              >
+                <div style={{
+                  position: "absolute",
+                  top: "0",
+                  left: "0",
+                  right: "0",
+                  height: "4px",
+                  background: "linear-gradient(90deg, #3b82f6 0%, #06b6d4 100%)"
+                }} />
+                
+                <Stack align="center" gap="lg">
+                  <div style={{
+                    background: "linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)",
+                    borderRadius: "24px",
+                    padding: "24px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxShadow: "0 8px 25px rgba(59, 130, 246, 0.3)"
+                  }}>
+                    <IconDatabase size={48} color="white" />
+                  </div>
+                  
+                  <div style={{ textAlign: "center" }}>
+                    <Title 
+                      order={3} 
+                      mb="xs"
+                      style={{
+                        background: "linear-gradient(135deg, #1e293b 0%, #3b82f6 100%)",
+                        WebkitBackgroundClip: "text",
+                        WebkitTextFillColor: "transparent",
+                        fontWeight: 700
+                      }}
+                    >
+                      VCDB Data Files
+                    </Title>
+                    <Text size="sm" c="dimmed" mb="md">
+                      Vehicle Configuration Database files including base vehicles, configurations, and submodels
+                    </Text>
+                    
+                    <Group justify="center" gap="xs" mb="lg">
+                      <Badge 
+                        variant="gradient"
+                        gradient={{ from: 'blue.6', to: 'cyan.6', deg: 135 }}
+                        size="lg"
+                        radius="lg"
+                      >
+                        {mockImportStatus.vcdb.recordsProcessed.toLocaleString()} records
+                      </Badge>
+                      <Badge 
+                        color={getStatusColor(mockImportStatus.vcdb.status)}
+                        variant="light"
+                        size="lg"
+                        radius="lg"
+                        style={{ textTransform: "capitalize" }}
+                      >
+                        {mockImportStatus.vcdb.status}
+                      </Badge>
+                    </Group>
+                  </div>
+                  
+                  <div 
+                    style={{
+                      width: "100%",
+                      height: "120px",
+                      border: "3px dashed #3b82f6",
+                      borderRadius: "16px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(6, 182, 212, 0.05) 100%)",
+                      transition: "all 0.3s ease",
+                      cursor: "pointer"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%)";
+                      e.currentTarget.style.borderColor = "#06b6d4";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(6, 182, 212, 0.05) 100%)";
+                      e.currentTarget.style.borderColor = "#3b82f6";
+                    }}
+                  >
+                    <Stack align="center" gap="xs">
+                      <IconFolder size={32} color="#3b82f6" />
+                      <Text size="sm" fw={600} c="blue">
+                        Drop VCDB files here
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        CSV, TSV, XLSX supported
+                      </Text>
+                    </Stack>
+                  </div>
+                  
+                  <Button
+                    fullWidth
+                    size="lg"
+                    variant="gradient"
+                    gradient={{ from: 'blue.6', to: 'cyan.6', deg: 135 }}
+                    leftSection={<IconDatabase size={20} />}
+                    onClick={() => handleImportData('VCDB')}
+                    loading={importLoading}
+                    style={{
+                      borderRadius: "12px",
+                      fontSize: "16px",
+                      fontWeight: 600,
+                      padding: "16px",
+                      boxShadow: "0 4px 15px rgba(59, 130, 246, 0.3)"
+                    }}
+                  >
+                    Import VCDB Data
+                  </Button>
+                  
+                  <Text size="xs" c="dimmed" style={{ textAlign: "center" }}>
+                    Last imported: {new Date(mockImportStatus.vcdb.lastRun).toLocaleDateString()} at {new Date(mockImportStatus.vcdb.lastRun).toLocaleTimeString()}
+                  </Text>
+                </Stack>
+              </Card>
+            </Grid.Col>
+
+            {/* Products Upload Section */}
+            <Grid.Col span={6}>
+              <Card 
+                shadow="md" 
+                padding="lg" 
+                radius="xl" 
+                withBorder
+                style={{
+                  background: "linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)",
+                  border: "2px solid #dcfce7",
+                  transition: "all 0.3s ease",
+                  cursor: "pointer",
+                  position: "relative",
+                  overflow: "hidden"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-8px)";
+                  e.currentTarget.style.boxShadow = "0 20px 40px rgba(34, 197, 94, 0.15)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0px)";
+                  e.currentTarget.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1)";
+                }}
+              >
+                <div style={{
+                  position: "absolute",
+                  top: "0",
+                  left: "0",
+                  right: "0",
+                  height: "4px",
+                  background: "linear-gradient(90deg, #22c55e 0%, #10b981 100%)"
+                }} />
+                
+                <Stack align="center" gap="lg">
+                  <div style={{
+                    background: "linear-gradient(135deg, #22c55e 0%, #10b981 100%)",
+                    borderRadius: "24px",
+                    padding: "24px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxShadow: "0 8px 25px rgba(34, 197, 94, 0.3)"
+                  }}>
+                    <IconFile size={48} color="white" />
+                  </div>
+                  
+                  <div style={{ textAlign: "center" }}>
+                    <Title 
+                      order={3} 
+                      mb="xs"
+                      style={{
+                        background: "linear-gradient(135deg, #1e293b 0%, #22c55e 100%)",
+                        WebkitBackgroundClip: "text",
+                        WebkitTextFillColor: "transparent",
+                        fontWeight: 700
+                      }}
+                    >
+                      Products Data Files
+                    </Title>
+                    <Text size="sm" c="dimmed" mb="md">
+                      Parts inventory, part types, positions, and related reference data
+                    </Text>
+                    
+                    <Group justify="center" gap="xs" mb="lg">
+                      <Badge 
+                        variant="gradient"
+                        gradient={{ from: 'green.6', to: 'emerald.6', deg: 135 }}
+                        size="lg"
+                        radius="lg"
+                      >
+                        {mockImportStatus.customer.recordsProcessed.toLocaleString()} records
+                      </Badge>
+                      <Badge 
+                        color={getStatusColor(mockImportStatus.customer.status)}
+                        variant="light"
+                        size="lg"
+                        radius="lg"
+                        style={{ textTransform: "capitalize" }}
+                      >
+                        {mockImportStatus.customer.status}
+                      </Badge>
+                    </Group>
+                  </div>
+                  
+                  <div 
+                    style={{
+                      width: "100%",
+                      height: "120px",
+                      border: "3px dashed #22c55e",
+                      borderRadius: "16px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "linear-gradient(135deg, rgba(34, 197, 94, 0.05) 0%, rgba(16, 185, 129, 0.05) 100%)",
+                      transition: "all 0.3s ease",
+                      cursor: "pointer"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%)";
+                      e.currentTarget.style.borderColor = "#10b981";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "linear-gradient(135deg, rgba(34, 197, 94, 0.05) 0%, rgba(16, 185, 129, 0.05) 100%)";
+                      e.currentTarget.style.borderColor = "#22c55e";
+                    }}
+                  >
+                    <Stack align="center" gap="xs">
+                      <IconFile size={32} color="#22c55e" />
+                      <Text size="sm" fw={600} c="green">
+                        Drop Products files here
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        CSV, TSV, XLSX supported
+                      </Text>
+                    </Stack>
+                  </div>
+                  
+                  <Button
+                    fullWidth
+                    size="lg"
+                    variant="gradient"
+                    gradient={{ from: 'green.6', to: 'emerald.6', deg: 135 }}
+                    leftSection={<IconUpload size={20} />}
+                    onClick={() => handleImportData('Products')}
+                    loading={importLoading}
+                    style={{
+                      borderRadius: "12px",
+                      fontSize: "16px",
+                      fontWeight: 600,
+                      padding: "16px",
+                      boxShadow: "0 4px 15px rgba(34, 197, 94, 0.3)"
+                    }}
+                  >
+                    Import Products Data
+                  </Button>
+                  
+                  <Text size="xs" c="dimmed" style={{ textAlign: "center" }}>
+                    Last imported: {new Date(mockImportStatus.customer.lastRun).toLocaleDateString()} at {new Date(mockImportStatus.customer.lastRun).toLocaleTimeString()}
+                  </Text>
+                </Stack>
+              </Card>
+            </Grid.Col>
+          </Grid>
+
+          {/* Progress Indicator */}
+          <Card 
+            mt="xl" 
+            p="lg" 
+            radius="lg" 
+            style={{
+              background: "linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%)",
+              border: "1px solid rgba(99, 102, 241, 0.2)",
+              position: "relative",
+              zIndex: 1
+            }}
+          >
+            <Group justify="space-between" align="center">
+              <div>
+                <Text fw={600} size="lg" mb="xs">
+                  Upload Progress
+                </Text>
+                <Text size="sm" c="dimmed">
+                  Both VCDB and Products files are required to proceed with fitment operations
+                </Text>
+              </div>
+              <Group gap="lg">
+                <div style={{ textAlign: "center" }}>
+                  <div style={{
+                    width: "60px",
+                    height: "60px",
+                    borderRadius: "50%",
+                    background: mockImportStatus.vcdb.status === 'completed' 
+                      ? "linear-gradient(135deg, #22c55e 0%, #10b981 100%)"
+                      : "linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: "8px",
+                    boxShadow: mockImportStatus.vcdb.status === 'completed' 
+                      ? "0 4px 15px rgba(34, 197, 94, 0.3)"
+                      : "none"
+                  }}>
+                    <IconCheck size={24} color="white" />
+                  </div>
+                  <Text size="xs" fw={600}>VCDB</Text>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{
+                    width: "60px",
+                    height: "60px",
+                    borderRadius: "50%",
+                    background: mockImportStatus.customer.status === 'completed' 
+                      ? "linear-gradient(135deg, #22c55e 0%, #10b981 100%)"
+                      : "linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: "8px",
+                    boxShadow: mockImportStatus.customer.status === 'completed' 
+                      ? "0 4px 15px rgba(34, 197, 94, 0.3)"
+                      : "none"
+                  }}>
+                    <IconCheck size={24} color="white" />
+                  </div>
+                  <Text size="xs" fw={600}>Products</Text>
+                </div>
+              </Group>
+            </Group>
+          </Card>
         </Card>
 
         {/* Data Export */}
