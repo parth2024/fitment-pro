@@ -190,7 +190,9 @@ export default function ApplyFitments() {
         setUploadedFiles({ vcdb: true, products: true });
         setSessionId(result.data.session.id);
         setCurrentStep(2); // Move to step 2 after successful upload
-        toast.success("Files uploaded successfully! Now choose your fitment method.");
+        toast.success(
+          "Files uploaded successfully! Now choose your fitment method.",
+        );
       } else {
         console.error("Invalid response structure:", result);
         throw new Error("Invalid response from server");
@@ -653,650 +655,129 @@ export default function ApplyFitments() {
               overflow: "hidden",
             }}
           >
-          {/* Animated Background Orbs */}
-          <div
-            style={{
-              position: "absolute",
-              top: "-15%",
-              left: "-8%",
-              width: "250px",
-              height: "250px",
-              background:
-                "radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%)",
-              borderRadius: "50%",
-              animation: "float 6s ease-in-out infinite",
-              pointerEvents: "none",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              bottom: "-15%",
-              right: "-8%",
-              width: "200px",
-              height: "200px",
-              background:
-                "radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)",
-              borderRadius: "50%",
-              animation: "float 8s ease-in-out infinite reverse",
-              pointerEvents: "none",
-            }}
-          />
-
-          <Card
-            shadow="2xl"
-            padding="48px"
-            radius="28px"
-            style={{
-              background:
-                "linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%)",
-              backdropFilter: "blur(20px)",
-              border: "1px solid rgba(255,255,255,0.3)",
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
-            {/* Floating Sparkles */}
+            {/* Animated Background Orbs */}
             <div
               style={{
                 position: "absolute",
-                top: "15%",
-                left: "12%",
-                width: "6px",
-                height: "6px",
-                background: "#667eea",
+                top: "-15%",
+                left: "-8%",
+                width: "250px",
+                height: "250px",
+                background:
+                  "radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%)",
                 borderRadius: "50%",
-                animation: "pulse 3s ease-in-out infinite",
-                opacity: 0.6,
+                animation: "float 6s ease-in-out infinite",
+                pointerEvents: "none",
               }}
             />
             <div
               style={{
                 position: "absolute",
-                top: "25%",
-                right: "18%",
-                width: "4px",
-                height: "4px",
-                background: "#f093fb",
+                bottom: "-15%",
+                right: "-8%",
+                width: "200px",
+                height: "200px",
+                background:
+                  "radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)",
                 borderRadius: "50%",
-                animation: "pulse 2s ease-in-out infinite",
-                opacity: 0.5,
+                animation: "float 8s ease-in-out infinite reverse",
+                pointerEvents: "none",
               }}
             />
-            <div
+
+            <Card
+              shadow="2xl"
+              padding="48px"
+              radius="28px"
               style={{
-                position: "absolute",
-                bottom: "20%",
-                left: "22%",
-                width: "5px",
-                height: "5px",
-                background: "#4facfe",
-                borderRadius: "50%",
-                animation: "pulse 4s ease-in-out infinite",
-                opacity: 0.4,
+                background:
+                  "linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%)",
+                backdropFilter: "blur(20px)",
+                border: "1px solid rgba(255,255,255,0.3)",
+                position: "relative",
+                overflow: "hidden",
               }}
-            />
+            >
+              {/* Floating Sparkles */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: "15%",
+                  left: "12%",
+                  width: "6px",
+                  height: "6px",
+                  background: "#667eea",
+                  borderRadius: "50%",
+                  animation: "pulse 3s ease-in-out infinite",
+                  opacity: 0.6,
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  top: "25%",
+                  right: "18%",
+                  width: "4px",
+                  height: "4px",
+                  background: "#f093fb",
+                  borderRadius: "50%",
+                  animation: "pulse 2s ease-in-out infinite",
+                  opacity: 0.5,
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "20%",
+                  left: "22%",
+                  width: "5px",
+                  height: "5px",
+                  background: "#4facfe",
+                  borderRadius: "50%",
+                  animation: "pulse 4s ease-in-out infinite",
+                  opacity: 0.4,
+                }}
+              />
 
-            <Stack gap="xl" style={{ position: "relative", zIndex: 2 }}>
-              <Group justify="space-between">
-                <div>
-                  <Title
-                    order={2}
-                    style={{
-                      background:
-                        "linear-gradient(145deg, #1a1a2e 0%, #16213e 25%, #0f3460 75%, #e94560 100%)",
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
-                      fontWeight: 800,
-                      marginBottom: "8px",
-                      fontSize: "32px",
-                      letterSpacing: "-0.01em",
-                    }}
-                  >
-                    Upload Required Files
-                  </Title>
-                  <Text
-                    size="lg"
-                    style={{
-                      color: "#64748b",
-                      fontWeight: 500,
-                      fontSize: "18px",
-                    }}
-                  >
-                    Upload VCDB data and Products data to proceed
-                  </Text>
-                </div>
-                <div
-                  style={{
-                    background:
-                      "linear-gradient(145deg, #667eea 0%, #764ba2 50%, #f093fb 100%)",
-                    borderRadius: "24px",
-                    padding: "20px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    boxShadow: "0 15px 35px rgba(102, 126, 234, 0.3)",
-                    position: "relative",
-                    overflow: "hidden",
-                  }}
-                >
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "50%",
-                      left: "50%",
-                      transform: "translate(-50%, -50%)",
-                      width: "120%",
-                      height: "120%",
-                      background:
-                        "conic-gradient(from 0deg, transparent 0deg, rgba(255,255,255,0.1) 90deg, transparent 180deg)",
-                      animation: "spin 6s linear infinite",
-                    }}
-                  />
-                  <IconUpload
-                    size={32}
-                    color="white"
-                    style={{ position: "relative", zIndex: 1 }}
-                  />
-                </div>
-              </Group>
-
-              <Grid gutter="xl">
-                <Grid.Col span={6}>
-                  <div
-                    style={{
-                      position: "relative",
-                      height: "100%",
-                    }}
-                  >
-                    {/* VCDB File Input Card */}
-                    <div
+              <Stack gap="xl" style={{ position: "relative", zIndex: 2 }}>
+                <Group justify="space-between">
+                  <div>
+                    <Title
+                      order={2}
                       style={{
                         background:
-                          "linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)",
-                        border: "3px solid transparent",
-                        backgroundClip: "padding-box",
-                        borderRadius: "20px",
-                        padding: "32px",
-                        position: "relative",
-                        overflow: "hidden",
-                        height: "100%",
-                        cursor: "pointer",
-                        transition:
-                          "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
-                        boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                          "linear-gradient(145deg, #1a1a2e 0%, #16213e 25%, #0f3460 75%, #e94560 100%)",
+                        WebkitBackgroundClip: "text",
+                        WebkitTextFillColor: "transparent",
+                        fontWeight: 800,
+                        marginBottom: "8px",
+                        fontSize: "32px",
+                        letterSpacing: "-0.01em",
                       }}
                     >
-                      {/* Gradient Border */}
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "0",
-                          left: "0",
-                          right: "0",
-                          bottom: "0",
-                          background:
-                            "linear-gradient(145deg, #3b82f6, #06b6d4, #8b5cf6)",
-                          borderRadius: "20px",
-                          padding: "3px",
-                        }}
-                      >
-                        <div
-                          style={{
-                            background:
-                              "linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)",
-                            borderRadius: "17px",
-                            height: "100%",
-                            width: "100%",
-                          }}
-                        />
-                      </div>
-
-                      <Stack
-                        align="center"
-                        gap="lg"
-                        style={{ position: "relative", zIndex: 1 }}
-                      >
-                        {/* Icon */}
-                        <div
-                          style={{
-                            background:
-                              "linear-gradient(145deg, #3b82f6 0%, #06b6d4 50%, #8b5cf6 100%)",
-                            borderRadius: "24px",
-                            padding: "24px",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            boxShadow: "0 15px 30px rgba(59, 130, 246, 0.3)",
-                            position: "relative",
-                            overflow: "hidden",
-                          }}
-                        >
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "-50%",
-                              left: "-50%",
-                              width: "200%",
-                              height: "200%",
-                              background:
-                                "conic-gradient(from 0deg, transparent 0deg, rgba(255,255,255,0.1) 90deg, transparent 180deg)",
-                              animation: "spin 5s linear infinite",
-                            }}
-                          />
-                          <IconFileText
-                            size={48}
-                            color="white"
-                            style={{ position: "relative", zIndex: 1 }}
-                          />
-                        </div>
-
-                        <div style={{ textAlign: "center" }}>
-                          <Text
-                            fw={700}
-                            size="lg"
-                            mb="xs"
-                            style={{
-                              background:
-                                "linear-gradient(145deg, #1e293b 0%, #3b82f6 100%)",
-                              WebkitBackgroundClip: "text",
-                              WebkitTextFillColor: "transparent",
-                            }}
-                          >
-                            VCDB Data File
-                          </Text>
-                          <Text size="sm" c="dimmed" mb="md">
-                            Upload vehicle configuration database
-                          </Text>
-                        </div>
-
-                        <FileInput
-                          value={vcdbFile}
-                          onChange={setVcdbFile}
-                          accept=".csv,.xlsx,.json"
-                          placeholder={
-                            vcdbFile
-                              ? vcdbFile.name
-                              : "Select VCDB file (.csv, .xlsx, .json)"
-                          }
-                          style={{ width: "100%" }}
-                          styles={{
-                            input: {
-                              backgroundColor: "rgba(59, 130, 246, 0.05)",
-                              border: "2px dashed #3b82f6",
-                              borderRadius: "12px",
-                              padding: "16px",
-                              fontSize: "14px",
-                              fontWeight: 500,
-                              textAlign: "center",
-                            },
-                          }}
-                        />
-                      </Stack>
-                    </div>
-                  </div>
-                </Grid.Col>
-
-                <Grid.Col span={6}>
-                  <div
-                    style={{
-                      position: "relative",
-                      height: "100%",
-                    }}
-                  >
-                    {/* Products File Input Card */}
-                    <div
+                      Upload Required Files
+                    </Title>
+                    <Text
+                      size="lg"
                       style={{
-                        background:
-                          "linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)",
-                        border: "3px solid transparent",
-                        backgroundClip: "padding-box",
-                        borderRadius: "20px",
-                        padding: "32px",
-                        position: "relative",
-                        overflow: "hidden",
-                        height: "100%",
-                        cursor: "pointer",
-                        transition:
-                          "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
-                        boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                        color: "#64748b",
+                        fontWeight: 500,
+                        fontSize: "18px",
                       }}
                     >
-                      {/* Gradient Border */}
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "0",
-                          left: "0",
-                          right: "0",
-                          bottom: "0",
-                          background:
-                            "linear-gradient(145deg, #22c55e, #10b981, #06d6a0)",
-                          borderRadius: "20px",
-                          padding: "3px",
-                        }}
-                      >
-                        <div
-                          style={{
-                            background:
-                              "linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)",
-                            borderRadius: "17px",
-                            height: "100%",
-                            width: "100%",
-                          }}
-                        />
-                      </div>
-
-                      <Stack
-                        align="center"
-                        gap="lg"
-                        style={{ position: "relative", zIndex: 1 }}
-                      >
-                        {/* Icon */}
-                        <div
-                          style={{
-                            background:
-                              "linear-gradient(145deg, #22c55e 0%, #10b981 50%, #06d6a0 100%)",
-                            borderRadius: "24px",
-                            padding: "24px",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            boxShadow: "0 15px 30px rgba(34, 197, 94, 0.3)",
-                            position: "relative",
-                            overflow: "hidden",
-                          }}
-                        >
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "-50%",
-                              left: "-50%",
-                              width: "200%",
-                              height: "200%",
-                              background:
-                                "conic-gradient(from 0deg, transparent 0deg, rgba(255,255,255,0.1) 90deg, transparent 180deg)",
-                              animation: "spin 5s linear infinite reverse",
-                            }}
-                          />
-                          <IconFileText
-                            size={48}
-                            color="white"
-                            style={{ position: "relative", zIndex: 1 }}
-                          />
-                        </div>
-
-                        <div style={{ textAlign: "center" }}>
-                          <Text
-                            fw={700}
-                            size="lg"
-                            mb="xs"
-                            style={{
-                              background:
-                                "linear-gradient(145deg, #1e293b 0%, #22c55e 100%)",
-                              WebkitBackgroundClip: "text",
-                              WebkitTextFillColor: "transparent",
-                            }}
-                          >
-                            Products Data File
-                          </Text>
-                          <Text size="sm" c="dimmed" mb="md">
-                            Upload products and parts data
-                          </Text>
-                        </div>
-
-                        <FileInput
-                          value={productsFile}
-                          onChange={setProductsFile}
-                          accept=".csv,.xlsx,.json"
-                          placeholder={
-                            productsFile
-                              ? productsFile.name
-                              : "Select Products file (.csv, .xlsx, .json)"
-                          }
-                          style={{ width: "100%" }}
-                          styles={{
-                            input: {
-                              backgroundColor: "rgba(34, 197, 94, 0.05)",
-                              border: "2px dashed #22c55e",
-                              borderRadius: "12px",
-                              padding: "16px",
-                              fontSize: "14px",
-                              fontWeight: 500,
-                              textAlign: "center",
-                            },
-                          }}
-                        />
-                      </Stack>
-                    </div>
+                      Upload VCDB data and Products data to proceed
+                    </Text>
                   </div>
-                </Grid.Col>
-              </Grid>
-
-              {/* Upload Progress */}
-              {uploadStatus === "uploading" && (
-                <Card
-                  p="xl"
-                  radius="lg"
-                  style={{
-                    background:
-                      "linear-gradient(145deg, rgba(59, 130, 246, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%)",
-                    border: "2px solid rgba(59, 130, 246, 0.2)",
-                  }}
-                >
-                  <Stack gap="md">
-                    <Group justify="space-between">
-                      <Text fw={600} size="lg">
-                        Uploading Files...
-                      </Text>
-                      <Text fw={600} size="lg" c="blue">
-                        {uploadProgress}%
-                      </Text>
-                    </Group>
-                    <Progress
-                      value={uploadProgress}
-                      size="xl"
-                      radius="xl"
-                      style={{
-                        background: "rgba(255,255,255,0.5)",
-                      }}
-                    />
-                  </Stack>
-                </Card>
-              )}
-
-              {uploadStatus === "error" && (
-                <Alert
-                  icon={<IconAlertCircle size={20} />}
-                  color="red"
-                  variant="filled"
-                  radius="lg"
-                  style={{
-                    background:
-                      "linear-gradient(145deg, #ef4444 0%, #dc2626 100%)",
-                    border: "none",
-                  }}
-                >
-                  <Text fw={600} size="lg" color="white">
-                    Failed to upload files. Please try again.
-                  </Text>
-                </Alert>
-              )}
-
-              {/* Upload Button */}
-              <div style={{ textAlign: "center" }}>
-                <Button
-                  size="xl"
-                  leftSection={<IconUpload size={20} />}
-                  variant="gradient"
-                  gradient={{ from: "#667eea", to: "#764ba2", deg: 145 }}
-                  onClick={handleFileUpload}
-                  loading={uploadingFiles}
-                  disabled={
-                    !vcdbFile || !productsFile || uploadStatus === "uploading"
-                  }
-                  style={{
-                    borderRadius: "20px",
-                    fontSize: "18px",
-                    fontWeight: 700,
-                    padding: "20px 48px",
-                    boxShadow:
-                      "0 20px 40px rgba(102, 126, 234, 0.3), inset 0 1px 0 rgba(255,255,255,0.2)",
-                    border: "none",
-                    position: "relative",
-                    overflow: "hidden",
-                    minWidth: "280px",
-                    height: "64px",
-                  }}
-                >
-                  Upload Files
-                </Button>
-              </div>
-            </Stack>
-          </Card>
-
-          {/* CSS Animations */}
-          <style>{`
-            @keyframes float {
-              0%, 100% { transform: translateY(0px) rotate(0deg); }
-              50% { transform: translateY(-20px) rotate(180deg); }
-            }
-            @keyframes pulse {
-              0%, 100% { opacity: 0.4; transform: scale(1); }
-              50% { opacity: 0.8; transform: scale(1.2); }
-            }
-            @keyframes spin {
-              from { transform: rotate(0deg); }
-              to { transform: rotate(360deg); }
-            }
-          `}</style>
-        </div>
-        )}
-
-        {/* Step 2: Premium Method Selection Section */}
-        {currentStep === 2 && (
-        <div
-          style={{
-            background:
-              "linear-gradient(145deg, #1a1a2e 0%, #16213e 25%, #0f3460 50%, #0e4355 75%, #1c7a7a 100%)",
-            borderRadius: "32px",
-            padding: "4px",
-            marginBottom: "48px",
-            position: "relative",
-            overflow: "hidden",
-          }}
-        >
-          {/* Animated Background Elements */}
-          <div
-            style={{
-              position: "absolute",
-              top: "-10%",
-              left: "-5%",
-              width: "200px",
-              height: "200px",
-              background:
-                "radial-gradient(circle, rgba(102, 126, 234, 0.15) 0%, transparent 70%)",
-              borderRadius: "50%",
-              animation: "float 7s ease-in-out infinite",
-              pointerEvents: "none",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              bottom: "-10%",
-              right: "-5%",
-              width: "180px",
-              height: "180px",
-              background:
-                "radial-gradient(circle, rgba(139, 92, 246, 0.12) 0%, transparent 70%)",
-              borderRadius: "50%",
-              animation: "float 9s ease-in-out infinite reverse",
-              pointerEvents: "none",
-            }}
-          />
-
-          <Card
-            shadow="2xl"
-            padding="48px"
-            radius="28px"
-            style={{
-              background:
-                "linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.95) 100%)",
-              backdropFilter: "blur(20px)",
-              border: "1px solid rgba(255,255,255,0.4)",
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
-            {/* Floating Elements */}
-            <div
-              style={{
-                position: "absolute",
-                top: "12%",
-                left: "8%",
-                width: "8px",
-                height: "8px",
-                background: "#667eea",
-                borderRadius: "50%",
-                animation: "pulse 3s ease-in-out infinite",
-                opacity: 0.6,
-              }}
-            />
-            <div
-              style={{
-                position: "absolute",
-                top: "20%",
-                right: "15%",
-                width: "6px",
-                height: "6px",
-                background: "#f093fb",
-                borderRadius: "50%",
-                animation: "pulse 2s ease-in-out infinite",
-                opacity: 0.5,
-              }}
-            />
-
-            <Stack gap="xl" style={{ position: "relative", zIndex: 2 }}>
-              <Group justify="space-between">
-                <div>
-                  <Title
-                    order={2}
-                    style={{
-                      background:
-                        "linear-gradient(145deg, #1a1a2e 0%, #16213e 25%, #0f3460 75%, #e94560 100%)",
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
-                      fontWeight: 800,
-                      marginBottom: "8px",
-                      fontSize: "32px",
-                      letterSpacing: "-0.01em",
-                    }}
-                  >
-                    Choose Fitment Method
-                  </Title>
-                  <Text
-                    size="lg"
-                    style={{
-                      color: "#64748b",
-                      fontWeight: 500,
-                      fontSize: "18px",
-                    }}
-                  >
-                    Select how you want to apply fitments
-                  </Text>
-                </div>
-                {uploadedFiles.vcdb && uploadedFiles.products ? (
                   <div
                     style={{
                       background:
-                        "linear-gradient(145deg, #22c55e 0%, #10b981 50%, #06d6a0 100%)",
-                      borderRadius: "20px",
-                      padding: "16px 32px",
+                        "linear-gradient(145deg, #667eea 0%, #764ba2 50%, #f093fb 100%)",
+                      borderRadius: "24px",
+                      padding: "20px",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      boxShadow: "0 15px 30px rgba(34, 197, 94, 0.3)",
+                      boxShadow: "0 15px 35px rgba(102, 126, 234, 0.3)",
                       position: "relative",
                       overflow: "hidden",
                     }}
@@ -1311,70 +792,44 @@ export default function ApplyFitments() {
                         height: "120%",
                         background:
                           "conic-gradient(from 0deg, transparent 0deg, rgba(255,255,255,0.1) 90deg, transparent 180deg)",
-                        animation: "spin 8s linear infinite",
+                        animation: "spin 6s linear infinite",
                       }}
                     />
-                    <Text
-                      fw={700}
-                      size="lg"
+                    <IconUpload
+                      size={32}
                       color="white"
                       style={{ position: "relative", zIndex: 1 }}
-                    >
-                      Files Ready ✓
-                    </Text>
+                    />
                   </div>
-                ) : (
-                  <div
-                    style={{
-                      background:
-                        "linear-gradient(145deg, #f59e0b 0%, #d97706 100%)",
-                      borderRadius: "20px",
-                      padding: "16px 32px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      boxShadow: "0 15px 30px rgba(245, 158, 11, 0.3)",
-                    }}
-                  >
-                    <Text fw={700} size="lg" color="white">
-                      Upload Files First
-                    </Text>
-                  </div>
-                )}
-              </Group>
+                </Group>
 
-              <Grid gutter="xl">
-                {/* Manual Fitment Card */}
-                <Grid.Col span={6}>
-                  <div
-                    style={{
-                      position: "relative",
-                      height: "100%",
-                      cursor: "pointer",
-                      transform:
-                        selectedMethod === "manual"
-                          ? "translateY(-8px)"
-                          : "translateY(0)",
-                      transition:
-                        "all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
-                    }}
-                    onClick={() => setSelectedMethod("manual")}
-                  >
-                    {/* Gradient Border Container */}
+                <Grid gutter="xl">
+                  <Grid.Col span={6}>
                     <div
                       style={{
-                        background:
-                          selectedMethod === "manual"
-                            ? "linear-gradient(145deg, #3b82f6, #1d4ed8, #2563eb)"
-                            : "linear-gradient(145deg, #e2e8f0, #cbd5e1, #94a3b8)",
-                        borderRadius: "24px",
-                        padding: "4px",
-                        height: "100%",
                         position: "relative",
-                        overflow: "hidden",
+                        height: "100%",
                       }}
                     >
-                      {selectedMethod === "manual" && (
+                      {/* VCDB File Input Card */}
+                      <div
+                        style={{
+                          background:
+                            "linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)",
+                          border: "3px solid transparent",
+                          backgroundClip: "padding-box",
+                          borderRadius: "20px",
+                          padding: "32px",
+                          position: "relative",
+                          overflow: "hidden",
+                          height: "100%",
+                          cursor: "pointer",
+                          transition:
+                            "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+                          boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                        }}
+                      >
+                        {/* Gradient Border */}
                         <div
                           style={{
                             position: "absolute",
@@ -1383,346 +838,927 @@ export default function ApplyFitments() {
                             right: "0",
                             bottom: "0",
                             background:
-                              "conic-gradient(from 0deg, #3b82f6, #1d4ed8, #2563eb, #3b82f6)",
-                            borderRadius: "24px",
-                            animation: "spin 3s linear infinite",
+                              "linear-gradient(145deg, #3b82f6, #06b6d4, #8b5cf6)",
+                            borderRadius: "20px",
+                            padding: "3px",
                           }}
-                        />
-                      )}
+                        >
+                          <div
+                            style={{
+                              background:
+                                "linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)",
+                              borderRadius: "17px",
+                              height: "100%",
+                              width: "100%",
+                            }}
+                          />
+                        </div>
 
-                      {/* Card Content */}
-                      <Paper
-                        radius="20px"
+                        <Stack
+                          align="center"
+                          gap="lg"
+                          style={{ position: "relative", zIndex: 1 }}
+                        >
+                          {/* Icon */}
+                          <div
+                            style={{
+                              background:
+                                "linear-gradient(145deg, #3b82f6 0%, #06b6d4 50%, #8b5cf6 100%)",
+                              borderRadius: "24px",
+                              padding: "24px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              boxShadow: "0 15px 30px rgba(59, 130, 246, 0.3)",
+                              position: "relative",
+                              overflow: "hidden",
+                            }}
+                          >
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: "-50%",
+                                left: "-50%",
+                                width: "200%",
+                                height: "200%",
+                                background:
+                                  "conic-gradient(from 0deg, transparent 0deg, rgba(255,255,255,0.1) 90deg, transparent 180deg)",
+                                animation: "spin 5s linear infinite",
+                              }}
+                            />
+                            <IconFileText
+                              size={48}
+                              color="white"
+                              style={{ position: "relative", zIndex: 1 }}
+                            />
+                          </div>
+
+                          <div style={{ textAlign: "center" }}>
+                            <Text
+                              fw={700}
+                              size="lg"
+                              mb="xs"
+                              style={{
+                                background:
+                                  "linear-gradient(145deg, #1e293b 0%, #3b82f6 100%)",
+                                WebkitBackgroundClip: "text",
+                                WebkitTextFillColor: "transparent",
+                              }}
+                            >
+                              VCDB Data File
+                            </Text>
+                            <Text size="sm" c="dimmed" mb="md">
+                              Upload vehicle configuration database
+                            </Text>
+                          </div>
+
+                          <FileInput
+                            value={vcdbFile}
+                            onChange={setVcdbFile}
+                            accept=".csv,.xlsx,.json"
+                            placeholder={
+                              vcdbFile
+                                ? vcdbFile.name
+                                : "Select VCDB file (.csv, .xlsx, .json)"
+                            }
+                            style={{ width: "100%" }}
+                            styles={{
+                              input: {
+                                backgroundColor: "rgba(59, 130, 246, 0.05)",
+                                border: "2px dashed #3b82f6",
+                                borderRadius: "12px",
+                                padding: "16px",
+                                fontSize: "14px",
+                                fontWeight: 500,
+                                textAlign: "center",
+                              },
+                            }}
+                          />
+                        </Stack>
+                      </div>
+                    </div>
+                  </Grid.Col>
+
+                  <Grid.Col span={6}>
+                    <div
+                      style={{
+                        position: "relative",
+                        height: "100%",
+                      }}
+                    >
+                      {/* Products File Input Card */}
+                      <div
+                        style={{
+                          background:
+                            "linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)",
+                          border: "3px solid transparent",
+                          backgroundClip: "padding-box",
+                          borderRadius: "20px",
+                          padding: "32px",
+                          position: "relative",
+                          overflow: "hidden",
+                          height: "100%",
+                          cursor: "pointer",
+                          transition:
+                            "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+                          boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                        }}
+                      >
+                        {/* Gradient Border */}
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: "0",
+                            left: "0",
+                            right: "0",
+                            bottom: "0",
+                            background:
+                              "linear-gradient(145deg, #22c55e, #10b981, #06d6a0)",
+                            borderRadius: "20px",
+                            padding: "3px",
+                          }}
+                        >
+                          <div
+                            style={{
+                              background:
+                                "linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)",
+                              borderRadius: "17px",
+                              height: "100%",
+                              width: "100%",
+                            }}
+                          />
+                        </div>
+
+                        <Stack
+                          align="center"
+                          gap="lg"
+                          style={{ position: "relative", zIndex: 1 }}
+                        >
+                          {/* Icon */}
+                          <div
+                            style={{
+                              background:
+                                "linear-gradient(145deg, #22c55e 0%, #10b981 50%, #06d6a0 100%)",
+                              borderRadius: "24px",
+                              padding: "24px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              boxShadow: "0 15px 30px rgba(34, 197, 94, 0.3)",
+                              position: "relative",
+                              overflow: "hidden",
+                            }}
+                          >
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: "-50%",
+                                left: "-50%",
+                                width: "200%",
+                                height: "200%",
+                                background:
+                                  "conic-gradient(from 0deg, transparent 0deg, rgba(255,255,255,0.1) 90deg, transparent 180deg)",
+                                animation: "spin 5s linear infinite reverse",
+                              }}
+                            />
+                            <IconFileText
+                              size={48}
+                              color="white"
+                              style={{ position: "relative", zIndex: 1 }}
+                            />
+                          </div>
+
+                          <div style={{ textAlign: "center" }}>
+                            <Text
+                              fw={700}
+                              size="lg"
+                              mb="xs"
+                              style={{
+                                background:
+                                  "linear-gradient(145deg, #1e293b 0%, #22c55e 100%)",
+                                WebkitBackgroundClip: "text",
+                                WebkitTextFillColor: "transparent",
+                              }}
+                            >
+                              Products Data File
+                            </Text>
+                            <Text size="sm" c="dimmed" mb="md">
+                              Upload products and parts data
+                            </Text>
+                          </div>
+
+                          <FileInput
+                            value={productsFile}
+                            onChange={setProductsFile}
+                            accept=".csv,.xlsx,.json"
+                            placeholder={
+                              productsFile
+                                ? productsFile.name
+                                : "Select Products file (.csv, .xlsx, .json)"
+                            }
+                            style={{ width: "100%" }}
+                            styles={{
+                              input: {
+                                backgroundColor: "rgba(34, 197, 94, 0.05)",
+                                border: "2px dashed #22c55e",
+                                borderRadius: "12px",
+                                padding: "16px",
+                                fontSize: "14px",
+                                fontWeight: 500,
+                                textAlign: "center",
+                              },
+                            }}
+                          />
+                        </Stack>
+                      </div>
+                    </div>
+                  </Grid.Col>
+                </Grid>
+
+                {/* Upload Progress */}
+                {uploadStatus === "uploading" && (
+                  <Card
+                    p="xl"
+                    radius="lg"
+                    style={{
+                      background:
+                        "linear-gradient(145deg, rgba(59, 130, 246, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%)",
+                      border: "2px solid rgba(59, 130, 246, 0.2)",
+                    }}
+                  >
+                    <Stack gap="md">
+                      <Group justify="space-between">
+                        <Text fw={600} size="lg">
+                          Uploading Files...
+                        </Text>
+                        <Text fw={600} size="lg" c="blue">
+                          {uploadProgress}%
+                        </Text>
+                      </Group>
+                      <Progress
+                        value={uploadProgress}
+                        size="xl"
+                        radius="xl"
+                        style={{
+                          background: "rgba(255,255,255,0.5)",
+                        }}
+                      />
+                    </Stack>
+                  </Card>
+                )}
+
+                {uploadStatus === "error" && (
+                  <Alert
+                    icon={<IconAlertCircle size={20} />}
+                    color="red"
+                    variant="filled"
+                    radius="lg"
+                    style={{
+                      background:
+                        "linear-gradient(145deg, #ef4444 0%, #dc2626 100%)",
+                      border: "none",
+                    }}
+                  >
+                    <Text fw={600} size="lg" color="white">
+                      Failed to upload files. Please try again.
+                    </Text>
+                  </Alert>
+                )}
+
+                {/* Upload Button */}
+                <div style={{ textAlign: "center" }}>
+                  <Button
+                    size="xl"
+                    leftSection={<IconUpload size={20} />}
+                    variant="gradient"
+                    gradient={{ from: "#667eea", to: "#764ba2", deg: 145 }}
+                    onClick={handleFileUpload}
+                    loading={uploadingFiles}
+                    disabled={
+                      !vcdbFile || !productsFile || uploadStatus === "uploading"
+                    }
+                    style={{
+                      borderRadius: "20px",
+                      fontSize: "18px",
+                      fontWeight: 700,
+                      padding: "20px 48px",
+                      boxShadow:
+                        "0 20px 40px rgba(102, 126, 234, 0.3), inset 0 1px 0 rgba(255,255,255,0.2)",
+                      border: "none",
+                      position: "relative",
+                      overflow: "hidden",
+                      minWidth: "280px",
+                      height: "64px",
+                    }}
+                  >
+                    Upload Files
+                  </Button>
+                </div>
+              </Stack>
+            </Card>
+
+            {/* CSS Animations */}
+            <style>{`
+            @keyframes float {
+              0%, 100% { transform: translateY(0px) rotate(0deg); }
+              50% { transform: translateY(-20px) rotate(180deg); }
+            }
+            @keyframes pulse {
+              0%, 100% { opacity: 0.4; transform: scale(1); }
+              50% { opacity: 0.8; transform: scale(1.2); }
+            }
+            @keyframes spin {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+          `}</style>
+          </div>
+        )}
+
+        {/* Step 2: Premium Method Selection Section */}
+        {currentStep === 2 && (
+          <div
+            style={{
+              background:
+                "linear-gradient(145deg, #1a1a2e 0%, #16213e 25%, #0f3460 50%, #0e4355 75%, #1c7a7a 100%)",
+              borderRadius: "32px",
+              padding: "4px",
+              marginBottom: "48px",
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            {/* Animated Background Elements */}
+            <div
+              style={{
+                position: "absolute",
+                top: "-10%",
+                left: "-5%",
+                width: "200px",
+                height: "200px",
+                background:
+                  "radial-gradient(circle, rgba(102, 126, 234, 0.15) 0%, transparent 70%)",
+                borderRadius: "50%",
+                animation: "float 7s ease-in-out infinite",
+                pointerEvents: "none",
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                bottom: "-10%",
+                right: "-5%",
+                width: "180px",
+                height: "180px",
+                background:
+                  "radial-gradient(circle, rgba(139, 92, 246, 0.12) 0%, transparent 70%)",
+                borderRadius: "50%",
+                animation: "float 9s ease-in-out infinite reverse",
+                pointerEvents: "none",
+              }}
+            />
+
+            <Card
+              shadow="2xl"
+              padding="48px"
+              radius="28px"
+              style={{
+                background:
+                  "linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.95) 100%)",
+                backdropFilter: "blur(20px)",
+                border: "1px solid rgba(255,255,255,0.4)",
+                position: "relative",
+                overflow: "hidden",
+              }}
+            >
+              {/* Floating Elements */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: "12%",
+                  left: "8%",
+                  width: "8px",
+                  height: "8px",
+                  background: "#667eea",
+                  borderRadius: "50%",
+                  animation: "pulse 3s ease-in-out infinite",
+                  opacity: 0.6,
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  top: "20%",
+                  right: "15%",
+                  width: "6px",
+                  height: "6px",
+                  background: "#f093fb",
+                  borderRadius: "50%",
+                  animation: "pulse 2s ease-in-out infinite",
+                  opacity: 0.5,
+                }}
+              />
+
+              <Stack gap="xl" style={{ position: "relative", zIndex: 2 }}>
+                <Group justify="space-between">
+                  <div>
+                    <Title
+                      order={2}
+                      style={{
+                        background:
+                          "linear-gradient(145deg, #1a1a2e 0%, #16213e 25%, #0f3460 75%, #e94560 100%)",
+                        WebkitBackgroundClip: "text",
+                        WebkitTextFillColor: "transparent",
+                        fontWeight: 800,
+                        marginBottom: "8px",
+                        fontSize: "32px",
+                        letterSpacing: "-0.01em",
+                      }}
+                    >
+                      Choose Fitment Method
+                    </Title>
+                    <Text
+                      size="lg"
+                      style={{
+                        color: "#64748b",
+                        fontWeight: 500,
+                        fontSize: "18px",
+                      }}
+                    >
+                      Select how you want to apply fitments
+                    </Text>
+                  </div>
+                  {uploadedFiles.vcdb && uploadedFiles.products ? (
+                    <div
+                      style={{
+                        background:
+                          "linear-gradient(145deg, #22c55e 0%, #10b981 50%, #06d6a0 100%)",
+                        borderRadius: "20px",
+                        padding: "16px 32px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        boxShadow: "0 15px 30px rgba(34, 197, 94, 0.3)",
+                        position: "relative",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "50%",
+                          left: "50%",
+                          transform: "translate(-50%, -50%)",
+                          width: "120%",
+                          height: "120%",
+                          background:
+                            "conic-gradient(from 0deg, transparent 0deg, rgba(255,255,255,0.1) 90deg, transparent 180deg)",
+                          animation: "spin 8s linear infinite",
+                        }}
+                      />
+                      <Text
+                        fw={700}
+                        size="lg"
+                        color="white"
+                        style={{ position: "relative", zIndex: 1 }}
+                      >
+                        Files Ready ✓
+                      </Text>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        background:
+                          "linear-gradient(145deg, #f59e0b 0%, #d97706 100%)",
+                        borderRadius: "20px",
+                        padding: "16px 32px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        boxShadow: "0 15px 30px rgba(245, 158, 11, 0.3)",
+                      }}
+                    >
+                      <Text fw={700} size="lg" color="white">
+                        Upload Files First
+                      </Text>
+                    </div>
+                  )}
+                </Group>
+
+                <Grid gutter="xl">
+                  {/* Manual Fitment Card */}
+                  <Grid.Col span={6}>
+                    <div
+                      style={{
+                        position: "relative",
+                        height: "100%",
+                        cursor: "pointer",
+                        transform:
+                          selectedMethod === "manual"
+                            ? "translateY(-8px)"
+                            : "translateY(0)",
+                        transition:
+                          "all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+                      }}
+                      onClick={() => setSelectedMethod("manual")}
+                    >
+                      {/* Gradient Border Container */}
+                      <div
                         style={{
                           background:
                             selectedMethod === "manual"
-                              ? "linear-gradient(145deg, rgba(59, 130, 246, 0.05) 0%, rgba(37, 99, 235, 0.08) 100%)"
-                              : "linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)",
-                          border: "none",
+                              ? "linear-gradient(145deg, #3b82f6, #1d4ed8, #2563eb)"
+                              : "linear-gradient(145deg, #e2e8f0, #cbd5e1, #94a3b8)",
+                          borderRadius: "24px",
+                          padding: "4px",
                           height: "100%",
                           position: "relative",
-                          zIndex: 1,
-                          padding: "48px 32px",
                           overflow: "hidden",
                         }}
                       >
-                        {/* Card Background Pattern */}
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: "-20%",
-                            right: "-20%",
-                            width: "150px",
-                            height: "150px",
-                            background:
-                              selectedMethod === "manual"
-                                ? "radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%)"
-                                : "radial-gradient(circle, rgba(148, 163, 184, 0.05) 0%, transparent 70%)",
-                            borderRadius: "50%",
-                            animation: "float 8s ease-in-out infinite",
-                            pointerEvents: "none",
-                          }}
-                        />
-
-                        <Stack
-                          align="center"
-                          gap="lg"
-                          style={{ position: "relative", zIndex: 1 }}
-                        >
-                          {/* Icon Container */}
+                        {selectedMethod === "manual" && (
                           <div
                             style={{
+                              position: "absolute",
+                              top: "0",
+                              left: "0",
+                              right: "0",
+                              bottom: "0",
+                              background:
+                                "conic-gradient(from 0deg, #3b82f6, #1d4ed8, #2563eb, #3b82f6)",
+                              borderRadius: "24px",
+                              animation: "spin 3s linear infinite",
+                            }}
+                          />
+                        )}
+
+                        {/* Card Content */}
+                        <Paper
+                          radius="20px"
+                          style={{
+                            background:
+                              selectedMethod === "manual"
+                                ? "linear-gradient(145deg, rgba(59, 130, 246, 0.05) 0%, rgba(37, 99, 235, 0.08) 100%)"
+                                : "linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)",
+                            border: "none",
+                            height: "100%",
+                            position: "relative",
+                            zIndex: 1,
+                            padding: "48px 32px",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {/* Card Background Pattern */}
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: "-20%",
+                              right: "-20%",
+                              width: "150px",
+                              height: "150px",
                               background:
                                 selectedMethod === "manual"
-                                  ? "linear-gradient(145deg, #3b82f6 0%, #1d4ed8 50%, #2563eb 100%)"
-                                  : "linear-gradient(145deg, #64748b 0%, #475569 100%)",
-                              borderRadius: "28px",
-                              padding: "32px",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              boxShadow:
-                                selectedMethod === "manual"
-                                  ? "0 25px 50px rgba(59, 130, 246, 0.4)"
-                                  : "0 15px 30px rgba(100, 116, 139, 0.2)",
-                              position: "relative",
-                              overflow: "hidden",
-                              transform:
-                                selectedMethod === "manual"
-                                  ? "scale(1.1)"
-                                  : "scale(1)",
-                              transition: "all 0.4s ease",
+                                  ? "radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%)"
+                                  : "radial-gradient(circle, rgba(148, 163, 184, 0.05) 0%, transparent 70%)",
+                              borderRadius: "50%",
+                              animation: "float 8s ease-in-out infinite",
+                              pointerEvents: "none",
                             }}
+                          />
+
+                          <Stack
+                            align="center"
+                            gap="lg"
+                            style={{ position: "relative", zIndex: 1 }}
                           >
+                            {/* Icon Container */}
+                            <div
+                              style={{
+                                background:
+                                  selectedMethod === "manual"
+                                    ? "linear-gradient(145deg, #3b82f6 0%, #1d4ed8 50%, #2563eb 100%)"
+                                    : "linear-gradient(145deg, #64748b 0%, #475569 100%)",
+                                borderRadius: "28px",
+                                padding: "32px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                boxShadow:
+                                  selectedMethod === "manual"
+                                    ? "0 25px 50px rgba(59, 130, 246, 0.4)"
+                                    : "0 15px 30px rgba(100, 116, 139, 0.2)",
+                                position: "relative",
+                                overflow: "hidden",
+                                transform:
+                                  selectedMethod === "manual"
+                                    ? "scale(1.1)"
+                                    : "scale(1)",
+                                transition: "all 0.4s ease",
+                              }}
+                            >
+                              {selectedMethod === "manual" && (
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    top: "-50%",
+                                    left: "-50%",
+                                    width: "200%",
+                                    height: "200%",
+                                    background:
+                                      "conic-gradient(from 0deg, transparent 0deg, rgba(255,255,255,0.15) 90deg, transparent 180deg)",
+                                    animation: "spin 4s linear infinite",
+                                  }}
+                                />
+                              )}
+                              <IconSettings
+                                size={48}
+                                color="white"
+                                style={{ position: "relative", zIndex: 1 }}
+                              />
+                            </div>
+
+                            {/* Content */}
+                            <div style={{ textAlign: "center" }}>
+                              <Title
+                                order={3}
+                                mb="md"
+                                style={{
+                                  background:
+                                    selectedMethod === "manual"
+                                      ? "linear-gradient(145deg, #1e293b 0%, #3b82f6 100%)"
+                                      : "linear-gradient(145deg, #1e293b 0%, #64748b 100%)",
+                                  WebkitBackgroundClip: "text",
+                                  WebkitTextFillColor: "transparent",
+                                  fontWeight: 700,
+                                  fontSize: "24px",
+                                }}
+                              >
+                                Manual Fitment
+                              </Title>
+                              <Text
+                                size="md"
+                                style={{
+                                  color:
+                                    selectedMethod === "manual"
+                                      ? "#3b82f6"
+                                      : "#64748b",
+                                  fontWeight: 500,
+                                  lineHeight: 1.6,
+                                }}
+                              >
+                                Apply fitments manually using the existing
+                                interface with precise control
+                              </Text>
+                            </div>
+
                             {selectedMethod === "manual" && (
                               <div
                                 style={{
-                                  position: "absolute",
-                                  top: "-50%",
-                                  left: "-50%",
-                                  width: "200%",
-                                  height: "200%",
                                   background:
-                                    "conic-gradient(from 0deg, transparent 0deg, rgba(255,255,255,0.15) 90deg, transparent 180deg)",
-                                  animation: "spin 4s linear infinite",
+                                    "linear-gradient(145deg, #3b82f6 0%, #1d4ed8 100%)",
+                                  borderRadius: "16px",
+                                  padding: "12px 24px",
+                                  marginTop: "16px",
                                 }}
-                              />
+                              >
+                                <Text fw={600} size="sm" color="white">
+                                  SELECTED ✓
+                                </Text>
+                              </div>
                             )}
-                            <IconSettings
-                              size={48}
-                              color="white"
-                              style={{ position: "relative", zIndex: 1 }}
-                            />
-                          </div>
-
-                          {/* Content */}
-                          <div style={{ textAlign: "center" }}>
-                            <Title
-                              order={3}
-                              mb="md"
-                              style={{
-                                background:
-                                  selectedMethod === "manual"
-                                    ? "linear-gradient(145deg, #1e293b 0%, #3b82f6 100%)"
-                                    : "linear-gradient(145deg, #1e293b 0%, #64748b 100%)",
-                                WebkitBackgroundClip: "text",
-                                WebkitTextFillColor: "transparent",
-                                fontWeight: 700,
-                                fontSize: "24px",
-                              }}
-                            >
-                              Manual Fitment
-                            </Title>
-                            <Text
-                              size="md"
-                              style={{
-                                color:
-                                  selectedMethod === "manual"
-                                    ? "#3b82f6"
-                                    : "#64748b",
-                                fontWeight: 500,
-                                lineHeight: 1.6,
-                              }}
-                            >
-                              Apply fitments manually using the existing
-                              interface with precise control
-                            </Text>
-                          </div>
-
-                          {selectedMethod === "manual" && (
-                            <div
-                              style={{
-                                background:
-                                  "linear-gradient(145deg, #3b82f6 0%, #1d4ed8 100%)",
-                                borderRadius: "16px",
-                                padding: "12px 24px",
-                                marginTop: "16px",
-                              }}
-                            >
-                              <Text fw={600} size="sm" color="white">
-                                SELECTED ✓
-                              </Text>
-                            </div>
-                          )}
-                        </Stack>
-                      </Paper>
+                          </Stack>
+                        </Paper>
+                      </div>
                     </div>
-                  </div>
-                </Grid.Col>
+                  </Grid.Col>
 
-                {/* AI Fitment Card */}
-                <Grid.Col span={6}>
-                  <div
-                    style={{
-                      position: "relative",
-                      height: "100%",
-                      cursor: "pointer",
-                      transform:
-                        selectedMethod === "ai"
-                          ? "translateY(-8px)"
-                          : "translateY(0)",
-                      transition:
-                        "all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
-                    }}
-                    onClick={() => setSelectedMethod("ai")}
-                  >
-                    {/* Gradient Border Container */}
+                  {/* AI Fitment Card */}
+                  <Grid.Col span={6}>
                     <div
                       style={{
-                        background:
-                          selectedMethod === "ai"
-                            ? "linear-gradient(145deg, #8b5cf6, #7c3aed, #6d28d9)"
-                            : "linear-gradient(145deg, #e2e8f0, #cbd5e1, #94a3b8)",
-                        borderRadius: "24px",
-                        padding: "4px",
-                        height: "100%",
                         position: "relative",
-                        overflow: "hidden",
+                        height: "100%",
+                        cursor: "pointer",
+                        transform:
+                          selectedMethod === "ai"
+                            ? "translateY(-8px)"
+                            : "translateY(0)",
+                        transition:
+                          "all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
                       }}
+                      onClick={() => setSelectedMethod("ai")}
                     >
-                      {selectedMethod === "ai" && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: "0",
-                            left: "0",
-                            right: "0",
-                            bottom: "0",
-                            background:
-                              "conic-gradient(from 0deg, #8b5cf6, #7c3aed, #6d28d9, #8b5cf6)",
-                            borderRadius: "24px",
-                            animation: "spin 3s linear infinite reverse",
-                          }}
-                        />
-                      )}
-
-                      {/* Card Content */}
-                      <Paper
-                        radius="20px"
+                      {/* Gradient Border Container */}
+                      <div
                         style={{
                           background:
                             selectedMethod === "ai"
-                              ? "linear-gradient(145deg, rgba(139, 92, 246, 0.05) 0%, rgba(124, 58, 237, 0.08) 100%)"
-                              : "linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)",
-                          border: "none",
+                              ? "linear-gradient(145deg, #8b5cf6, #7c3aed, #6d28d9)"
+                              : "linear-gradient(145deg, #e2e8f0, #cbd5e1, #94a3b8)",
+                          borderRadius: "24px",
+                          padding: "4px",
                           height: "100%",
                           position: "relative",
-                          zIndex: 1,
-                          padding: "48px 32px",
                           overflow: "hidden",
                         }}
                       >
-                        {/* Card Background Pattern */}
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: "-20%",
-                            right: "-20%",
-                            width: "150px",
-                            height: "150px",
-                            background:
-                              selectedMethod === "ai"
-                                ? "radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%)"
-                                : "radial-gradient(circle, rgba(148, 163, 184, 0.05) 0%, transparent 70%)",
-                            borderRadius: "50%",
-                            animation: "float 8s ease-in-out infinite reverse",
-                            pointerEvents: "none",
-                          }}
-                        />
-
-                        <Stack
-                          align="center"
-                          gap="lg"
-                          style={{ position: "relative", zIndex: 1 }}
-                        >
-                          {/* Icon Container */}
+                        {selectedMethod === "ai" && (
                           <div
                             style={{
+                              position: "absolute",
+                              top: "0",
+                              left: "0",
+                              right: "0",
+                              bottom: "0",
+                              background:
+                                "conic-gradient(from 0deg, #8b5cf6, #7c3aed, #6d28d9, #8b5cf6)",
+                              borderRadius: "24px",
+                              animation: "spin 3s linear infinite reverse",
+                            }}
+                          />
+                        )}
+
+                        {/* Card Content */}
+                        <Paper
+                          radius="20px"
+                          style={{
+                            background:
+                              selectedMethod === "ai"
+                                ? "linear-gradient(145deg, rgba(139, 92, 246, 0.05) 0%, rgba(124, 58, 237, 0.08) 100%)"
+                                : "linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)",
+                            border: "none",
+                            height: "100%",
+                            position: "relative",
+                            zIndex: 1,
+                            padding: "48px 32px",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {/* Card Background Pattern */}
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: "-20%",
+                              right: "-20%",
+                              width: "150px",
+                              height: "150px",
                               background:
                                 selectedMethod === "ai"
-                                  ? "linear-gradient(145deg, #8b5cf6 0%, #7c3aed 50%, #6d28d9 100%)"
-                                  : "linear-gradient(145deg, #64748b 0%, #475569 100%)",
-                              borderRadius: "28px",
-                              padding: "32px",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              boxShadow:
-                                selectedMethod === "ai"
-                                  ? "0 25px 50px rgba(139, 92, 246, 0.4)"
-                                  : "0 15px 30px rgba(100, 116, 139, 0.2)",
-                              position: "relative",
-                              overflow: "hidden",
-                              transform:
-                                selectedMethod === "ai"
-                                  ? "scale(1.1)"
-                                  : "scale(1)",
-                              transition: "all 0.4s ease",
+                                  ? "radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%)"
+                                  : "radial-gradient(circle, rgba(148, 163, 184, 0.05) 0%, transparent 70%)",
+                              borderRadius: "50%",
+                              animation:
+                                "float 8s ease-in-out infinite reverse",
+                              pointerEvents: "none",
                             }}
+                          />
+
+                          <Stack
+                            align="center"
+                            gap="lg"
+                            style={{ position: "relative", zIndex: 1 }}
                           >
-                            {selectedMethod === "ai" && (
-                              <div
-                                style={{
-                                  position: "absolute",
-                                  top: "-50%",
-                                  left: "-50%",
-                                  width: "200%",
-                                  height: "200%",
-                                  background:
-                                    "conic-gradient(from 0deg, transparent 0deg, rgba(255,255,255,0.15) 90deg, transparent 180deg)",
-                                  animation: "spin 4s linear infinite reverse",
-                                }}
-                              />
-                            )}
-                            <IconBrain
-                              size={48}
-                              color="white"
-                              style={{ position: "relative", zIndex: 1 }}
-                            />
-                          </div>
-
-                          {/* Content */}
-                          <div style={{ textAlign: "center" }}>
-                            <Title
-                              order={3}
-                              mb="md"
-                              style={{
-                                background:
-                                  selectedMethod === "ai"
-                                    ? "linear-gradient(145deg, #1e293b 0%, #8b5cf6 100%)"
-                                    : "linear-gradient(145deg, #1e293b 0%, #64748b 100%)",
-                                WebkitBackgroundClip: "text",
-                                WebkitTextFillColor: "transparent",
-                                fontWeight: 700,
-                                fontSize: "24px",
-                              }}
-                            >
-                              AI Fitment
-                            </Title>
-                            <Text
-                              size="md"
-                              style={{
-                                color:
-                                  selectedMethod === "ai"
-                                    ? "#8b5cf6"
-                                    : "#64748b",
-                                fontWeight: 500,
-                                lineHeight: 1.6,
-                              }}
-                            >
-                              Use AI to automatically generate fitments with
-                              intelligent analysis
-                            </Text>
-                          </div>
-
-                          {selectedMethod === "ai" && (
+                            {/* Icon Container */}
                             <div
                               style={{
                                 background:
-                                  "linear-gradient(145deg, #8b5cf6 0%, #7c3aed 100%)",
-                                borderRadius: "16px",
-                                padding: "12px 24px",
-                                marginTop: "16px",
+                                  selectedMethod === "ai"
+                                    ? "linear-gradient(145deg, #8b5cf6 0%, #7c3aed 50%, #6d28d9 100%)"
+                                    : "linear-gradient(145deg, #64748b 0%, #475569 100%)",
+                                borderRadius: "28px",
+                                padding: "32px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                boxShadow:
+                                  selectedMethod === "ai"
+                                    ? "0 25px 50px rgba(139, 92, 246, 0.4)"
+                                    : "0 15px 30px rgba(100, 116, 139, 0.2)",
+                                position: "relative",
+                                overflow: "hidden",
+                                transform:
+                                  selectedMethod === "ai"
+                                    ? "scale(1.1)"
+                                    : "scale(1)",
+                                transition: "all 0.4s ease",
                               }}
                             >
-                              <Text fw={600} size="sm" color="white">
-                                SELECTED ✓
+                              {selectedMethod === "ai" && (
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    top: "-50%",
+                                    left: "-50%",
+                                    width: "200%",
+                                    height: "200%",
+                                    background:
+                                      "conic-gradient(from 0deg, transparent 0deg, rgba(255,255,255,0.15) 90deg, transparent 180deg)",
+                                    animation:
+                                      "spin 4s linear infinite reverse",
+                                  }}
+                                />
+                              )}
+                              <IconBrain
+                                size={48}
+                                color="white"
+                                style={{ position: "relative", zIndex: 1 }}
+                              />
+                            </div>
+
+                            {/* Content */}
+                            <div style={{ textAlign: "center" }}>
+                              <Title
+                                order={3}
+                                mb="md"
+                                style={{
+                                  background:
+                                    selectedMethod === "ai"
+                                      ? "linear-gradient(145deg, #1e293b 0%, #8b5cf6 100%)"
+                                      : "linear-gradient(145deg, #1e293b 0%, #64748b 100%)",
+                                  WebkitBackgroundClip: "text",
+                                  WebkitTextFillColor: "transparent",
+                                  fontWeight: 700,
+                                  fontSize: "24px",
+                                }}
+                              >
+                                AI Fitment
+                              </Title>
+                              <Text
+                                size="md"
+                                style={{
+                                  color:
+                                    selectedMethod === "ai"
+                                      ? "#8b5cf6"
+                                      : "#64748b",
+                                  fontWeight: 500,
+                                  lineHeight: 1.6,
+                                }}
+                              >
+                                Use AI to automatically generate fitments with
+                                intelligent analysis
                               </Text>
                             </div>
-                          )}
-                        </Stack>
-                      </Paper>
-                    </div>
-                  </div>
-                </Grid.Col>
-              </Grid>
-            </Stack>
-          </Card>
-        </div>
-        )}
 
-        {/* Step 2 AI Fitment Processing */}
-        {currentStep === 2 && selectedMethod === "ai" && (
+                            {selectedMethod === "ai" && (
+                              <div
+                                style={{
+                                  background:
+                                    "linear-gradient(145deg, #8b5cf6 0%, #7c3aed 100%)",
+                                  borderRadius: "16px",
+                                  padding: "12px 24px",
+                                  marginTop: "16px",
+                                }}
+                              >
+                                <Text fw={600} size="sm" color="white">
+                                  SELECTED ✓
+                                </Text>
+                              </div>
+                            )}
+                          </Stack>
+                        </Paper>
+                      </div>
+                    </div>
+                  </Grid.Col>
+                </Grid>
+              </Stack>
+            </Card>
+          </div>
+        )}
+        {/* Success Message Section */}
+        {appliedFitmentsCount !== null && (
+          <Card
+            shadow="lg"
+            padding="xl"
+            radius="xl"
+            withBorder
+            style={{
+              background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+              border: "2px solid #10b981",
+              marginBottom: "24px",
+            }}
+          >
+            <Stack gap="lg" align="center">
+              <Group gap="sm">
+                <IconCheck size={32} color="white" />
+                <Title order={3} c="white">
+                  Fitments Applied Successfully!
+                </Title>
+              </Group>
+              <Text size="lg" c="white" ta="center" fw={500}>
+                {appliedFitmentsCount} AI-generated fitments have been applied
+                to your database.
+              </Text>
+              <Group>
+                <Button
+                  variant="white"
+                  color="green"
+                  size="lg"
+                  leftSection={<IconDownload size={16} />}
+                  onClick={() => (window.location.href = "/fitments")}
+                >
+                  View Applied Fitments
+                </Button>
+                <Button
                   variant="outline"
                   color="white"
                   size="lg"
@@ -2842,59 +2878,57 @@ export default function ApplyFitments() {
               </Grid.Col>
             </Grid>
           )}
-        </div>
-        )}
-
-        {/* Success Message Section */}
-        {appliedFitmentsCount !== null && (
-          <Card
-            shadow="lg"
-            padding="xl"
-            radius="xl"
-            withBorder
-            style={{
-              background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-              border: "2px solid #10b981",
-              marginBottom: "24px",
-            }}
-          >
-            <Stack gap="lg" align="center">
-              <Group gap="sm">
-                <IconCheck size={32} color="white" />
-                <Title order={3} c="white">
-                  Fitments Applied Successfully!
-                </Title>
-              </Group>
-              <Text size="lg" c="white" ta="center" fw={500}>
-                {appliedFitmentsCount} AI-generated fitments have been applied to
-                your database.
-              </Text>
-              <Group>
-                <Button
-                  variant="white"
-                  color="green"
-                  size="lg"
-                  leftSection={<IconDownload size={16} />}
-                  onClick={() => (window.location.href = "/fitments")}
-                >
-                  View Applied Fitments
-                </Button>
-                <Button
-                  variant="light"
-                  color="gray"
-                  size="lg"
-                  onClick={() => {
-                    setAppliedFitmentsCount(null);
-                    setCurrentStep(1);
-                  }}
-                >
-                  Start New Upload
-                </Button>
-              </Group>
-            </Stack>
-          </Card>
-        )}
       </div>
+
+      {/* Success Message Section */}
+      {appliedFitmentsCount !== null && (
+        <Card
+          shadow="lg"
+          padding="xl"
+          radius="xl"
+          withBorder
+          style={{
+            background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+            border: "2px solid #10b981",
+            marginBottom: "24px",
+          }}
+        >
+          <Stack gap="lg" align="center">
+            <Group gap="sm">
+              <IconCheck size={32} color="white" />
+              <Title order={3} c="white">
+                Fitments Applied Successfully!
+              </Title>
+            </Group>
+            <Text size="lg" c="white" ta="center" fw={500}>
+              {appliedFitmentsCount} AI-generated fitments have been applied to
+              your database.
+            </Text>
+            <Group>
+              <Button
+                variant="white"
+                color="green"
+                size="lg"
+                leftSection={<IconDownload size={16} />}
+                onClick={() => (window.location.href = "/fitments")}
+              >
+                View Applied Fitments
+              </Button>
+              <Button
+                variant="light"
+                color="gray"
+                size="lg"
+                onClick={() => {
+                  setAppliedFitmentsCount(null);
+                  setCurrentStep(1);
+                }}
+              >
+                Start New Upload
+              </Button>
+            </Group>
+          </Stack>
+        </Card>
+      )}
     </div>
   );
 }

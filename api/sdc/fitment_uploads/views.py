@@ -207,7 +207,7 @@ def apply_ai_fitments(request):
                 model=ai_result.model,
                 submodel=ai_result.submodel,
                 drive_type=ai_result.drive_type,
-                position=ai_result.position,
+                position=ai_result.position or 'Universal',  # Provide default if null
                 quantity=ai_result.quantity,
                 title=f"AI Generated Fitment",
                 description=ai_result.ai_reasoning
