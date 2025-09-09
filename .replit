@@ -38,13 +38,13 @@ args = "Frontend"
 name = "Backend"
 author = "agent"
 
-[workflows.workflow.metadata]
-outputType = "console"
-
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd api && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 waitForPort = 8000
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [[workflows.workflow]]
 name = "Frontend"
