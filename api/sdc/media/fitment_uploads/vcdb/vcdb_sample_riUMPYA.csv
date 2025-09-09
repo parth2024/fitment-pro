@@ -1,0 +1,41 @@
+id,year,make,model,submodel,driveType,fuelType,numDoors,bodyType,engineSize,transmission
+VCDB001,2023,Toyota,Camry,LE,FWD,Gas,4,Sedan,2.5L,Automatic
+VCDB002,2023,Toyota,Camry,XLE,FWD,Gas,4,Sedan,2.5L,Automatic
+VCDB003,2023,Toyota,Camry,XSE,FWD,Gas,4,Sedan,2.5L,Automatic
+VCDB004,2023,Toyota,RAV4,LE,AWD,Gas,5,SUV,2.5L,Automatic
+VCDB005,2023,Toyota,RAV4,XLE,AWD,Gas,5,SUV,2.5L,Automatic
+VCDB006,2023,Toyota,RAV4,XSE,AWD,Gas,5,SUV,2.5L,Automatic
+VCDB007,2023,Honda,Civic,Sport,FWD,Gas,4,Sedan,1.5L,CVT
+VCDB008,2023,Honda,Civic,Touring,FWD,Gas,4,Sedan,1.5L,CVT
+VCDB009,2023,Honda,CR-V,EX,AWD,Gas,5,SUV,1.5L,CVT
+VCDB010,2023,Honda,CR-V,Touring,AWD,Gas,5,SUV,1.5L,CVT
+VCDB011,2023,Ford,F-150,XLT,4WD,Gas,4,Truck,3.5L,Automatic
+VCDB012,2023,Ford,F-150,Lariat,4WD,Gas,4,Truck,3.5L,Automatic
+VCDB013,2023,Ford,Explorer,XLT,AWD,Gas,5,SUV,2.3L,Automatic
+VCDB014,2023,Ford,Explorer,Platinum,AWD,Gas,5,SUV,3.0L,Automatic
+VCDB015,2023,Chevrolet,Silverado,LT,4WD,Gas,4,Truck,5.3L,Automatic
+VCDB016,2023,Chevrolet,Silverado,High Country,4WD,Gas,4,Truck,6.2L,Automatic
+VCDB017,2023,Chevrolet,Equinox,LT,AWD,Gas,5,SUV,1.5L,CVT
+VCDB018,2023,Chevrolet,Equinox,Premier,AWD,Gas,5,SUV,2.0L,Automatic
+VCDB019,2023,Nissan,Altima,SV,FWD,Gas,4,Sedan,2.5L,CVT
+VCDB020,2023,Nissan,Altima,Platinum,FWD,Gas,4,Sedan,2.0L,CVT
+VCDB021,2023,Nissan,Rogue,SV,AWD,Gas,5,SUV,2.5L,CVT
+VCDB022,2023,Nissan,Rogue,Platinum,AWD,Gas,5,SUV,2.5L,CVT
+VCDB023,2023,BMW,3 Series,330i,RWD,Gas,4,Sedan,2.0L,Automatic
+VCDB024,2023,BMW,3 Series,M340i,AWD,Gas,4,Sedan,3.0L,Automatic
+VCDB025,2023,BMW,X3,xDrive30i,AWD,Gas,5,SUV,2.0L,Automatic
+VCDB026,2023,BMW,X3,M40i,AWD,Gas,5,SUV,3.0L,Automatic
+VCDB027,2023,Mercedes-Benz,C-Class,C300,RWD,Gas,4,Sedan,2.0L,Automatic
+VCDB028,2023,Mercedes-Benz,C-Class,C300 4MATIC,AWD,Gas,4,Sedan,2.0L,Automatic
+VCDB029,2023,Mercedes-Benz,GLC,GLC300,AWD,Gas,5,SUV,2.0L,Automatic
+VCDB030,2023,Mercedes-Benz,GLC,GLC43 AMG,AWD,Gas,5,SUV,3.0L,Automatic
+VCDB031,2022,Toyota,Camry,LE,FWD,Gas,4,Sedan,2.5L,Automatic
+VCDB032,2022,Toyota,Camry,XLE,FWD,Gas,4,Sedan,2.5L,Automatic
+VCDB033,2022,Honda,Civic,Sport,FWD,Gas,4,Sedan,1.5L,CVT
+VCDB034,2022,Honda,Civic,Touring,FWD,Gas,4,Sedan,1.5L,CVT
+VCDB035,2022,Ford,F-150,XLT,4WD,Gas,4,Truck,3.5L,Automatic
+VCDB036,2022,Ford,F-150,Lariat,4WD,Gas,4,Truck,3.5L,Automatic
+VCDB037,2024,Toyota,Camry,LE,FWD,Gas,4,Sedan,2.5L,Automatic
+VCDB038,2024,Toyota,Camry,XLE,FWD,Gas,4,Sedan,2.5L,Automatic
+VCDB039,2024,Honda,Civic,Sport,FWD,Gas,4,Sedan,1.5L,CVT
+VCDB040,2024,Honda,Civic,Touring,FWD,Gas,4,Sedan,1.5L,CVT

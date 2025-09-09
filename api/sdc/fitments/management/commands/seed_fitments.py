@@ -1,0 +1,100 @@
+from django.core.management.base import BaseCommand
+from fitments.models import Fitment
+
+
+class Command(BaseCommand):
+    help = 'Seed sample fitments into the database'
+
+    def handle(self, *args, **options):
+        samples = [
+            {
+                "hash": "fh001",
+                "partId": "P-12345",
+                "itemStatus": "Active",
+                "itemStatusCode": 0,
+                "baseVehicleId": "180952",
+                "year": 2025,
+                "makeName": "Acura",
+                "modelName": "ADX",
+                "subModelName": "Advance",
+                "driveTypeName": "AWD",
+                "fuelTypeName": "Gas",
+                "bodyNumDoors": 4,
+                "bodyTypeName": "Crossover",
+                "ptid": "PT-22",
+                "partTypeDescriptor": "Brake Pads",
+                "uom": "Set",
+                "quantity": 1,
+                "fitmentTitle": "Standard Brake Fit",
+                "fitmentDescription": "OEM replacement brake pads",
+                "fitmentNotes": "",
+                "position": "Front",
+                "positionId": 1,
+                "liftHeight": "Stock",
+                "wheelType": "Alloy",
+                "createdBy": "admin",
+                "updatedBy": "admin",
+            },
+            {
+                "hash": "fh002",
+                "partId": "P-67890",
+                "itemStatus": "Active",
+                "itemStatusCode": 0,
+                "baseVehicleId": "140100",
+                "year": 2024,
+                "makeName": "Toyota",
+                "modelName": "RAV4",
+                "subModelName": "XLE",
+                "driveTypeName": "AWD",
+                "fuelTypeName": "Gas",
+                "bodyNumDoors": 4,
+                "bodyTypeName": "Crossover",
+                "ptid": "PT-33",
+                "partTypeDescriptor": "Air Filter",
+                "uom": "Each",
+                "quantity": 1,
+                "fitmentTitle": "Performance Air Filter",
+                "fitmentDescription": "High-flow air filter",
+                "fitmentNotes": "",
+                "position": "Engine Bay",
+                "positionId": 2,
+                "liftHeight": "Stock",
+                "wheelType": "N/A",
+                "createdBy": "tech1",
+                "updatedBy": "tech1",
+            },
+            {
+                "hash": "fh003",
+                "partId": "P-11111",
+                "itemStatus": "Inactive",
+                "itemStatusCode": 1,
+                "baseVehicleId": "150200",
+                "year": 2024,
+                "makeName": "Ford",
+                "modelName": "F-150",
+                "subModelName": "Lariat",
+                "driveTypeName": "4WD",
+                "fuelTypeName": "Gas",
+                "bodyNumDoors": 4,
+                "bodyTypeName": "Truck",
+                "ptid": "PT-44",
+                "partTypeDescriptor": "Oil Filter",
+                "uom": "Each",
+                "quantity": 1,
+                "fitmentTitle": "Heavy Duty Oil Filter",
+                "fitmentDescription": "Extended life oil filter",
+                "fitmentNotes": "",
+                "position": "Engine",
+                "positionId": 3,
+                "liftHeight": "0-1in",
+                "wheelType": "Steel",
+                "createdBy": "admin",
+                "updatedBy": "admin",
+            },
+        ]
+        created = 0
+        for s in samples:
+            obj, was_created = Fitment.objects.update_or_create(hash=s["hash"], defaults=s)
+            if was_created:
+                created += 1
+        self.stdout.write(self.style.SUCCESS(f"Seeded {created} fitments (idempotent)"))
