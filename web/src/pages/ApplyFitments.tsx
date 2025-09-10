@@ -164,7 +164,7 @@ export default function ApplyFitments() {
     e.preventDefault();
     e.stopPropagation();
     setVcdbDragActive(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       setVcdbFile(e.dataTransfer.files[0]);
     }
@@ -185,7 +185,7 @@ export default function ApplyFitments() {
     e.preventDefault();
     e.stopPropagation();
     setProductsDragActive(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       setProductsFile(e.dataTransfer.files[0]);
     }
@@ -254,7 +254,7 @@ export default function ApplyFitments() {
     setAiProcessing(true);
     setAiProgress(0);
     setAiLogs([]);
-    
+
     // Simulate professional AI processing with realistic logs
     const logs = [
       "🔍 Initializing AI Fitment Engine...",
@@ -264,21 +264,21 @@ export default function ApplyFitments() {
       "⚡ Applying machine learning models...",
       "🎯 Calculating fitment probabilities...",
       "📈 Optimizing recommendation scores...",
-      "✅ Generating fitment suggestions..."
+      "✅ Generating fitment suggestions...",
     ];
-    
+
     // Progressive log updates
     const logInterval = setInterval(() => {
-      setAiLogs(prev => {
+      setAiLogs((prev) => {
         const nextIndex = prev.length;
         if (nextIndex < logs.length) {
           return [...prev, logs[nextIndex]];
         }
         return prev;
       });
-      setAiProgress(prev => Math.min(prev + 12, 95));
+      setAiProgress((prev) => Math.min(prev + 12, 95));
     }, 800);
-    
+
     try {
       // Call Azure AI Foundry API
       const result: any = await processAiFitment(() =>
@@ -287,7 +287,7 @@ export default function ApplyFitments() {
 
       clearInterval(logInterval);
       setAiProgress(100);
-      setAiLogs(prev => [...prev, "🎉 AI fitment generation completed!"]);
+      setAiLogs((prev) => [...prev, "🎉 AI fitment generation completed!"]);
 
       console.log("Full API result:", result);
       console.log("Result data:", result?.data);
@@ -302,18 +302,22 @@ export default function ApplyFitments() {
 
       if (fitments && Array.isArray(fitments) && fitments.length > 0) {
         console.log("Setting fitments:", fitments);
-        
+
         // Add unique IDs to fitments for proper selection handling
         const fitmentsWithIds = fitments.map((fitment: any, index: number) => ({
           ...fitment,
           id: fitment.id || `fitment_${index}`,
-          part_name: fitment.partDescription || fitment.part_name || 'Unknown Part',
-          part_description: fitment.partDescription || 'No description available'
+          part_name:
+            fitment.partDescription || fitment.part_name || "Unknown Part",
+          part_description:
+            fitment.partDescription || "No description available",
         }));
-        
+
         setAiFitments(fitmentsWithIds);
         // Auto-select all fitments by default
-        setSelectedAiFitments(fitmentsWithIds.map((fitment: any) => fitment.id));
+        setSelectedAiFitments(
+          fitmentsWithIds.map((fitment: any) => fitment.id),
+        );
         toast.success(`AI generated ${fitments.length} fitment suggestions!`);
       } else {
         console.log("No fitments found in response structure");
@@ -331,7 +335,10 @@ export default function ApplyFitments() {
     } catch (error) {
       clearInterval(logInterval);
       console.error("AI fitment error:", error);
-      setAiLogs(prev => [...prev, "❌ AI processing failed. Please try again."]);
+      setAiLogs((prev) => [
+        ...prev,
+        "❌ AI processing failed. Please try again.",
+      ]);
       toast.error("Failed to process AI fitment");
     } finally {
       setAiProcessing(false);
@@ -532,864 +539,919 @@ export default function ApplyFitments() {
     <div
       style={{
         minHeight: "100vh",
-        background: "#f8fafc",
       }}
     >
-      <Container size="100%">
-        <Stack gap="xl">
-          {/* Step 1: File Upload Section */}
-          {currentStep === 1 && (
-            <Card
-              style={{
-                background: "#ffffff",
-                border: "1px solid #e2e8f0",
-                borderRadius: "12px",
-                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-              }}
-              p="xl"
-            >
-              <Stack gap="xl">
-                <div>
-                  <Title order={2} c="#1e293b" fw={600} mb="xs">
-                    Upload Required Files
-                  </Title>
-                  <Text size="md" c="#64748b">
-                    Upload VCDB data and Products data to proceed
-                  </Text>
-                </div>
+      <Stack gap="xl">
+        {/* Step 1: File Upload Section */}
+        {currentStep === 1 && (
+          <Card
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "12px",
+              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+            }}
+            p="xl"
+          >
+            <Stack gap="xl">
+              <div>
+                <Title order={2} c="#1e293b" fw={600} mb="xs">
+                  Upload Required Files
+                </Title>
+                <Text size="md" c="#64748b">
+                  Upload VCDB data and Products data to proceed
+                </Text>
+              </div>
 
-                <Grid gutter="xl">
-                  <Grid.Col span={6}>
-                    {/* VCDB File Upload with Drag & Drop */}
-                    <Card
-                      style={{
-                        background: vcdbDragActive ? "#f0f9ff" : "#ffffff",
-                        border: vcdbDragActive 
-                          ? "2px dashed #3b82f6" 
-                          : "2px dashed #e2e8f0",
-                        borderRadius: "12px",
-                        boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
-                        transition: "all 0.15s ease",
-                        cursor: "pointer",
-                        minHeight: "200px",
-                      }}
-                      p="lg"
-                      onDragEnter={handleVcdbDrag}
-                      onDragLeave={handleVcdbDrag}
-                      onDragOver={handleVcdbDrag}
-                      onDrop={handleVcdbDrop}
-                    >
-                      <Stack align="center" justify="center" h="100%">
-                        <div
-                          style={{
-                            background: "#f8fafc",
-                            borderRadius: "12px",
-                            padding: "16px",
-                            marginBottom: "16px",
-                          }}
-                        >
-                          <IconFileText size={24} color="#3b82f6" />
-                        </div>
-                        
-                        <div style={{ textAlign: "center" }}>
-                          <Text fw={600} size="lg" c="#1e293b" mb="xs">
-                            VCDB Data File
-                          </Text>
-                          <Text size="sm" c="#64748b" mb="md">
-                            Drag & drop or click to upload
-                          </Text>
-                        </div>
-
-                        <FileInput
-                          value={vcdbFile}
-                          onChange={setVcdbFile}
-                          accept=".csv,.xlsx,.json"
-                          placeholder={
-                            vcdbFile
-                              ? vcdbFile.name
-                              : "Select VCDB file (.csv, .xlsx, .json)"
-                          }
-                          style={{ width: "100%" }}
-                          styles={{
-                            input: {
-                              backgroundColor: "#f8fafc",
-                              border: "1px solid #e2e8f0",
-                              borderRadius: "8px",
-                              padding: "12px",
-                              fontSize: "14px",
-                              fontWeight: 500,
-                              textAlign: "center",
-                            },
-                          }}
-                        />
-                      </Stack>
-                    </Card>
-                  </Grid.Col>
-
-                  <Grid.Col span={6}>
-                    {/* Products File Upload with Drag & Drop */}
-                    <Card
-                      style={{
-                        background: productsDragActive ? "#f0fdf4" : "#ffffff",
-                        border: productsDragActive 
-                          ? "2px dashed #10b981" 
-                          : "2px dashed #e2e8f0",
-                        borderRadius: "12px",
-                        boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
-                        transition: "all 0.15s ease",
-                        cursor: "pointer",
-                        minHeight: "200px",
-                      }}
-                      p="lg"
-                      onDragEnter={handleProductsDrag}
-                      onDragLeave={handleProductsDrag}
-                      onDragOver={handleProductsDrag}
-                      onDrop={handleProductsDrop}
-                    >
-                      <Stack align="center" justify="center" h="100%">
-                        <div
-                          style={{
-                            background: "#f8fafc",
-                            borderRadius: "12px",
-                            padding: "16px",
-                            marginBottom: "16px",
-                          }}
-                        >
-                          <IconDatabase size={24} color="#10b981" />
-                        </div>
-                        
-                        <div style={{ textAlign: "center" }}>
-                          <Text fw={600} size="lg" c="#1e293b" mb="xs">
-                            Products Data File
-                          </Text>
-                          <Text size="sm" c="#64748b" mb="md">
-                            Drag & drop or click to upload
-                          </Text>
-                        </div>
-
-                        <FileInput
-                          value={productsFile}
-                          onChange={setProductsFile}
-                          accept=".csv,.xlsx,.json"
-                          placeholder={
-                            productsFile
-                              ? productsFile.name
-                              : "Select Products file (.csv, .xlsx, .json)"
-                          }
-                          style={{ width: "100%" }}
-                          styles={{
-                            input: {
-                              backgroundColor: "#f8fafc",
-                              border: "1px solid #e2e8f0",
-                              borderRadius: "8px",
-                              padding: "12px",
-                              fontSize: "14px",
-                              fontWeight: 500,
-                              textAlign: "center",
-                            },
-                          }}
-                        />
-                      </Stack>
-                    </Card>
-                  </Grid.Col>
-                </Grid>
-
-                {/* Upload Progress */}
-                {uploadStatus === "uploading" && (
+              <Grid gutter="xl">
+                <Grid.Col span={6}>
+                  {/* VCDB File Upload with Drag & Drop */}
                   <Card
-                    p="lg"
                     style={{
-                      background: "#f0f9ff",
-                      border: "1px solid #dbeafe",
+                      background: vcdbDragActive ? "#f0f9ff" : "#ffffff",
+                      border: vcdbDragActive
+                        ? "2px dashed #3b82f6"
+                        : "2px dashed #e2e8f0",
                       borderRadius: "12px",
+                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
+                      transition: "all 0.15s ease",
+                      cursor: "pointer",
+                      minHeight: "200px",
                     }}
+                    p="lg"
+                    onDragEnter={handleVcdbDrag}
+                    onDragLeave={handleVcdbDrag}
+                    onDragOver={handleVcdbDrag}
+                    onDrop={handleVcdbDrop}
                   >
-                    <Stack gap="md">
-                      <Group justify="space-between">
-                        <Text fw={600} size="lg" c="#1e293b">
-                          Uploading Files...
+                    <Stack align="center" justify="center" h="100%">
+                      <div
+                        style={{
+                          background: "#f8fafc",
+                          borderRadius: "12px",
+                          padding: "16px",
+                          marginBottom: "16px",
+                        }}
+                      >
+                        <IconFileText size={24} color="#3b82f6" />
+                      </div>
+
+                      <div style={{ textAlign: "center" }}>
+                        <Text fw={600} size="lg" c="#1e293b" mb="xs">
+                          VCDB Data File
                         </Text>
-                        <Text fw={600} size="lg" c="#3b82f6">
-                          {uploadProgress}%
+                        <Text size="sm" c="#64748b" mb="md">
+                          Drag & drop or click to upload
                         </Text>
-                      </Group>
-                      <Progress
-                        value={uploadProgress}
-                        size="lg"
-                        radius="md"
-                        color="blue"
+                      </div>
+
+                      <FileInput
+                        value={vcdbFile}
+                        onChange={setVcdbFile}
+                        accept=".csv,.xlsx,.json"
+                        placeholder={
+                          vcdbFile
+                            ? vcdbFile.name
+                            : "Select VCDB file (.csv, .xlsx, .json)"
+                        }
+                        style={{ width: "100%" }}
+                        styles={{
+                          input: {
+                            backgroundColor: "#f8fafc",
+                            border: "1px solid #e2e8f0",
+                            borderRadius: "8px",
+                            padding: "12px",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                            textAlign: "center",
+                          },
+                        }}
                       />
                     </Stack>
                   </Card>
-                )}
+                </Grid.Col>
 
-                {uploadStatus === "error" && (
-                  <Alert
-                    icon={<IconAlertCircle size={20} />}
-                    color="red"
-                    radius="md"
-                  >
-                    <Text fw={600} size="md">
-                      Failed to upload files. Please try again.
-                    </Text>
-                  </Alert>
-                )}
-
-                {/* Upload Button */}
-                <Group justify="center">
-                  <Button
-                    size="lg"
-                    leftSection={<IconUpload size={20} />}
-                    variant="filled"
-                    color="blue"
-                    onClick={handleFileUpload}
-                    loading={uploadingFiles}
-                    disabled={
-                      !vcdbFile || !productsFile || uploadStatus === "uploading"
-                    }
+                <Grid.Col span={6}>
+                  {/* Products File Upload with Drag & Drop */}
+                  <Card
                     style={{
-                      borderRadius: "8px",
-                      fontSize: "16px",
-                      fontWeight: 600,
-                      padding: "12px 24px",
-                      height: "48px",
+                      background: productsDragActive ? "#f0fdf4" : "#ffffff",
+                      border: productsDragActive
+                        ? "2px dashed #10b981"
+                        : "2px dashed #e2e8f0",
+                      borderRadius: "12px",
+                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
+                      transition: "all 0.15s ease",
+                      cursor: "pointer",
+                      minHeight: "200px",
                     }}
+                    p="lg"
+                    onDragEnter={handleProductsDrag}
+                    onDragLeave={handleProductsDrag}
+                    onDragOver={handleProductsDrag}
+                    onDrop={handleProductsDrop}
                   >
-                    Upload Files
-                  </Button>
-                </Group>
-              </Stack>
-            </Card>
-          )}
+                    <Stack align="center" justify="center" h="100%">
+                      <div
+                        style={{
+                          background: "#f8fafc",
+                          borderRadius: "12px",
+                          padding: "16px",
+                          marginBottom: "16px",
+                        }}
+                      >
+                        <IconDatabase size={24} color="#10b981" />
+                      </div>
 
-          {/* Step 2: Method Selection Section */}
-          {currentStep === 2 && (
-            <Card
-              style={{
-                background: "#ffffff",
-                border: "1px solid #e2e8f0",
-                borderRadius: "12px",
-                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-              }}
-              p="xl"
-            >
-              <Stack gap="xl">
+                      <div style={{ textAlign: "center" }}>
+                        <Text fw={600} size="lg" c="#1e293b" mb="xs">
+                          Products Data File
+                        </Text>
+                        <Text size="sm" c="#64748b" mb="md">
+                          Drag & drop or click to upload
+                        </Text>
+                      </div>
+
+                      <FileInput
+                        value={productsFile}
+                        onChange={setProductsFile}
+                        accept=".csv,.xlsx,.json"
+                        placeholder={
+                          productsFile
+                            ? productsFile.name
+                            : "Select Products file (.csv, .xlsx, .json)"
+                        }
+                        style={{ width: "100%" }}
+                        styles={{
+                          input: {
+                            backgroundColor: "#f8fafc",
+                            border: "1px solid #e2e8f0",
+                            borderRadius: "8px",
+                            padding: "12px",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                            textAlign: "center",
+                          },
+                        }}
+                      />
+                    </Stack>
+                  </Card>
+                </Grid.Col>
+              </Grid>
+
+              {/* Upload Progress */}
+              {uploadStatus === "uploading" && (
+                <Card
+                  p="lg"
+                  style={{
+                    background: "#f0f9ff",
+                    border: "1px solid #dbeafe",
+                    borderRadius: "12px",
+                  }}
+                >
+                  <Stack gap="md">
+                    <Group justify="space-between">
+                      <Text fw={600} size="lg" c="#1e293b">
+                        Uploading Files...
+                      </Text>
+                      <Text fw={600} size="lg" c="#3b82f6">
+                        {uploadProgress}%
+                      </Text>
+                    </Group>
+                    <Progress
+                      value={uploadProgress}
+                      size="lg"
+                      radius="md"
+                      style={{
+                        background: "#f1f5f9",
+                      }}
+                    >
+                      <Progress.Root style={{
+                        background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)"
+                      }}>
+                        <Progress.Section value={uploadProgress} style={{
+                          background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)"
+                        }} />
+                      </Progress.Root>
+                    </Progress>
+                  </Stack>
+                </Card>
+              )}
+
+              {uploadStatus === "error" && (
+                <Alert
+                  icon={<IconAlertCircle size={20} />}
+                  color="red"
+                  radius="md"
+                >
+                  <Text fw={600} size="md">
+                    Failed to upload files. Please try again.
+                  </Text>
+                </Alert>
+              )}
+
+              {/* Upload Button */}
+              <Group justify="center">
+                <Button
+                  size="lg"
+                  leftSection={<IconUpload size={20} />}
+                  variant="filled"
+                  onClick={handleFileUpload}
+                  loading={uploadingFiles}
+                  disabled={
+                    !vcdbFile || !productsFile || uploadStatus === "uploading"
+                  }
+                  style={{
+                    background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                    border: "none",
+                    borderRadius: "8px",
+                    fontSize: "16px",
+                    fontWeight: 600,
+                    padding: "12px 24px",
+                    height: "48px",
+                    color: "white",
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "translateY(-1px)"
+                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(59, 130, 246, 0.3)"
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "translateY(0)"
+                    e.currentTarget.style.boxShadow = "none"
+                  }}
+                >
+                  Upload Files
+                </Button>
+              </Group>
+            </Stack>
+          </Card>
+        )}
+
+        {/* Step 2: Method Selection Section */}
+        {currentStep === 2 && (
+          <Card
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "12px",
+              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+            }}
+            p="xl"
+          >
+            <Stack gap="xl">
+              <div>
+                <Title order={2} c="#1e293b" fw={600} mb="xs">
+                  Choose Fitment Method
+                </Title>
+                <Text size="md" c="#64748b">
+                  Select how you want to apply fitments to your vehicle
+                  configurations
+                </Text>
+              </div>
+
+              <SimpleGrid cols={2} spacing="xl">
+                {/* Manual Method Card */}
+                <Card
+                  style={{
+                    background:
+                      selectedMethod === "manual" ? "#f0f9ff" : "#fefefe",
+                    border:
+                      selectedMethod === "manual"
+                        ? "2px solid #3b82f6"
+                        : "2px solid #f1f5f9",
+                    borderRadius: "12px",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                    boxShadow:
+                      selectedMethod === "manual"
+                        ? "0 4px 12px rgba(59, 130, 246, 0.15)"
+                        : "0 2px 4px rgba(0, 0, 0, 0.05)",
+                  }}
+                  p="xl"
+                  onClick={() => setSelectedMethod("manual")}
+                >
+                  <Stack align="center" gap="lg">
+                    <div
+                      style={{
+                        background: "#f8fafc",
+                        borderRadius: "12px",
+                        padding: "16px",
+                        marginBottom: "8px",
+                      }}
+                    >
+                      <IconUsers size={32} color="#3b82f6" />
+                    </div>
+
+                    <div style={{ textAlign: "center" }}>
+                      <Text fw={700} size="xl" c="#1e293b" mb="xs">
+                        Manual Method
+                      </Text>
+                      <Text size="sm" c="#64748b" ta="center">
+                        Apply fitments manually with full control over each
+                        configuration
+                      </Text>
+                    </div>
+
+                    {selectedMethod === "manual" && (
+                      <Badge variant="light" color="blue" size="lg">
+                        Selected
+                      </Badge>
+                    )}
+                  </Stack>
+                </Card>
+
+                {/* AI Method Card */}
+                <Card
+                  style={{
+                    background: selectedMethod === "ai" ? "#f0fdf4" : "#fefefe",
+                    border:
+                      selectedMethod === "ai"
+                        ? "2px solid #10b981"
+                        : "2px solid #f1f5f9",
+                    borderRadius: "12px",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                    boxShadow:
+                      selectedMethod === "ai"
+                        ? "0 4px 12px rgba(16, 185, 129, 0.15)"
+                        : "0 2px 4px rgba(0, 0, 0, 0.05)",
+                  }}
+                  p="xl"
+                  onClick={() => setSelectedMethod("ai")}
+                >
+                  <Stack align="center" gap="lg">
+                    <div
+                      style={{
+                        background: "#f8fafc",
+                        borderRadius: "12px",
+                        padding: "16px",
+                        marginBottom: "8px",
+                      }}
+                    >
+                      <IconBrain size={32} color="#10b981" />
+                    </div>
+
+                    <div style={{ textAlign: "center" }}>
+                      <Text fw={700} size="xl" c="#1e293b" mb="xs">
+                        AI Method
+                      </Text>
+                      <Text size="sm" c="#64748b" ta="center">
+                        Let AI automatically generate and apply fitments based
+                        on your data
+                      </Text>
+                    </div>
+
+                    {selectedMethod === "ai" && (
+                      <Badge variant="light" color="green" size="lg">
+                        Selected
+                      </Badge>
+                    )}
+                  </Stack>
+                </Card>
+              </SimpleGrid>
+
+              {/* Action Buttons */}
+              {selectedMethod && (
+                <Group justify="center" mt="lg">
+                  {selectedMethod === "ai" && (
+                    <Button
+                      size="lg"
+                      leftSection={<IconRobot size={20} />}
+                      variant="filled"
+                      onClick={handleAiFitment}
+                      loading={aiProcessing}
+                      disabled={aiProcessing}
+                      style={{
+                        background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                        border: "none",
+                        borderRadius: "8px",
+                        fontSize: "16px",
+                        fontWeight: 600,
+                        padding: "12px 24px",
+                        height: "48px",
+                        color: "white",
+                        transition: "all 0.2s ease",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = "translateY(-1px)"
+                        e.currentTarget.style.boxShadow = "0 4px 12px rgba(59, 130, 246, 0.3)"
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = "translateY(0)"
+                        e.currentTarget.style.boxShadow = "none"
+                      }}
+                    >
+                      {aiProcessing ? "Processing..." : "Generate AI Fitments"}
+                    </Button>
+                  )}
+                </Group>
+              )}
+            </Stack>
+          </Card>
+        )}
+
+        {/* AI Progress Display */}
+        {selectedMethod === "ai" && aiProcessing && (
+          <Card
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "12px",
+              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+            }}
+            p="xl"
+          >
+            <Stack gap="lg">
+              <Group justify="space-between">
                 <div>
-                  <Title order={2} c="#1e293b" fw={600} mb="xs">
-                    Choose Fitment Method
+                  <Title order={3} c="#1e293b" fw={600}>
+                    🧠 AI Fitment Generation in Progress
                   </Title>
-                  <Text size="md" c="#64748b">
-                    Select how you want to apply fitments to your vehicle configurations
+                  <Text size="sm" c="#64748b">
+                    Our AI is analyzing your data to generate optimal fitments
                   </Text>
                 </div>
+              </Group>
 
-                <SimpleGrid cols={2} spacing="xl">
-                  {/* Manual Method Card */}
-                  <Card
-                    style={{
-                      background: selectedMethod === "manual" ? "#f0f9ff" : "#fefefe",
-                      border: selectedMethod === "manual" 
-                        ? "2px solid #3b82f6" 
-                        : "2px solid #f1f5f9",
-                      borderRadius: "12px",
-                      cursor: "pointer",
-                      transition: "all 0.15s ease",
-                      boxShadow: selectedMethod === "manual" 
-                        ? "0 4px 12px rgba(59, 130, 246, 0.15)" 
-                        : "0 2px 4px rgba(0, 0, 0, 0.05)",
-                    }}
-                    p="xl"
-                    onClick={() => setSelectedMethod("manual")}
-                  >
-                    <Stack align="center" gap="lg">
-                      <div
-                        style={{
-                          background: "#f8fafc",
-                          borderRadius: "12px",
-                          padding: "16px",
-                          marginBottom: "8px",
-                        }}
-                      >
-                        <IconUsers size={32} color="#3b82f6" />
-                      </div>
-                      
-                      <div style={{ textAlign: "center" }}>
-                        <Text fw={700} size="xl" c="#1e293b" mb="xs">
-                          Manual Method
-                        </Text>
-                        <Text size="sm" c="#64748b" ta="center">
-                          Apply fitments manually with full control over each configuration
-                        </Text>
-                      </div>
-                      
-                      {selectedMethod === "manual" && (
-                        <Badge variant="light" color="blue" size="lg">
-                          Selected
-                        </Badge>
-                      )}
-                    </Stack>
-                  </Card>
+              <Progress
+                value={aiProgress}
+                size="lg"
+                radius="md"
+                color="green"
+                animated
+                style={{ marginBottom: "16px" }}
+              />
 
-                  {/* AI Method Card */}
-                  <Card
-                    style={{
-                      background: selectedMethod === "ai" ? "#f0fdf4" : "#fefefe",
-                      border: selectedMethod === "ai" 
-                        ? "2px solid #10b981" 
-                        : "2px solid #f1f5f9",
-                      borderRadius: "12px",
-                      cursor: "pointer",
-                      transition: "all 0.15s ease",
-                      boxShadow: selectedMethod === "ai" 
-                        ? "0 4px 12px rgba(16, 185, 129, 0.15)" 
-                        : "0 2px 4px rgba(0, 0, 0, 0.05)",
-                    }}
-                    p="xl"
-                    onClick={() => setSelectedMethod("ai")}
-                  >
-                    <Stack align="center" gap="lg">
-                      <div
-                        style={{
-                          background: "#f8fafc",
-                          borderRadius: "12px",
-                          padding: "16px",
-                          marginBottom: "8px",
-                        }}
-                      >
-                        <IconBrain size={32} color="#10b981" />
-                      </div>
-                      
-                      <div style={{ textAlign: "center" }}>
-                        <Text fw={700} size="xl" c="#1e293b" mb="xs">
-                          AI Method
-                        </Text>
-                        <Text size="sm" c="#64748b" ta="center">
-                          Let AI automatically generate and apply fitments based on your data
-                        </Text>
-                      </div>
-                      
-                      {selectedMethod === "ai" && (
-                        <Badge variant="light" color="green" size="lg">
-                          Selected
-                        </Badge>
-                      )}
-                    </Stack>
-                  </Card>
-                </SimpleGrid>
-
-                {/* Action Buttons */}
-                {selectedMethod && (
-                  <Group justify="center" mt="lg">
-                    {selectedMethod === "ai" && (
-                      <Button
-                        size="lg"
-                        leftSection={<IconRobot size={20} />}
-                        variant="filled"
-                        color="green"
-                        onClick={handleAiFitment}
-                        loading={aiProcessing}
-                      disabled={aiProcessing}
-                        style={{
-                          borderRadius: "8px",
-                          fontSize: "16px",
-                          fontWeight: 600,
-                          padding: "12px 24px",
-                          height: "48px",
-                        }}
-                      >
-                        {aiProcessing ? "Processing..." : "Generate AI Fitments"}
-                      </Button>
-                    )}
-                  </Group>
-                )}
-              </Stack>
-            </Card>
-          )}
-
-          {/* AI Progress Display */}
-          {selectedMethod === "ai" && aiProcessing && (
-            <Card
-              style={{
-                background: "#ffffff",
-                border: "1px solid #e2e8f0",
-                borderRadius: "12px",
-                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-              }}
-              p="xl"
-            >
-              <Stack gap="lg">
-                <Group justify="space-between">
-                  <div>
-                    <Title order={3} c="#1e293b" fw={600}>
-                      🧠 AI Fitment Generation in Progress
-                    </Title>
-                    <Text size="sm" c="#64748b">
-                      Our AI is analyzing your data to generate optimal fitments
-                    </Text>
-                  </div>
-                </Group>
-
-                <Progress
-                  value={aiProgress}
-                  size="lg"
-                  radius="md"
-                  color="green"
-                  animated
-                  style={{ marginBottom: "16px" }}
-                />
-
-                <ScrollArea h={200}>
-                  <Stack gap="xs">
-                    {aiLogs.map((log, index) => (
-                      <Text
-                        key={index}
-                        size="sm"
-                        c="#374151"
-                        style={{
-                          fontFamily: "'Monaco', 'Menlo', 'Ubuntu Mono', monospace",
-                          background: "#f8fafc",
-                          padding: "8px 12px",
-                          borderRadius: "6px",
-                          border: "1px solid #e2e8f0",
-                        }}
-                      >
-                        {log}
-                      </Text>
-                    ))}
-                  </Stack>
-                </ScrollArea>
-              </Stack>
-            </Card>
-          )}
-
-          {/* AI Fitments Results */}
-          {selectedMethod === "ai" && aiFitments.length > 0 && (
-            <Card
-              style={{
-                background: "#ffffff",
-                border: "1px solid #e2e8f0",
-                borderRadius: "12px",
-                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-              }}
-              p="xl"
-            >
-              <Stack gap="lg">
-                <Group justify="space-between">
-                  <div>
-                    <Title order={3} c="#1e293b" fw={600}>
-                      AI Generated Fitments
-                    </Title>
-                    <Text size="sm" c="#64748b">
-                      Review and select fitments to apply
-                    </Text>
-                  </div>
-                  <Group gap="sm">
-                    <Group gap="xs">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleExportFitments("csv")}
-                      >
-                        CSV
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleExportFitments("xlsx")}
-                      >
-                        XLSX
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleExportFitments("json")}
-                      >
-                        JSON
-                      </Button>
-                    </Group>
-                    <Button
-                      variant="filled"
-                      color="green"
+              <ScrollArea h={200}>
+                <Stack gap="xs">
+                  {aiLogs.map((log, index) => (
+                    <Text
+                      key={index}
                       size="sm"
-                      onClick={handleApplyAiFitments}
-                      disabled={selectedAiFitments.length === 0}
-                      loading={applyingFitment}
+                      c="#374151"
+                      style={{
+                        fontFamily:
+                          "'Monaco', 'Menlo', 'Ubuntu Mono', monospace",
+                        background: "#f8fafc",
+                        padding: "8px 12px",
+                        borderRadius: "6px",
+                        border: "1px solid #e2e8f0",
+                      }}
                     >
-                      Apply Selected ({selectedAiFitments.length})
+                      {log}
+                    </Text>
+                  ))}
+                </Stack>
+              </ScrollArea>
+            </Stack>
+          </Card>
+        )}
+
+        {/* AI Fitments Results */}
+        {selectedMethod === "ai" && aiFitments.length > 0 && (
+          <Card
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "12px",
+              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+            }}
+            p="xl"
+          >
+            <Stack gap="lg">
+              <Group justify="space-between">
+                <div>
+                  <Title order={3} c="#1e293b" fw={600}>
+                    AI Generated Fitments
+                  </Title>
+                  <Text size="sm" c="#64748b">
+                    Review and select fitments to apply
+                  </Text>
+                </div>
+                <Group gap="sm">
+                  <Group gap="xs">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExportFitments("csv")}
+                    >
+                      CSV
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExportFitments("xlsx")}
+                    >
+                      XLSX
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExportFitments("json")}
+                    >
+                      JSON
                     </Button>
                   </Group>
+                  <Button
+                    variant="filled"
+                    color="green"
+                    size="sm"
+                    onClick={handleApplyAiFitments}
+                    disabled={selectedAiFitments.length === 0}
+                    loading={applyingFitment}
+                  >
+                    Apply Selected ({selectedAiFitments.length})
+                  </Button>
                 </Group>
+              </Group>
 
-                <ScrollArea h={400}>
-                  <Table striped highlightOnHover>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th style={{ textAlign: "center", verticalAlign: "middle", width: "60px" }}>
-                          <Checkbox
-                            checked={selectedAiFitments.length === aiFitments.length}
-                            indeterminate={
-                              selectedAiFitments.length > 0 &&
-                              selectedAiFitments.length < aiFitments.length
+              <ScrollArea h={400}>
+                <Table striped highlightOnHover>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th
+                        style={{
+                          textAlign: "center",
+                          verticalAlign: "middle",
+                          width: "60px",
+                        }}
+                      >
+                        <Checkbox
+                          checked={
+                            selectedAiFitments.length === aiFitments.length
+                          }
+                          indeterminate={
+                            selectedAiFitments.length > 0 &&
+                            selectedAiFitments.length < aiFitments.length
+                          }
+                          onChange={(event) => {
+                            if (event.currentTarget.checked) {
+                              setSelectedAiFitments(
+                                aiFitments.map((fitment) => fitment.id),
+                              );
+                            } else {
+                              setSelectedAiFitments([]);
                             }
+                          }}
+                        />
+                      </Table.Th>
+                      <Table.Th>Part ID</Table.Th>
+                      <Table.Th>Description</Table.Th>
+                      <Table.Th>Year</Table.Th>
+                      <Table.Th>Make</Table.Th>
+                      <Table.Th>Model</Table.Th>
+                      <Table.Th>Submodel</Table.Th>
+                      <Table.Th>Position</Table.Th>
+                      <Table.Th>Confidence</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {aiFitments.map((fitment) => (
+                      <Table.Tr key={fitment.id}>
+                        <Table.Td
+                          style={{
+                            textAlign: "center",
+                            verticalAlign: "middle",
+                          }}
+                        >
+                          <Checkbox
+                            checked={selectedAiFitments.includes(fitment.id)}
                             onChange={(event) => {
                               if (event.currentTarget.checked) {
-                                setSelectedAiFitments(
-                                  aiFitments.map((fitment) => fitment.id)
-                                );
+                                setSelectedAiFitments((prev) => [
+                                  ...prev,
+                                  fitment.id,
+                                ]);
                               } else {
-                                setSelectedAiFitments([]);
+                                setSelectedAiFitments((prev) =>
+                                  prev.filter((id) => id !== fitment.id),
+                                );
                               }
                             }}
                           />
-                        </Table.Th>
-                        <Table.Th>Part ID</Table.Th>
-                        <Table.Th>Description</Table.Th>
-                        <Table.Th>Year</Table.Th>
-                        <Table.Th>Make</Table.Th>
-                        <Table.Th>Model</Table.Th>
-                        <Table.Th>Submodel</Table.Th>
-                        <Table.Th>Position</Table.Th>
-                        <Table.Th>Confidence</Table.Th>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm" fw={600} c="#3b82f6">
+                            {fitment.partId}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm" fw={500}>
+                            {fitment.part_description ||
+                              fitment.partDescription}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm">{fitment.year}</Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm" fw={500}>
+                            {fitment.make}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm">{fitment.model}</Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm" c="#64748b">
+                            {fitment.submodel || "-"}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Badge variant="light" size="sm" color="blue">
+                            {fitment.position}
+                          </Badge>
+                        </Table.Td>
+                        <Table.Td>
+                          <Badge
+                            variant="light"
+                            color={
+                              fitment.confidence > 0.8
+                                ? "green"
+                                : fitment.confidence > 0.6
+                                  ? "orange"
+                                  : "red"
+                            }
+                            size="sm"
+                          >
+                            {Math.round(fitment.confidence * 100)}%
+                          </Badge>
+                        </Table.Td>
                       </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {aiFitments.map((fitment) => (
-                        <Table.Tr key={fitment.id}>
-                          <Table.Td style={{ textAlign: "center", verticalAlign: "middle" }}>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </ScrollArea>
+            </Stack>
+          </Card>
+        )}
+
+        {/* Manual Method Interface */}
+        {selectedMethod === "manual" && (
+          <Grid gutter="xl">
+            {/* Vehicle Configurations */}
+            <Grid.Col span={8}>
+              <Card
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "12px",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                }}
+                p="lg"
+              >
+                <Stack gap="lg">
+                  <Group justify="space-between">
+                    <div>
+                      <Title order={3} c="#1e293b" fw={600}>
+                        Vehicle Configurations
+                      </Title>
+                      <Text size="sm" c="#64748b">
+                        Search and select vehicle configurations
+                      </Text>
+                    </div>
+                    <Badge variant="light" color="blue">
+                      {selectedConfigs.length} selected
+                    </Badge>
+                  </Group>
+
+                  <Grid>
+                    <Grid.Col span={4}>
+                      <NumberInput
+                        label="Year From"
+                        value={filters.yearFrom}
+                        onChange={(value) =>
+                          setFilters((prev) => ({
+                            ...prev,
+                            yearFrom: Number(value) || 2020,
+                          }))
+                        }
+                        min={1900}
+                        max={2030}
+                      />
+                    </Grid.Col>
+                    <Grid.Col span={4}>
+                      <NumberInput
+                        label="Year To"
+                        value={filters.yearTo}
+                        onChange={(value) =>
+                          setFilters((prev) => ({
+                            ...prev,
+                            yearTo: Number(value) || 2025,
+                          }))
+                        }
+                        min={1900}
+                        max={2030}
+                      />
+                    </Grid.Col>
+                    <Grid.Col span={4}>
+                      <TextInput
+                        label="Make"
+                        placeholder="e.g., Ford"
+                        value={filters.make}
+                        onChange={(event) =>
+                          setFilters((prev) => ({
+                            ...prev,
+                            make: event.currentTarget.value,
+                          }))
+                        }
+                      />
+                    </Grid.Col>
+                  </Grid>
+
+                  <Group gap="sm">
+                    <Button
+                      leftSection={<IconSearch size={16} />}
+                      variant="filled"
+                      color="blue"
+                      onClick={handleSearchVehicles}
+                      loading={configsLoading}
+                      size="sm"
+                    >
+                      Search Vehicles
+                    </Button>
+                    <Text size="sm" c="#64748b">
+                      {configurations.length} configurations found
+                    </Text>
+                  </Group>
+
+                  <ScrollArea h={300}>
+                    <Table striped highlightOnHover>
+                      <Table.Thead>
+                        <Table.Tr>
+                          <Table.Th>
                             <Checkbox
-                              checked={selectedAiFitments.includes(fitment.id)}
+                              checked={
+                                selectedConfigs.length ===
+                                  configurations.length &&
+                                configurations.length > 0
+                              }
+                              indeterminate={
+                                selectedConfigs.length > 0 &&
+                                selectedConfigs.length < configurations.length
+                              }
                               onChange={(event) => {
                                 if (event.currentTarget.checked) {
-                                  setSelectedAiFitments((prev) => [
-                                    ...prev,
-                                    fitment.id,
-                                  ]);
-                                } else {
-                                  setSelectedAiFitments((prev) =>
-                                    prev.filter((id) => id !== fitment.id)
+                                  setSelectedConfigs(
+                                    configurations.map(
+                                      (config: any) => config.id,
+                                    ),
                                   );
+                                } else {
+                                  setSelectedConfigs([]);
                                 }
                               }}
                             />
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="sm" fw={600} c="#3b82f6">
-                              {fitment.partId}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="sm" fw={500}>
-                              {fitment.part_description || fitment.partDescription}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="sm">
-                              {fitment.year}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="sm" fw={500}>
-                              {fitment.make}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="sm">
-                              {fitment.model}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="sm" c="#64748b">
-                              {fitment.submodel || "-"}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td>
-                            <Badge variant="light" size="sm" color="blue">
-                              {fitment.position}
-                            </Badge>
-                          </Table.Td>
-                          <Table.Td>
-                            <Badge
-                              variant="light"
-                              color={
-                                fitment.confidence > 0.8
-                                  ? "green"
-                                  : fitment.confidence > 0.6
-                                    ? "orange"
-                                    : "red"
-                              }
-                              size="sm"
-                            >
-                              {Math.round(fitment.confidence * 100)}%
-                            </Badge>
-                          </Table.Td>
+                          </Table.Th>
+                          <Table.Th>Year</Table.Th>
+                          <Table.Th>Make</Table.Th>
+                          <Table.Th>Model</Table.Th>
+                          <Table.Th>Submodel</Table.Th>
                         </Table.Tr>
-                      ))}
-                    </Table.Tbody>
-                  </Table>
-                </ScrollArea>
-              </Stack>
-            </Card>
-          )}
-
-          {/* Manual Method Interface */}
-          {selectedMethod === "manual" && (
-            <Grid gutter="xl">
-              {/* Vehicle Configurations */}
-              <Grid.Col span={8}>
-                <Card
-                  style={{
-                    background: "#ffffff",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "12px",
-                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                  }}
-                  p="lg"
-                >
-                  <Stack gap="lg">
-                    <Group justify="space-between">
-                      <div>
-                        <Title order={3} c="#1e293b" fw={600}>
-                          Vehicle Configurations
-                        </Title>
-                        <Text size="sm" c="#64748b">
-                          Search and select vehicle configurations
-                        </Text>
-                      </div>
-                      <Badge variant="light" color="blue">
-                        {selectedConfigs.length} selected
-                      </Badge>
-                    </Group>
-
-                    <Grid>
-                      <Grid.Col span={4}>
-                        <NumberInput
-                          label="Year From"
-                          value={filters.yearFrom}
-                          onChange={(value) =>
-                            setFilters((prev) => ({
-                              ...prev,
-                              yearFrom: Number(value) || 2020,
-                            }))
-                          }
-                          min={1900}
-                          max={2030}
-                        />
-                      </Grid.Col>
-                      <Grid.Col span={4}>
-                        <NumberInput
-                          label="Year To"
-                          value={filters.yearTo}
-                          onChange={(value) =>
-                            setFilters((prev) => ({
-                              ...prev,
-                              yearTo: Number(value) || 2025,
-                            }))
-                          }
-                          min={1900}
-                          max={2030}
-                        />
-                      </Grid.Col>
-                      <Grid.Col span={4}>
-                        <TextInput
-                          label="Make"
-                          placeholder="e.g., Ford"
-                          value={filters.make}
-                          onChange={(event) =>
-                            setFilters((prev) => ({
-                              ...prev,
-                              make: event.currentTarget.value,
-                            }))
-                          }
-                        />
-                      </Grid.Col>
-                    </Grid>
-
-                    <Group gap="sm">
-                      <Button
-                        leftSection={<IconSearch size={16} />}
-                        variant="filled"
-                        color="blue"
-                        onClick={handleSearchVehicles}
-                        loading={configsLoading}
-                        size="sm"
-                      >
-                        Search Vehicles
-                      </Button>
-                      <Text size="sm" c="#64748b">
-                        {configurations.length} configurations found
-                      </Text>
-                    </Group>
-
-                    <ScrollArea h={300}>
-                      <Table striped highlightOnHover>
-                        <Table.Thead>
-                          <Table.Tr>
-                            <Table.Th>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {configurations.map((config: any) => (
+                          <Table.Tr key={config.id}>
+                            <Table.Td>
                               <Checkbox
-                                checked={
-                                  selectedConfigs.length === configurations.length &&
-                                  configurations.length > 0
-                                }
-                                indeterminate={
-                                  selectedConfigs.length > 0 &&
-                                  selectedConfigs.length < configurations.length
-                                }
+                                checked={selectedConfigs.includes(config.id)}
                                 onChange={(event) => {
                                   if (event.currentTarget.checked) {
-                                    setSelectedConfigs(
-                                      configurations.map((config: any) => config.id)
-                                    );
+                                    setSelectedConfigs((prev) => [
+                                      ...prev,
+                                      config.id,
+                                    ]);
                                   } else {
-                                    setSelectedConfigs([]);
+                                    setSelectedConfigs((prev) =>
+                                      prev.filter((id) => id !== config.id),
+                                    );
                                   }
                                 }}
                               />
-                            </Table.Th>
-                            <Table.Th>Year</Table.Th>
-                            <Table.Th>Make</Table.Th>
-                            <Table.Th>Model</Table.Th>
-                            <Table.Th>Submodel</Table.Th>
+                            </Table.Td>
+                            <Table.Td>{config.year}</Table.Td>
+                            <Table.Td>{config.make}</Table.Td>
+                            <Table.Td>{config.model}</Table.Td>
+                            <Table.Td>{config.submodel || "-"}</Table.Td>
                           </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                          {configurations.map((config: any) => (
-                            <Table.Tr key={config.id}>
-                              <Table.Td>
-                                <Checkbox
-                                  checked={selectedConfigs.includes(config.id)}
-                                  onChange={(event) => {
-                                    if (event.currentTarget.checked) {
-                                      setSelectedConfigs((prev) => [
-                                        ...prev,
-                                        config.id,
-                                      ]);
-                                    } else {
-                                      setSelectedConfigs((prev) =>
-                                        prev.filter((id) => id !== config.id)
-                                      );
-                                    }
-                                  }}
-                                />
-                              </Table.Td>
-                              <Table.Td>{config.year}</Table.Td>
-                              <Table.Td>{config.make}</Table.Td>
-                              <Table.Td>{config.model}</Table.Td>
-                              <Table.Td>{config.submodel || "-"}</Table.Td>
-                            </Table.Tr>
-                          ))}
-                        </Table.Tbody>
-                      </Table>
-                    </ScrollArea>
-                  </Stack>
-                </Card>
-              </Grid.Col>
+                        ))}
+                      </Table.Tbody>
+                    </Table>
+                  </ScrollArea>
+                </Stack>
+              </Card>
+            </Grid.Col>
 
-              {/* Fitment Form */}
-              <Grid.Col span={4}>
-                <Card
-                  style={{
-                    background: "#ffffff",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "12px",
-                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                  }}
-                  p="lg"
-                >
-                  <Stack gap="md">
-                    <Title order={4} c="#1e293b" fw={600}>
-                      Fitment Details
-                    </Title>
+            {/* Fitment Form */}
+            <Grid.Col span={4}>
+              <Card
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "12px",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                }}
+                p="lg"
+              >
+                <Stack gap="md">
+                  <Title order={4} c="#1e293b" fw={600}>
+                    Fitment Details
+                  </Title>
 
-                    <Select
-                      label="Part"
-                      placeholder="Select part"
-                      value={fitmentForm.partId}
-                      onChange={(value) =>
-                        setFitmentForm((prev) => ({
-                          ...prev,
-                          partId: value || "",
-                        }))
-                      }
-                      data={
-                        Array.isArray(parts) ? parts.map((part: any) => ({
-                          value: part.id,
-                          label: part.name,
-                        })) : []
-                      }
-                    />
+                  <Select
+                    label="Part"
+                    placeholder="Select part"
+                    value={fitmentForm.partId}
+                    onChange={(value) =>
+                      setFitmentForm((prev) => ({
+                        ...prev,
+                        partId: value || "",
+                      }))
+                    }
+                    data={
+                      Array.isArray(parts)
+                        ? parts.map((part: any) => ({
+                            value: part.id,
+                            label: part.name,
+                          }))
+                        : []
+                    }
+                  />
 
-                    <Select
-                      label="Part Type"
-                      placeholder="Select part type"
-                      value={fitmentForm.partTypeId}
-                      onChange={(value) =>
-                        setFitmentForm((prev) => ({
-                          ...prev,
-                          partTypeId: value || "",
-                        }))
-                      }
-                      data={
-                        Array.isArray(partTypes) ? partTypes.map((type: any) => ({
-                          value: type.id,
-                          label: type.name,
-                        })) : []
-                      }
-                    />
+                  <Select
+                    label="Part Type"
+                    placeholder="Select part type"
+                    value={fitmentForm.partTypeId}
+                    onChange={(value) =>
+                      setFitmentForm((prev) => ({
+                        ...prev,
+                        partTypeId: value || "",
+                      }))
+                    }
+                    data={
+                      Array.isArray(partTypes)
+                        ? partTypes.map((type: any) => ({
+                            value: type.id,
+                            label: type.name,
+                          }))
+                        : []
+                    }
+                  />
 
-                    <Select
-                      label="Position"
-                      placeholder="Select position"
-                      value={fitmentForm.position}
-                      onChange={(value) =>
-                        setFitmentForm((prev) => ({
-                          ...prev,
-                          position: value || "",
-                        }))
-                      }
-                      data={positions}
-                    />
+                  <Select
+                    label="Position"
+                    placeholder="Select position"
+                    value={fitmentForm.position}
+                    onChange={(value) =>
+                      setFitmentForm((prev) => ({
+                        ...prev,
+                        position: value || "",
+                      }))
+                    }
+                    data={positions}
+                  />
 
-                    <NumberInput
-                      label="Quantity"
-                      value={fitmentForm.quantity}
-                      onChange={(value) =>
-                        setFitmentForm((prev) => ({
-                          ...prev,
-                          quantity: Number(value) || 1,
-                        }))
-                      }
-                      min={1}
-                      max={10}
-                    />
+                  <NumberInput
+                    label="Quantity"
+                    value={fitmentForm.quantity}
+                    onChange={(value) =>
+                      setFitmentForm((prev) => ({
+                        ...prev,
+                        quantity: Number(value) || 1,
+                      }))
+                    }
+                    min={1}
+                    max={10}
+                  />
 
-                    <Button
-                      fullWidth
-                      size="md"
-                      variant="filled"
-                      color="blue"
-                      disabled={
-                        selectedConfigs.length === 0 ||
-                        !fitmentForm.partId ||
-                        !fitmentForm.partTypeId
-                      }
-                      loading={applyingFitment}
-                      onClick={handleApplyFitment}
-                      style={{
-                        borderRadius: "8px",
-                        fontWeight: 600,
-                        fontSize: "14px",
-                        height: "44px",
-                      }}
-                    >
-                      Apply Fitment ({selectedConfigs.length} configs)
-                    </Button>
-                  </Stack>
-                </Card>
-              </Grid.Col>
-            </Grid>
-          )}
-        </Stack>
-      </Container>
+                  <Button
+                    fullWidth
+                    size="md"
+                    variant="filled"
+                    color="blue"
+                    disabled={
+                      selectedConfigs.length === 0 ||
+                      !fitmentForm.partId ||
+                      !fitmentForm.partTypeId
+                    }
+                    loading={applyingFitment}
+                    onClick={handleApplyFitment}
+                    style={{
+                      borderRadius: "8px",
+                      fontWeight: 600,
+                      fontSize: "14px",
+                      height: "44px",
+                    }}
+                  >
+                    Apply Fitment ({selectedConfigs.length} configs)
+                  </Button>
+                </Stack>
+              </Card>
+            </Grid.Col>
+          </Grid>
+        )}
+      </Stack>
     </div>
   );
 }

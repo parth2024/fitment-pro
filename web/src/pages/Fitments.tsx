@@ -137,7 +137,11 @@ export default function Fitments() {
   };
 
   return (
-    <div>
+    <div
+      style={{
+        minHeight: "100vh",
+      }}
+    >
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Stack gap="lg">
           {/* Header */}
