@@ -1128,8 +1128,8 @@ export default function ApplyFitments() {
                 {/* Upload Button */}
                 <div style={{ textAlign: "center" }}>
                   <Button
-                    size="xl"
-                    leftSection={<IconUpload size={window.innerWidth < 768 ? 16 : 20} />}
+                    size="lg"
+                    leftSection={<IconUpload size={16} />}
                     variant="gradient"
                     gradient={{ from: "#667eea", to: "#764ba2", deg: 145 }}
                     onClick={handleFileUpload}
@@ -1138,17 +1138,17 @@ export default function ApplyFitments() {
                       !vcdbFile || !productsFile || uploadStatus === "uploading"
                     }
                     style={{
-                      borderRadius: "20px",
-                      fontSize: "18px",
-                      fontWeight: 700,
-                      padding: "20px 48px",
+                      borderRadius: "16px",
+                      fontSize: "16px",
+                      fontWeight: 600,
+                      padding: "16px 32px",
                       boxShadow:
-                        "0 20px 40px rgba(102, 126, 234, 0.3), inset 0 1px 0 rgba(255,255,255,0.2)",
+                        "0 12px 24px rgba(102, 126, 234, 0.3), inset 0 1px 0 rgba(255,255,255,0.2)",
                       border: "none",
                       position: "relative",
                       overflow: "hidden",
-                      minWidth: "280px",
-                      height: "64px",
+                      minWidth: "200px",
+                      height: "48px",
                     }}
                   >
                     Upload Files
