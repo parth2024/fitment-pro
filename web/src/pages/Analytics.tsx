@@ -197,144 +197,107 @@ const Analytics: React.FC = () => {
     <div
       style={{
         minHeight: "100vh",
-        background: "linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%)",
-        padding: "40px",
+        background: "#f8fafc",
+        padding: "24px",
       }}
     >
       <Container size="xl">
-        {/* Header */}
         <Stack gap="xl">
-          <div style={{ textAlign: "center", marginBottom: "32px" }}>
-            <div
-              style={{
-                display: "inline-block",
-                background: "linear-gradient(145deg, #667eea 0%, #764ba2 50%, #f093fb 100%)",
-                borderRadius: "20px",
-                padding: "16px",
-                marginBottom: "24px",
-                boxShadow: "0 15px 30px rgba(102, 126, 234, 0.3)",
-              }}
-            >
-              <IconChartDots size={24} color="white" />
-            </div>
-
-            <Title
-              order={1}
-              style={{
-                fontSize: "32px",
-                fontWeight: 800,
-                background: "linear-gradient(145deg, #ffffff 0%, #e2e8f0 25%, #cbd5e1 50%, #94a3b8 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                marginBottom: "12px",
-                letterSpacing: "-0.02em",
-              }}
-            >
-              Analytics Dashboard
-            </Title>
-            <Text
-              size="lg"
-              style={{
-                color: "#cbd5e1",
-                fontWeight: 500,
-                maxWidth: "600px",
-                margin: "0 auto",
-              }}
-            >
-              Comprehensive overview of your fitment data and system performance
-            </Text>
-          </div>
 
           {/* Key Metrics Cards */}
           <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="lg">
             <Card
               style={{
-                background: "rgba(255, 255, 255, 0.15)",
-                backdropFilter: "blur(10px)",
-                border: "1px solid rgba(255, 255, 255, 0.2)",
-                borderRadius: "16px",
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: "12px",
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
               }}
+              p="lg"
             >
               <Group justify="space-between">
                 <div>
-                  <Text size="sm" c="white" opacity={0.8}>
+                  <Text size="sm" c="#64748b" fw={500}>
                     Total Fitments
                   </Text>
-                  <Title order={2} c="white">
+                  <Title order={2} c="#1e293b" mt="xs">
                     {data?.totalFitments?.toLocaleString() || "0"}
                   </Title>
                 </div>
                 <ThemeIcon size={48} radius="md" variant="light" color="blue">
-                  <IconTable size={24} />
+                  <IconTable size={20} />
                 </ThemeIcon>
               </Group>
             </Card>
 
             <Card
               style={{
-                background: "rgba(255, 255, 255, 0.15)",
-                backdropFilter: "blur(10px)",
-                border: "1px solid rgba(255, 255, 255, 0.2)",
-                borderRadius: "16px",
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: "12px",
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
               }}
+              p="lg"
             >
               <Group justify="space-between">
                 <div>
-                  <Text size="sm" c="white" opacity={0.8}>
+                  <Text size="sm" c="#64748b" fw={500}>
                     Total Parts
                   </Text>
-                  <Title order={2} c="white">
+                  <Title order={2} c="#1e293b" mt="xs">
                     {data?.totalParts?.toLocaleString() || "0"}
                   </Title>
                 </div>
                 <ThemeIcon size={48} radius="md" variant="light" color="green">
-                  <IconCar size={24} />
+                  <IconCar size={20} />
                 </ThemeIcon>
               </Group>
             </Card>
 
             <Card
               style={{
-                background: "rgba(255, 255, 255, 0.15)",
-                backdropFilter: "blur(10px)",
-                border: "1px solid rgba(255, 255, 255, 0.2)",
-                borderRadius: "16px",
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: "12px",
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
               }}
+              p="lg"
             >
               <Group justify="space-between">
                 <div>
-                  <Text size="sm" c="white" opacity={0.8}>
+                  <Text size="sm" c="#64748b" fw={500}>
                     Vehicle Configs
                   </Text>
-                  <Title order={2} c="white">
+                  <Title order={2} c="#1e293b" mt="xs">
                     {data?.totalVehicles?.toLocaleString() || "0"}
                   </Title>
                 </div>
                 <ThemeIcon size={48} radius="md" variant="light" color="orange">
-                  <IconDatabase size={24} />
+                  <IconDatabase size={20} />
                 </ThemeIcon>
               </Group>
             </Card>
 
             <Card
               style={{
-                background: "rgba(255, 255, 255, 0.15)",
-                backdropFilter: "blur(10px)", 
-                border: "1px solid rgba(255, 255, 255, 0.2)",
-                borderRadius: "16px",
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: "12px",
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
               }}
+              p="lg"
             >
               <Group justify="space-between">
                 <div>
-                  <Text size="sm" c="white" opacity={0.8}>
+                  <Text size="sm" c="#64748b" fw={500}>
                     Recent Activity
                   </Text>
-                  <Title order={2} c="white">
+                  <Title order={2} c="#1e293b" mt="xs">
                     {data?.recentActivity?.toLocaleString() || "0"}
                   </Title>
                 </div>
                 <ThemeIcon size={48} radius="md" variant="light" color="purple">
-                  <IconTrendingUp size={24} />
+                  <IconTrendingUp size={20} />
                 </ThemeIcon>
               </Group>
             </Card>
