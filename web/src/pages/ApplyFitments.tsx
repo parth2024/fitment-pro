@@ -17,7 +17,6 @@ import {
   FileInput,
   Progress,
   Alert,
-  Container,
   SimpleGrid,
 } from "@mantine/core";
 import {
@@ -30,7 +29,6 @@ import {
   IconUsers,
   IconDatabase,
   IconArrowLeft,
-  IconChevronLeft,
 } from "@tabler/icons-react";
 import {
   vcdbService,
