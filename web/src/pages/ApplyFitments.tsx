@@ -20,11 +20,6 @@ import {
   SimpleGrid,
   Stepper,
   Textarea,
-  Modal,
-  Menu,
-  ActionIcon,
-  Notification,
-  MultiSelect,
 } from "@mantine/core";
 import {
   IconSearch,
@@ -39,11 +34,6 @@ import {
   IconCar,
   IconList,
   IconSettings,
-  IconDots,
-  IconEdit,
-  IconTrash,
-  IconEye,
-  IconDownload,
 } from "@tabler/icons-react";
 import {
   vcdbService,
@@ -157,7 +147,7 @@ export default function ApplyFitments() {
     driveType: '',
     bodyType: ''
   });
-  const [filteredVehicles, setFilteredVehicles] = useState([]);
+  const [filteredVehicles, setFilteredVehicles] = useState<any[]>([]);
   const [selectedVehicles, setSelectedVehicles] = useState<string[]>([]);
   const [fitmentDetails, setFitmentDetails] = useState({
     partId: '',
@@ -168,9 +158,6 @@ export default function ApplyFitments() {
     description: '',
     notes: ''
   });
-  const [availableParts, setAvailableParts] = useState([]);
-  const [availablePartTypes, setAvailablePartTypes] = useState([]);
-  const [loadingVehicles, setLoadingVehicles] = useState(false);
   const [applyingManualFitment, setApplyingManualFitment] = useState(false);
   const [aiProgress, setAiProgress] = useState(0);
   const [aiLogs, setAiLogs] = useState<string[]>([]);
@@ -1148,7 +1135,7 @@ export default function ApplyFitments() {
                         <Button
                           onClick={() => {
                             // Simple search implementation using existing configs
-                            const filtered = configurationsData?.filter(config => {
+                            const filtered = configurationsData?.filter((config: any) => {
                               const matchesYear = (!vehicleFilters.yearFrom || config.year >= parseInt(vehicleFilters.yearFrom)) &&
                                                 (!vehicleFilters.yearTo || config.year <= parseInt(vehicleFilters.yearTo));
                               const matchesMake = !vehicleFilters.make || config.make.toLowerCase().includes(vehicleFilters.make.toLowerCase());
@@ -1166,7 +1153,7 @@ export default function ApplyFitments() {
                             setFilteredVehicles(filtered);
                             setManualStep(2);
                           }}
-                          loading={loadingVehicles}
+                          loading={false}
                           style={{
                             background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
                             border: "none",
@@ -1202,7 +1189,7 @@ export default function ApplyFitments() {
                           <Button 
                             variant="light" 
                             size="sm"
-                            onClick={() => setSelectedVehicles(filteredVehicles.map(v => v.id))}
+                            onClick={() => setSelectedVehicles(filteredVehicles.map((v: any) => v.id))}
                           >
                             Select All
                           </Button>
@@ -1298,7 +1285,7 @@ export default function ApplyFitments() {
                         <Select
                           label="Part"
                           placeholder="Select a part"
-                          data={parts?.map(part => ({
+                          data={parts?.map((part: any) => ({
                             value: part.id,
                             label: `${part.id} - ${part.description}`
                           })) || []}
@@ -1309,7 +1296,7 @@ export default function ApplyFitments() {
                         <Select
                           label="Part Type"
                           placeholder="Select part type"
-                          data={partTypes?.map(type => ({
+                          data={partTypes?.map((type: any) => ({
                             value: type.id,
                             label: type.description
                           })) || []}
@@ -1328,7 +1315,7 @@ export default function ApplyFitments() {
                           placeholder="1"
                           min={1}
                           value={fitmentDetails.quantity}
-                          onChange={(value) => setFitmentDetails(prev => ({ ...prev, quantity: value || 1 }))}
+                          onChange={(value) => setFitmentDetails(prev => ({ ...prev, quantity: Number(value) || 1 }))}
                         />
                       </SimpleGrid>
                       
