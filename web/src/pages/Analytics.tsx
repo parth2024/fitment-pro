@@ -315,12 +315,12 @@ const Analytics: React.FC = () => {
                 }}
                 p="lg"
               >
-                <Stack align="center" justify="center" h="100%">
-                  <Text size="lg" fw={600} c="#1e293b" mb="md">
+                <Stack h="100%">
+                  <Text size="lg" fw={600} c="#1e293b" mb="lg">
                     Fitments by Method
                   </Text>
                   
-                  <Group justify="center" gap="xl">
+                  <Group justify="center" gap="xl" style={{ flex: 1, alignItems: "center" }}>
                     <Stack align="center">
                       <RingProgress
                         size={120}
@@ -382,12 +382,12 @@ const Analytics: React.FC = () => {
                 }}
                 p="lg"
               >
-                <Stack justify="center" h="100%">
-                  <Text size="lg" fw={600} c="#1e293b" mb="md">
+                <Stack h="100%">
+                  <Text size="lg" fw={600} c="#1e293b" mb="lg">
                     Quick Stats
                   </Text>
                   
-                  <Stack gap="md">
+                  <Stack gap="lg" style={{ flex: 1, justifyContent: "center" }}>
                     <Group justify="space-between">
                       <Group gap="sm">
                         <IconUsers size={16} color="#3b82f6" />
@@ -461,11 +461,12 @@ const Analytics: React.FC = () => {
                       key={shortcut.value}
                       p="md"
                       style={{
-                        background: "#f8fafc",
-                        border: "1px solid #e2e8f0",
+                        background: "#fefefe",
+                        border: "1px solid #f1f5f9",
                         borderRadius: "8px",
                         cursor: "pointer",
-                        transition: "all 0.2s ease",
+                        transition: "all 0.15s ease",
+                        boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
                       }}
                       onClick={() => handleNavigationClick(shortcut.value)}
                       className="navigation-shortcut"
@@ -503,10 +504,10 @@ const Analytics: React.FC = () => {
 
       <style>{`
         .navigation-shortcut:hover {
-          background: #f1f5f9 !important;
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-          border-color: #cbd5e1 !important;
+          background: #f8fafc !important;
+          transform: translateY(-1px);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+          border-color: #e2e8f0 !important;
         }
       `}</style>
     </div>
