@@ -2,7 +2,6 @@ import {
   AppShell,
   Container,
   Title,
-  Badge,
   Group,
   Stack,
   NavLink,
@@ -12,15 +11,11 @@ import {
   Button,
   Box,
   ThemeIcon,
-  Notification,
 } from "@mantine/core";
 import {
   IconCar,
   IconTable,
   IconUpload,
-  IconChartBar,
-  IconBulb,
-  IconSettings,
   IconUser,
   IconLogout,
   IconBell,
@@ -39,7 +34,12 @@ import UploadMap from "./pages/UploadMap";
 import ReviewPublish from "./pages/ReviewPublish";
 
 const navigationItems = [
-  { label: "Analytics", value: "analytics", icon: IconDashboard, color: "blue" },
+  {
+    label: "Analytics",
+    value: "analytics",
+    icon: IconDashboard,
+    color: "blue",
+  },
   { label: "Apply Fitments", value: "apply", icon: IconCar, color: "green" },
   { label: "Fitments", value: "fitments", icon: IconTable, color: "teal" },
   { label: "Bulk Upload", value: "bulk", icon: IconUpload, color: "orange" },
@@ -49,29 +49,35 @@ const navigationItems = [
     icon: IconUpload,
     color: "purple",
   },
-  {
-    label: "Review & Publish",
-    value: "review-publish",
-    icon: IconTable,
-    color: "pink",
-  },
-  {
-    label: "Coverage Analytics",
-    value: "coverage",
-    icon: IconChartBar,
-    color: "cyan",
-  },
-  {
-    label: "Potential Fitments",
-    value: "potential",
-    icon: IconBulb,
-    color: "yellow",
-  },
-  { label: "Admin Panel", value: "admin", icon: IconSettings, color: "red" },
+  // {
+  //   label: "Review & Publish",
+  //   value: "review-publish",
+  //   icon: IconTable,
+  //   color: "pink",
+  // },
+  // {
+  //   label: "Coverage Analytics",
+  //   value: "coverage",
+  //   icon: IconChartBar,
+  //   color: "cyan",
+  // },
+  // {
+  //   label: "Potential Fitments",
+  //   value: "potential",
+  //   icon: IconBulb,
+  //   color: "yellow",
+  // },
+  // { label: "Admin Panel", value: "admin", icon: IconSettings, color: "red" },
 ];
 
 function App() {
   const [activeTab, setActiveTab] = useState("analytics");
+  
+  // Get current page name for header
+  const getCurrentPageName = () => {
+    const currentNav = navigationItems.find(item => item.value === activeTab);
+    return currentNav ? currentNav.label : "Dashboard";
+  };
 
   // Add event listener for navigation changes from Analytics component
   useEffect(() => {
@@ -79,10 +85,10 @@ function App() {
       setActiveTab(event.detail.tab);
     };
 
-    window.addEventListener('changeTab', handleTabChange as EventListener);
-    
+    window.addEventListener("changeTab", handleTabChange as EventListener);
+
     return () => {
-      window.removeEventListener('changeTab', handleTabChange as EventListener);
+      window.removeEventListener("changeTab", handleTabChange as EventListener);
     };
   }, []);
 
@@ -140,45 +146,22 @@ function App() {
             padding: "0 24px",
           }}
         >
-          <Group gap="md">
-            <div
+          <div>
+            <Title
+              order={2}
               style={{
-                background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                borderRadius: "8px",
-                padding: "6px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
+                background:
+                  "linear-gradient(135deg, #1e293b 0%, #3b82f6 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                fontWeight: 700,
+                fontSize: "24px",
+                lineHeight: 1.2,
               }}
             >
-              <IconCar size={20} color="white" />
-            </div>
-            <div>
-              <Title
-                order={3}
-                style={{
-                  background:
-                    "linear-gradient(135deg, #1e293b 0%, #3b82f6 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  fontWeight: 700,
-                  fontSize: "20px",
-                  marginBottom: "2px",
-                }}
-              >
-                Fitmentpro.ai
-              </Title>
-              <Badge
-                variant="gradient"
-                gradient={{ from: "primary.6", to: "secondary.6", deg: 135 }}
-                size="sm"
-                radius="md"
-                style={{ fontWeight: 600 }}
-              >
-                Enterprise v2.0
-              </Badge>
-            </div>
-          </Group>
+              {getCurrentPageName()}
+            </Title>
+          </div>
 
           <Group gap="md">
             <Button
@@ -266,7 +249,8 @@ function App() {
               <Title
                 order={4}
                 style={{
-                  background: "linear-gradient(135deg, #1e293b 0%, #3b82f6 100%)",
+                  background:
+                    "linear-gradient(135deg, #1e293b 0%, #3b82f6 100%)",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                   fontWeight: 700,
@@ -364,24 +348,6 @@ function App() {
             );
           })}
         </Stack>
-
-        <Box style={{ marginTop: "auto", padding: "md" }}>
-          <Notification
-            withCloseButton={false}
-            icon={<IconDashboard size={20} />}
-            title="Dashboard Ready"
-            style={{
-              background:
-                "linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%)",
-              border: "1px solid rgba(34, 197, 94, 0.2)",
-              borderRadius: "12px",
-            }}
-          >
-            <Text size="xs" c="dimmed">
-              All systems operational
-            </Text>
-          </Notification>
-        </Box>
       </AppShell.Navbar>
 
       {/* Main Content Area */}
