@@ -27,7 +27,8 @@ import {
   IconChevronRight,
   IconDashboard,
 } from "@tabler/icons-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Analytics from "./pages/Analytics";
 import ApplyFitments from "./pages/ApplyFitments";
 import Fitments from "./pages/Fitments";
 import BulkUpload from "./pages/BulkUpload";
@@ -38,8 +39,9 @@ import UploadMap from "./pages/UploadMap";
 import ReviewPublish from "./pages/ReviewPublish";
 
 const navigationItems = [
-  { label: "Apply Fitments", value: "apply", icon: IconCar, color: "blue" },
-  { label: "Fitments", value: "fitments", icon: IconTable, color: "green" },
+  { label: "Analytics", value: "analytics", icon: IconDashboard, color: "blue" },
+  { label: "Apply Fitments", value: "apply", icon: IconCar, color: "green" },
+  { label: "Fitments", value: "fitments", icon: IconTable, color: "teal" },
   { label: "Bulk Upload", value: "bulk", icon: IconUpload, color: "orange" },
   {
     label: "Upload & Map",
@@ -57,7 +59,7 @@ const navigationItems = [
     label: "Coverage Analytics",
     value: "coverage",
     icon: IconChartBar,
-    color: "teal",
+    color: "cyan",
   },
   {
     label: "Potential Fitments",
@@ -69,10 +71,25 @@ const navigationItems = [
 ];
 
 function App() {
-  const [activeTab, setActiveTab] = useState("apply");
+  const [activeTab, setActiveTab] = useState("analytics");
+
+  // Add event listener for navigation changes from Analytics component
+  useEffect(() => {
+    const handleTabChange = (event: CustomEvent) => {
+      setActiveTab(event.detail.tab);
+    };
+
+    window.addEventListener('changeTab', handleTabChange as EventListener);
+    
+    return () => {
+      window.removeEventListener('changeTab', handleTabChange as EventListener);
+    };
+  }, []);
 
   const renderContent = () => {
     switch (activeTab) {
+      case "analytics":
+        return <Analytics />;
       case "apply":
         return <ApplyFitments />;
       case "fitments":
@@ -90,7 +107,7 @@ function App() {
       case "admin":
         return <Admin />;
       default:
-        return <ApplyFitments />;
+        return <Analytics />;
     }
   };
 
