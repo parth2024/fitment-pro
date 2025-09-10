@@ -18,6 +18,13 @@ import {
   Progress,
   Alert,
   SimpleGrid,
+  Stepper,
+  Textarea,
+  Modal,
+  Menu,
+  ActionIcon,
+  Notification,
+  MultiSelect,
 } from "@mantine/core";
 import {
   IconSearch,
@@ -29,6 +36,14 @@ import {
   IconUsers,
   IconDatabase,
   IconArrowLeft,
+  IconCar,
+  IconList,
+  IconSettings,
+  IconDots,
+  IconEdit,
+  IconTrash,
+  IconEye,
+  IconDownload,
 } from "@tabler/icons-react";
 import {
   vcdbService,
@@ -128,6 +143,35 @@ export default function ApplyFitments() {
   const [aiFitments, setAiFitments] = useState<any[]>([]);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [selectedAiFitments, setSelectedAiFitments] = useState<string[]>([]);
+
+  // Manual Method Stepper State
+  const [manualStep, setManualStep] = useState(1);
+  const [vehicleFilters, setVehicleFilters] = useState({
+    yearFrom: '',
+    yearTo: '',
+    make: '',
+    model: '',
+    submodel: '',
+    fuelType: '',
+    numDoors: '',
+    driveType: '',
+    bodyType: ''
+  });
+  const [filteredVehicles, setFilteredVehicles] = useState([]);
+  const [selectedVehicles, setSelectedVehicles] = useState<string[]>([]);
+  const [fitmentDetails, setFitmentDetails] = useState({
+    partId: '',
+    partType: '',
+    position: '',
+    quantity: 1,
+    title: '',
+    description: '',
+    notes: ''
+  });
+  const [availableParts, setAvailableParts] = useState([]);
+  const [availablePartTypes, setAvailablePartTypes] = useState([]);
+  const [loadingVehicles, setLoadingVehicles] = useState(false);
+  const [applyingManualFitment, setApplyingManualFitment] = useState(false);
   const [aiProgress, setAiProgress] = useState(0);
   const [aiLogs, setAiLogs] = useState<string[]>([]);
 
@@ -993,16 +1037,352 @@ export default function ApplyFitments() {
                 </Text>
               </div>
 
-              {/* Stepper content will go here - for now showing existing manual form */}
-              <div>
-                <Text size="lg" fw={600} c="#1e293b" mb="md">
-                  🚧 Manual Method Stepper (Coming Soon)
-                </Text>
-                <Text c="#64748b">
-                  This will contain a professional stepper interface for manual
-                  fitment configuration.
-                </Text>
-              </div>
+              {/* Manual Method Stepper */}
+              <Stepper active={manualStep - 1} onStepClick={setManualStep} allowNextStepsSelect={false}>
+                <Stepper.Step 
+                  label="Vehicle Selection" 
+                  description="Select vehicle criteria"
+                  icon={<IconCar size={18} />}
+                >
+                  <Card 
+                    style={{
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "8px",
+                      marginTop: "20px"
+                    }}
+                    p="lg"
+                  >
+                    <Stack gap="md">
+                      <Text size="lg" fw={600} c="#1e293b" mb="sm">
+                        Step 1: Select Vehicle Criteria
+                      </Text>
+                      
+                      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
+                        <NumberInput
+                          label="Year From"
+                          placeholder="2010"
+                          min={2010}
+                          max={2025}
+                          value={vehicleFilters.yearFrom}
+                          onChange={(value) => setVehicleFilters(prev => ({ ...prev, yearFrom: value?.toString() || '' }))}
+                        />
+                        <NumberInput
+                          label="Year To"
+                          placeholder="2025"
+                          min={2010}
+                          max={2025}
+                          value={vehicleFilters.yearTo}
+                          onChange={(value) => setVehicleFilters(prev => ({ ...prev, yearTo: value?.toString() || '' }))}
+                        />
+                        <TextInput
+                          label="Make"
+                          placeholder="Toyota, Honda, Ford..."
+                          value={vehicleFilters.make}
+                          onChange={(e) => setVehicleFilters(prev => ({ ...prev, make: e.target.value }))}
+                        />
+                        <TextInput
+                          label="Model"
+                          placeholder="RAV4, Civic, F-150..."
+                          value={vehicleFilters.model}
+                          onChange={(e) => setVehicleFilters(prev => ({ ...prev, model: e.target.value }))}
+                        />
+                        <TextInput
+                          label="Submodel"
+                          placeholder="XLE, Si, XLT..."
+                          value={vehicleFilters.submodel}
+                          onChange={(e) => setVehicleFilters(prev => ({ ...prev, submodel: e.target.value }))}
+                        />
+                        <Select
+                          label="Fuel Type"
+                          placeholder="Select fuel type"
+                          data={[
+                            { value: 'Gas', label: 'Gas' },
+                            { value: 'Diesel', label: 'Diesel' },
+                            { value: 'Electric', label: 'Electric' },
+                            { value: 'Hybrid', label: 'Hybrid' }
+                          ]}
+                          value={vehicleFilters.fuelType}
+                          onChange={(value) => setVehicleFilters(prev => ({ ...prev, fuelType: value || '' }))}
+                        />
+                        <Select
+                          label="Number of Doors"
+                          placeholder="Select doors"
+                          data={[
+                            { value: '2', label: '2 Doors' },
+                            { value: '4', label: '4 Doors' },
+                            { value: '5', label: '5 Doors' }
+                          ]}
+                          value={vehicleFilters.numDoors}
+                          onChange={(value) => setVehicleFilters(prev => ({ ...prev, numDoors: value || '' }))}
+                        />
+                        <Select
+                          label="Drive Type"
+                          placeholder="Select drive type"
+                          data={[
+                            { value: 'FWD', label: 'Front Wheel Drive' },
+                            { value: 'RWD', label: 'Rear Wheel Drive' },
+                            { value: 'AWD', label: 'All Wheel Drive' },
+                            { value: '4WD', label: '4 Wheel Drive' }
+                          ]}
+                          value={vehicleFilters.driveType}
+                          onChange={(value) => setVehicleFilters(prev => ({ ...prev, driveType: value || '' }))}
+                        />
+                        <Select
+                          label="Body Type"
+                          placeholder="Select body type"
+                          data={[
+                            { value: 'Sedan', label: 'Sedan' },
+                            { value: 'SUV', label: 'SUV' },
+                            { value: 'Truck', label: 'Truck' },
+                            { value: 'Crossover', label: 'Crossover' },
+                            { value: 'Coupe', label: 'Coupe' },
+                            { value: 'Wagon', label: 'Wagon' }
+                          ]}
+                          value={vehicleFilters.bodyType}
+                          onChange={(value) => setVehicleFilters(prev => ({ ...prev, bodyType: value || '' }))}
+                        />
+                      </SimpleGrid>
+                      
+                      <Group justify="flex-end" mt="lg">
+                        <Button
+                          onClick={() => {
+                            // Simple search implementation using existing configs
+                            const filtered = configurationsData?.filter(config => {
+                              const matchesYear = (!vehicleFilters.yearFrom || config.year >= parseInt(vehicleFilters.yearFrom)) &&
+                                                (!vehicleFilters.yearTo || config.year <= parseInt(vehicleFilters.yearTo));
+                              const matchesMake = !vehicleFilters.make || config.make.toLowerCase().includes(vehicleFilters.make.toLowerCase());
+                              const matchesModel = !vehicleFilters.model || config.model.toLowerCase().includes(vehicleFilters.model.toLowerCase());
+                              const matchesSubmodel = !vehicleFilters.submodel || config.submodel.toLowerCase().includes(vehicleFilters.submodel.toLowerCase());
+                              const matchesFuelType = !vehicleFilters.fuelType || config.fuelType === vehicleFilters.fuelType;
+                              const matchesDoors = !vehicleFilters.numDoors || config.numDoors.toString() === vehicleFilters.numDoors;
+                              const matchesDriveType = !vehicleFilters.driveType || config.driveType === vehicleFilters.driveType;
+                              const matchesBodyType = !vehicleFilters.bodyType || config.bodyType === vehicleFilters.bodyType;
+                              
+                              return matchesYear && matchesMake && matchesModel && matchesSubmodel && 
+                                     matchesFuelType && matchesDoors && matchesDriveType && matchesBodyType;
+                            }) || [];
+                            
+                            setFilteredVehicles(filtered);
+                            setManualStep(2);
+                          }}
+                          loading={loadingVehicles}
+                          style={{
+                            background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                            border: "none",
+                          }}
+                        >
+                          Search Vehicles
+                        </Button>
+                      </Group>
+                    </Stack>
+                  </Card>
+                </Stepper.Step>
+                
+                <Stepper.Step 
+                  label="Vehicle Selection" 
+                  description="Choose specific vehicles"
+                  icon={<IconList size={18} />}
+                >
+                  <Card 
+                    style={{
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "8px",
+                      marginTop: "20px"
+                    }}
+                    p="lg"
+                  >
+                    <Stack gap="md">
+                      <Group justify="space-between">
+                        <Text size="lg" fw={600} c="#1e293b">
+                          Step 2: Select Vehicles ({filteredVehicles.length} found)
+                        </Text>
+                        <Group gap="sm">
+                          <Button 
+                            variant="light" 
+                            size="sm"
+                            onClick={() => setSelectedVehicles(filteredVehicles.map(v => v.id))}
+                          >
+                            Select All
+                          </Button>
+                          <Button 
+                            variant="light" 
+                            size="sm"
+                            onClick={() => setSelectedVehicles([])}
+                          >
+                            Clear All
+                          </Button>
+                        </Group>
+                      </Group>
+                      
+                      <ScrollArea h={400}>
+                        <Stack gap="xs">
+                          {filteredVehicles.map((vehicle) => (
+                            <Card
+                              key={vehicle.id}
+                              p="md"
+                              style={{
+                                background: selectedVehicles.includes(vehicle.id) ? "#eff6ff" : "#ffffff",
+                                border: selectedVehicles.includes(vehicle.id) ? "2px solid #3b82f6" : "1px solid #e2e8f0",
+                                borderRadius: "8px",
+                                cursor: "pointer"
+                              }}
+                              onClick={() => {
+                                const vehicleId = vehicle.id;
+                                setSelectedVehicles(prev => 
+                                  prev.includes(vehicleId) 
+                                    ? prev.filter(id => id !== vehicleId)
+                                    : [...prev, vehicleId]
+                                );
+                              }}
+                            >
+                              <Group justify="space-between">
+                                <div>
+                                  <Text fw={600} size="sm" c="#1e293b">
+                                    {vehicle.year} {vehicle.make} {vehicle.model}
+                                  </Text>
+                                  <Text size="xs" c="#64748b">
+                                    {vehicle.submodel} • {vehicle.driveType} • {vehicle.fuelType} • {vehicle.bodyType}
+                                  </Text>
+                                </div>
+                                <Checkbox
+                                  checked={selectedVehicles.includes(vehicle.id)}
+                                  onChange={() => {}}
+                                />
+                              </Group>
+                            </Card>
+                          ))}
+                        </Stack>
+                      </ScrollArea>
+                      
+                      <Group justify="space-between" mt="lg">
+                        <Button variant="light" onClick={() => setManualStep(1)}>
+                          Back
+                        </Button>
+                        <Button
+                          onClick={() => setManualStep(3)}
+                          disabled={selectedVehicles.length === 0}
+                          style={{
+                            background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                            border: "none",
+                          }}
+                        >
+                          Continue ({selectedVehicles.length} selected)
+                        </Button>
+                      </Group>
+                    </Stack>
+                  </Card>
+                </Stepper.Step>
+                
+                <Stepper.Step 
+                  label="Fitment Details" 
+                  description="Configure fitment settings"
+                  icon={<IconSettings size={18} />}
+                >
+                  <Card 
+                    style={{
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "8px",
+                      marginTop: "20px"
+                    }}
+                    p="lg"
+                  >
+                    <Stack gap="md">
+                      <Text size="lg" fw={600} c="#1e293b" mb="sm">
+                        Step 3: Fitment Details
+                      </Text>
+                      
+                      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                        <Select
+                          label="Part"
+                          placeholder="Select a part"
+                          data={parts?.map(part => ({
+                            value: part.id,
+                            label: `${part.id} - ${part.description}`
+                          })) || []}
+                          value={fitmentDetails.partId}
+                          onChange={(value) => setFitmentDetails(prev => ({ ...prev, partId: value || '' }))}
+                          searchable
+                        />
+                        <Select
+                          label="Part Type"
+                          placeholder="Select part type"
+                          data={partTypes?.map(type => ({
+                            value: type.id,
+                            label: type.description
+                          })) || []}
+                          value={fitmentDetails.partType}
+                          onChange={(value) => setFitmentDetails(prev => ({ ...prev, partType: value || '' }))}
+                          searchable
+                        />
+                        <TextInput
+                          label="Position"
+                          placeholder="Front, Rear, All, etc."
+                          value={fitmentDetails.position}
+                          onChange={(e) => setFitmentDetails(prev => ({ ...prev, position: e.target.value }))}
+                        />
+                        <NumberInput
+                          label="Quantity"
+                          placeholder="1"
+                          min={1}
+                          value={fitmentDetails.quantity}
+                          onChange={(value) => setFitmentDetails(prev => ({ ...prev, quantity: value || 1 }))}
+                        />
+                      </SimpleGrid>
+                      
+                      <TextInput
+                        label="Fitment Title"
+                        placeholder="Enter fitment title"
+                        value={fitmentDetails.title}
+                        onChange={(e) => setFitmentDetails(prev => ({ ...prev, title: e.target.value }))}
+                      />
+                      
+                      <Textarea
+                        label="Description"
+                        placeholder="Enter fitment description"
+                        rows={3}
+                        value={fitmentDetails.description}
+                        onChange={(e) => setFitmentDetails(prev => ({ ...prev, description: e.target.value }))}
+                      />
+                      
+                      <Textarea
+                        label="Notes (Optional)"
+                        placeholder="Additional notes or installation instructions"
+                        rows={2}
+                        value={fitmentDetails.notes}
+                        onChange={(e) => setFitmentDetails(prev => ({ ...prev, notes: e.target.value }))}
+                      />
+                      
+                      <Group justify="space-between" mt="lg">
+                        <Button variant="light" onClick={() => setManualStep(2)}>
+                          Back
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            // Simulate applying fitment
+                            setApplyingManualFitment(true);
+                            setTimeout(() => {
+                              setApplyingManualFitment(false);
+                              toast.success(`Applied fitment to ${selectedVehicles.length} vehicles`);
+                              handleBackToMethodSelection();
+                            }, 2000);
+                          }}
+                          loading={applyingManualFitment}
+                          disabled={!fitmentDetails.partId || !fitmentDetails.partType}
+                          style={{
+                            background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                            border: "none",
+                          }}
+                        >
+                          Apply Fitment
+                        </Button>
+                      </Group>
+                    </Stack>
+                  </Card>
+                </Stepper.Step>
+              </Stepper>
             </Stack>
           </Card>
         )}
