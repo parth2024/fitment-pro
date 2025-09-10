@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'tenants',
     'workflow',
     'vcdb',
+    'parts',
     'fitments',
     'fitment_uploads',
 ]

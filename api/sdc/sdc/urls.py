@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from tenants.views import TenantListCreateView
 from vcdb.views import version, year_range, configurations
-# Parts views not available - removed import
+from parts.views import list_parts, list_part_types
 from fitments.views import fitments_root, coverage, property_values, validate, submit, export_csv, coverage_export, export_ai_fitments, ai_fitments_list, applied_fitments_list
 from workflow.views import uploads as wf_uploads, ai_map, vcdb_validate, review_queue, review_actions, publish, presets as wf_presets, preset_detail, ai_fitments, apply_fitments_batch
 
@@ -28,9 +28,8 @@ urlpatterns = [
     path('api/vcdb/version', version),
     path('api/vcdb/year-range', year_range),
     path('api/vcdb/configurations', configurations),
-    # Parts endpoints temporarily disabled - parts app not available
-    # path('api/parts', list_parts),
-    # path('api/parts/types', list_part_types),
+    path('api/parts', list_parts),
+    path('api/parts/types', list_part_types),
     path('api/fitments', fitments_root),
     path('api/fitments/coverage', coverage),
     path('api/fitments/coverage/export', coverage_export),
