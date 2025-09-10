@@ -10,35 +10,25 @@ import {
   Table,
   Checkbox,
   TextInput,
-  Textarea,
   Group,
   Stack,
-  Divider,
   Badge,
-  ActionIcon,
   ScrollArea,
   FileInput,
   Progress,
   Alert,
-  Paper,
   Container,
   SimpleGrid,
 } from "@mantine/core";
 import {
   IconSearch,
-  IconDownload,
-  IconCar,
-  IconSettings,
   IconUpload,
   IconFileText,
   IconRobot,
-  IconCheck,
   IconAlertCircle,
   IconBrain,
   IconUsers,
   IconDatabase,
-  IconChevronRight,
-  IconCloudUpload,
 } from "@tabler/icons-react";
 import {
   vcdbService,
@@ -111,9 +101,6 @@ export default function ApplyFitments() {
   const [aiFitments, setAiFitments] = useState<any[]>([]);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [selectedAiFitments, setSelectedAiFitments] = useState<string[]>([]);
-  const [appliedFitmentsCount, setAppliedFitmentsCount] = useState<
-    number | null
-  >(null);
 
   // API hooks
   const { data: yearRange } = useApi(
@@ -159,8 +146,6 @@ export default function ApplyFitments() {
     "Rear Left",
     "Rear Right",
   ];
-  const wheelTypes = ["Steel", "Alloy", "Forged", "Carbon Fiber"];
-  const liftHeights = ["Stock", "0-1in", "1-2in", "2-3in", "3-4in", "4+in"];
 
   // Drag & Drop handlers for VCDB files
   const handleVcdbDrag = (e: React.DragEvent) => {
@@ -338,7 +323,6 @@ export default function ApplyFitments() {
         );
         setSelectedAiFitments([]);
         setAiFitments([]);
-        setAppliedFitmentsCount(result.applied_count);
 
         // Show success modal with navigation option
         setTimeout(() => {
@@ -1042,7 +1026,7 @@ export default function ApplyFitments() {
                           onChange={(value) =>
                             setFilters((prev) => ({
                               ...prev,
-                              yearFrom: value || 2020,
+                              yearFrom: Number(value) || 2020,
                             }))
                           }
                           min={1900}
@@ -1056,7 +1040,7 @@ export default function ApplyFitments() {
                           onChange={(value) =>
                             setFilters((prev) => ({
                               ...prev,
-                              yearTo: value || 2025,
+                              yearTo: Number(value) || 2025,
                             }))
                           }
                           min={1900}
@@ -1185,7 +1169,7 @@ export default function ApplyFitments() {
                         }))
                       }
                       data={
-                        parts?.map((part: any) => ({
+                        (parts as any)?.map((part: any) => ({
                           value: part.id,
                           label: part.name,
                         })) || []
@@ -1203,7 +1187,7 @@ export default function ApplyFitments() {
                         }))
                       }
                       data={
-                        partTypes?.map((type: any) => ({
+                        (partTypes as any)?.map((type: any) => ({
                           value: type.id,
                           label: type.name,
                         })) || []
@@ -1229,7 +1213,7 @@ export default function ApplyFitments() {
                       onChange={(value) =>
                         setFitmentForm((prev) => ({
                           ...prev,
-                          quantity: value || 1,
+                          quantity: Number(value) || 1,
                         }))
                       }
                       min={1}
