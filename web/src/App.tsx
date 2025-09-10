@@ -143,7 +143,8 @@ function App() {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: "0 24px",
+            paddingLeft: "32px",
+            paddingRight: "32px",
           }}
         >
           <div>
@@ -226,7 +227,8 @@ function App() {
             justifyContent: "flex-start",
             borderBottom: "1px solid #e2e8f0",
             background: "linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)",
-            padding: "0 16px",
+            paddingLeft: "16px",
+            paddingRight: "16px",
           }}
         >
           <Group gap="sm" align="center">
@@ -239,6 +241,8 @@ function App() {
                 alignItems: "center",
                 justifyContent: "center",
                 flexShrink: 0,
+                width: "28px",
+                height: "28px",
               }}
             >
               <IconCar size={16} color="white" />
@@ -273,7 +277,7 @@ function App() {
         </div>
 
         {/* Navigation Section */}
-        <Stack gap={0} p="md">
+        <Stack gap={0} style={{ padding: "16px" }}>
           <Text
             size="xs"
             fw={600}
@@ -282,7 +286,7 @@ function App() {
             mb="sm"
             style={{ 
               letterSpacing: "0.5px",
-              marginLeft: "44px",
+              paddingLeft: "44px",
               lineHeight: 1.4,
             }}
           >
@@ -329,7 +333,10 @@ function App() {
                 style={{
                   borderRadius: "12px",
                   marginBottom: "4px",
-                  padding: "12px 16px",
+                  paddingTop: "12px",
+                  paddingBottom: "12px",
+                  paddingLeft: "16px",
+                  paddingRight: "16px",
                   fontWeight: isActive ? 600 : 500,
                   fontSize: "14px",
                   transition: "all 0.2s ease",
@@ -360,7 +367,7 @@ function App() {
           marginTop: "90px",
         }}
       >
-        <Box p="lg" style={{ height: "100%" }}>
+        <Box style={{ padding: "32px", height: "100%" }}>
           {renderContent()}
         </Box>
       </AppShell.Main>
