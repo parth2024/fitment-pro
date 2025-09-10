@@ -252,11 +252,42 @@ export default function ApplyFitments() {
     }
 
     setAiProcessing(true);
+    setAiProgress(0);
+    setAiLogs([]);
+    
+    // Simulate professional AI processing with realistic logs
+    const logs = [
+      "🔍 Initializing AI Fitment Engine...",
+      "📊 Analyzing VCDB vehicle configurations...",
+      "🔧 Processing product specifications...",
+      "🧠 Running compatibility algorithms...",
+      "⚡ Applying machine learning models...",
+      "🎯 Calculating fitment probabilities...",
+      "📈 Optimizing recommendation scores...",
+      "✅ Generating fitment suggestions..."
+    ];
+    
+    // Progressive log updates
+    const logInterval = setInterval(() => {
+      setAiLogs(prev => {
+        const nextIndex = prev.length;
+        if (nextIndex < logs.length) {
+          return [...prev, logs[nextIndex]];
+        }
+        return prev;
+      });
+      setAiProgress(prev => Math.min(prev + 12, 95));
+    }, 800);
+    
     try {
       // Call Azure AI Foundry API
       const result: any = await processAiFitment(() =>
         fitmentUploadService.processAiFitment(sessionId),
       );
+
+      clearInterval(logInterval);
+      setAiProgress(100);
+      setAiLogs(prev => [...prev, "🎉 AI fitment generation completed!"]);
 
       console.log("Full API result:", result);
       console.log("Result data:", result?.data);
@@ -271,9 +302,18 @@ export default function ApplyFitments() {
 
       if (fitments && Array.isArray(fitments) && fitments.length > 0) {
         console.log("Setting fitments:", fitments);
-        setAiFitments(fitments);
+        
+        // Add unique IDs to fitments for proper selection handling
+        const fitmentsWithIds = fitments.map((fitment: any, index: number) => ({
+          ...fitment,
+          id: fitment.id || `fitment_${index}`,
+          part_name: fitment.partDescription || fitment.part_name || 'Unknown Part',
+          part_description: fitment.partDescription || 'No description available'
+        }));
+        
+        setAiFitments(fitmentsWithIds);
         // Auto-select all fitments by default
-        setSelectedAiFitments(fitments.map((fitment: any) => fitment.id));
+        setSelectedAiFitments(fitmentsWithIds.map((fitment: any) => fitment.id));
         toast.success(`AI generated ${fitments.length} fitment suggestions!`);
       } else {
         console.log("No fitments found in response structure");
@@ -289,7 +329,9 @@ export default function ApplyFitments() {
         );
       }
     } catch (error) {
+      clearInterval(logInterval);
       console.error("AI fitment error:", error);
+      setAiLogs(prev => [...prev, "❌ AI processing failed. Please try again."]);
       toast.error("Failed to process AI fitment");
     } finally {
       setAiProcessing(false);
@@ -847,6 +889,7 @@ export default function ApplyFitments() {
                         color="green"
                         onClick={handleAiFitment}
                         loading={aiProcessing}
+                      disabled={aiProcessing}
                         style={{
                           borderRadius: "8px",
                           fontSize: "16px",
@@ -855,11 +898,67 @@ export default function ApplyFitments() {
                           height: "48px",
                         }}
                       >
-                        Generate AI Fitments
+                        {aiProcessing ? "Processing..." : "Generate AI Fitments"}
                       </Button>
                     )}
                   </Group>
                 )}
+              </Stack>
+            </Card>
+          )}
+
+          {/* AI Progress Display */}
+          {selectedMethod === "ai" && aiProcessing && (
+            <Card
+              style={{
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: "12px",
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+              }}
+              p="xl"
+            >
+              <Stack gap="lg">
+                <Group justify="space-between">
+                  <div>
+                    <Title order={3} c="#1e293b" fw={600}>
+                      🧠 AI Fitment Generation in Progress
+                    </Title>
+                    <Text size="sm" c="#64748b">
+                      Our AI is analyzing your data to generate optimal fitments
+                    </Text>
+                  </div>
+                </Group>
+
+                <Progress
+                  value={aiProgress}
+                  size="lg"
+                  radius="md"
+                  color="green"
+                  animated
+                  style={{ marginBottom: "16px" }}
+                />
+
+                <ScrollArea h={200}>
+                  <Stack gap="xs">
+                    {aiLogs.map((log, index) => (
+                      <Text
+                        key={index}
+                        size="sm"
+                        c="#374151"
+                        style={{
+                          fontFamily: "'Monaco', 'Menlo', 'Ubuntu Mono', monospace",
+                          background: "#f8fafc",
+                          padding: "8px 12px",
+                          borderRadius: "6px",
+                          border: "1px solid #e2e8f0",
+                        }}
+                      >
+                        {log}
+                      </Text>
+                    ))}
+                  </Stack>
+                </ScrollArea>
               </Stack>
             </Card>
           )}
@@ -886,13 +985,29 @@ export default function ApplyFitments() {
                     </Text>
                   </div>
                   <Group gap="sm">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleExportFitments("csv")}
-                    >
-                      Export CSV
-                    </Button>
+                    <Group gap="xs">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleExportFitments("csv")}
+                      >
+                        CSV
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleExportFitments("xlsx")}
+                      >
+                        XLSX
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleExportFitments("json")}
+                      >
+                        JSON
+                      </Button>
+                    </Group>
                     <Button
                       variant="filled"
                       color="green"
@@ -910,7 +1025,7 @@ export default function ApplyFitments() {
                   <Table striped highlightOnHover>
                     <Table.Thead>
                       <Table.Tr>
-                        <Table.Th>
+                        <Table.Th style={{ textAlign: "center", verticalAlign: "middle", width: "60px" }}>
                           <Checkbox
                             checked={selectedAiFitments.length === aiFitments.length}
                             indeterminate={
@@ -928,8 +1043,12 @@ export default function ApplyFitments() {
                             }}
                           />
                         </Table.Th>
-                        <Table.Th>Part</Table.Th>
-                        <Table.Th>Vehicle</Table.Th>
+                        <Table.Th>Part ID</Table.Th>
+                        <Table.Th>Description</Table.Th>
+                        <Table.Th>Year</Table.Th>
+                        <Table.Th>Make</Table.Th>
+                        <Table.Th>Model</Table.Th>
+                        <Table.Th>Submodel</Table.Th>
                         <Table.Th>Position</Table.Th>
                         <Table.Th>Confidence</Table.Th>
                       </Table.Tr>
@@ -937,7 +1056,7 @@ export default function ApplyFitments() {
                     <Table.Tbody>
                       {aiFitments.map((fitment) => (
                         <Table.Tr key={fitment.id}>
-                          <Table.Td>
+                          <Table.Td style={{ textAlign: "center", verticalAlign: "middle" }}>
                             <Checkbox
                               checked={selectedAiFitments.includes(fitment.id)}
                               onChange={(event) => {
@@ -955,17 +1074,37 @@ export default function ApplyFitments() {
                             />
                           </Table.Td>
                           <Table.Td>
+                            <Text size="sm" fw={600} c="#3b82f6">
+                              {fitment.partId}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
                             <Text size="sm" fw={500}>
-                              {fitment.part_name}
+                              {fitment.part_description || fitment.partDescription}
                             </Text>
                           </Table.Td>
                           <Table.Td>
                             <Text size="sm">
-                              {fitment.year} {fitment.make} {fitment.model}
+                              {fitment.year}
                             </Text>
                           </Table.Td>
                           <Table.Td>
-                            <Badge variant="light" size="sm">
+                            <Text size="sm" fw={500}>
+                              {fitment.make}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm">
+                              {fitment.model}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm" c="#64748b">
+                              {fitment.submodel || "-"}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Badge variant="light" size="sm" color="blue">
                               {fitment.position}
                             </Badge>
                           </Table.Td>
