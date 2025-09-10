@@ -29,6 +29,8 @@ import {
   IconBrain,
   IconUsers,
   IconDatabase,
+  IconArrowLeft,
+  IconChevronLeft,
 } from "@tabler/icons-react";
 import {
   vcdbService,
@@ -56,7 +58,34 @@ export default function ApplyFitments() {
   const [sessionId, setSessionId] = useState<string | null>(null);
 
   // Step management for UI flow
-  const [currentStep, setCurrentStep] = useState<1 | 2>(1); // 1 = Upload Files, 2 = Choose Method
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1); // 1 = Upload Files, 2 = Choose Method, 3 = Manual Method, 4 = AI Method
+  
+  // Navigation handlers
+  const handleBackToUpload = () => {
+    setCurrentStep(1);
+    setUploadStatus("idle");
+    setUploadProgress(0);
+    setSelectedMethod(null);
+  };
+  
+  const handleBackToMethodSelection = () => {
+    setCurrentStep(2);
+    setSelectedMethod(null);
+    setAiProcessing(false);
+    setAiFitments([]);
+    setAiProgress(0);
+    setAiLogs([]);
+  };
+  
+  const handleManualMethodClick = () => {
+    setSelectedMethod("manual");
+    setCurrentStep(3);
+  };
+  
+  const handleAiMethodClick = () => {
+    setSelectedMethod("ai");
+    setCurrentStep(4);
+  };
 
   // Fitment method selection
   const [selectedMethod, setSelectedMethod] = useState<"manual" | "ai" | null>(
@@ -722,18 +751,15 @@ export default function ApplyFitments() {
                       value={uploadProgress}
                       size="lg"
                       radius="md"
-                      style={{
-                        background: "#f1f5f9",
-                      }}
-                    >
-                      <Progress.Root style={{
-                        background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)"
-                      }}>
-                        <Progress.Section value={uploadProgress} style={{
+                      styles={{
+                        root: {
+                          background: "#f1f5f9",
+                        },
+                        section: {
                           background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)"
-                        }} />
-                      </Progress.Root>
-                    </Progress>
+                        }
+                      }}
+                    />
                   </Stack>
                 </Card>
               )}
@@ -800,6 +826,21 @@ export default function ApplyFitments() {
             p="xl"
           >
             <Stack gap="xl">
+              {/* Back Button */}
+              <Group>
+                <Button
+                  variant="subtle"
+                  leftSection={<IconArrowLeft size={16} />}
+                  onClick={handleBackToUpload}
+                  style={{
+                    color: "#64748b",
+                    fontWeight: 500,
+                  }}
+                >
+                  Back to Upload
+                </Button>
+              </Group>
+              
               <div>
                 <Title order={2} c="#1e293b" fw={600} mb="xs">
                   Choose Fitment Method
@@ -829,7 +870,7 @@ export default function ApplyFitments() {
                         : "0 2px 4px rgba(0, 0, 0, 0.05)",
                   }}
                   p="xl"
-                  onClick={() => setSelectedMethod("manual")}
+                  onClick={handleManualMethodClick}
                 >
                   <Stack align="center" gap="lg">
                     <div
@@ -878,7 +919,7 @@ export default function ApplyFitments() {
                         : "0 2px 4px rgba(0, 0, 0, 0.05)",
                   }}
                   p="xl"
-                  onClick={() => setSelectedMethod("ai")}
+                  onClick={handleAiMethodClick}
                 >
                   <Stack align="center" gap="lg">
                     <div
@@ -911,42 +952,6 @@ export default function ApplyFitments() {
                 </Card>
               </SimpleGrid>
 
-              {/* Action Buttons */}
-              {selectedMethod && (
-                <Group justify="center" mt="lg">
-                  {selectedMethod === "ai" && (
-                    <Button
-                      size="lg"
-                      leftSection={<IconRobot size={20} />}
-                      variant="filled"
-                      onClick={handleAiFitment}
-                      loading={aiProcessing}
-                      disabled={aiProcessing}
-                      style={{
-                        background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                        border: "none",
-                        borderRadius: "8px",
-                        fontSize: "16px",
-                        fontWeight: 600,
-                        padding: "12px 24px",
-                        height: "48px",
-                        color: "white",
-                        transition: "all 0.2s ease",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = "translateY(-1px)"
-                        e.currentTarget.style.boxShadow = "0 4px 12px rgba(59, 130, 246, 0.3)"
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = "translateY(0)"
-                        e.currentTarget.style.boxShadow = "none"
-                      }}
-                    >
-                      {aiProcessing ? "Processing..." : "Generate AI Fitments"}
-                    </Button>
-                  )}
-                </Group>
-              )}
             </Stack>
           </Card>
         )}
