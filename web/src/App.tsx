@@ -72,10 +72,10 @@ const navigationItems = [
 
 function App() {
   const [activeTab, setActiveTab] = useState("analytics");
-  
+
   // Get current page name for header
   const getCurrentPageName = () => {
-    const currentNav = navigationItems.find(item => item.value === activeTab);
+    const currentNav = navigationItems.find((item) => item.value === activeTab);
     return currentNav ? currentNav.label : "Dashboard";
   };
 
@@ -247,7 +247,13 @@ function App() {
             >
               <IconCar size={16} color="white" />
             </div>
-            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+              }}
+            >
               <Title
                 order={4}
                 style={{
@@ -284,9 +290,9 @@ function App() {
             tt="uppercase"
             c="dimmed"
             mb="sm"
-            style={{ 
+            style={{
               letterSpacing: "0.5px",
-              paddingLeft: "44px",
+              paddingLeft: "20px",
               lineHeight: 1.4,
             }}
           >
@@ -367,9 +373,7 @@ function App() {
           marginTop: "90px",
         }}
       >
-        <Box style={{ padding: "32px", height: "100%" }}>
-          {renderContent()}
-        </Box>
+        <Box style={{ padding: "32px", height: "100%" }}>{renderContent()}</Box>
       </AppShell.Main>
     </AppShell>
   );
