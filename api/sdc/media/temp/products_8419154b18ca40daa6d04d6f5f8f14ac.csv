@@ -1,0 +1,9 @@
+id,description,category,partType,compatibility,specifications
+WHEEL001,"18"" Alloy Wheel - Black Finish",Wheels,Wheel,Universal,"{'diameter': '18', 'width': '8.5', 'boltPattern': '5x114.3', 'offset': '35'}"
+BRAKE001,Front Brake Rotor - Vented,Brakes,Brake Rotor,Front,"{'diameter': '320mm', 'thickness': '28mm', 'material': 'Cast Iron'}"
+SHOCK001,Front Shock Absorber - Gas Charged,Suspension,Shock Absorber,Front,"{'type': 'Gas Charged', 'travel': '6.5 inches', 'mounting': 'Eyelet/Top Hat'}"
+FILTER001,Engine Air Filter - High Performance,Engine,Air Filter,Universal,"{'type': 'High Performance', 'material': 'Cotton Gauze', 'reusable': True}"
+LIGHT001,LED Headlight Bulb - H11,Lighting,Headlight Bulb,Front,"{'type': 'LED', 'base': 'H11', 'color': '6000K White', 'lifespan': '50000 hours'}"
+TIRE001,All-Season Tire - 255/55R18,Tires,Tire,Universal,"{'size': '255/55R18', 'type': 'All-Season', 'loadIndex': '109', 'speedRating': 'V'}"
+EXHAUST001,Cat-Back Exhaust System - Stainless Steel,Exhaust,Exhaust System,Universal,"{'material': 'Stainless Steel', 'type': 'Cat-Back', 'tips': 'Dual 4"" Round'}"
+SPRING001,"Lowering Springs - 1.5"" Drop",Suspension,Spring,Universal,"{'drop': '1.5 inches', 'material': 'Spring Steel', 'type': 'Progressive Rate'}"

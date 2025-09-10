@@ -190,8 +190,20 @@ export const fitmentUploadService = {
       { session_id: sessionId },
       { timeout: 180000 }
     ), // 3 minutes for AI processing
+
+  processDataUploadsAiFitment: (sessionId: string) =>
+    apiClient.post(
+      "/api/data-uploads/ai-fitment/",
+      { session_id: sessionId },
+      { timeout: 180000 }
+    ),
   applyAiFitments: (sessionId: string, fitmentIds: string[]) =>
     apiClient.post("/api/apply-ai-fitments/", {
+      session_id: sessionId,
+      fitment_ids: fitmentIds,
+    }),
+  applyDataUploadsAiFitments: (sessionId: string, fitmentIds: string[]) =>
+    apiClient.post("/api/data-uploads/apply-ai-fitments/", {
       session_id: sessionId,
       fitment_ids: fitmentIds,
     }),
@@ -250,7 +262,7 @@ export const fitmentUploadService = {
     description: string;
     notes: string;
   }) =>
-    apiClient.post("/api/apply-manual-fitment/", {
+    apiClient.post("/api/data-uploads/apply-manual-fitment/", {
       session_id: fitmentData.sessionId,
       vehicle_ids: fitmentData.vehicleIds,
       part_id: fitmentData.partId,

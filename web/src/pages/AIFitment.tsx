@@ -1,54 +1,22 @@
 import { useState, useEffect } from "react";
 import {
-  Grid,
   Card,
   Title,
   Text,
   Select,
-  NumberInput,
   Button,
   Table,
   Checkbox,
-  TextInput,
   Group,
   Stack,
   Badge,
   ScrollArea,
-  FileInput,
   Progress,
   Alert,
-  SimpleGrid,
-  Stepper,
-  Textarea,
   Transition,
 } from "@mantine/core";
-import {
-  IconUpload,
-  IconFileText,
-  IconRobot,
-  IconAlertCircle,
-  IconBrain,
-  IconUsers,
-  IconDatabase,
-  IconArrowLeft,
-  IconCar,
-  IconList,
-  IconSettings,
-  IconCalendar,
-  IconGasStation,
-  IconDoor,
-  IconRefresh,
-  IconSearch,
-  IconPackage,
-  IconTag,
-  IconMapPin,
-  IconHash,
-} from "@tabler/icons-react";
-import {
-  vcdbService,
-  partsService,
-  fitmentUploadService,
-} from "../api/services";
+import { IconRobot, IconAlertCircle, IconDatabase } from "@tabler/icons-react";
+import { fitmentUploadService, dataUploadService } from "../api/services";
 import { useApi, useAsyncOperation } from "../hooks/useApi";
 import { useProfessionalToast } from "../hooks/useProfessionalToast";
 
@@ -56,228 +24,103 @@ export default function ApplyFitments() {
   // Professional toast hook
   const { showSuccess, showError } = useProfessionalToast();
 
-  // File upload states
-  const [vcdbFile, setVcdbFile] = useState<File | null>(null);
-  const [productsFile, setProductsFile] = useState<File | null>(null);
-  const [vcdbDragActive, setVcdbDragActive] = useState(false);
-  const [productsDragActive, setProductsDragActive] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadStatus, setUploadStatus] = useState<
-    "idle" | "uploading" | "completed" | "error"
-  >("idle");
-  const [uploadedFiles, setUploadedFiles] = useState<{
-    vcdb: boolean;
-    products: boolean;
-  }>({ vcdb: false, products: false });
-  const [sessionId, setSessionId] = useState<string | null>(null);
-
-  // Step management for UI flow
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1); // 1 = Upload Files, 2 = Choose Method, 3 = Manual Method, 4 = AI Method
-
-  // Navigation handlers
-  const handleBackToUpload = () => {
-    setCurrentStep(1);
-    setUploadStatus("idle");
-    setUploadProgress(0);
-    setSelectedMethod(null);
-  };
-
-  const handleBackToMethodSelection = () => {
-    setCurrentStep(2);
-    setSelectedMethod(null);
-    setAiProcessing(false);
-    setAiFitments([]);
-    setAiProgress(0);
-    setAiLogs([]);
-  };
-
-  const handleManualMethodClick = () => {
-    setSelectedMethod("manual");
-    setCurrentStep(3);
-  };
-
-  const handleAiMethodClick = () => {
-    setSelectedMethod("ai");
-    setCurrentStep(4);
-  };
-
-  // Fitment method selection
-  const [selectedMethod, setSelectedMethod] = useState<"manual" | "ai" | null>(
-    null
-  );
-
-  // Manual fitment states (existing logic)
-  const [filters, setFilters] = useState({
-    yearFrom: 2020,
-    yearTo: 2025,
-    make: "",
-    model: "",
-    submodel: "",
-    driveType: "",
-    fuelType: "",
-    numDoors: "",
-    bodyType: "",
-  });
+  // Session selection states (new approach)
+  const [uploadedSessions, setUploadedSessions] = useState<any[]>([]);
+  const [selectedSession, setSelectedSession] = useState<string | null>(null);
+  const [uploadedVehicles, setUploadedVehicles] = useState<any[]>([]);
+  const [uploadedProducts, setUploadedProducts] = useState<any[]>([]);
+  const [loadingSessionData, setLoadingSessionData] = useState(false);
 
   // AI fitment states
   const [aiFitments, setAiFitments] = useState<any[]>([]);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [selectedAiFitments, setSelectedAiFitments] = useState<string[]>([]);
-
-  // Manual Method Stepper State
-  const [manualStep, setManualStep] = useState(1);
-  const [vehicleFilters, setVehicleFilters] = useState({
-    yearFrom: "",
-    yearTo: "",
-    make: "",
-    model: "",
-    submodel: "",
-    fuelType: "",
-    numDoors: "",
-    driveType: "",
-    bodyType: "",
-  });
-  const [filteredVehicles, setFilteredVehicles] = useState<any[]>([]);
-  const [selectedVehicles, setSelectedVehicles] = useState<string[]>([]);
-  const [fitmentDetails, setFitmentDetails] = useState({
-    partId: "",
-    partType: "",
-    position: "",
-    quantity: 1,
-    title: "",
-    description: "",
-    notes: "",
-  });
-  const [applyingManualFitment, setApplyingManualFitment] = useState(false);
   const [aiProgress, setAiProgress] = useState(0);
   const [aiLogs, setAiLogs] = useState<string[]>([]);
 
   // API hooks
-  const { data: yearRange } = useApi(
-    () => vcdbService.getYearRange(),
+  const { execute: applyFitment, loading: applyingFitment } =
+    useAsyncOperation();
+  const { execute: processAiFitment } = useAsyncOperation();
+
+  // Session management API hooks
+  const { data: sessionsData, loading: sessionsLoading } = useApi(
+    () => dataUploadService.getSessions(),
     []
   ) as any;
 
-  const { data: configurationsData } = useApi(
-    () => vcdbService.getConfigurations(filters),
-    [filters]
-  ) as any;
-  const { execute: applyFitment, loading: applyingFitment } =
-    useAsyncOperation();
-  const { execute: uploadFiles, loading: uploadingFiles } = useAsyncOperation();
-  const { execute: processAiFitment } = useAsyncOperation();
-
-  // Update year range when data loads
+  // Load uploaded sessions
   useEffect(() => {
-    if (yearRange) {
-      setFilters((prev) => ({
-        ...prev,
-        yearFrom: yearRange.minYear,
-        yearTo: yearRange.maxYear,
-      }));
+    if (sessionsData && Array.isArray(sessionsData)) {
+      console.log("Sessions data loaded:", sessionsData);
+      setUploadedSessions(sessionsData);
+      // Auto-select the most recent session if available and no session is currently selected
+      if (sessionsData.length > 0 && !selectedSession) {
+        const mostRecent = sessionsData[0];
+        console.log("Auto-selecting session:", mostRecent.id);
+        setSelectedSession(mostRecent.id);
+      }
     }
-  }, [yearRange]);
+  }, [sessionsData]);
 
-  // Drag & Drop handlers for VCDB files
-  const handleVcdbDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setVcdbDragActive(true);
-    } else if (e.type === "dragleave") {
-      setVcdbDragActive(false);
+  // Load session data when session is selected
+  useEffect(() => {
+    if (selectedSession) {
+      console.log("Loading session data for:", selectedSession);
+      setLoadingSessionData(true);
+
+      // Clear previous AI fitments when session changes
+      setAiFitments([]);
+      setSelectedAiFitments([]);
+      setAiProcessing(false);
+      setAiProgress(0);
+      setAiLogs([]);
+
+      const loadData = async () => {
+        try {
+          console.log("Making API calls for session:", selectedSession);
+          const [vehiclesResponse, productsResponse] = await Promise.all([
+            dataUploadService.getFileData(selectedSession, "vcdb"),
+            dataUploadService.getFileData(selectedSession, "products"),
+          ]);
+
+          const result = {
+            vehicles: vehiclesResponse?.data || [],
+            products: productsResponse?.data || [],
+          };
+
+          console.log("Session data loaded:", result);
+          setUploadedVehicles(result.vehicles?.data || []);
+          setUploadedProducts(result.products?.data || []);
+        } catch (error) {
+          console.error("Failed to load session data:", error);
+          showError("Failed to load uploaded data");
+        } finally {
+          setLoadingSessionData(false);
+        }
+      };
+
+      loadData();
+    } else {
+      // Clear data when no session is selected
+      setUploadedVehicles([]);
+      setUploadedProducts([]);
+      setAiFitments([]);
+      setSelectedAiFitments([]);
+      setAiProcessing(false);
+      setAiProgress(0);
+      setAiLogs([]);
     }
-  };
+  }, [selectedSession]);
 
-  const handleVcdbDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setVcdbDragActive(false);
-
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setVcdbFile(e.dataTransfer.files[0]);
-    }
-  };
-
-  // Drag & Drop handlers for Products files
-  const handleProductsDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setProductsDragActive(true);
-    } else if (e.type === "dragleave") {
-      setProductsDragActive(false);
-    }
-  };
-
-  const handleProductsDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setProductsDragActive(false);
-
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setProductsFile(e.dataTransfer.files[0]);
-    }
-  };
-
-  const handleFileUpload = async () => {
-    if (!vcdbFile || !productsFile) {
-      showError("Please upload both VCDB and Products files");
+  const handleAiFitment = async () => {
+    if (!selectedSession) {
+      showError("Please select an upload session first");
       return;
     }
 
-    setUploadStatus("uploading");
-    setUploadProgress(0);
-
-    try {
-      // Simulate upload progress
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
-        });
-      }, 200);
-
-      // Upload files to backend
-      const result: any = await uploadFiles(() =>
-        fitmentUploadService.uploadFiles(vcdbFile, productsFile)
-      );
-
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      console.log("Upload result:", result);
-
-      if (result && result.data && result.data.session) {
-        setUploadStatus("completed");
-        setUploadedFiles({ vcdb: true, products: true });
-        setSessionId(result.data.session.id);
-        setCurrentStep(2); // Move to step 2 after successful upload
-        showSuccess(
-          "Files uploaded successfully! Now choose your fitment method.",
-          5000
-        );
-      } else {
-        console.error("Invalid response structure:", result);
-        throw new Error("Invalid response from server");
-      }
-    } catch (error: any) {
-      setUploadStatus("error");
-      console.error("Upload error:", error);
-      const errorMessage =
-        error?.response?.data?.error ||
-        error?.message ||
-        "Failed to upload files";
-      showError(errorMessage);
-    }
-  };
-
-  const handleAiFitment = async () => {
-    if (!uploadedFiles.vcdb || !uploadedFiles.products || !sessionId) {
-      showError("Please upload both files first");
+    if (uploadedVehicles.length === 0 || uploadedProducts.length === 0) {
+      showError("No vehicle or product data available in selected session");
       return;
     }
 
@@ -328,7 +171,7 @@ export default function ApplyFitments() {
     try {
       // Call Azure AI Foundry API
       const result: any = await processAiFitment(() =>
-        fitmentUploadService.processAiFitment(sessionId)
+        fitmentUploadService.processDataUploadsAiFitment(selectedSession)
       );
 
       clearInterval(logInterval);
@@ -400,14 +243,17 @@ export default function ApplyFitments() {
       return;
     }
 
-    if (!sessionId) {
-      showError("Session not found");
+    if (!selectedSession) {
+      showError("Please select an upload session first");
       return;
     }
 
     try {
       const result: any = await applyFitment(() =>
-        fitmentUploadService.applyAiFitments(sessionId, selectedAiFitments)
+        fitmentUploadService.applyDataUploadsAiFitments(
+          selectedSession,
+          selectedAiFitments
+        )
       );
 
       if (result) {
@@ -417,12 +263,6 @@ export default function ApplyFitments() {
         );
         setSelectedAiFitments([]);
         setAiFitments([]);
-
-        // Reset the method selection to allow new uploads
-        setSelectedMethod(null);
-        setUploadedFiles({ vcdb: false, products: false });
-        setSessionId(null);
-        setCurrentStep(1); // Reset to step 1
       }
     } catch (error) {
       showError("Failed to apply AI fitments");
@@ -435,14 +275,14 @@ export default function ApplyFitments() {
       const fitmentIds =
         selectedAiFitments.length > 0 ? selectedAiFitments : undefined;
 
-      if (!sessionId) {
-        showError("Session ID is required for export");
+      if (!selectedSession) {
+        showError("Please select an upload session first");
         return;
       }
 
       const response = await fitmentUploadService.exportAiFitments(
         format,
-        sessionId,
+        selectedSession,
         fitmentIds
       );
 
@@ -521,47 +361,166 @@ export default function ApplyFitments() {
                       </Text>
                     </div>
 
-                    {/* Generate AI Fitments Button */}
-                    {!aiProcessing && aiFitments.length === 0 && (
-                      <Group justify="center">
-                        <Button
-                          size="lg"
-                          leftSection={<IconRobot size={20} />}
-                          variant="filled"
-                          onClick={handleAiFitment}
-                          style={{
-                            background:
-                              "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                            border: "none",
-                            borderRadius: "8px",
-                            fontSize: "16px",
-                            fontWeight: 600,
-                            padding: "12px 24px",
-                            height: "48px",
-                            color: "white",
-                            transition: "all 0.2s ease",
+                    {/* Session Selector */}
+                    <Card
+                      withBorder
+                      radius="md"
+                      p="md"
+                      style={{ backgroundColor: "#f8fafc" }}
+                    >
+                      <Stack gap="sm">
+                        <Group gap="sm">
+                          <IconDatabase size={20} color="#3b82f6" />
+                          <Text fw={600} size="sm" c="#1e293b">
+                            Data Source
+                          </Text>
+                        </Group>
+                        <Select
+                          label="Select Upload Session"
+                          placeholder={
+                            sessionsLoading || loadingSessionData
+                              ? "Loading sessions..."
+                              : uploadedSessions.length === 0
+                              ? "No uploaded data available"
+                              : "Select a session"
+                          }
+                          data={uploadedSessions.map((session: any) => ({
+                            value: session.id,
+                            label: `${
+                              session.name || `Session ${session.id}`
+                            } - ${new Date(
+                              session.created_at
+                            ).toLocaleDateString()}`,
+                          }))}
+                          value={selectedSession}
+                          onChange={(value) => setSelectedSession(value)}
+                          disabled={
+                            sessionsLoading ||
+                            loadingSessionData ||
+                            uploadedSessions.length === 0
+                          }
+                          leftSection={
+                            <IconDatabase size={16} color="#64748b" />
+                          }
+                          styles={{
+                            label: {
+                              fontWeight: 600,
+                              fontSize: "13px",
+                              color: "#374151",
+                              marginBottom: "8px",
+                              textTransform: "uppercase",
+                              letterSpacing: "0.5px",
+                            },
+                            input: {
+                              borderRadius: "10px",
+                              border: "2px solid #e2e8f0",
+                              fontSize: "14px",
+                              height: "48px",
+                              paddingLeft: "40px",
+                              transition:
+                                "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                              backgroundColor: "#fafafa",
+                              "&:focus": {
+                                borderColor: "#3b82f6",
+                                boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                backgroundColor: "#ffffff",
+                              },
+                              "&:hover": {
+                                borderColor: "#cbd5e1",
+                                backgroundColor: "#ffffff",
+                              },
+                            },
                           }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.transform =
-                              "translateY(-1px)";
-                            e.currentTarget.style.boxShadow =
-                              "0 4px 12px rgba(59, 130, 246, 0.3)";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = "translateY(0)";
-                            e.currentTarget.style.boxShadow = "none";
-                          }}
-                        >
-                          Generate AI Fitments
-                        </Button>
-                      </Group>
+                        />
+                        {selectedSession && (
+                          <Group gap="sm">
+                            <Badge color="blue" variant="light" size="sm">
+                              {loadingSessionData
+                                ? "Loading..."
+                                : `${uploadedVehicles.length} Vehicles`}
+                            </Badge>
+                            <Badge color="green" variant="light" size="sm">
+                              {loadingSessionData
+                                ? "Loading..."
+                                : `${uploadedProducts.length} Products`}
+                            </Badge>
+                          </Group>
+                        )}
+                      </Stack>
+                    </Card>
+
+                    {/* Warning if no data available */}
+                    {uploadedSessions.length === 0 && (
+                      <Alert
+                        icon={<IconAlertCircle size={16} />}
+                        title="No Uploaded Data Available"
+                        color="orange"
+                        variant="light"
+                        radius="md"
+                      >
+                        <Text size="sm">
+                          Please upload VCDB and Products files in the{" "}
+                          <strong>Upload Data</strong> section first before
+                          using AI fitment.
+                        </Text>
+                      </Alert>
                     )}
+
+                    {/* Generate AI Fitments Button - Show only when session is selected and no fitments generated */}
+                    {selectedSession &&
+                      !aiProcessing &&
+                      aiFitments.length === 0 && (
+                        <Group justify="center">
+                          <Button
+                            size="lg"
+                            leftSection={<IconRobot size={20} />}
+                            variant="filled"
+                            onClick={handleAiFitment}
+                            disabled={
+                              !selectedSession ||
+                              uploadedSessions.length === 0 ||
+                              loadingSessionData ||
+                              uploadedVehicles.length === 0 ||
+                              uploadedProducts.length === 0
+                            }
+                            style={{
+                              background:
+                                "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                              border: "none",
+                              borderRadius: "8px",
+                              fontSize: "16px",
+                              fontWeight: 600,
+                              padding: "12px 24px",
+                              height: "48px",
+                              color: "white",
+                              transition: "all 0.2s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.transform =
+                                "translateY(-1px)";
+                              e.currentTarget.style.boxShadow =
+                                "0 4px 12px rgba(59, 130, 246, 0.3)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.transform = "translateY(0)";
+                              e.currentTarget.style.boxShadow = "none";
+                            }}
+                          >
+                            {loadingSessionData
+                              ? "Loading Session Data..."
+                              : uploadedVehicles.length === 0 ||
+                                uploadedProducts.length === 0
+                              ? "No Data Available"
+                              : "Generate AI Fitments"}
+                          </Button>
+                        </Group>
+                      )}
                   </Stack>
                 </Card>
               }
 
-              {/* AI Progress Display (only show on step 4) */}
-              {
+              {/* AI Progress Display (only show when processing) */}
+              {aiProcessing && (
                 <Card
                   style={{
                     background: "#ffffff",
@@ -626,70 +585,13 @@ export default function ApplyFitments() {
                     </ScrollArea>
                   </Stack>
                 </Card>
-              }
+              )}
             </div>
           )}
         </Transition>
 
-        {/* AI Progress Display (legacy - only show when NOT using new steps) */}
-        {currentStep !== 4 && selectedMethod === "ai" && aiProcessing && (
-          <Card
-            style={{
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "12px",
-              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-            }}
-            p="xl"
-          >
-            <Stack gap="lg">
-              <Group justify="space-between">
-                <div>
-                  <Title order={3} c="#1e293b" fw={600}>
-                    🧠 AI Fitment Generation in Progress
-                  </Title>
-                  <Text size="sm" c="#64748b">
-                    Our AI is analyzing your data to generate optimal fitments
-                  </Text>
-                </div>
-              </Group>
-
-              <Progress
-                value={aiProgress}
-                size="lg"
-                radius="md"
-                color="green"
-                animated
-                style={{ marginBottom: "16px" }}
-              />
-
-              <ScrollArea h={200}>
-                <Stack gap="xs">
-                  {aiLogs.map((log, index) => (
-                    <Text
-                      key={index}
-                      size="sm"
-                      c="#374151"
-                      style={{
-                        fontFamily:
-                          "'Monaco', 'Menlo', 'Ubuntu Mono', monospace",
-                        background: "#f8fafc",
-                        padding: "8px 12px",
-                        borderRadius: "6px",
-                        border: "1px solid #e2e8f0",
-                      }}
-                    >
-                      {log}
-                    </Text>
-                  ))}
-                </Stack>
-              </ScrollArea>
-            </Stack>
-          </Card>
-        )}
-
-        {/* AI Fitments Results */}
-        {selectedMethod === "ai" && aiFitments.length > 0 && (
+        {/* AI Fitments Results - Only show when fitments are generated and session is selected */}
+        {selectedSession && aiFitments.length > 0 && (
           <Card
             style={{
               background: "#ffffff",

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Card,
   Title,
@@ -14,6 +14,9 @@ import {
   ThemeIcon,
   ActionIcon,
   Modal,
+  Center,
+  Transition,
+  Paper,
 } from "@mantine/core";
 import {
   IconUpload,
@@ -24,19 +27,30 @@ import {
   IconRefresh,
   IconInfoCircle,
   IconCloudUpload,
+  IconFile,
+  IconX,
 } from "@tabler/icons-react";
 import { useProfessionalToast } from "../hooks/useProfessionalToast";
 import { dataUploadService } from "../api/services";
+import { useApi, useAsyncOperation } from "../hooks/useApi";
 
 interface UploadedFile {
   id: string;
   name: string;
-  size: number;
   type: "vcdb" | "products";
   status: "uploading" | "uploaded" | "error";
   progress: number;
   error?: string;
   uploadedAt?: Date;
+}
+
+interface UploadSession {
+  id: string;
+  name?: string;
+  created_at: string;
+  vcdb_filename?: string;
+  products_filename?: string;
+  status: string;
 }
 
 export default function UploadData() {
@@ -50,15 +64,80 @@ export default function UploadData() {
     "vcdb" | "products" | null
   >(null);
 
+  // Drag and drop states
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [dragOverType, setDragOverType] = useState<"vcdb" | "products" | null>(
+    null
+  );
+  const [dragCounter, setDragCounter] = useState(0);
+
   const { showSuccess, showError, showInfo } = useProfessionalToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const vcdbDropRef = useRef<HTMLDivElement>(null);
+  const productsDropRef = useRef<HTMLDivElement>(null);
 
-  // Simulate checking for existing files (you'll replace this with actual API call)
+  // API hooks
+  const {
+    data: sessionsData,
+    loading: sessionsLoading,
+    refetch: refetchSessions,
+  } = useApi(() => dataUploadService.getSessions(), []) as any;
+  const { execute: uploadFiles } = useAsyncOperation();
+  const { execute: deleteSession } = useAsyncOperation();
+
+  // Convert API sessions data to UploadedFile format
+  useEffect(() => {
+    if (sessionsData) {
+      const files: UploadedFile[] = [];
+
+      sessionsData.forEach((session: UploadSession) => {
+        if (session.vcdb_filename) {
+          files.push({
+            id: `${session.id}-vcdb`,
+            name: session.vcdb_filename,
+            type: "vcdb",
+            status: "uploaded",
+            progress: 100,
+            uploadedAt: new Date(session.created_at),
+          });
+        }
+
+        if (session.products_filename) {
+          files.push({
+            id: `${session.id}-products`,
+            name: session.products_filename,
+            type: "products",
+            status: "uploaded",
+            progress: 100,
+            uploadedAt: new Date(session.created_at),
+          });
+        }
+      });
+
+      setUploadedFiles(files);
+    }
+  }, [sessionsData]);
+
+  // Check for existing files from API data
   const checkExistingFiles = () => {
-    // This would be an API call to check what files are currently uploaded
+    const sessions = sessionsData?.sessions || [];
+    const latestSession = sessions[0]; // Most recent session
+
     return {
-      vcdb: { exists: false, name: "", uploadedAt: null },
-      products: { exists: false, name: "", uploadedAt: null },
+      vcdb: {
+        exists: !!latestSession?.vcdb_filename,
+        name: latestSession?.vcdb_filename || "",
+        uploadedAt: latestSession?.created_at
+          ? new Date(latestSession.created_at)
+          : null,
+      },
+      products: {
+        exists: !!latestSession?.products_filename,
+        name: latestSession?.products_filename || "",
+        uploadedAt: latestSession?.created_at
+          ? new Date(latestSession.created_at)
+          : null,
+      },
     };
   };
 
@@ -70,21 +149,39 @@ export default function UploadData() {
       file.name.toLowerCase().includes("vcdb") ||
       file.name.toLowerCase().includes("vehicle") ||
       file.type === "text/csv" ||
-      file.name.endsWith(".csv");
+      file.type === "application/json" ||
+      file.type === "application/vnd.ms-excel" ||
+      file.type ===
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+      file.name.endsWith(".csv") ||
+      file.name.endsWith(".json") ||
+      file.name.endsWith(".xlsx") ||
+      file.name.endsWith(".xls");
 
     const isProductsFile =
       file.name.toLowerCase().includes("product") ||
       file.name.toLowerCase().includes("part") ||
       file.type === "text/csv" ||
-      file.name.endsWith(".csv");
+      file.type === "application/json" ||
+      file.type === "application/vnd.ms-excel" ||
+      file.type ===
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+      file.name.endsWith(".csv") ||
+      file.name.endsWith(".json") ||
+      file.name.endsWith(".xlsx") ||
+      file.name.endsWith(".xls");
 
     if (type === "vcdb" && !isVcdbFile) {
-      showError("Please select a VCDB/Vehicle data file (CSV format)");
+      showError(
+        "Please select a VCDB/Vehicle data file (CSV, XLSX, XLS, or JSON format)"
+      );
       return;
     }
 
     if (type === "products" && !isProductsFile) {
-      showError("Please select a Products/Parts data file (CSV format)");
+      showError(
+        "Please select a Products/Parts data file (CSV, XLSX, XLS, or JSON format)"
+      );
       return;
     }
 
@@ -135,56 +232,58 @@ export default function UploadData() {
         });
       }, 200);
 
-      await dataUploadService.uploadFiles(vcdbFile, productsFile);
+      // Upload files using the API
+      const result = await uploadFiles(() =>
+        dataUploadService.uploadFiles(vcdbFile, productsFile)
+      );
 
       clearInterval(progressInterval);
       setUploadProgress(100);
 
-      // Add uploaded files to the list
-      const newUploadedFiles: UploadedFile[] = [
-        {
-          id: `vcdb-${Date.now()}`,
-          name: vcdbFile.name,
-          size: vcdbFile.size,
-          type: "vcdb",
-          status: "uploaded",
-          progress: 100,
-          uploadedAt: new Date(),
-        },
-        {
-          id: `products-${Date.now()}`,
-          name: productsFile.name,
-          size: productsFile.size,
-          type: "products",
-          status: "uploaded",
-          progress: 100,
-          uploadedAt: new Date(),
-        },
-      ];
+      if (result) {
+        showSuccess("Files uploaded and processed successfully");
 
-      setUploadedFiles((prev) => [...prev, ...newUploadedFiles]);
+        // Refresh the sessions data to get the latest uploads
+        await refetchSessions();
 
-      showSuccess("Files uploaded and processed successfully");
+        // Clear the file inputs
+        setVcdbFile(null);
+        setProductsFile(null);
 
-      // Clear the file inputs
-      setVcdbFile(null);
-      setProductsFile(null);
-
-      // Reset file inputs
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+        // Reset file inputs
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
       }
     } catch (error: any) {
-      showError(error.response?.data?.message || "Failed to upload files");
+      console.error("Upload error:", error);
+      showError(
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to upload files"
+      );
     } finally {
       setUploading(false);
       setUploadProgress(0);
     }
   };
 
-  const handleRemoveFile = (fileId: string) => {
-    setUploadedFiles((prev) => prev.filter((file) => file.id !== fileId));
-    showInfo("File has been removed from the list");
+  const handleRemoveFile = async (fileId: string) => {
+    try {
+      // Extract session ID from file ID (format: sessionId-type)
+      const sessionId = fileId.split("-")[0];
+
+      // Delete the session from the API
+      await deleteSession(() => dataUploadService.deleteSession(sessionId));
+
+      // Refresh the sessions data
+      await refetchSessions();
+
+      showSuccess("File has been removed successfully");
+    } catch (error: any) {
+      console.error("Delete error:", error);
+      showError("Failed to remove file");
+    }
   };
 
   const formatFileSize = (bytes: number) => {
@@ -203,6 +302,82 @@ export default function UploadData() {
     return type === "vcdb" ? "blue" : "green";
   };
 
+  // Drag and drop handlers
+  const handleDragEnter = useCallback(
+    (e: React.DragEvent, type: "vcdb" | "products") => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragCounter((prev) => prev + 1);
+      setIsDragOver(true);
+      setDragOverType(type);
+    },
+    []
+  );
+
+  const handleDragLeave = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragCounter((prev) => prev - 1);
+      if (dragCounter <= 1) {
+        setIsDragOver(false);
+        setDragOverType(null);
+      }
+    },
+    [dragCounter]
+  );
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent, type: "vcdb" | "products") => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      setIsDragOver(false);
+      setDragOverType(null);
+      setDragCounter(0);
+
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length > 0) {
+        const file = files[0];
+        handleFileSelect(file, type);
+      }
+    },
+    []
+  );
+
+  const validateFileType = (file: File, type: "vcdb" | "products") => {
+    const validExtensions = [".csv", ".xlsx", ".xls", ".json"];
+    const fileExtension = file.name
+      .toLowerCase()
+      .substring(file.name.lastIndexOf("."));
+
+    if (!validExtensions.includes(fileExtension)) {
+      return false;
+    }
+
+    // Additional validation based on file type
+    if (type === "vcdb") {
+      return (
+        file.name.toLowerCase().includes("vcdb") ||
+        file.name.toLowerCase().includes("vehicle") ||
+        validExtensions.includes(fileExtension)
+      );
+    } else {
+      return (
+        file.name.toLowerCase().includes("product") ||
+        file.name.toLowerCase().includes("part") ||
+        validExtensions.includes(fileExtension)
+      );
+    }
+  };
+
+  console.log("uploadedFiles", uploadedFiles);
+
   return (
     <div style={{ minHeight: "100vh" }}>
       <Card shadow="sm" padding="lg" radius="md" withBorder>
@@ -220,276 +395,683 @@ export default function UploadData() {
           {/* File Upload Section */}
           <Card
             withBorder
-            radius="md"
-            padding="lg"
-            style={{ backgroundColor: "#f8fafc" }}
+            radius="lg"
+            padding="xl"
+            style={{
+              backgroundColor: "#ffffff",
+              border: "1px solid #e2e8f0",
+              boxShadow:
+                "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
+            }}
           >
-            <Stack gap="lg">
-              <Group align="center" gap="sm">
-                <ThemeIcon size="lg" variant="light" color="blue">
-                  <IconCloudUpload size={20} />
-                </ThemeIcon>
-                <div>
-                  <Title order={4}>Upload Files</Title>
-                  <Text size="sm" c="dimmed">
-                    Select VCDB and Products files to upload
-                  </Text>
-                </div>
-              </Group>
+            <Stack gap="xl">
+              <Center>
+                <Stack align="center" gap="sm">
+                  <ThemeIcon size="xl" variant="light" color="blue" radius="xl">
+                    <IconCloudUpload size={24} />
+                  </ThemeIcon>
+                  <div style={{ textAlign: "center" }}>
+                    <Title order={3} fw={600} c="dark">
+                      Upload Data Files
+                    </Title>
+                    <Text size="sm" c="dimmed" mt="xs">
+                      Drag and drop your files or click to browse
+                    </Text>
+                  </div>
+                </Stack>
+              </Center>
 
-              <Group gap="lg" align="flex-start">
+              <Group gap="xl" align="stretch">
                 {/* VCDB File Upload */}
-                <Box style={{ flex: 1 }}>
-                  <Stack gap="sm">
-                    <Group gap="sm">
-                      <ThemeIcon size="sm" variant="light" color="blue">
-                        <IconDatabase size={16} />
-                      </ThemeIcon>
-                      <Text fw={500} size="sm">
-                        VCDB File
-                      </Text>
-                    </Group>
-                    <FileInput
-                      placeholder="Select VCDB/Vehicle data file"
-                      accept=".csv,.xlsx,.xls"
-                      value={vcdbFile}
-                      onChange={(file) => handleFileSelect(file, "vcdb")}
-                      styles={{
-                        input: {
-                          borderRadius: "10px",
-                          border: "2px dashed #cbd5e1",
-                          backgroundColor: "#ffffff",
-                          transition: "all 0.3s ease",
-                          "&:hover": {
-                            borderColor: "#3b82f6",
-                            backgroundColor: "#f8fafc",
-                          },
-                        },
-                      }}
-                    />
-                    {vcdbFile && (
-                      <Group gap="sm" style={{ marginTop: "8px" }}>
-                        <Badge color="blue" variant="light" size="sm">
-                          {formatFileSize(vcdbFile.size)}
-                        </Badge>
-                        <Text size="xs" c="dimmed">
-                          {vcdbFile.name}
+                <Paper
+                  ref={vcdbDropRef}
+                  onDragEnter={(e) => handleDragEnter(e, "vcdb")}
+                  onDragLeave={handleDragLeave}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, "vcdb")}
+                  style={{
+                    flex: 1,
+                    minHeight: "200px",
+                    border: `2px dashed ${
+                      isDragOver && dragOverType === "vcdb"
+                        ? "#3b82f6"
+                        : vcdbFile
+                        ? "#22c55e"
+                        : "#cbd5e1"
+                    }`,
+                    borderRadius: "16px",
+                    backgroundColor:
+                      isDragOver && dragOverType === "vcdb"
+                        ? "#eff6ff"
+                        : vcdbFile
+                        ? "#f0fdf4"
+                        : "#fafafa",
+                    transition: "all 0.3s ease",
+                    cursor: "pointer",
+                    position: "relative",
+                    overflow: "hidden",
+                  }}
+                  onClick={() => {
+                    const input = document.createElement("input");
+                    input.type = "file";
+                    input.accept = ".csv,.xlsx,.xls,.json";
+                    input.onchange = (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0];
+                      if (file) handleFileSelect(file, "vcdb");
+                    };
+                    input.click();
+                  }}
+                >
+                  <Center style={{ height: "100%", padding: "24px" }}>
+                    <Stack align="center" gap="md">
+                      <Transition
+                        mounted={!vcdbFile}
+                        transition="fade"
+                        duration={200}
+                      >
+                        {(styles) => (
+                          <div style={styles}>
+                            <ThemeIcon
+                              size="xl"
+                              variant="light"
+                              color={
+                                isDragOver && dragOverType === "vcdb"
+                                  ? "blue"
+                                  : "blue"
+                              }
+                              radius="xl"
+                            >
+                              <IconDatabase size={28} />
+                            </ThemeIcon>
+                          </div>
+                        )}
+                      </Transition>
+
+                      <Transition
+                        mounted={!!vcdbFile}
+                        transition="fade"
+                        duration={200}
+                      >
+                        {(styles) => (
+                          <div style={styles}>
+                            <ThemeIcon
+                              size="xl"
+                              variant="light"
+                              color="green"
+                              radius="xl"
+                            >
+                              <IconCheck size={28} />
+                            </ThemeIcon>
+                          </div>
+                        )}
+                      </Transition>
+
+                      <Stack align="center" gap="xs">
+                        <Text fw={600} size="lg" c="dark">
+                          VCDB Data
                         </Text>
-                      </Group>
-                    )}
-                  </Stack>
-                </Box>
+                        <Text size="sm" c="dimmed" ta="center">
+                          {vcdbFile
+                            ? vcdbFile.name
+                            : "Vehicle configuration data. Supports CSV, XLSX, XLS, and JSON files."}
+                        </Text>
+                        {vcdbFile && (
+                          <Badge color="green" variant="light" size="sm">
+                            {formatFileSize(vcdbFile.size)}
+                          </Badge>
+                        )}
+                      </Stack>
+
+                      {isDragOver && dragOverType === "vcdb" && (
+                        <Paper
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            backgroundColor: "rgba(59, 130, 246, 0.1)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            borderRadius: "16px",
+                          }}
+                        >
+                          <Stack align="center" gap="sm">
+                            <IconUpload size={32} color="#3b82f6" />
+                            <Text fw={600} c="blue">
+                              Drop file here
+                            </Text>
+                          </Stack>
+                        </Paper>
+                      )}
+                    </Stack>
+                  </Center>
+                </Paper>
 
                 {/* Products File Upload */}
-                <Box style={{ flex: 1 }}>
-                  <Stack gap="sm">
-                    <Group gap="sm">
-                      <ThemeIcon size="sm" variant="light" color="green">
-                        <IconFileText size={16} />
-                      </ThemeIcon>
-                      <Text fw={500} size="sm">
-                        Products File
-                      </Text>
-                    </Group>
-                    <FileInput
-                      placeholder="Select Products/Parts data file"
-                      accept=".csv,.xlsx,.xls"
-                      value={productsFile}
-                      onChange={(file) => handleFileSelect(file, "products")}
-                      styles={{
-                        input: {
-                          borderRadius: "10px",
-                          border: "2px dashed #cbd5e1",
-                          backgroundColor: "#ffffff",
-                          transition: "all 0.3s ease",
-                          "&:hover": {
-                            borderColor: "#10b981",
-                            backgroundColor: "#f8fafc",
-                          },
-                        },
-                      }}
-                    />
-                    {productsFile && (
-                      <Group gap="sm" style={{ marginTop: "8px" }}>
-                        <Badge color="green" variant="light" size="sm">
-                          {formatFileSize(productsFile.size)}
-                        </Badge>
-                        <Text size="xs" c="dimmed">
-                          {productsFile.name}
+                <Paper
+                  ref={productsDropRef}
+                  onDragEnter={(e) => handleDragEnter(e, "products")}
+                  onDragLeave={handleDragLeave}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, "products")}
+                  style={{
+                    flex: 1,
+                    minHeight: "200px",
+                    border: `2px dashed ${
+                      isDragOver && dragOverType === "products"
+                        ? "#10b981"
+                        : productsFile
+                        ? "#22c55e"
+                        : "#cbd5e1"
+                    }`,
+                    borderRadius: "16px",
+                    backgroundColor:
+                      isDragOver && dragOverType === "products"
+                        ? "#ecfdf5"
+                        : productsFile
+                        ? "#f0fdf4"
+                        : "#fafafa",
+                    transition: "all 0.3s ease",
+                    cursor: "pointer",
+                    position: "relative",
+                    overflow: "hidden",
+                  }}
+                  onClick={() => {
+                    const input = document.createElement("input");
+                    input.type = "file";
+                    input.accept = ".csv,.xlsx,.xls,.json";
+                    input.onchange = (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0];
+                      if (file) handleFileSelect(file, "products");
+                    };
+                    input.click();
+                  }}
+                >
+                  <Center style={{ height: "100%", padding: "24px" }}>
+                    <Stack align="center" gap="md">
+                      <Transition
+                        mounted={!productsFile}
+                        transition="fade"
+                        duration={200}
+                      >
+                        {(styles) => (
+                          <div style={styles}>
+                            <ThemeIcon
+                              size="xl"
+                              variant="light"
+                              color={
+                                isDragOver && dragOverType === "products"
+                                  ? "green"
+                                  : "green"
+                              }
+                              radius="xl"
+                            >
+                              <IconFileText size={28} />
+                            </ThemeIcon>
+                          </div>
+                        )}
+                      </Transition>
+
+                      <Transition
+                        mounted={!!productsFile}
+                        transition="fade"
+                        duration={200}
+                      >
+                        {(styles) => (
+                          <div style={styles}>
+                            <ThemeIcon
+                              size="xl"
+                              variant="light"
+                              color="green"
+                              radius="xl"
+                            >
+                              <IconCheck size={28} />
+                            </ThemeIcon>
+                          </div>
+                        )}
+                      </Transition>
+
+                      <Stack align="center" gap="xs">
+                        <Text fw={600} size="lg" c="dark">
+                          Products Data
                         </Text>
-                      </Group>
-                    )}
-                  </Stack>
-                </Box>
+                        <Text size="sm" c="dimmed" ta="center">
+                          {productsFile
+                            ? productsFile.name
+                            : "Parts and products data. Supports CSV, XLSX, XLS, and JSON files."}
+                        </Text>
+                        {productsFile && (
+                          <Badge color="green" variant="light" size="sm">
+                            {formatFileSize(productsFile.size)}
+                          </Badge>
+                        )}
+                      </Stack>
+
+                      {isDragOver && dragOverType === "products" && (
+                        <Paper
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            backgroundColor: "rgba(16, 185, 129, 0.1)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            borderRadius: "16px",
+                          }}
+                        >
+                          <Stack align="center" gap="sm">
+                            <IconUpload size={32} color="#10b981" />
+                            <Text fw={600} c="green">
+                              Drop file here
+                            </Text>
+                          </Stack>
+                        </Paper>
+                      )}
+                    </Stack>
+                  </Center>
+                </Paper>
               </Group>
 
               {/* Upload Progress */}
               {uploading && (
-                <Box>
-                  <Group justify="space-between" mb="xs">
-                    <Text size="sm" fw={500}>
-                      Uploading files...
-                    </Text>
-                    <Text size="sm" c="dimmed">
-                      {uploadProgress}%
-                    </Text>
-                  </Group>
-                  <Progress
-                    value={uploadProgress}
-                    size="lg"
-                    radius="md"
-                    color="blue"
-                    animated
-                  />
-                </Box>
+                <Paper
+                  withBorder
+                  radius="lg"
+                  p="lg"
+                  style={{
+                    backgroundColor: "#f8fafc",
+                    border: "1px solid #e2e8f0",
+                  }}
+                >
+                  <Stack gap="md">
+                    <Group justify="space-between" align="center">
+                      <Group gap="sm">
+                        <ThemeIcon size="sm" variant="light" color="blue">
+                          <IconUpload size={16} />
+                        </ThemeIcon>
+                        <Text size="sm" fw={600} c="dark">
+                          Uploading files...
+                        </Text>
+                      </Group>
+                      <Badge color="blue" variant="light" size="sm">
+                        {uploadProgress}%
+                      </Badge>
+                    </Group>
+                    <Progress
+                      value={uploadProgress}
+                      size="lg"
+                      radius="xl"
+                      color="blue"
+                      animated
+                      style={{
+                        backgroundColor: "#e2e8f0",
+                      }}
+                    />
+                  </Stack>
+                </Paper>
               )}
 
               {/* Upload Button */}
-              <Group justify="center">
+              <Center>
                 <Button
-                  size="lg"
+                  size="xl"
                   leftSection={<IconUpload size={20} />}
                   onClick={handleUpload}
                   loading={uploading}
                   disabled={!vcdbFile || !productsFile}
+                  radius="xl"
                   style={{
                     background:
-                      "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-                    borderRadius: "12px",
+                      !vcdbFile || !productsFile
+                        ? "#e2e8f0"
+                        : "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                    color: !vcdbFile || !productsFile ? "#64748b" : "#ffffff",
                     fontWeight: 600,
                     fontSize: "16px",
-                    height: "48px",
-                    padding: "0 32px",
-                    boxShadow: "0 4px 6px -1px rgba(59, 130, 246, 0.2)",
+                    height: "56px",
+                    padding: "0 48px",
+                    boxShadow:
+                      !vcdbFile || !productsFile
+                        ? "none"
+                        : "0 4px 6px -1px rgba(59, 130, 246, 0.2)",
+                    transition: "all 0.3s ease",
                     "&:hover": {
-                      transform: "translateY(-2px)",
-                      boxShadow: "0 8px 25px -5px rgba(59, 130, 246, 0.3)",
+                      transform:
+                        !vcdbFile || !productsFile
+                          ? "none"
+                          : "translateY(-2px)",
+                      boxShadow:
+                        !vcdbFile || !productsFile
+                          ? "none"
+                          : "0 8px 25px -5px rgba(59, 130, 246, 0.3)",
                     },
                   }}
                 >
-                  Upload Files
+                  {uploading ? "Uploading..." : "Upload Files"}
                 </Button>
-              </Group>
+              </Center>
             </Stack>
           </Card>
 
           {/* Uploaded Files Section */}
-          {uploadedFiles.length > 0 && (
-            <Card withBorder radius="md" padding="lg">
-              <Stack gap="lg">
+          {sessionsLoading ? (
+            <Card
+              withBorder
+              radius="lg"
+              padding="xl"
+              style={{
+                backgroundColor: "#ffffff",
+                border: "1px solid #e2e8f0",
+                boxShadow:
+                  "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
+              }}
+            >
+              <Center style={{ minHeight: "200px" }}>
+                <Stack align="center" gap="md">
+                  <ThemeIcon size="xl" variant="light" color="gray" radius="xl">
+                    <IconRefresh size={24} />
+                  </ThemeIcon>
+                  <Text size="sm" c="dimmed" fw={500}>
+                    Loading uploaded files...
+                  </Text>
+                </Stack>
+              </Center>
+            </Card>
+          ) : uploadedFiles.length > 0 || sessionsData?.sessions?.length > 0 ? (
+            <Card
+              withBorder
+              radius="lg"
+              padding="xl"
+              style={{
+                backgroundColor: "#ffffff",
+                border: "1px solid #e2e8f0",
+                boxShadow:
+                  "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
+              }}
+            >
+              <Stack gap="xl">
                 <Group justify="space-between" align="center">
-                  <Group gap="sm">
-                    <ThemeIcon size="lg" variant="light" color="green">
+                  <Group gap="md">
+                    <ThemeIcon
+                      size="lg"
+                      variant="light"
+                      color="green"
+                      radius="xl"
+                    >
                       <IconCheck size={20} />
                     </ThemeIcon>
                     <div>
-                      <Title order={4}>Uploaded Files</Title>
-                      <Text size="sm" c="dimmed">
-                        Files successfully uploaded and processed
+                      <Title order={3} fw={600} c="dark">
+                        Uploaded Files
+                      </Title>
+                      <Text size="sm" c="dimmed" mt="xs">
+                        {sessionsData?.length || 0} session(s) with files
+                        successfully uploaded and processed
                       </Text>
                     </div>
                   </Group>
-                  <Button
-                    size="sm"
-                    variant="light"
-                    leftSection={<IconRefresh size={16} />}
-                    onClick={() => setUploadedFiles([])}
-                  >
-                    Clear All
-                  </Button>
+                  <Group gap="sm">
+                    <Button
+                      size="sm"
+                      variant="light"
+                      leftSection={<IconRefresh size={16} />}
+                      onClick={async () => {
+                        await refetchSessions();
+                        showInfo("Files list refreshed");
+                      }}
+                      loading={sessionsLoading}
+                      radius="xl"
+                      style={{
+                        border: "1px solid #e2e8f0",
+                        backgroundColor: "#f8fafc",
+                      }}
+                    >
+                      Refresh
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="light"
+                      color="red"
+                      leftSection={<IconTrash size={16} />}
+                      onClick={async () => {
+                        try {
+                          // Delete all sessions
+                          const sessions = sessionsData?.sessions || [];
+                          for (const session of sessions) {
+                            await deleteSession(() =>
+                              dataUploadService.deleteSession(session.id)
+                            );
+                          }
+
+                          // Refresh the sessions data
+                          await refetchSessions();
+
+                          showSuccess(
+                            "All files have been removed successfully"
+                          );
+                        } catch (error: any) {
+                          console.error("Clear all error:", error);
+                          showError("Failed to remove all files");
+                        }
+                      }}
+                      loading={sessionsLoading}
+                      radius="xl"
+                      style={{
+                        border: "1px solid #fecaca",
+                        backgroundColor: "#fef2f2",
+                      }}
+                    >
+                      Clear All
+                    </Button>
+                  </Group>
                 </Group>
 
-                <Stack gap="sm">
+                <Stack gap="md">
                   {uploadedFiles.map((file) => {
                     const FileIcon = getFileTypeIcon(file.type);
                     const fileColor = getFileTypeColor(file.type);
 
                     return (
-                      <Card
+                      <Paper
                         key={file.id}
                         withBorder
-                        radius="md"
-                        padding="md"
+                        radius="lg"
+                        p="lg"
                         style={{
                           backgroundColor: "#ffffff",
                           border: "1px solid #e2e8f0",
+                          transition: "all 0.2s ease",
+                          "&:hover": {
+                            borderColor: "#cbd5e1",
+                            boxShadow: "0 2px 4px -1px rgba(0, 0, 0, 0.1)",
+                          },
                         }}
                       >
                         <Group justify="space-between" align="center">
-                          <Group gap="md">
+                          <Group gap="lg">
                             <ThemeIcon
-                              size="md"
+                              size="lg"
                               variant="light"
                               color={fileColor}
+                              radius="xl"
                             >
-                              <FileIcon size={18} />
+                              <FileIcon size={20} />
                             </ThemeIcon>
                             <div>
-                              <Text fw={500} size="sm">
+                              <Text fw={600} size="md" c="dark">
                                 {file.name}
                               </Text>
                               <Group gap="sm" mt="xs">
                                 <Badge
                                   color={fileColor}
                                   variant="light"
-                                  size="xs"
+                                  size="sm"
+                                  radius="xl"
                                 >
                                   {file.type.toUpperCase()}
                                 </Badge>
-                                <Badge color="gray" variant="light" size="xs">
-                                  {formatFileSize(file.size)}
-                                </Badge>
-                                <Badge color="green" variant="light" size="xs">
+                                <Badge
+                                  color="green"
+                                  variant="light"
+                                  size="sm"
+                                  radius="xl"
+                                >
                                   Uploaded
                                 </Badge>
                               </Group>
                             </div>
                           </Group>
-                          <Group gap="sm">
-                            <Text size="xs" c="dimmed">
+                          <Group gap="md" align="center">
+                            <Text size="sm" c="dimmed" fw={500}>
                               {file.uploadedAt?.toLocaleString()}
                             </Text>
                             <ActionIcon
-                              size="sm"
+                              size="md"
                               variant="light"
                               color="red"
                               onClick={() => handleRemoveFile(file.id)}
+                              radius="xl"
+                              style={{
+                                border: "1px solid #fecaca",
+                                backgroundColor: "#fef2f2",
+                              }}
                             >
-                              <IconTrash size={14} />
+                              <IconTrash size={16} />
                             </ActionIcon>
                           </Group>
                         </Group>
-                      </Card>
+                      </Paper>
                     );
                   })}
                 </Stack>
               </Stack>
             </Card>
+          ) : (
+            <Card
+              withBorder
+              radius="lg"
+              padding="xl"
+              style={{
+                backgroundColor: "#ffffff",
+                border: "1px solid #e2e8f0",
+                boxShadow:
+                  "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
+              }}
+            >
+              <Center style={{ minHeight: "200px" }}>
+                <Stack align="center" gap="lg">
+                  <ThemeIcon size="xl" variant="light" color="gray" radius="xl">
+                    <IconDatabase size={32} />
+                  </ThemeIcon>
+                  <div style={{ textAlign: "center" }}>
+                    <Text size="lg" fw={600} c="dark">
+                      No uploaded files yet
+                    </Text>
+                    <Text size="sm" c="dimmed" mt="xs">
+                      Upload VCDB and Products files to get started
+                    </Text>
+                  </div>
+                </Stack>
+              </Center>
+            </Card>
           )}
 
           {/* Information Section */}
-          <Alert
-            icon={<IconInfoCircle size={16} />}
-            title="File Requirements"
-            color="blue"
-            variant="light"
-            radius="md"
+          <Paper
+            withBorder
+            p="xl"
+            style={{ borderRadius: "0px", border: "none" }}
           >
-            <Stack gap="xs">
-              <Text size="sm">
-                <strong>VCDB File:</strong> Should contain vehicle configuration
-                data with columns for year, make, model, etc.
-              </Text>
-              <Text size="sm">
-                <strong>Products File:</strong> Should contain product/parts
-                data with part IDs, descriptions, and specifications.
-              </Text>
-              <Text size="sm">
-                <strong>Supported Formats:</strong> CSV, XLSX, XLS files are
-                supported.
-              </Text>
+            <Stack gap="lg">
+              <Group gap="md">
+                <ThemeIcon size="lg" variant="light" color="blue" radius="xl">
+                  <IconInfoCircle size={20} />
+                </ThemeIcon>
+                <div>
+                  <Title order={4} fw={600} c="dark">
+                    File Requirements
+                  </Title>
+                  <Text size="sm" c="dimmed" mt="xs">
+                    Understanding the data format requirements
+                  </Text>
+                </div>
+              </Group>
+
+              <Stack gap="md">
+                <Paper p="lg">
+                  <Group gap="md">
+                    <ThemeIcon
+                      size="md"
+                      variant="light"
+                      color="blue"
+                      radius="xl"
+                    >
+                      <IconDatabase size={18} />
+                    </ThemeIcon>
+                    <div>
+                      <Text fw={600} size="sm" c="dark">
+                        VCDB File
+                      </Text>
+                      <Text size="sm" c="dimmed" mt="xs">
+                        Should contain vehicle configuration data with columns
+                        for year, make, model, submodel, drive type, etc.
+                      </Text>
+                    </div>
+                  </Group>
+                </Paper>
+
+                <Paper radius="lg" p="lg">
+                  <Group gap="md">
+                    <ThemeIcon
+                      size="md"
+                      variant="light"
+                      color="green"
+                      radius="xl"
+                    >
+                      <IconFileText size={18} />
+                    </ThemeIcon>
+                    <div>
+                      <Text fw={600} size="sm" c="dark">
+                        Products File
+                      </Text>
+                      <Text size="sm" c="dimmed" mt="xs">
+                        Should contain product/parts data with part IDs,
+                        descriptions, specifications, and compatibility
+                        information.
+                      </Text>
+                    </div>
+                  </Group>
+                </Paper>
+
+                <Paper p="lg">
+                  <Group gap="md">
+                    <ThemeIcon
+                      size="md"
+                      variant="light"
+                      color="orange"
+                      radius="xl"
+                    >
+                      <IconFile size={18} />
+                    </ThemeIcon>
+                    <div>
+                      <Text fw={600} size="sm" c="dark">
+                        Supported Formats
+                      </Text>
+                      <Text size="sm" c="dimmed" mt="xs">
+                        CSV, XLSX, XLS, and JSON files are supported. Maximum
+                        file size is 50MB per file.
+                      </Text>
+                    </div>
+                  </Group>
+                </Paper>
+              </Stack>
             </Stack>
-          </Alert>
+          </Paper>
         </Stack>
       </Card>
 
@@ -497,24 +1079,82 @@ export default function UploadData() {
       <Modal
         opened={showReplaceModal}
         onClose={() => setShowReplaceModal(false)}
-        title="Replace Existing File"
+        title={
+          <Group gap="sm">
+            <ThemeIcon size="md" variant="light" color="orange" radius="xl">
+              <IconX size={18} />
+            </ThemeIcon>
+            <Text fw={600} size="lg">
+              Replace Existing File
+            </Text>
+          </Group>
+        }
         centered
         size="md"
+        radius="lg"
+        styles={{
+          content: {
+            backgroundColor: "#ffffff",
+            border: "1px solid #e2e8f0",
+            boxShadow:
+              "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+          },
+        }}
       >
-        <Stack gap="md">
-          <Text>
-            A {replaceFileType?.toUpperCase()} file already exists. Do you want
-            to replace it with the new file?
-          </Text>
+        <Stack gap="lg">
+          <Paper
+            withBorder
+            radius="lg"
+            p="lg"
+            style={{
+              backgroundColor: "#fef3c7",
+              border: "1px solid #f59e0b",
+            }}
+          >
+            <Group gap="sm">
+              <ThemeIcon size="sm" variant="light" color="orange" radius="xl">
+                <IconInfoCircle size={16} />
+              </ThemeIcon>
+              <div>
+                <Text fw={600} size="sm" c="dark">
+                  File Already Exists
+                </Text>
+                <Text size="sm" c="dimmed" mt="xs">
+                  A {replaceFileType?.toUpperCase()} file already exists. Do you
+                  want to replace it with the new file?
+                </Text>
+              </div>
+            </Group>
+          </Paper>
+
           <Text size="sm" c="dimmed">
             The previous file will be permanently removed and replaced with the
-            new upload.
+            new upload. This action cannot be undone.
           </Text>
+
           <Group justify="flex-end" gap="sm">
-            <Button variant="light" onClick={() => setShowReplaceModal(false)}>
+            <Button
+              variant="light"
+              onClick={() => setShowReplaceModal(false)}
+              radius="xl"
+              style={{
+                border: "1px solid #e2e8f0",
+                backgroundColor: "#f8fafc",
+              }}
+            >
               Cancel
             </Button>
-            <Button color="orange" onClick={handleReplaceConfirm}>
+            <Button
+              color="orange"
+              onClick={handleReplaceConfirm}
+              radius="xl"
+              style={{
+                backgroundColor: "#f59e0b",
+                "&:hover": {
+                  backgroundColor: "#d97706",
+                },
+              }}
+            >
               Replace File
             </Button>
           </Group>

@@ -10,4 +10,13 @@ urlpatterns = [
     path('status/', views.get_current_data_status, name='data_status'),
     path('replace-file/', views.replace_file, name='replace_file'),
     path('sessions/<uuid:session_id>/data/<str:file_type>/', views.get_file_data, name='get_file_data'),
+    
+    # AI fitment processing
+    path('ai-fitment/', views.process_ai_fitment, name='process_ai_fitment'),
+    
+    # Manual fitment processing
+    path('apply-manual-fitment/', views.apply_manual_fitment, name='apply_manual_fitment'),
+    
+    # AI fitment application
+    path('apply-ai-fitments/', views.apply_ai_fitments, name='apply_ai_fitments'),
 ]

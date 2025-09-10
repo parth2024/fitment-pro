@@ -1,21 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
-  Grid,
   Card,
   Title,
   Text,
   Select,
   NumberInput,
   Button,
-  Table,
   Checkbox,
   TextInput,
   Group,
   Stack,
   Badge,
   ScrollArea,
-  FileInput,
-  Progress,
   Alert,
   SimpleGrid,
   Stepper,
@@ -23,12 +19,8 @@ import {
   Transition,
 } from "@mantine/core";
 import {
-  IconUpload,
   IconFileText,
-  IconRobot,
   IconAlertCircle,
-  IconBrain,
-  IconUsers,
   IconDatabase,
   IconArrowLeft,
   IconCar,
@@ -45,9 +37,9 @@ import {
   IconHash,
 } from "@tabler/icons-react";
 import {
-  vcdbService,
   partsService,
   fitmentUploadService,
+  dataUploadService,
 } from "../api/services";
 import { useApi, useAsyncOperation } from "../hooks/useApi";
 import { useProfessionalToast } from "../hooks/useProfessionalToast";
@@ -56,73 +48,19 @@ export default function ApplyFitments() {
   // Professional toast hook
   const { showSuccess, showError } = useProfessionalToast();
 
-  // File upload states
-  const [vcdbFile, setVcdbFile] = useState<File | null>(null);
-  const [productsFile, setProductsFile] = useState<File | null>(null);
-  const [vcdbDragActive, setVcdbDragActive] = useState(false);
-  const [productsDragActive, setProductsDragActive] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadStatus, setUploadStatus] = useState<
-    "idle" | "uploading" | "completed" | "error"
-  >("idle");
-  const [uploadedFiles, setUploadedFiles] = useState<{
-    vcdb: boolean;
-    products: boolean;
-  }>({ vcdb: false, products: false });
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  // Manual fitment specific states
 
-  // Step management for UI flow
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1); // 1 = Upload Files, 2 = Choose Method, 3 = Manual Method, 4 = AI Method
+  // Manual fitment states (existing logic) - keeping for year range
 
-  // Navigation handlers
-  const handleBackToUpload = () => {
-    setCurrentStep(1);
-    setUploadStatus("idle");
-    setUploadProgress(0);
-    setSelectedMethod(null);
-  };
+  // Uploaded data states
+  const [uploadedSessions, setUploadedSessions] = useState<any[]>([]);
+  const [selectedSession, setSelectedSession] = useState<string | null>(null);
+  const [uploadedVehicles, setUploadedVehicles] = useState<any[]>([]);
+  const [uploadedProducts, setUploadedProducts] = useState<any[]>([]);
+  const [loadingSessionData, setLoadingSessionData] = useState(false);
+  const loadingRef = useRef(false);
 
-  const handleBackToMethodSelection = () => {
-    setCurrentStep(2);
-    setSelectedMethod(null);
-    setAiProcessing(false);
-    setAiFitments([]);
-    setAiProgress(0);
-    setAiLogs([]);
-  };
-
-  const handleManualMethodClick = () => {
-    setSelectedMethod("manual");
-    setCurrentStep(3);
-  };
-
-  const handleAiMethodClick = () => {
-    setSelectedMethod("ai");
-    setCurrentStep(4);
-  };
-
-  // Fitment method selection
-  const [selectedMethod, setSelectedMethod] = useState<"manual" | "ai" | null>(
-    null
-  );
-
-  // Manual fitment states (existing logic)
-  const [filters, setFilters] = useState({
-    yearFrom: 2020,
-    yearTo: 2025,
-    make: "",
-    model: "",
-    submodel: "",
-    driveType: "",
-    fuelType: "",
-    numDoors: "",
-    bodyType: "",
-  });
-
-  // AI fitment states
-  const [aiFitments, setAiFitments] = useState<any[]>([]);
-  const [aiProcessing, setAiProcessing] = useState(false);
-  const [selectedAiFitments, setSelectedAiFitments] = useState<string[]>([]);
+  // Manual fitment specific states
 
   // Manual Method Stepper State
   const [manualStep, setManualStep] = useState(1);
@@ -149,347 +87,86 @@ export default function ApplyFitments() {
     notes: "",
   });
   const [applyingManualFitment, setApplyingManualFitment] = useState(false);
-  const [aiProgress, setAiProgress] = useState(0);
-  const [aiLogs, setAiLogs] = useState<string[]>([]);
 
   // API hooks
-  const { data: yearRange } = useApi(
-    () => vcdbService.getYearRange(),
-    []
-  ) as any;
-  const { data: parts, loading: partsLoading } = useApi(
-    () => partsService.getParts({ "with-fitments": false }),
-    []
-  );
+  // Removed yearRange API call as we're using uploaded vehicles
+  // Removed parts API call as we're using uploaded products
   const { data: partTypes, loading: partTypesLoading } = useApi(
     () => partsService.getPartTypes(),
     []
   ) as any;
-  const { data: configurationsData } = useApi(
-    () => vcdbService.getConfigurations(filters),
-    [filters]
+  // Removed configurationsData as we're using uploaded vehicles
+
+  // Uploaded data API hooks
+  const { data: sessionsData, loading: sessionsLoading } = useApi(
+    () => dataUploadService.getSessions(),
+    []
   ) as any;
-  const { execute: applyFitment, loading: applyingFitment } =
-    useAsyncOperation();
-  const { execute: uploadFiles, loading: uploadingFiles } = useAsyncOperation();
-  const { execute: processAiFitment } = useAsyncOperation();
+  const { execute: applyFitment } = useAsyncOperation();
 
-  // Update year range when data loads
+  // Update year range when data loads (if needed for future use)
+  // useEffect(() => {
+  //   if (yearRange) {
+  //     // Could be used for setting default year ranges
+  //   }
+  // }, [yearRange]);
+
+  // Load uploaded sessions
   useEffect(() => {
-    if (yearRange) {
-      setFilters((prev) => ({
-        ...prev,
-        yearFrom: yearRange.minYear,
-        yearTo: yearRange.maxYear,
-      }));
-    }
-  }, [yearRange]);
-
-  // Drag & Drop handlers for VCDB files
-  const handleVcdbDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setVcdbDragActive(true);
-    } else if (e.type === "dragleave") {
-      setVcdbDragActive(false);
-    }
-  };
-
-  const handleVcdbDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setVcdbDragActive(false);
-
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setVcdbFile(e.dataTransfer.files[0]);
-    }
-  };
-
-  // Drag & Drop handlers for Products files
-  const handleProductsDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setProductsDragActive(true);
-    } else if (e.type === "dragleave") {
-      setProductsDragActive(false);
-    }
-  };
-
-  const handleProductsDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setProductsDragActive(false);
-
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setProductsFile(e.dataTransfer.files[0]);
-    }
-  };
-
-  const handleFileUpload = async () => {
-    if (!vcdbFile || !productsFile) {
-      showError("Please upload both VCDB and Products files");
-      return;
-    }
-
-    setUploadStatus("uploading");
-    setUploadProgress(0);
-
-    try {
-      // Simulate upload progress
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
-        });
-      }, 200);
-
-      // Upload files to backend
-      const result: any = await uploadFiles(() =>
-        fitmentUploadService.uploadFiles(vcdbFile, productsFile)
-      );
-
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      console.log("Upload result:", result);
-
-      if (result && result.data && result.data.session) {
-        setUploadStatus("completed");
-        setUploadedFiles({ vcdb: true, products: true });
-        setSessionId(result.data.session.id);
-        setCurrentStep(2); // Move to step 2 after successful upload
-        showSuccess(
-          "Files uploaded successfully! Now choose your fitment method.",
-          5000
-        );
-      } else {
-        console.error("Invalid response structure:", result);
-        throw new Error("Invalid response from server");
+    if (sessionsData && Array.isArray(sessionsData)) {
+      console.log("Sessions data loaded:", sessionsData);
+      setUploadedSessions(sessionsData);
+      // Auto-select the most recent session if available and no session is currently selected
+      if (sessionsData.length > 0 && !selectedSession) {
+        const mostRecent = sessionsData[0];
+        console.log("Auto-selecting session:", mostRecent.id);
+        setSelectedSession(mostRecent.id);
       }
-    } catch (error: any) {
-      setUploadStatus("error");
-      console.error("Upload error:", error);
-      const errorMessage =
-        error?.response?.data?.error ||
-        error?.message ||
-        "Failed to upload files";
-      showError(errorMessage);
     }
-  };
+  }, [sessionsData]); // Removed selectedSession from dependencies to prevent loops
 
-  const handleAiFitment = async () => {
-    if (!uploadedFiles.vcdb || !uploadedFiles.products || !sessionId) {
-      showError("Please upload both files first");
-      return;
-    }
+  // Load session data when session is selected
+  useEffect(() => {
+    if (selectedSession && !loadingRef.current) {
+      console.log("Loading session data for:", selectedSession);
+      loadingRef.current = true;
+      setLoadingSessionData(true);
 
-    setAiProcessing(true);
-    setAiProgress(0);
-    setAiLogs([]);
+      const loadData = async () => {
+        try {
+          console.log("Making API calls for session:", selectedSession);
+          const [vehiclesResponse, productsResponse] = await Promise.all([
+            dataUploadService.getFileData(selectedSession, "vcdb"),
+            dataUploadService.getFileData(selectedSession, "products"),
+          ]);
 
-    // Simulate professional AI processing with realistic logs
-    const logs = [
-      "🔍 Initializing AI Fitment Engine...",
-      "📊 Analyzing VCDB vehicle configurations...",
-      "🔧 Processing product specifications...",
-      "🧠 Running compatibility algorithms...",
-      "⚡ Applying machine learning models...",
-      "🎯 Calculating fitment probabilities...",
-      "📈 Optimizing recommendation scores...",
-      "🔍 Checking for potential conflicts...",
-      "🔬 Cross-referencing OEM specifications...",
-      "📋 Validating part compatibility matrices...",
-      "🌐 Querying manufacturer databases...",
-      "🔍 Scanning for alternative configurations...",
-      "📊 Computing confidence intervals...",
-      "🎨 Applying design pattern recognition...",
-      "⚙️ Optimizing fitment algorithms...",
-      "🔍 Detecting edge cases and exceptions...",
-      "📈 Analyzing historical fitment data...",
-      "🧪 Running compatibility stress tests...",
-      "🔍 Performing quality assurance checks...",
-      "📊 Generating performance metrics...",
-      "🎯 Refining recommendation accuracy...",
-      "🔍 Validating against industry standards...",
-      "📋 Compiling fitment documentation...",
-      "✅ Generating fitment suggestions...",
-    ];
+          const result = {
+            vehicles: vehiclesResponse?.data || [],
+            products: productsResponse?.data || [],
+          };
 
-    // Progressive log updates
-    const logInterval = setInterval(() => {
-      setAiLogs((prev) => {
-        const nextIndex = prev.length;
-        if (nextIndex < logs.length) {
-          return [...prev, logs[nextIndex]];
+          console.log("Session data loaded:", result);
+          setUploadedVehicles(result.vehicles?.data);
+          setUploadedProducts(result.products?.data);
+        } catch (error) {
+          console.error("Failed to load session data:", error);
+          showError("Failed to load uploaded data");
+        } finally {
+          setLoadingSessionData(false);
+          loadingRef.current = false;
         }
-        return prev;
-      });
-      setAiProgress((prev) => Math.min(prev + 12, 95));
-    }, 800);
+      };
 
-    try {
-      // Call Azure AI Foundry API
-      const result: any = await processAiFitment(() =>
-        fitmentUploadService.processAiFitment(sessionId)
-      );
-
-      clearInterval(logInterval);
-      setAiProgress(100);
-      setAiLogs((prev) => [...prev, "🎉 AI fitment generation completed!"]);
-
-      console.log("Full API result:", result);
-      console.log("Result data:", result?.data);
-      console.log("Result fitments:", result?.fitments);
-      console.log("Result data fitments:", result?.data?.fitments);
-
-      // Check different possible response structures
-      const fitments =
-        result?.fitments ||
-        result?.data?.fitments ||
-        result?.data?.data?.fitments;
-
-      if (fitments && Array.isArray(fitments) && fitments.length > 0) {
-        console.log("Setting fitments:", fitments);
-
-        // Add unique IDs to fitments for proper selection handling
-        const fitmentsWithIds = fitments.map((fitment: any, index: number) => ({
-          ...fitment,
-          id: fitment.id || `fitment_${index}`,
-          part_name:
-            fitment.partDescription || fitment.part_name || "Unknown Part",
-          part_description:
-            fitment.partDescription || "No description available",
-        }));
-
-        setAiFitments(fitmentsWithIds);
-        // Auto-select all fitments by default
-        setSelectedAiFitments(
-          fitmentsWithIds.map((fitment: any) => fitment.id)
-        );
-        showSuccess(
-          `AI generated ${fitments.length} fitment suggestions!`,
-          5000
-        );
-      } else {
-        console.log("No fitments found in response structure");
-        console.log("Available keys in result:", Object.keys(result || {}));
-        if (result?.data) {
-          console.log(
-            "Available keys in result.data:",
-            Object.keys(result.data)
-          );
-        }
-        showError(
-          "No fitments were generated. Please check your uploaded files and try again."
-        );
-      }
-    } catch (error) {
-      clearInterval(logInterval);
-      console.error("AI fitment error:", error);
-      setAiLogs((prev) => [
-        ...prev,
-        "❌ AI processing failed. Please try again.",
-      ]);
-      showError("Failed to process AI fitment");
-    } finally {
-      setAiProcessing(false);
-    }
-  };
-
-  const handleApplyAiFitments = async () => {
-    if (selectedAiFitments.length === 0) {
-      showError("Please select fitments to apply");
-      return;
+      loadData();
     }
 
-    if (!sessionId) {
-      showError("Session not found");
-      return;
-    }
+    // Cleanup function to reset loading state when session changes
+    return () => {
+      loadingRef.current = false;
+    };
+  }, [selectedSession]); // Removed showError from dependencies to prevent unnecessary re-runs
 
-    try {
-      const result: any = await applyFitment(() =>
-        fitmentUploadService.applyAiFitments(sessionId, selectedAiFitments)
-      );
-
-      if (result) {
-        showSuccess(
-          `Successfully applied ${result.applied_count} AI fitments to the database!`,
-          5000
-        );
-        setSelectedAiFitments([]);
-        setAiFitments([]);
-
-        // Reset the method selection to allow new uploads
-        setSelectedMethod(null);
-        setUploadedFiles({ vcdb: false, products: false });
-        setSessionId(null);
-        setCurrentStep(1); // Reset to step 1
-      }
-    } catch (error) {
-      showError("Failed to apply AI fitments");
-    }
-  };
-
-  const handleExportFitments = async (format: "csv" | "xlsx" | "json") => {
-    try {
-      // Export only selected AI fitments if any are selected, otherwise export all AI fitments
-      const fitmentIds =
-        selectedAiFitments.length > 0 ? selectedAiFitments : undefined;
-
-      if (!sessionId) {
-        showError("Session ID is required for export");
-        return;
-      }
-
-      const response = await fitmentUploadService.exportAiFitments(
-        format,
-        sessionId,
-        fitmentIds
-      );
-
-      // Create blob and download
-      const blob = new Blob([response.data], {
-        type:
-          format === "csv"
-            ? "text/csv"
-            : format === "xlsx"
-            ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            : "application/json",
-      });
-
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-
-      // Generate filename based on selection
-      const selectionSuffix = fitmentIds
-        ? `_selected_${fitmentIds.length}`
-        : "_all";
-      link.download = `ai_fitments${selectionSuffix}.${format}`;
-
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      const exportMessage = fitmentIds
-        ? `${
-            fitmentIds.length
-          } selected AI fitments exported as ${format.toUpperCase()}`
-        : `All AI fitments exported as ${format.toUpperCase()}`;
-
-      showSuccess(exportMessage);
-    } catch (error) {
-      console.error("Export error:", error);
-      showError(`Failed to export AI fitments as ${format.toUpperCase()}`);
-    }
-  };
+  // Manual fitment functions
 
   return (
     <div
@@ -561,6 +238,124 @@ export default function ApplyFitments() {
                               </Text>
                             </div>
 
+                            {/* Session Selector */}
+                            <Card
+                              withBorder
+                              radius="md"
+                              p="md"
+                              style={{ backgroundColor: "#f8fafc" }}
+                            >
+                              <Stack gap="sm">
+                                <Group gap="sm">
+                                  <IconDatabase size={20} color="#3b82f6" />
+                                  <Text fw={600} size="sm" c="#1e293b">
+                                    Data Source
+                                  </Text>
+                                </Group>
+                                <Select
+                                  label="Select Upload Session"
+                                  placeholder={
+                                    sessionsLoading || loadingSessionData
+                                      ? "Loading sessions..."
+                                      : uploadedSessions.length === 0
+                                      ? "No uploaded data available"
+                                      : "Select a session"
+                                  }
+                                  data={uploadedSessions.map(
+                                    (session: any) => ({
+                                      value: session.id,
+                                      label: `${
+                                        session.name || `Session ${session.id}`
+                                      } - ${new Date(
+                                        session.created_at
+                                      ).toLocaleDateString()}`,
+                                    })
+                                  )}
+                                  value={selectedSession}
+                                  onChange={(value) =>
+                                    setSelectedSession(value)
+                                  }
+                                  disabled={
+                                    sessionsLoading ||
+                                    loadingSessionData ||
+                                    uploadedSessions.length === 0
+                                  }
+                                  leftSection={
+                                    <IconDatabase size={16} color="#64748b" />
+                                  }
+                                  styles={{
+                                    label: {
+                                      fontWeight: 600,
+                                      fontSize: "13px",
+                                      color: "#374151",
+                                      marginBottom: "8px",
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.5px",
+                                    },
+                                    input: {
+                                      borderRadius: "10px",
+                                      border: "2px solid #e2e8f0",
+                                      fontSize: "14px",
+                                      height: "48px",
+                                      paddingLeft: "40px",
+                                      transition:
+                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+
+                                      "&:focus": {
+                                        borderColor: "#3b82f6",
+                                        boxShadow:
+                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                      "&:hover": {
+                                        borderColor: "#cbd5e1",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                    },
+                                  }}
+                                />
+                                {selectedSession && (
+                                  <Group gap="sm">
+                                    <Badge
+                                      color="blue"
+                                      variant="light"
+                                      size="sm"
+                                    >
+                                      {loadingSessionData
+                                        ? "Loading..."
+                                        : `${uploadedVehicles.length} Vehicles`}
+                                    </Badge>
+                                    <Badge
+                                      color="green"
+                                      variant="light"
+                                      size="sm"
+                                    >
+                                      {loadingSessionData
+                                        ? "Loading..."
+                                        : `${uploadedProducts.length} Products`}
+                                    </Badge>
+                                  </Group>
+                                )}
+                              </Stack>
+                            </Card>
+
+                            {/* Warning if no data available */}
+                            {uploadedSessions.length === 0 && (
+                              <Alert
+                                icon={<IconAlertCircle size={16} />}
+                                title="No Uploaded Data Available"
+                                color="orange"
+                                variant="light"
+                                radius="md"
+                              >
+                                <Text size="sm">
+                                  Please upload VCDB and Products files in the{" "}
+                                  <strong>Upload Data</strong> section first
+                                  before using manual fitment.
+                                </Text>
+                              </Alert>
+                            )}
+
                             <div>
                               <SimpleGrid
                                 cols={{ base: 1, sm: 2, lg: 3 }}
@@ -598,7 +393,6 @@ export default function ApplyFitments() {
                                       paddingLeft: "40px",
                                       transition:
                                         "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      backgroundColor: "#fafafa",
                                       "&:focus": {
                                         borderColor: "#3b82f6",
                                         boxShadow:
@@ -644,7 +438,7 @@ export default function ApplyFitments() {
                                       paddingLeft: "40px",
                                       transition:
                                         "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      backgroundColor: "#fafafa",
+
                                       "&:focus": {
                                         borderColor: "#3b82f6",
                                         boxShadow:
@@ -688,7 +482,7 @@ export default function ApplyFitments() {
                                       paddingLeft: "40px",
                                       transition:
                                         "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      backgroundColor: "#fafafa",
+
                                       "&:focus": {
                                         borderColor: "#3b82f6",
                                         boxShadow:
@@ -732,7 +526,7 @@ export default function ApplyFitments() {
                                       paddingLeft: "40px",
                                       transition:
                                         "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      backgroundColor: "#fafafa",
+
                                       "&:focus": {
                                         borderColor: "#3b82f6",
                                         boxShadow:
@@ -776,7 +570,7 @@ export default function ApplyFitments() {
                                       paddingLeft: "40px",
                                       transition:
                                         "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      backgroundColor: "#fafafa",
+
                                       "&:focus": {
                                         borderColor: "#3b82f6",
                                         boxShadow:
@@ -826,7 +620,7 @@ export default function ApplyFitments() {
                                       paddingLeft: "40px",
                                       transition:
                                         "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      backgroundColor: "#fafafa",
+
                                       "&:focus": {
                                         borderColor: "#3b82f6",
                                         boxShadow:
@@ -875,7 +669,7 @@ export default function ApplyFitments() {
                                       paddingLeft: "40px",
                                       transition:
                                         "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      backgroundColor: "#fafafa",
+
                                       "&:focus": {
                                         borderColor: "#3b82f6",
                                         boxShadow:
@@ -928,7 +722,7 @@ export default function ApplyFitments() {
                                       paddingLeft: "40px",
                                       transition:
                                         "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      backgroundColor: "#fafafa",
+
                                       "&:focus": {
                                         borderColor: "#3b82f6",
                                         boxShadow:
@@ -980,7 +774,7 @@ export default function ApplyFitments() {
                                       paddingLeft: "40px",
                                       transition:
                                         "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      backgroundColor: "#fafafa",
+
                                       "&:focus": {
                                         borderColor: "#3b82f6",
                                         boxShadow:
@@ -1068,56 +862,64 @@ export default function ApplyFitments() {
                                     "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)";
                                 }}
                                 onClick={() => {
-                                  // Simple search implementation using existing configs
-                                  const configs =
-                                    configurationsData?.configurations || [];
-                                  const filtered =
-                                    configs.filter((config: any) => {
+                                  // Search using uploaded vehicles instead of VCDB service
+                                  if (
+                                    !selectedSession ||
+                                    uploadedVehicles.length === 0
+                                  ) {
+                                    showError(
+                                      "No uploaded vehicle data available. Please upload data first."
+                                    );
+                                    return;
+                                  }
+
+                                  const filtered = uploadedVehicles.filter(
+                                    (vehicle: any) => {
                                       const matchesYear =
                                         (!vehicleFilters.yearFrom ||
-                                          config.year >=
+                                          vehicle.year >=
                                             parseInt(
                                               vehicleFilters.yearFrom
                                             )) &&
                                         (!vehicleFilters.yearTo ||
-                                          config.year <=
+                                          vehicle.year <=
                                             parseInt(vehicleFilters.yearTo));
                                       const matchesMake =
                                         !vehicleFilters.make ||
-                                        config.make
+                                        vehicle.make
                                           .toLowerCase()
                                           .includes(
                                             vehicleFilters.make.toLowerCase()
                                           );
                                       const matchesModel =
                                         !vehicleFilters.model ||
-                                        config.model
+                                        vehicle.model
                                           .toLowerCase()
                                           .includes(
                                             vehicleFilters.model.toLowerCase()
                                           );
                                       const matchesSubmodel =
                                         !vehicleFilters.submodel ||
-                                        config.submodel
+                                        vehicle.submodel
                                           .toLowerCase()
                                           .includes(
                                             vehicleFilters.submodel.toLowerCase()
                                           );
                                       const matchesFuelType =
                                         !vehicleFilters.fuelType ||
-                                        config.fuelType ===
+                                        vehicle.fuelType ===
                                           vehicleFilters.fuelType;
                                       const matchesDoors =
                                         !vehicleFilters.numDoors ||
-                                        config.numDoors.toString() ===
+                                        vehicle.numDoors?.toString() ===
                                           vehicleFilters.numDoors;
                                       const matchesDriveType =
                                         !vehicleFilters.driveType ||
-                                        config.driveType ===
+                                        vehicle.driveType ===
                                           vehicleFilters.driveType;
                                       const matchesBodyType =
                                         !vehicleFilters.bodyType ||
-                                        config.bodyType ===
+                                        vehicle.bodyType ===
                                           vehicleFilters.bodyType;
 
                                       return (
@@ -1130,10 +932,14 @@ export default function ApplyFitments() {
                                         matchesDriveType &&
                                         matchesBodyType
                                       );
-                                    }) || [];
+                                    }
+                                  );
 
                                   setFilteredVehicles(filtered);
                                   setManualStep(2);
+                                  showSuccess(
+                                    `Found ${filtered.length} vehicles matching your criteria`
+                                  );
                                 }}
                                 loading={false}
                               >
@@ -1287,16 +1093,21 @@ export default function ApplyFitments() {
                                 <Select
                                   label="Part"
                                   placeholder={
-                                    partsLoading
-                                      ? "Loading parts..."
+                                    uploadedProducts.length === 0
+                                      ? "No uploaded products available"
                                       : "Select a part"
                                   }
                                   data={
-                                    parts && Array.isArray(parts)
-                                      ? parts.map((part: any) => ({
-                                          value: part.id || "",
-                                          label: `${part.id || "Unknown"} - ${
-                                            part.description || "No description"
+                                    uploadedProducts &&
+                                    Array.isArray(uploadedProducts)
+                                      ? uploadedProducts.map((part: any) => ({
+                                          value: part.id || part.part_id || "",
+                                          label: `${
+                                            part.id || part.part_id || "Unknown"
+                                          } - ${
+                                            part.description ||
+                                            part.name ||
+                                            "No description"
                                           }`,
                                         }))
                                       : []
@@ -1309,7 +1120,7 @@ export default function ApplyFitments() {
                                     }))
                                   }
                                   searchable
-                                  disabled={partsLoading}
+                                  disabled={uploadedProducts.length === 0}
                                   leftSection={
                                     <IconPackage size={16} color="#64748b" />
                                   }
@@ -1330,7 +1141,7 @@ export default function ApplyFitments() {
                                       paddingLeft: "40px",
                                       transition:
                                         "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      backgroundColor: "#fafafa",
+
                                       "&:focus": {
                                         borderColor: "#3b82f6",
                                         boxShadow:
@@ -1391,7 +1202,7 @@ export default function ApplyFitments() {
                                       paddingLeft: "40px",
                                       transition:
                                         "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      backgroundColor: "#fafafa",
+
                                       "&:focus": {
                                         borderColor: "#3b82f6",
                                         boxShadow:
@@ -1435,7 +1246,7 @@ export default function ApplyFitments() {
                                       paddingLeft: "40px",
                                       transition:
                                         "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      backgroundColor: "#fafafa",
+
                                       "&:focus": {
                                         borderColor: "#3b82f6",
                                         boxShadow:
@@ -1480,7 +1291,7 @@ export default function ApplyFitments() {
                                       paddingLeft: "40px",
                                       transition:
                                         "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      backgroundColor: "#fafafa",
+
                                       "&:focus": {
                                         borderColor: "#3b82f6",
                                         boxShadow:
@@ -1527,7 +1338,7 @@ export default function ApplyFitments() {
                                     paddingLeft: "40px",
                                     transition:
                                       "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                    backgroundColor: "#fafafa",
+
                                     "&:focus": {
                                       borderColor: "#3b82f6",
                                       boxShadow:
@@ -1569,7 +1380,7 @@ export default function ApplyFitments() {
                                     padding: "12px 16px",
                                     transition:
                                       "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                    backgroundColor: "#fafafa",
+
                                     "&:focus": {
                                       borderColor: "#3b82f6",
                                       boxShadow:
@@ -1611,7 +1422,7 @@ export default function ApplyFitments() {
                                     padding: "12px 16px",
                                     transition:
                                       "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                    backgroundColor: "#fafafa",
+
                                     "&:focus": {
                                       borderColor: "#3b82f6",
                                       boxShadow:
@@ -1658,16 +1469,53 @@ export default function ApplyFitments() {
                               <Button
                                 size="md"
                                 leftSection={<IconSettings size={16} />}
-                                onClick={() => {
-                                  // Simulate applying fitment
-                                  setApplyingManualFitment(true);
-                                  setTimeout(() => {
-                                    setApplyingManualFitment(false);
-                                    showSuccess(
-                                      `Applied fitment to ${selectedVehicles.length} vehicles`
+                                onClick={async () => {
+                                  if (!selectedSession) {
+                                    showError(
+                                      "Please select an upload session first"
                                     );
-                                    handleBackToMethodSelection();
-                                  }, 2000);
+                                    return;
+                                  }
+
+                                  setApplyingManualFitment(true);
+                                  try {
+                                    const result = await applyFitment(() =>
+                                      fitmentUploadService.applyManualFitment({
+                                        sessionId: selectedSession,
+                                        vehicleIds: selectedVehicles,
+                                        partId: fitmentDetails.partId,
+                                        partType: fitmentDetails.partType,
+                                        position: fitmentDetails.position,
+                                        quantity: fitmentDetails.quantity,
+                                        title: fitmentDetails.title,
+                                        description: fitmentDetails.description,
+                                        notes: fitmentDetails.notes,
+                                      })
+                                    );
+
+                                    if (result) {
+                                      showSuccess(
+                                        `Successfully applied fitment to ${selectedVehicles.length} vehicles`
+                                      );
+                                      // Reset form
+                                      setFitmentDetails({
+                                        partId: "",
+                                        partType: "",
+                                        position: "",
+                                        quantity: 1,
+                                        title: "",
+                                        description: "",
+                                        notes: "",
+                                      });
+                                      setSelectedVehicles([]);
+                                      setFilteredVehicles([]);
+                                      setManualStep(1);
+                                    }
+                                  } catch (error) {
+                                    showError("Failed to apply manual fitment");
+                                  } finally {
+                                    setApplyingManualFitment(false);
+                                  }
                                 }}
                                 loading={applyingManualFitment}
                                 disabled={

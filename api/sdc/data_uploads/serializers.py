@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import DataUploadSession, FileValidationLog, DataProcessingLog
+from .models import DataUploadSession, FileValidationLog, DataProcessingLog, AIFitmentResult, AppliedFitment
 
 
 class FileValidationLogSerializer(serializers.ModelSerializer):
@@ -66,3 +66,36 @@ class FileInfoSerializer(serializers.Serializer):
     valid = serializers.BooleanField()
     records = serializers.IntegerField()
     uploaded_at = serializers.DateTimeField()
+
+
+class AIFitmentResultSerializer(serializers.ModelSerializer):
+    """Serializer for AI fitment results"""
+    class Meta:
+        model = AIFitmentResult
+        fields = [
+            'id', 'part_id', 'part_description', 'year', 'make', 'model', 'submodel',
+            'drive_type', 'position', 'quantity', 'confidence', 'ai_reasoning',
+            'is_selected', 'is_applied', 'created_at'
+        ]
+        read_only_fields = ['id', 'created_at']
+
+
+class AppliedFitmentSerializer(serializers.ModelSerializer):
+    """Serializer for applied fitments"""
+    class Meta:
+        model = AppliedFitment
+        fields = [
+            'id', 'part_id', 'part_description', 'year', 'make', 'model', 'submodel',
+            'drive_type', 'position', 'quantity', 'title', 'description', 'notes',
+            'applied_at'
+        ]
+        read_only_fields = ['id', 'applied_at']
+
+
+class ApplyFitmentsRequestSerializer(serializers.Serializer):
+    """Serializer for applying AI fitments request"""
+    session_id = serializers.UUIDField()
+    fitment_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        allow_empty=False
+    )

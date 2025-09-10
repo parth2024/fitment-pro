@@ -1,0 +1,6 @@
+id,year,make,model,submodel,driveType,fuelType,numDoors,bodyType
+1,2020,Toyota,RAV4,XLE,AWD,Gas,5,SUV
+2,2021,Honda,CR-V,EX,FWD,Gas,5,SUV
+3,2022,Ford,F-150,Lariat,4WD,Gas,4,Truck
+4,2023,Jeep,Wrangler,Rubicon,4WD,Gas,2,SUV
+5,2024,Tesla,Model Y,Long Range,AWD,Electric,5,SUV

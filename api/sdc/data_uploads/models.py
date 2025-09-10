@@ -155,3 +155,57 @@ class DataProcessingLog(models.Model):
     
     def __str__(self):
         return f"{self.session.id} - {self.step} ({self.status})"
+
+
+class AIFitmentResult(models.Model):
+    """Model to store AI-generated fitment results for data upload sessions"""
+    session = models.ForeignKey(DataUploadSession, on_delete=models.CASCADE, related_name='ai_results')
+    part_id = models.CharField(max_length=100)
+    part_description = models.TextField()
+    year = models.IntegerField()
+    make = models.CharField(max_length=100)
+    model = models.CharField(max_length=100)
+    submodel = models.CharField(max_length=100, blank=True)
+    drive_type = models.CharField(max_length=50, blank=True)
+    position = models.CharField(max_length=100, default='Front', blank=True, null=True)
+    quantity = models.IntegerField(default=1)
+    confidence = models.FloatField(default=0.0)
+    ai_reasoning = models.TextField()
+    is_selected = models.BooleanField(default=False)
+    is_applied = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-confidence', 'part_id']
+        verbose_name = "AI Fitment Result"
+        verbose_name_plural = "AI Fitment Results"
+    
+    def __str__(self):
+        return f"{self.part_id} -> {self.year} {self.make} {self.model} ({self.confidence:.2f})"
+
+
+class AppliedFitment(models.Model):
+    """Model to track applied fitments for data upload sessions"""
+    session = models.ForeignKey(DataUploadSession, on_delete=models.CASCADE, related_name='applied_fitments')
+    ai_result = models.ForeignKey(AIFitmentResult, on_delete=models.CASCADE, null=True, blank=True)
+    part_id = models.CharField(max_length=100)
+    part_description = models.TextField()
+    year = models.IntegerField()
+    make = models.CharField(max_length=100)
+    model = models.CharField(max_length=100)
+    submodel = models.CharField(max_length=100, blank=True)
+    drive_type = models.CharField(max_length=50, blank=True)
+    position = models.CharField(max_length=100)
+    quantity = models.IntegerField(default=1)
+    title = models.CharField(max_length=255, blank=True)
+    description = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
+    applied_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-applied_at']
+        verbose_name = "Applied Fitment"
+        verbose_name_plural = "Applied Fitments"
+    
+    def __str__(self):
+        return f"{self.part_id} -> {self.year} {self.make} {self.model}"
