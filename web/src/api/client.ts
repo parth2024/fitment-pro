@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Create axios instance with base configuration
 const apiClient = axios.create({
-  baseURL: window.location.protocol + "//" + window.location.hostname + ":8000/",
+  baseURL: "http://127.0.0.1:8001/",
   timeout: 120000, // 2 minutes for AI processing
   headers: {
     "Content-Type": "application/json",
@@ -16,7 +16,7 @@ apiClient.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  },
+  }
 );
 
 // Response interceptor
@@ -36,7 +36,7 @@ apiClient.interceptors.response.use(
       console.error("Error:", error.message);
     }
     return Promise.reject(error);
-  },
+  }
 );
 
 export default apiClient;

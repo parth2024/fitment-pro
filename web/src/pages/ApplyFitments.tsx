@@ -20,9 +20,9 @@ import {
   SimpleGrid,
   Stepper,
   Textarea,
+  Transition,
 } from "@mantine/core";
 import {
-  IconSearch,
   IconUpload,
   IconFileText,
   IconRobot,
@@ -34,17 +34,28 @@ import {
   IconCar,
   IconList,
   IconSettings,
+  IconCalendar,
+  IconGasStation,
+  IconDoor,
+  IconRefresh,
+  IconSearch,
+  IconPackage,
+  IconTag,
+  IconMapPin,
+  IconHash,
 } from "@tabler/icons-react";
 import {
   vcdbService,
   partsService,
-  fitmentsService,
   fitmentUploadService,
 } from "../api/services";
 import { useApi, useAsyncOperation } from "../hooks/useApi";
-import toast from "react-hot-toast";
+import { useProfessionalToast } from "../hooks/useProfessionalToast";
 
 export default function ApplyFitments() {
+  // Professional toast hook
+  const { showSuccess, showError } = useProfessionalToast();
+
   // File upload states
   const [vcdbFile, setVcdbFile] = useState<File | null>(null);
   const [productsFile, setProductsFile] = useState<File | null>(null);
@@ -92,11 +103,10 @@ export default function ApplyFitments() {
 
   // Fitment method selection
   const [selectedMethod, setSelectedMethod] = useState<"manual" | "ai" | null>(
-    null,
+    null
   );
 
   // Manual fitment states (existing logic)
-  const [selectedConfigs, setSelectedConfigs] = useState<string[]>([]);
   const [filters, setFilters] = useState({
     yearFrom: 2020,
     yearTo: 2025,
@@ -108,26 +118,6 @@ export default function ApplyFitments() {
     numDoors: "",
     bodyType: "",
   });
-  const [fitmentForm, setFitmentForm] = useState({
-    partId: "",
-    partTypeId: "",
-    position: "",
-    quantity: 1,
-    wheelType: "",
-    liftHeight: "",
-    wheelDiameter1: "",
-    wheelDiameter2: "",
-    wheelDiameter3: "",
-    tireDiameter1: "",
-    tireDiameter2: "",
-    tireDiameter3: "",
-    backspacing1: "",
-    backspacing2: "",
-    backspacing3: "",
-    title: "",
-    description: "",
-    notes: "",
-  });
 
   // AI fitment states
   const [aiFitments, setAiFitments] = useState<any[]>([]);
@@ -137,26 +127,26 @@ export default function ApplyFitments() {
   // Manual Method Stepper State
   const [manualStep, setManualStep] = useState(1);
   const [vehicleFilters, setVehicleFilters] = useState({
-    yearFrom: '',
-    yearTo: '',
-    make: '',
-    model: '',
-    submodel: '',
-    fuelType: '',
-    numDoors: '',
-    driveType: '',
-    bodyType: ''
+    yearFrom: "",
+    yearTo: "",
+    make: "",
+    model: "",
+    submodel: "",
+    fuelType: "",
+    numDoors: "",
+    driveType: "",
+    bodyType: "",
   });
   const [filteredVehicles, setFilteredVehicles] = useState<any[]>([]);
   const [selectedVehicles, setSelectedVehicles] = useState<string[]>([]);
   const [fitmentDetails, setFitmentDetails] = useState({
-    partId: '',
-    partType: '',
-    position: '',
+    partId: "",
+    partType: "",
+    position: "",
     quantity: 1,
-    title: '',
-    description: '',
-    notes: ''
+    title: "",
+    description: "",
+    notes: "",
   });
   const [applyingManualFitment, setApplyingManualFitment] = useState(false);
   const [aiProgress, setAiProgress] = useState(0);
@@ -165,21 +155,20 @@ export default function ApplyFitments() {
   // API hooks
   const { data: yearRange } = useApi(
     () => vcdbService.getYearRange(),
-    [],
+    []
   ) as any;
-  const { data: parts } = useApi(
+  const { data: parts, loading: partsLoading } = useApi(
     () => partsService.getParts({ "with-fitments": false }),
-    [],
+    []
   );
-  const { data: partTypes } = useApi(
+  const { data: partTypes, loading: partTypesLoading } = useApi(
     () => partsService.getPartTypes(),
-    [],
+    []
   ) as any;
-  const {
-    data: configurationsData,
-    loading: configsLoading,
-    refetch: refetchConfigs,
-  } = useApi(() => vcdbService.getConfigurations(filters), [filters]) as any;
+  const { data: configurationsData } = useApi(
+    () => vcdbService.getConfigurations(filters),
+    [filters]
+  ) as any;
   const { execute: applyFitment, loading: applyingFitment } =
     useAsyncOperation();
   const { execute: uploadFiles, loading: uploadingFiles } = useAsyncOperation();
@@ -195,17 +184,6 @@ export default function ApplyFitments() {
       }));
     }
   }, [yearRange]);
-
-  const configurations = configurationsData?.configurations || [];
-
-  const positions = [
-    "Front",
-    "Rear",
-    "Front Left",
-    "Front Right",
-    "Rear Left",
-    "Rear Right",
-  ];
 
   // Drag & Drop handlers for VCDB files
   const handleVcdbDrag = (e: React.DragEvent) => {
@@ -251,7 +229,7 @@ export default function ApplyFitments() {
 
   const handleFileUpload = async () => {
     if (!vcdbFile || !productsFile) {
-      toast.error("Please upload both VCDB and Products files");
+      showError("Please upload both VCDB and Products files");
       return;
     }
 
@@ -272,7 +250,7 @@ export default function ApplyFitments() {
 
       // Upload files to backend
       const result: any = await uploadFiles(() =>
-        fitmentUploadService.uploadFiles(vcdbFile, productsFile),
+        fitmentUploadService.uploadFiles(vcdbFile, productsFile)
       );
 
       clearInterval(progressInterval);
@@ -285,8 +263,9 @@ export default function ApplyFitments() {
         setUploadedFiles({ vcdb: true, products: true });
         setSessionId(result.data.session.id);
         setCurrentStep(2); // Move to step 2 after successful upload
-        toast.success(
+        showSuccess(
           "Files uploaded successfully! Now choose your fitment method.",
+          5000
         );
       } else {
         console.error("Invalid response structure:", result);
@@ -299,13 +278,13 @@ export default function ApplyFitments() {
         error?.response?.data?.error ||
         error?.message ||
         "Failed to upload files";
-      toast.error(errorMessage);
+      showError(errorMessage);
     }
   };
 
   const handleAiFitment = async () => {
     if (!uploadedFiles.vcdb || !uploadedFiles.products || !sessionId) {
-      toast.error("Please upload both files first");
+      showError("Please upload both files first");
       return;
     }
 
@@ -322,6 +301,22 @@ export default function ApplyFitments() {
       "⚡ Applying machine learning models...",
       "🎯 Calculating fitment probabilities...",
       "📈 Optimizing recommendation scores...",
+      "🔍 Checking for potential conflicts...",
+      "🔬 Cross-referencing OEM specifications...",
+      "📋 Validating part compatibility matrices...",
+      "🌐 Querying manufacturer databases...",
+      "🔍 Scanning for alternative configurations...",
+      "📊 Computing confidence intervals...",
+      "🎨 Applying design pattern recognition...",
+      "⚙️ Optimizing fitment algorithms...",
+      "🔍 Detecting edge cases and exceptions...",
+      "📈 Analyzing historical fitment data...",
+      "🧪 Running compatibility stress tests...",
+      "🔍 Performing quality assurance checks...",
+      "📊 Generating performance metrics...",
+      "🎯 Refining recommendation accuracy...",
+      "🔍 Validating against industry standards...",
+      "📋 Compiling fitment documentation...",
       "✅ Generating fitment suggestions...",
     ];
 
@@ -340,7 +335,7 @@ export default function ApplyFitments() {
     try {
       // Call Azure AI Foundry API
       const result: any = await processAiFitment(() =>
-        fitmentUploadService.processAiFitment(sessionId),
+        fitmentUploadService.processAiFitment(sessionId)
       );
 
       clearInterval(logInterval);
@@ -374,20 +369,23 @@ export default function ApplyFitments() {
         setAiFitments(fitmentsWithIds);
         // Auto-select all fitments by default
         setSelectedAiFitments(
-          fitmentsWithIds.map((fitment: any) => fitment.id),
+          fitmentsWithIds.map((fitment: any) => fitment.id)
         );
-        toast.success(`AI generated ${fitments.length} fitment suggestions!`);
+        showSuccess(
+          `AI generated ${fitments.length} fitment suggestions!`,
+          5000
+        );
       } else {
         console.log("No fitments found in response structure");
         console.log("Available keys in result:", Object.keys(result || {}));
         if (result?.data) {
           console.log(
             "Available keys in result.data:",
-            Object.keys(result.data),
+            Object.keys(result.data)
           );
         }
-        toast.error(
-          "No fitments were generated. Please check your uploaded files and try again.",
+        showError(
+          "No fitments were generated. Please check your uploaded files and try again."
         );
       }
     } catch (error) {
@@ -397,7 +395,7 @@ export default function ApplyFitments() {
         ...prev,
         "❌ AI processing failed. Please try again.",
       ]);
-      toast.error("Failed to process AI fitment");
+      showError("Failed to process AI fitment");
     } finally {
       setAiProcessing(false);
     }
@@ -405,44 +403,27 @@ export default function ApplyFitments() {
 
   const handleApplyAiFitments = async () => {
     if (selectedAiFitments.length === 0) {
-      toast.error("Please select fitments to apply");
+      showError("Please select fitments to apply");
       return;
     }
 
     if (!sessionId) {
-      toast.error("Session not found");
+      showError("Session not found");
       return;
     }
 
     try {
       const result: any = await applyFitment(() =>
-        fitmentUploadService.applyAiFitments(sessionId, selectedAiFitments),
+        fitmentUploadService.applyAiFitments(sessionId, selectedAiFitments)
       );
 
       if (result) {
-        toast.success(
+        showSuccess(
           `Successfully applied ${result.applied_count} AI fitments to the database!`,
-          {
-            duration: 5000,
-            style: {
-              background: "#10b981",
-              color: "white",
-            },
-          },
+          5000
         );
         setSelectedAiFitments([]);
         setAiFitments([]);
-
-        // Show success modal with navigation option
-        setTimeout(() => {
-          if (
-            confirm(
-              `Successfully applied ${result.applied_count} fitments! Would you like to view them in the Fitments page?`,
-            )
-          ) {
-            window.location.href = "/fitments";
-          }
-        }, 1000);
 
         // Reset the method selection to allow new uploads
         setSelectedMethod(null);
@@ -451,7 +432,7 @@ export default function ApplyFitments() {
         setCurrentStep(1); // Reset to step 1
       }
     } catch (error) {
-      toast.error("Failed to apply AI fitments");
+      showError("Failed to apply AI fitments");
     }
   };
 
@@ -462,14 +443,14 @@ export default function ApplyFitments() {
         selectedAiFitments.length > 0 ? selectedAiFitments : undefined;
 
       if (!sessionId) {
-        toast.error("Session ID is required for export");
+        showError("Session ID is required for export");
         return;
       }
 
       const response = await fitmentUploadService.exportAiFitments(
         format,
         sessionId,
-        fitmentIds,
+        fitmentIds
       );
 
       // Create blob and download
@@ -478,8 +459,8 @@ export default function ApplyFitments() {
           format === "csv"
             ? "text/csv"
             : format === "xlsx"
-              ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              : "application/json",
+            ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            : "application/json",
       });
 
       const url = window.URL.createObjectURL(blob);
@@ -503,93 +484,10 @@ export default function ApplyFitments() {
           } selected AI fitments exported as ${format.toUpperCase()}`
         : `All AI fitments exported as ${format.toUpperCase()}`;
 
-      toast.success(exportMessage);
+      showSuccess(exportMessage);
     } catch (error) {
       console.error("Export error:", error);
-      toast.error(`Failed to export AI fitments as ${format.toUpperCase()}`);
-    }
-  };
-
-  const handleSearchVehicles = async () => {
-    try {
-      await refetchConfigs();
-      toast.success("Vehicle configurations updated");
-    } catch (error) {
-      toast.error("Failed to fetch configurations");
-    }
-  };
-
-  const handleApplyFitment = async () => {
-    if (
-      selectedConfigs.length === 0 ||
-      !fitmentForm.partId ||
-      !fitmentForm.partTypeId
-    ) {
-      toast.error("Please select configurations and complete the fitment form");
-      return;
-    }
-
-    const fitmentData = {
-      partIDs: [fitmentForm.partId],
-      partTypeID: fitmentForm.partTypeId,
-      configurationIDs: selectedConfigs,
-      quantity: fitmentForm.quantity,
-      position: fitmentForm.position,
-      liftHeight: fitmentForm.liftHeight,
-      wheelType: fitmentForm.wheelType,
-      wheelParameters: [
-        {
-          wheelDiameter: fitmentForm.wheelDiameter1,
-          tireDiameter: fitmentForm.tireDiameter1,
-          backspacing: fitmentForm.backspacing1,
-        },
-        {
-          wheelDiameter: fitmentForm.wheelDiameter2,
-          tireDiameter: fitmentForm.tireDiameter2,
-          backspacing: fitmentForm.backspacing2,
-        },
-        {
-          wheelDiameter: fitmentForm.wheelDiameter3,
-          tireDiameter: fitmentForm.tireDiameter3,
-          backspacing: fitmentForm.backspacing3,
-        },
-      ].filter(
-        (param) =>
-          param.wheelDiameter || param.tireDiameter || param.backspacing,
-      ),
-      title: fitmentForm.title,
-      description: fitmentForm.description,
-      notes: fitmentForm.notes,
-    };
-
-    const result = await applyFitment(() =>
-      fitmentsService.createFitment(fitmentData),
-    );
-    if (result) {
-      toast.success(
-        `Fitment applied to ${selectedConfigs.length} configurations`,
-      );
-      setSelectedConfigs([]);
-      setFitmentForm({
-        partId: "",
-        partTypeId: "",
-        position: "",
-        quantity: 1,
-        wheelType: "",
-        liftHeight: "",
-        wheelDiameter1: "",
-        wheelDiameter2: "",
-        wheelDiameter3: "",
-        tireDiameter1: "",
-        tireDiameter2: "",
-        tireDiameter3: "",
-        backspacing1: "",
-        backspacing2: "",
-        backspacing3: "",
-        title: "",
-        description: "",
-        notes: "",
-      });
+      showError(`Failed to export AI fitments as ${format.toUpperCase()}`);
     }
   };
 
@@ -601,183 +499,1816 @@ export default function ApplyFitments() {
     >
       <Stack gap="xl">
         {/* Step 1: File Upload Section */}
-        {currentStep === 1 && (
-          <Card
-            style={{
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "12px",
-              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-            }}
-            p="xl"
-          >
-            <Stack gap="xl">
-              <div>
-                <Title order={2} c="#1e293b" fw={600} mb="xs">
-                  Upload Required Files
-                </Title>
-                <Text size="md" c="#64748b">
-                  Upload VCDB data and Products data to proceed
-                </Text>
-              </div>
-
-              <Grid gutter="xl">
-                <Grid.Col span={6}>
-                  {/* VCDB File Upload with Drag & Drop */}
-                  <Card
-                    style={{
-                      background: vcdbDragActive ? "#f0f9ff" : "#ffffff",
-                      border: vcdbDragActive
-                        ? "2px dashed #3b82f6"
-                        : "2px dashed #e2e8f0",
-                      borderRadius: "12px",
-                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
-                      transition: "all 0.15s ease",
-                      cursor: "pointer",
-                      minHeight: "200px",
-                    }}
-                    p="lg"
-                    onDragEnter={handleVcdbDrag}
-                    onDragLeave={handleVcdbDrag}
-                    onDragOver={handleVcdbDrag}
-                    onDrop={handleVcdbDrop}
-                  >
-                    <Stack align="center" justify="center" h="100%">
-                      <div
-                        style={{
-                          background: "#f8fafc",
-                          borderRadius: "12px",
-                          padding: "16px",
-                          marginBottom: "16px",
-                        }}
-                      >
-                        <IconFileText size={24} color="#3b82f6" />
-                      </div>
-
-                      <div style={{ textAlign: "center" }}>
-                        <Text fw={600} size="lg" c="#1e293b" mb="xs">
-                          VCDB Data File
-                        </Text>
-                        <Text size="sm" c="#64748b" mb="md">
-                          Drag & drop or click to upload
-                        </Text>
-                      </div>
-
-                      <FileInput
-                        value={vcdbFile}
-                        onChange={setVcdbFile}
-                        accept=".csv,.xlsx,.json"
-                        placeholder={
-                          vcdbFile
-                            ? vcdbFile.name
-                            : "Select VCDB file (.csv, .xlsx, .json)"
-                        }
-                        style={{ width: "100%" }}
-                        styles={{
-                          input: {
-                            backgroundColor: "#f8fafc",
-                            border: "1px solid #e2e8f0",
-                            borderRadius: "8px",
-                            padding: "12px",
-                            fontSize: "14px",
-                            fontWeight: 500,
-                            textAlign: "center",
-                          },
-                        }}
-                      />
-                    </Stack>
-                  </Card>
-                </Grid.Col>
-
-                <Grid.Col span={6}>
-                  {/* Products File Upload with Drag & Drop */}
-                  <Card
-                    style={{
-                      background: productsDragActive ? "#f0fdf4" : "#ffffff",
-                      border: productsDragActive
-                        ? "2px dashed #10b981"
-                        : "2px dashed #e2e8f0",
-                      borderRadius: "12px",
-                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
-                      transition: "all 0.15s ease",
-                      cursor: "pointer",
-                      minHeight: "200px",
-                    }}
-                    p="lg"
-                    onDragEnter={handleProductsDrag}
-                    onDragLeave={handleProductsDrag}
-                    onDragOver={handleProductsDrag}
-                    onDrop={handleProductsDrop}
-                  >
-                    <Stack align="center" justify="center" h="100%">
-                      <div
-                        style={{
-                          background: "#f8fafc",
-                          borderRadius: "12px",
-                          padding: "16px",
-                          marginBottom: "16px",
-                        }}
-                      >
-                        <IconDatabase size={24} color="#10b981" />
-                      </div>
-
-                      <div style={{ textAlign: "center" }}>
-                        <Text fw={600} size="lg" c="#1e293b" mb="xs">
-                          Products Data File
-                        </Text>
-                        <Text size="sm" c="#64748b" mb="md">
-                          Drag & drop or click to upload
-                        </Text>
-                      </div>
-
-                      <FileInput
-                        value={productsFile}
-                        onChange={setProductsFile}
-                        accept=".csv,.xlsx,.json"
-                        placeholder={
-                          productsFile
-                            ? productsFile.name
-                            : "Select Products file (.csv, .xlsx, .json)"
-                        }
-                        style={{ width: "100%" }}
-                        styles={{
-                          input: {
-                            backgroundColor: "#f8fafc",
-                            border: "1px solid #e2e8f0",
-                            borderRadius: "8px",
-                            padding: "12px",
-                            fontSize: "14px",
-                            fontWeight: 500,
-                            textAlign: "center",
-                          },
-                        }}
-                      />
-                    </Stack>
-                  </Card>
-                </Grid.Col>
-              </Grid>
-
-              {/* Upload Progress */}
-              {uploadStatus === "uploading" && (
+        <Transition
+          mounted={currentStep === 1}
+          transition="slide-right"
+          duration={400}
+          timingFunction="ease"
+        >
+          {(styles) => (
+            <div style={styles}>
+              {currentStep === 1 && (
                 <Card
-                  p="lg"
                   style={{
-                    background: "#f0f9ff",
-                    border: "1px solid #dbeafe",
+                    background: "#ffffff",
+                    border: "1px solid #e2e8f0",
                     borderRadius: "12px",
+                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
                   }}
+                  p="xl"
                 >
-                  <Stack gap="md">
-                    <Group justify="space-between">
-                      <Text fw={600} size="lg" c="#1e293b">
-                        Uploading Files...
+                  <Stack gap="xl">
+                    <div>
+                      <Title order={2} c="#1e293b" fw={600} mb="xs">
+                        Upload Required Files
+                      </Title>
+                      <Text size="md" c="#64748b">
+                        Upload VCDB data and Products data to proceed
                       </Text>
-                      <Text fw={600} size="lg" c="#3b82f6">
-                        {uploadProgress}%
-                      </Text>
+                    </div>
+
+                    <Grid gutter="xl">
+                      <Grid.Col span={6}>
+                        {/* VCDB File Upload with Drag & Drop */}
+                        <Card
+                          style={{
+                            background: vcdbDragActive ? "#f0f9ff" : "#ffffff",
+                            border: vcdbDragActive
+                              ? "2px dashed #3b82f6"
+                              : "2px dashed #e2e8f0",
+                            borderRadius: "12px",
+                            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
+                            transition: "all 0.15s ease",
+                            cursor: "pointer",
+                            minHeight: "200px",
+                          }}
+                          p="lg"
+                          onDragEnter={handleVcdbDrag}
+                          onDragLeave={handleVcdbDrag}
+                          onDragOver={handleVcdbDrag}
+                          onDrop={handleVcdbDrop}
+                        >
+                          <Stack align="center" justify="center" h="100%">
+                            <div
+                              style={{
+                                background: "#f8fafc",
+                                borderRadius: "12px",
+                                padding: "16px",
+                                marginBottom: "16px",
+                              }}
+                            >
+                              <IconFileText size={24} color="#3b82f6" />
+                            </div>
+
+                            <div style={{ textAlign: "center" }}>
+                              <Text fw={600} size="lg" c="#1e293b" mb="xs">
+                                VCDB Data File
+                              </Text>
+                              <Text size="sm" c="#64748b" mb="md">
+                                Drag & drop or click to upload
+                              </Text>
+                            </div>
+
+                            <FileInput
+                              value={vcdbFile}
+                              onChange={setVcdbFile}
+                              accept=".csv,.xlsx,.json"
+                              placeholder={
+                                vcdbFile
+                                  ? vcdbFile.name
+                                  : "Select VCDB file (.csv, .xlsx, .json)"
+                              }
+                              style={{ width: "100%" }}
+                              styles={{
+                                input: {
+                                  backgroundColor: "#f8fafc",
+                                  border: "1px solid #e2e8f0",
+                                  borderRadius: "8px",
+                                  padding: "12px",
+                                  fontSize: "14px",
+                                  fontWeight: 500,
+                                  textAlign: "center",
+                                },
+                              }}
+                            />
+                          </Stack>
+                        </Card>
+                      </Grid.Col>
+
+                      <Grid.Col span={6}>
+                        {/* Products File Upload with Drag & Drop */}
+                        <Card
+                          style={{
+                            background: productsDragActive
+                              ? "#f0fdf4"
+                              : "#ffffff",
+                            border: productsDragActive
+                              ? "2px dashed #10b981"
+                              : "2px dashed #e2e8f0",
+                            borderRadius: "12px",
+                            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
+                            transition: "all 0.15s ease",
+                            cursor: "pointer",
+                            minHeight: "200px",
+                          }}
+                          p="lg"
+                          onDragEnter={handleProductsDrag}
+                          onDragLeave={handleProductsDrag}
+                          onDragOver={handleProductsDrag}
+                          onDrop={handleProductsDrop}
+                        >
+                          <Stack align="center" justify="center" h="100%">
+                            <div
+                              style={{
+                                background: "#f8fafc",
+                                borderRadius: "12px",
+                                padding: "16px",
+                                marginBottom: "16px",
+                              }}
+                            >
+                              <IconDatabase size={24} color="#10b981" />
+                            </div>
+
+                            <div style={{ textAlign: "center" }}>
+                              <Text fw={600} size="lg" c="#1e293b" mb="xs">
+                                Products Data File
+                              </Text>
+                              <Text size="sm" c="#64748b" mb="md">
+                                Drag & drop or click to upload
+                              </Text>
+                            </div>
+
+                            <FileInput
+                              value={productsFile}
+                              onChange={setProductsFile}
+                              accept=".csv,.xlsx,.json"
+                              placeholder={
+                                productsFile
+                                  ? productsFile.name
+                                  : "Select Products file (.csv, .xlsx, .json)"
+                              }
+                              style={{ width: "100%" }}
+                              styles={{
+                                input: {
+                                  backgroundColor: "#f8fafc",
+                                  border: "1px solid #e2e8f0",
+                                  borderRadius: "8px",
+                                  padding: "12px",
+                                  fontSize: "14px",
+                                  fontWeight: 500,
+                                  textAlign: "center",
+                                },
+                              }}
+                            />
+                          </Stack>
+                        </Card>
+                      </Grid.Col>
+                    </Grid>
+
+                    {/* Upload Progress */}
+                    {uploadStatus === "uploading" && (
+                      <Card
+                        p="lg"
+                        style={{
+                          background: "#f0f9ff",
+                          border: "1px solid #dbeafe",
+                          borderRadius: "12px",
+                        }}
+                      >
+                        <Stack gap="md">
+                          <Group justify="space-between">
+                            <Text fw={600} size="lg" c="#1e293b">
+                              Uploading Files...
+                            </Text>
+                            <Text fw={600} size="lg" c="#3b82f6">
+                              {uploadProgress}%
+                            </Text>
+                          </Group>
+                          <Progress
+                            value={uploadProgress}
+                            size="lg"
+                            radius="md"
+                            styles={{
+                              root: {
+                                background: "#f1f5f9",
+                              },
+                              section: {
+                                background:
+                                  "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                              },
+                            }}
+                          />
+                        </Stack>
+                      </Card>
+                    )}
+
+                    {uploadStatus === "error" && (
+                      <Alert
+                        icon={<IconAlertCircle size={20} />}
+                        color="red"
+                        radius="md"
+                      >
+                        <Text fw={600} size="md">
+                          Failed to upload files. Please try again.
+                        </Text>
+                      </Alert>
+                    )}
+
+                    {/* Upload Button */}
+                    <Group justify="center">
+                      <Button
+                        size="lg"
+                        leftSection={<IconUpload size={20} />}
+                        variant="filled"
+                        onClick={handleFileUpload}
+                        loading={uploadingFiles}
+                        disabled={
+                          !vcdbFile ||
+                          !productsFile ||
+                          uploadStatus === "uploading"
+                        }
+                        style={{
+                          background:
+                            "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                          border: "none",
+                          borderRadius: "8px",
+                          fontSize: "16px",
+                          fontWeight: 600,
+                          padding: "12px 24px",
+                          height: "48px",
+                          color: "white",
+                          transition: "all 0.2s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = "translateY(-1px)";
+                          e.currentTarget.style.boxShadow =
+                            "0 4px 12px rgba(59, 130, 246, 0.3)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = "translateY(0)";
+                          e.currentTarget.style.boxShadow = "none";
+                        }}
+                      >
+                        Upload Files
+                      </Button>
                     </Group>
+                  </Stack>
+                </Card>
+              )}
+            </div>
+          )}
+        </Transition>
+
+        {/* Step 2: Method Selection Section */}
+        <Transition
+          mounted={currentStep === 2}
+          transition="slide-left"
+          duration={400}
+          timingFunction="ease"
+        >
+          {(styles) => (
+            <div style={styles}>
+              {currentStep === 2 && (
+                <Card
+                  style={{
+                    background: "#ffffff",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "12px",
+                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                  }}
+                  p="xl"
+                >
+                  <Stack gap="xl">
+                    {/* Back Button */}
+                    <Group>
+                      <Button
+                        variant="subtle"
+                        leftSection={<IconArrowLeft size={16} />}
+                        onClick={handleBackToUpload}
+                        style={{
+                          color: "#64748b",
+                          fontWeight: 500,
+                        }}
+                      >
+                        Back to Upload
+                      </Button>
+                    </Group>
+
+                    <div>
+                      <Title order={2} c="#1e293b" fw={600} mb="xs">
+                        Choose Fitment Method
+                      </Title>
+                      <Text size="md" c="#64748b">
+                        Select how you want to apply fitments to your vehicle
+                        configurations
+                      </Text>
+                    </div>
+
+                    <SimpleGrid cols={2} spacing="xl">
+                      {/* Manual Method Card */}
+                      <Card
+                        style={{
+                          background:
+                            selectedMethod === "manual" ? "#f0f9ff" : "#fefefe",
+                          border:
+                            selectedMethod === "manual"
+                              ? "2px solid #3b82f6"
+                              : "2px solid #f1f5f9",
+                          borderRadius: "12px",
+                          cursor: "pointer",
+                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                          boxShadow:
+                            selectedMethod === "manual"
+                              ? "0 4px 12px rgba(59, 130, 246, 0.15)"
+                              : "0 2px 4px rgba(0, 0, 0, 0.05)",
+                          transform: "translateY(0)",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (selectedMethod !== "manual") {
+                            e.currentTarget.style.transform =
+                              "translateY(-4px)";
+                            e.currentTarget.style.boxShadow =
+                              "0 8px 25px rgba(0, 0, 0, 0.1)";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (selectedMethod !== "manual") {
+                            e.currentTarget.style.transform = "translateY(0)";
+                            e.currentTarget.style.boxShadow =
+                              "0 2px 4px rgba(0, 0, 0, 0.05)";
+                          }
+                        }}
+                        p="xl"
+                        onClick={handleManualMethodClick}
+                      >
+                        <Stack align="center" gap="lg">
+                          <div
+                            style={{
+                              background: "#f8fafc",
+                              borderRadius: "12px",
+                              padding: "16px",
+                              marginBottom: "8px",
+                            }}
+                          >
+                            <IconUsers size={32} color="#3b82f6" />
+                          </div>
+
+                          <div style={{ textAlign: "center" }}>
+                            <Text fw={700} size="xl" c="#1e293b" mb="xs">
+                              Manual Method
+                            </Text>
+                            <Text size="sm" c="#64748b" ta="center">
+                              Apply fitments manually with full control over
+                              each configuration
+                            </Text>
+                          </div>
+
+                          {selectedMethod === "manual" && (
+                            <Badge variant="light" color="blue" size="lg">
+                              Selected
+                            </Badge>
+                          )}
+                        </Stack>
+                      </Card>
+
+                      {/* AI Method Card */}
+                      <Card
+                        style={{
+                          background:
+                            selectedMethod === "ai" ? "#f0fdf4" : "#fefefe",
+                          border:
+                            selectedMethod === "ai"
+                              ? "2px solid #10b981"
+                              : "2px solid #f1f5f9",
+                          borderRadius: "12px",
+                          cursor: "pointer",
+                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                          boxShadow:
+                            selectedMethod === "ai"
+                              ? "0 4px 12px rgba(16, 185, 129, 0.15)"
+                              : "0 2px 4px rgba(0, 0, 0, 0.05)",
+                          transform: "translateY(0)",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (selectedMethod !== "ai") {
+                            e.currentTarget.style.transform =
+                              "translateY(-4px)";
+                            e.currentTarget.style.boxShadow =
+                              "0 8px 25px rgba(0, 0, 0, 0.1)";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (selectedMethod !== "ai") {
+                            e.currentTarget.style.transform = "translateY(0)";
+                            e.currentTarget.style.boxShadow =
+                              "0 2px 4px rgba(0, 0, 0, 0.05)";
+                          }
+                        }}
+                        p="xl"
+                        onClick={handleAiMethodClick}
+                      >
+                        <Stack align="center" gap="lg">
+                          <div
+                            style={{
+                              background: "#f8fafc",
+                              borderRadius: "12px",
+                              padding: "16px",
+                              marginBottom: "8px",
+                            }}
+                          >
+                            <IconBrain size={32} color="#10b981" />
+                          </div>
+
+                          <div style={{ textAlign: "center" }}>
+                            <Text fw={700} size="xl" c="#1e293b" mb="xs">
+                              AI Method
+                            </Text>
+                            <Text size="sm" c="#64748b" ta="center">
+                              Let AI automatically generate and apply fitments
+                              based on your data
+                            </Text>
+                          </div>
+
+                          {selectedMethod === "ai" && (
+                            <Badge variant="light" color="green" size="lg">
+                              Selected
+                            </Badge>
+                          )}
+                        </Stack>
+                      </Card>
+                    </SimpleGrid>
+                  </Stack>
+                </Card>
+              )}
+            </div>
+          )}
+        </Transition>
+
+        {/* Step 3: Manual Method Page */}
+        <Transition
+          mounted={currentStep === 3}
+          transition="slide-up"
+          duration={400}
+          timingFunction="ease"
+        >
+          {(styles) => (
+            <div style={styles}>
+              {currentStep === 3 && (
+                <Card
+                  style={{
+                    background: "#ffffff",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "12px",
+                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                  }}
+                  p="xl"
+                >
+                  <Stack gap="xl">
+                    {/* Back Button */}
+                    <Group>
+                      <Button
+                        variant="subtle"
+                        leftSection={<IconArrowLeft size={16} />}
+                        onClick={handleBackToMethodSelection}
+                        style={{
+                          color: "#64748b",
+                          fontWeight: 500,
+                        }}
+                      >
+                        Back to Method Selection
+                      </Button>
+                    </Group>
+
+                    <div>
+                      <Title order={2} c="#1e293b" fw={600} mb="xs">
+                        Manual Fitment Configuration
+                      </Title>
+                      <Text size="md" c="#64748b">
+                        Configure fitments manually with full control over each
+                        setting
+                      </Text>
+                    </div>
+
+                    {/* Manual Method Stepper */}
+                    <Stepper
+                      active={manualStep - 1}
+                      onStepClick={setManualStep}
+                      allowNextStepsSelect={false}
+                      styles={{
+                        stepBody: {
+                          transition: "all 0.3s ease",
+                        },
+                        stepIcon: {
+                          transition: "all 0.3s ease",
+                        },
+                        stepLabel: {
+                          transition: "all 0.3s ease",
+                        },
+                      }}
+                    >
+                      <Stepper.Step
+                        label="Vehicle Selection"
+                        description="Select vehicle criteria"
+                        icon={<IconCar size={18} />}
+                      >
+                        <div>
+                          <Stack gap="md" mt={20}>
+                            <div>
+                              <Title order={3} c="#1e293b" fw={700} mb="xs">
+                                Vehicle Search Criteria
+                              </Title>
+                              <Text size="sm" c="#64748b">
+                                Refine your search with specific vehicle
+                                attributes to find the perfect fitments
+                              </Text>
+                            </div>
+
+                            <div>
+                              <SimpleGrid
+                                cols={{ base: 1, sm: 2, lg: 3 }}
+                                spacing="xl"
+                              >
+                                <NumberInput
+                                  label="Year From"
+                                  placeholder="2010"
+                                  min={2010}
+                                  max={2025}
+                                  value={vehicleFilters.yearFrom}
+                                  onChange={(value) =>
+                                    setVehicleFilters((prev) => ({
+                                      ...prev,
+                                      yearFrom: value?.toString() || "",
+                                    }))
+                                  }
+                                  leftSection={
+                                    <IconCalendar size={16} color="#64748b" />
+                                  }
+                                  styles={{
+                                    label: {
+                                      fontWeight: 600,
+                                      fontSize: "13px",
+                                      color: "#374151",
+                                      marginBottom: "8px",
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.5px",
+                                    },
+                                    input: {
+                                      borderRadius: "10px",
+                                      border: "2px solid #e2e8f0",
+                                      fontSize: "14px",
+                                      height: "48px",
+                                      paddingLeft: "40px",
+                                      transition:
+                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                      backgroundColor: "#fafafa",
+                                      "&:focus": {
+                                        borderColor: "#3b82f6",
+                                        boxShadow:
+                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                      "&:hover": {
+                                        borderColor: "#cbd5e1",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                    },
+                                  }}
+                                />
+                                <NumberInput
+                                  label="Year To"
+                                  placeholder="2025"
+                                  min={2010}
+                                  max={2025}
+                                  value={vehicleFilters.yearTo}
+                                  onChange={(value) =>
+                                    setVehicleFilters((prev) => ({
+                                      ...prev,
+                                      yearTo: value?.toString() || "",
+                                    }))
+                                  }
+                                  leftSection={
+                                    <IconCalendar size={16} color="#64748b" />
+                                  }
+                                  styles={{
+                                    label: {
+                                      fontWeight: 600,
+                                      fontSize: "13px",
+                                      color: "#374151",
+                                      marginBottom: "8px",
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.5px",
+                                    },
+                                    input: {
+                                      borderRadius: "10px",
+                                      border: "2px solid #e2e8f0",
+                                      fontSize: "14px",
+                                      height: "48px",
+                                      paddingLeft: "40px",
+                                      transition:
+                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                      backgroundColor: "#fafafa",
+                                      "&:focus": {
+                                        borderColor: "#3b82f6",
+                                        boxShadow:
+                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                      "&:hover": {
+                                        borderColor: "#cbd5e1",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                    },
+                                  }}
+                                />
+                                <TextInput
+                                  label="Make"
+                                  placeholder="Toyota, Honda, Ford..."
+                                  value={vehicleFilters.make}
+                                  onChange={(e) =>
+                                    setVehicleFilters((prev) => ({
+                                      ...prev,
+                                      make: e.target.value,
+                                    }))
+                                  }
+                                  leftSection={
+                                    <IconCar size={16} color="#64748b" />
+                                  }
+                                  styles={{
+                                    label: {
+                                      fontWeight: 600,
+                                      fontSize: "13px",
+                                      color: "#374151",
+                                      marginBottom: "8px",
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.5px",
+                                    },
+                                    input: {
+                                      borderRadius: "10px",
+                                      border: "2px solid #e2e8f0",
+                                      fontSize: "14px",
+                                      height: "48px",
+                                      paddingLeft: "40px",
+                                      transition:
+                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                      backgroundColor: "#fafafa",
+                                      "&:focus": {
+                                        borderColor: "#3b82f6",
+                                        boxShadow:
+                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                      "&:hover": {
+                                        borderColor: "#cbd5e1",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                    },
+                                  }}
+                                />
+                                <TextInput
+                                  label="Model"
+                                  placeholder="RAV4, Civic, F-150..."
+                                  value={vehicleFilters.model}
+                                  onChange={(e) =>
+                                    setVehicleFilters((prev) => ({
+                                      ...prev,
+                                      model: e.target.value,
+                                    }))
+                                  }
+                                  leftSection={
+                                    <IconCar size={16} color="#64748b" />
+                                  }
+                                  styles={{
+                                    label: {
+                                      fontWeight: 600,
+                                      fontSize: "13px",
+                                      color: "#374151",
+                                      marginBottom: "8px",
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.5px",
+                                    },
+                                    input: {
+                                      borderRadius: "10px",
+                                      border: "2px solid #e2e8f0",
+                                      fontSize: "14px",
+                                      height: "48px",
+                                      paddingLeft: "40px",
+                                      transition:
+                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                      backgroundColor: "#fafafa",
+                                      "&:focus": {
+                                        borderColor: "#3b82f6",
+                                        boxShadow:
+                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                      "&:hover": {
+                                        borderColor: "#cbd5e1",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                    },
+                                  }}
+                                />
+                                <TextInput
+                                  label="Submodel"
+                                  placeholder="XLE, Si, XLT..."
+                                  value={vehicleFilters.submodel}
+                                  onChange={(e) =>
+                                    setVehicleFilters((prev) => ({
+                                      ...prev,
+                                      submodel: e.target.value,
+                                    }))
+                                  }
+                                  leftSection={
+                                    <IconCar size={16} color="#64748b" />
+                                  }
+                                  styles={{
+                                    label: {
+                                      fontWeight: 600,
+                                      fontSize: "13px",
+                                      color: "#374151",
+                                      marginBottom: "8px",
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.5px",
+                                    },
+                                    input: {
+                                      borderRadius: "10px",
+                                      border: "2px solid #e2e8f0",
+                                      fontSize: "14px",
+                                      height: "48px",
+                                      paddingLeft: "40px",
+                                      transition:
+                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                      backgroundColor: "#fafafa",
+                                      "&:focus": {
+                                        borderColor: "#3b82f6",
+                                        boxShadow:
+                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                      "&:hover": {
+                                        borderColor: "#cbd5e1",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                    },
+                                  }}
+                                />
+                                <Select
+                                  label="Fuel Type"
+                                  placeholder="Select fuel type"
+                                  data={[
+                                    { value: "Gas", label: "Gas" },
+                                    { value: "Diesel", label: "Diesel" },
+                                    { value: "Electric", label: "Electric" },
+                                    { value: "Hybrid", label: "Hybrid" },
+                                  ]}
+                                  value={vehicleFilters.fuelType}
+                                  onChange={(value) =>
+                                    setVehicleFilters((prev) => ({
+                                      ...prev,
+                                      fuelType: value || "",
+                                    }))
+                                  }
+                                  leftSection={
+                                    <IconGasStation size={16} color="#64748b" />
+                                  }
+                                  styles={{
+                                    label: {
+                                      fontWeight: 600,
+                                      fontSize: "13px",
+                                      color: "#374151",
+                                      marginBottom: "8px",
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.5px",
+                                    },
+                                    input: {
+                                      borderRadius: "10px",
+                                      border: "2px solid #e2e8f0",
+                                      fontSize: "14px",
+                                      height: "48px",
+                                      paddingLeft: "40px",
+                                      transition:
+                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                      backgroundColor: "#fafafa",
+                                      "&:focus": {
+                                        borderColor: "#3b82f6",
+                                        boxShadow:
+                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                      "&:hover": {
+                                        borderColor: "#cbd5e1",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                    },
+                                  }}
+                                />
+                                <Select
+                                  label="Number of Doors"
+                                  placeholder="Select doors"
+                                  data={[
+                                    { value: "2", label: "2 Doors" },
+                                    { value: "4", label: "4 Doors" },
+                                    { value: "5", label: "5 Doors" },
+                                  ]}
+                                  value={vehicleFilters.numDoors}
+                                  onChange={(value) =>
+                                    setVehicleFilters((prev) => ({
+                                      ...prev,
+                                      numDoors: value || "",
+                                    }))
+                                  }
+                                  leftSection={
+                                    <IconDoor size={16} color="#64748b" />
+                                  }
+                                  styles={{
+                                    label: {
+                                      fontWeight: 600,
+                                      fontSize: "13px",
+                                      color: "#374151",
+                                      marginBottom: "8px",
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.5px",
+                                    },
+                                    input: {
+                                      borderRadius: "10px",
+                                      border: "2px solid #e2e8f0",
+                                      fontSize: "14px",
+                                      height: "48px",
+                                      paddingLeft: "40px",
+                                      transition:
+                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                      backgroundColor: "#fafafa",
+                                      "&:focus": {
+                                        borderColor: "#3b82f6",
+                                        boxShadow:
+                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                      "&:hover": {
+                                        borderColor: "#cbd5e1",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                    },
+                                  }}
+                                />
+                                <Select
+                                  label="Drive Type"
+                                  placeholder="Select drive type"
+                                  data={[
+                                    {
+                                      value: "FWD",
+                                      label: "Front Wheel Drive",
+                                    },
+                                    { value: "RWD", label: "Rear Wheel Drive" },
+                                    { value: "AWD", label: "All Wheel Drive" },
+                                    { value: "4WD", label: "4 Wheel Drive" },
+                                  ]}
+                                  value={vehicleFilters.driveType}
+                                  onChange={(value) =>
+                                    setVehicleFilters((prev) => ({
+                                      ...prev,
+                                      driveType: value || "",
+                                    }))
+                                  }
+                                  leftSection={
+                                    <IconSettings size={16} color="#64748b" />
+                                  }
+                                  styles={{
+                                    label: {
+                                      fontWeight: 600,
+                                      fontSize: "13px",
+                                      color: "#374151",
+                                      marginBottom: "8px",
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.5px",
+                                    },
+                                    input: {
+                                      borderRadius: "10px",
+                                      border: "2px solid #e2e8f0",
+                                      fontSize: "14px",
+                                      height: "48px",
+                                      paddingLeft: "40px",
+                                      transition:
+                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                      backgroundColor: "#fafafa",
+                                      "&:focus": {
+                                        borderColor: "#3b82f6",
+                                        boxShadow:
+                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                      "&:hover": {
+                                        borderColor: "#cbd5e1",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                    },
+                                  }}
+                                />
+                                <Select
+                                  label="Body Type"
+                                  placeholder="Select body type"
+                                  data={[
+                                    { value: "Sedan", label: "Sedan" },
+                                    { value: "SUV", label: "SUV" },
+                                    { value: "Truck", label: "Truck" },
+                                    { value: "Crossover", label: "Crossover" },
+                                    { value: "Coupe", label: "Coupe" },
+                                    { value: "Wagon", label: "Wagon" },
+                                  ]}
+                                  value={vehicleFilters.bodyType}
+                                  onChange={(value) =>
+                                    setVehicleFilters((prev) => ({
+                                      ...prev,
+                                      bodyType: value || "",
+                                    }))
+                                  }
+                                  leftSection={
+                                    <IconCar size={16} color="#64748b" />
+                                  }
+                                  styles={{
+                                    label: {
+                                      fontWeight: 600,
+                                      fontSize: "13px",
+                                      color: "#374151",
+                                      marginBottom: "8px",
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.5px",
+                                    },
+                                    input: {
+                                      borderRadius: "10px",
+                                      border: "2px solid #e2e8f0",
+                                      fontSize: "14px",
+                                      height: "48px",
+                                      paddingLeft: "40px",
+                                      transition:
+                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                      backgroundColor: "#fafafa",
+                                      "&:focus": {
+                                        borderColor: "#3b82f6",
+                                        boxShadow:
+                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                      "&:hover": {
+                                        borderColor: "#cbd5e1",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                    },
+                                  }}
+                                />
+                              </SimpleGrid>
+                            </div>
+
+                            <Group justify="space-between" mt="xl">
+                              <Button
+                                variant="outline"
+                                size="md"
+                                leftSection={<IconRefresh size={16} />}
+                                onClick={() => {
+                                  setVehicleFilters({
+                                    yearFrom: "",
+                                    yearTo: "",
+                                    make: "",
+                                    model: "",
+                                    submodel: "",
+                                    fuelType: "",
+                                    numDoors: "",
+                                    driveType: "",
+                                    bodyType: "",
+                                  });
+                                  setFilteredVehicles([]);
+                                }}
+                                styles={{
+                                  root: {
+                                    borderRadius: "10px",
+                                    fontWeight: 600,
+                                    fontSize: "14px",
+                                    height: "48px",
+                                    padding: "0 24px",
+                                    border: "2px solid #e2e8f0",
+                                    color: "#64748b",
+                                    transition:
+                                      "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                    "&:hover": {
+                                      borderColor: "#cbd5e1",
+                                      backgroundColor: "#f8fafc",
+                                      transform: "translateY(-1px)",
+                                    },
+                                  },
+                                }}
+                              >
+                                Clear Filters
+                              </Button>
+
+                              <Button
+                                size="md"
+                                leftSection={<IconSearch size={16} />}
+                                style={{
+                                  borderRadius: "10px",
+                                  fontWeight: 600,
+                                  fontSize: "14px",
+                                  height: "48px",
+                                  padding: "0 32px",
+                                  background:
+                                    "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                                  border: "none",
+                                  transition:
+                                    "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                  boxShadow:
+                                    "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)",
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.transform =
+                                    "translateY(-2px)";
+                                  e.currentTarget.style.boxShadow =
+                                    "0 8px 25px -5px rgba(59, 130, 246, 0.3), 0 4px 6px -1px rgba(59, 130, 246, 0.1)";
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.transform =
+                                    "translateY(0)";
+                                  e.currentTarget.style.boxShadow =
+                                    "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)";
+                                }}
+                                onClick={() => {
+                                  // Simple search implementation using existing configs
+                                  const configs =
+                                    configurationsData?.configurations || [];
+                                  const filtered =
+                                    configs.filter((config: any) => {
+                                      const matchesYear =
+                                        (!vehicleFilters.yearFrom ||
+                                          config.year >=
+                                            parseInt(
+                                              vehicleFilters.yearFrom
+                                            )) &&
+                                        (!vehicleFilters.yearTo ||
+                                          config.year <=
+                                            parseInt(vehicleFilters.yearTo));
+                                      const matchesMake =
+                                        !vehicleFilters.make ||
+                                        config.make
+                                          .toLowerCase()
+                                          .includes(
+                                            vehicleFilters.make.toLowerCase()
+                                          );
+                                      const matchesModel =
+                                        !vehicleFilters.model ||
+                                        config.model
+                                          .toLowerCase()
+                                          .includes(
+                                            vehicleFilters.model.toLowerCase()
+                                          );
+                                      const matchesSubmodel =
+                                        !vehicleFilters.submodel ||
+                                        config.submodel
+                                          .toLowerCase()
+                                          .includes(
+                                            vehicleFilters.submodel.toLowerCase()
+                                          );
+                                      const matchesFuelType =
+                                        !vehicleFilters.fuelType ||
+                                        config.fuelType ===
+                                          vehicleFilters.fuelType;
+                                      const matchesDoors =
+                                        !vehicleFilters.numDoors ||
+                                        config.numDoors.toString() ===
+                                          vehicleFilters.numDoors;
+                                      const matchesDriveType =
+                                        !vehicleFilters.driveType ||
+                                        config.driveType ===
+                                          vehicleFilters.driveType;
+                                      const matchesBodyType =
+                                        !vehicleFilters.bodyType ||
+                                        config.bodyType ===
+                                          vehicleFilters.bodyType;
+
+                                      return (
+                                        matchesYear &&
+                                        matchesMake &&
+                                        matchesModel &&
+                                        matchesSubmodel &&
+                                        matchesFuelType &&
+                                        matchesDoors &&
+                                        matchesDriveType &&
+                                        matchesBodyType
+                                      );
+                                    }) || [];
+
+                                  setFilteredVehicles(filtered);
+                                  setManualStep(2);
+                                }}
+                                loading={false}
+                              >
+                                Search Vehicles
+                              </Button>
+                            </Group>
+                          </Stack>
+                        </div>
+                      </Stepper.Step>
+
+                      <Stepper.Step
+                        label="Vehicle Selection"
+                        description="Choose specific vehicles"
+                        icon={<IconList size={18} />}
+                      >
+                        <div
+                          style={{
+                            marginTop: "20px",
+                            boxShadow: "none",
+                          }}
+                        >
+                          <Stack gap="md">
+                            <Group justify="space-between">
+                              <Text size="lg" fw={600} c="#1e293b">
+                                Step 2: Select Vehicles (
+                                {filteredVehicles.length} found)
+                              </Text>
+                              <Group gap="sm">
+                                <Button
+                                  variant="light"
+                                  size="sm"
+                                  onClick={() =>
+                                    setSelectedVehicles(
+                                      filteredVehicles.map((v: any) => v.id)
+                                    )
+                                  }
+                                >
+                                  Select All
+                                </Button>
+                                <Button
+                                  variant="light"
+                                  size="sm"
+                                  onClick={() => setSelectedVehicles([])}
+                                >
+                                  Clear All
+                                </Button>
+                              </Group>
+                            </Group>
+
+                            <ScrollArea h={400}>
+                              <Stack gap="xs">
+                                {filteredVehicles.map((vehicle) => (
+                                  <Card
+                                    key={vehicle.id}
+                                    p="md"
+                                    style={{
+                                      background: selectedVehicles.includes(
+                                        vehicle.id
+                                      )
+                                        ? "#eff6ff"
+                                        : "#ffffff",
+                                      border: selectedVehicles.includes(
+                                        vehicle.id
+                                      )
+                                        ? "2px solid #3b82f6"
+                                        : "1px solid #e2e8f0",
+                                      borderRadius: "8px",
+                                      cursor: "pointer",
+                                    }}
+                                    onClick={() => {
+                                      const vehicleId = vehicle.id;
+                                      setSelectedVehicles((prev) =>
+                                        prev.includes(vehicleId)
+                                          ? prev.filter(
+                                              (id) => id !== vehicleId
+                                            )
+                                          : [...prev, vehicleId]
+                                      );
+                                    }}
+                                  >
+                                    <Group justify="space-between">
+                                      <div>
+                                        <Text fw={600} size="sm" c="#1e293b">
+                                          {vehicle.year} {vehicle.make}{" "}
+                                          {vehicle.model}
+                                        </Text>
+                                        <Text size="xs" c="#64748b">
+                                          {vehicle.submodel} •{" "}
+                                          {vehicle.driveType} •{" "}
+                                          {vehicle.fuelType} •{" "}
+                                          {vehicle.bodyType}
+                                        </Text>
+                                      </div>
+                                      <Checkbox
+                                        checked={selectedVehicles.includes(
+                                          vehicle.id
+                                        )}
+                                        onChange={() => {}}
+                                      />
+                                    </Group>
+                                  </Card>
+                                ))}
+                              </Stack>
+                            </ScrollArea>
+
+                            <Group justify="space-between" mt="lg">
+                              <Button
+                                variant="light"
+                                onClick={() => setManualStep(1)}
+                              >
+                                Back
+                              </Button>
+                              <Button
+                                onClick={() => setManualStep(3)}
+                                disabled={selectedVehicles.length === 0}
+                                style={{
+                                  background:
+                                    "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                                  border: "none",
+                                }}
+                              >
+                                Continue ({selectedVehicles.length} selected)
+                              </Button>
+                            </Group>
+                          </Stack>
+                        </div>
+                      </Stepper.Step>
+
+                      <Stepper.Step
+                        label="Fitment Details"
+                        description="Configure fitment settings"
+                        icon={<IconSettings size={18} />}
+                      >
+                        <div
+                          style={{
+                            background:
+                              "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
+                            borderRadius: "16px",
+                            border: "1px solid #e2e8f0",
+                            padding: "32px",
+                            marginTop: "20px",
+                            boxShadow:
+                              "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+                          }}
+                        >
+                          <Stack gap="xl">
+                            <div>
+                              <Title order={3} c="#1e293b" fw={700} mb="xs">
+                                Fitment Details
+                              </Title>
+                              <Text size="sm" c="#64748b">
+                                Configure the specific details for your fitment
+                                application
+                              </Text>
+                            </div>
+
+                            <div
+                              style={{
+                                background: "#ffffff",
+                                borderRadius: "12px",
+                                padding: "24px",
+                                border: "1px solid #e2e8f0",
+                                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                              }}
+                            >
+                              <SimpleGrid
+                                cols={{ base: 1, sm: 2 }}
+                                spacing="xl"
+                              >
+                                <Select
+                                  label="Part"
+                                  placeholder={
+                                    partsLoading
+                                      ? "Loading parts..."
+                                      : "Select a part"
+                                  }
+                                  data={
+                                    parts && Array.isArray(parts)
+                                      ? parts.map((part: any) => ({
+                                          value: part.id || "",
+                                          label: `${part.id || "Unknown"} - ${
+                                            part.description || "No description"
+                                          }`,
+                                        }))
+                                      : []
+                                  }
+                                  value={fitmentDetails.partId}
+                                  onChange={(value) =>
+                                    setFitmentDetails((prev) => ({
+                                      ...prev,
+                                      partId: value || "",
+                                    }))
+                                  }
+                                  searchable
+                                  disabled={partsLoading}
+                                  leftSection={
+                                    <IconPackage size={16} color="#64748b" />
+                                  }
+                                  styles={{
+                                    label: {
+                                      fontWeight: 600,
+                                      fontSize: "13px",
+                                      color: "#374151",
+                                      marginBottom: "8px",
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.5px",
+                                    },
+                                    input: {
+                                      borderRadius: "10px",
+                                      border: "2px solid #e2e8f0",
+                                      fontSize: "14px",
+                                      height: "48px",
+                                      paddingLeft: "40px",
+                                      transition:
+                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                      backgroundColor: "#fafafa",
+                                      "&:focus": {
+                                        borderColor: "#3b82f6",
+                                        boxShadow:
+                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                      "&:hover": {
+                                        borderColor: "#cbd5e1",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                    },
+                                  }}
+                                />
+                                <Select
+                                  label="Part Type"
+                                  placeholder={
+                                    partTypesLoading
+                                      ? "Loading part types..."
+                                      : "Select part type"
+                                  }
+                                  data={
+                                    partTypes && Array.isArray(partTypes)
+                                      ? partTypes.map((type: any) => ({
+                                          value: type.id || "",
+                                          label:
+                                            type.description ||
+                                            type.name ||
+                                            "Unknown",
+                                        }))
+                                      : []
+                                  }
+                                  disabled={partTypesLoading}
+                                  value={fitmentDetails.partType}
+                                  onChange={(value) =>
+                                    setFitmentDetails((prev) => ({
+                                      ...prev,
+                                      partType: value || "",
+                                    }))
+                                  }
+                                  searchable
+                                  leftSection={
+                                    <IconTag size={16} color="#64748b" />
+                                  }
+                                  styles={{
+                                    label: {
+                                      fontWeight: 600,
+                                      fontSize: "13px",
+                                      color: "#374151",
+                                      marginBottom: "8px",
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.5px",
+                                    },
+                                    input: {
+                                      borderRadius: "10px",
+                                      border: "2px solid #e2e8f0",
+                                      fontSize: "14px",
+                                      height: "48px",
+                                      paddingLeft: "40px",
+                                      transition:
+                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                      backgroundColor: "#fafafa",
+                                      "&:focus": {
+                                        borderColor: "#3b82f6",
+                                        boxShadow:
+                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                      "&:hover": {
+                                        borderColor: "#cbd5e1",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                    },
+                                  }}
+                                />
+                                <TextInput
+                                  label="Position"
+                                  placeholder="Front, Rear, All, etc."
+                                  value={fitmentDetails.position}
+                                  onChange={(e) =>
+                                    setFitmentDetails((prev) => ({
+                                      ...prev,
+                                      position: e.target.value,
+                                    }))
+                                  }
+                                  leftSection={
+                                    <IconMapPin size={16} color="#64748b" />
+                                  }
+                                  styles={{
+                                    label: {
+                                      fontWeight: 600,
+                                      fontSize: "13px",
+                                      color: "#374151",
+                                      marginBottom: "8px",
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.5px",
+                                    },
+                                    input: {
+                                      borderRadius: "10px",
+                                      border: "2px solid #e2e8f0",
+                                      fontSize: "14px",
+                                      height: "48px",
+                                      paddingLeft: "40px",
+                                      transition:
+                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                      backgroundColor: "#fafafa",
+                                      "&:focus": {
+                                        borderColor: "#3b82f6",
+                                        boxShadow:
+                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                      "&:hover": {
+                                        borderColor: "#cbd5e1",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                    },
+                                  }}
+                                />
+                                <NumberInput
+                                  label="Quantity"
+                                  placeholder="1"
+                                  min={1}
+                                  value={fitmentDetails.quantity}
+                                  onChange={(value) =>
+                                    setFitmentDetails((prev) => ({
+                                      ...prev,
+                                      quantity: Number(value) || 1,
+                                    }))
+                                  }
+                                  leftSection={
+                                    <IconHash size={16} color="#64748b" />
+                                  }
+                                  styles={{
+                                    label: {
+                                      fontWeight: 600,
+                                      fontSize: "13px",
+                                      color: "#374151",
+                                      marginBottom: "8px",
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.5px",
+                                    },
+                                    input: {
+                                      borderRadius: "10px",
+                                      border: "2px solid #e2e8f0",
+                                      fontSize: "14px",
+                                      height: "48px",
+                                      paddingLeft: "40px",
+                                      transition:
+                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                      backgroundColor: "#fafafa",
+                                      "&:focus": {
+                                        borderColor: "#3b82f6",
+                                        boxShadow:
+                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                      "&:hover": {
+                                        borderColor: "#cbd5e1",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                    },
+                                  }}
+                                />
+                              </SimpleGrid>
+
+                              <TextInput
+                                label="Fitment Title"
+                                placeholder="Enter fitment title"
+                                value={fitmentDetails.title}
+                                onChange={(e) =>
+                                  setFitmentDetails((prev) => ({
+                                    ...prev,
+                                    title: e.target.value,
+                                  }))
+                                }
+                                leftSection={
+                                  <IconFileText size={16} color="#64748b" />
+                                }
+                                styles={{
+                                  label: {
+                                    fontWeight: 600,
+                                    fontSize: "13px",
+                                    color: "#374151",
+                                    marginBottom: "8px",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.5px",
+                                  },
+                                  input: {
+                                    borderRadius: "10px",
+                                    border: "2px solid #e2e8f0",
+                                    fontSize: "14px",
+                                    height: "48px",
+                                    paddingLeft: "40px",
+                                    transition:
+                                      "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                    backgroundColor: "#fafafa",
+                                    "&:focus": {
+                                      borderColor: "#3b82f6",
+                                      boxShadow:
+                                        "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                      backgroundColor: "#ffffff",
+                                    },
+                                    "&:hover": {
+                                      borderColor: "#cbd5e1",
+                                      backgroundColor: "#ffffff",
+                                    },
+                                  },
+                                }}
+                              />
+
+                              <Textarea
+                                label="Description"
+                                placeholder="Enter fitment description"
+                                rows={3}
+                                value={fitmentDetails.description}
+                                onChange={(e) =>
+                                  setFitmentDetails((prev) => ({
+                                    ...prev,
+                                    description: e.target.value,
+                                  }))
+                                }
+                                styles={{
+                                  label: {
+                                    fontWeight: 600,
+                                    fontSize: "13px",
+                                    color: "#374151",
+                                    marginBottom: "8px",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.5px",
+                                  },
+                                  input: {
+                                    borderRadius: "10px",
+                                    border: "2px solid #e2e8f0",
+                                    fontSize: "14px",
+                                    padding: "12px 16px",
+                                    transition:
+                                      "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                    backgroundColor: "#fafafa",
+                                    "&:focus": {
+                                      borderColor: "#3b82f6",
+                                      boxShadow:
+                                        "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                      backgroundColor: "#ffffff",
+                                    },
+                                    "&:hover": {
+                                      borderColor: "#cbd5e1",
+                                      backgroundColor: "#ffffff",
+                                    },
+                                  },
+                                }}
+                              />
+
+                              <Textarea
+                                label="Notes (Optional)"
+                                placeholder="Additional notes or installation instructions"
+                                rows={2}
+                                value={fitmentDetails.notes}
+                                onChange={(e) =>
+                                  setFitmentDetails((prev) => ({
+                                    ...prev,
+                                    notes: e.target.value,
+                                  }))
+                                }
+                                styles={{
+                                  label: {
+                                    fontWeight: 600,
+                                    fontSize: "13px",
+                                    color: "#374151",
+                                    marginBottom: "8px",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.5px",
+                                  },
+                                  input: {
+                                    borderRadius: "10px",
+                                    border: "2px solid #e2e8f0",
+                                    fontSize: "14px",
+                                    padding: "12px 16px",
+                                    transition:
+                                      "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                    backgroundColor: "#fafafa",
+                                    "&:focus": {
+                                      borderColor: "#3b82f6",
+                                      boxShadow:
+                                        "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                      backgroundColor: "#ffffff",
+                                    },
+                                    "&:hover": {
+                                      borderColor: "#cbd5e1",
+                                      backgroundColor: "#ffffff",
+                                    },
+                                  },
+                                }}
+                              />
+                            </div>
+
+                            <Group justify="space-between" mt="xl">
+                              <Button
+                                variant="outline"
+                                size="md"
+                                leftSection={<IconArrowLeft size={16} />}
+                                onClick={() => setManualStep(2)}
+                                styles={{
+                                  root: {
+                                    borderRadius: "10px",
+                                    fontWeight: 600,
+                                    fontSize: "14px",
+                                    height: "48px",
+                                    padding: "0 24px",
+                                    border: "2px solid #e2e8f0",
+                                    color: "#64748b",
+                                    transition:
+                                      "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                    "&:hover": {
+                                      borderColor: "#cbd5e1",
+                                      backgroundColor: "#f8fafc",
+                                      transform: "translateY(-1px)",
+                                    },
+                                  },
+                                }}
+                              >
+                                Back
+                              </Button>
+
+                              <Button
+                                size="md"
+                                leftSection={<IconSettings size={16} />}
+                                onClick={() => {
+                                  // Simulate applying fitment
+                                  setApplyingManualFitment(true);
+                                  setTimeout(() => {
+                                    setApplyingManualFitment(false);
+                                    showSuccess(
+                                      `Applied fitment to ${selectedVehicles.length} vehicles`
+                                    );
+                                    handleBackToMethodSelection();
+                                  }, 2000);
+                                }}
+                                loading={applyingManualFitment}
+                                disabled={
+                                  !fitmentDetails.partId ||
+                                  !fitmentDetails.partType
+                                }
+                                style={{
+                                  borderRadius: "10px",
+                                  fontWeight: 600,
+                                  fontSize: "14px",
+                                  height: "48px",
+                                  padding: "0 32px",
+                                  background:
+                                    "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                                  border: "none",
+                                  transition:
+                                    "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                  boxShadow:
+                                    "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)",
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (!e.currentTarget.disabled) {
+                                    e.currentTarget.style.transform =
+                                      "translateY(-2px)";
+                                    e.currentTarget.style.boxShadow =
+                                      "0 8px 25px -5px rgba(59, 130, 246, 0.3), 0 4px 6px -1px rgba(59, 130, 246, 0.1)";
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.transform =
+                                    "translateY(0)";
+                                  e.currentTarget.style.boxShadow =
+                                    "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)";
+                                }}
+                              >
+                                Apply Fitment
+                              </Button>
+                            </Group>
+                          </Stack>
+                        </div>
+                      </Stepper.Step>
+                    </Stepper>
+                  </Stack>
+                </Card>
+              )}
+            </div>
+          )}
+        </Transition>
+
+        {/* Step 4: AI Method Page */}
+        <Transition
+          mounted={currentStep === 4}
+          transition="fade"
+          duration={400}
+          timingFunction="ease"
+        >
+          {(styles) => (
+            <div style={styles}>
+              {currentStep === 4 && (
+                <Card
+                  style={{
+                    background: "#ffffff",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "12px",
+                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                  }}
+                  p="xl"
+                >
+                  <Stack gap="xl">
+                    {/* Back Button */}
+                    <Group>
+                      <Button
+                        variant="subtle"
+                        leftSection={<IconArrowLeft size={16} />}
+                        onClick={handleBackToMethodSelection}
+                        style={{
+                          color: "#64748b",
+                          fontWeight: 500,
+                        }}
+                      >
+                        Back to Method Selection
+                      </Button>
+                    </Group>
+
+                    <div>
+                      <Title order={2} c="#1e293b" fw={600}>
+                        AI Fitment Generation
+                      </Title>
+                      <Text size="sm" c="#64748b">
+                        Let our AI automatically generate optimal fitments based
+                        on your data
+                      </Text>
+                    </div>
+
+                    {/* Generate AI Fitments Button */}
+                    {!aiProcessing && aiFitments.length === 0 && (
+                      <Group justify="center">
+                        <Button
+                          size="lg"
+                          leftSection={<IconRobot size={20} />}
+                          variant="filled"
+                          onClick={handleAiFitment}
+                          style={{
+                            background:
+                              "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                            border: "none",
+                            borderRadius: "8px",
+                            fontSize: "16px",
+                            fontWeight: 600,
+                            padding: "12px 24px",
+                            height: "48px",
+                            color: "white",
+                            transition: "all 0.2s ease",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.transform =
+                              "translateY(-1px)";
+                            e.currentTarget.style.boxShadow =
+                              "0 4px 12px rgba(59, 130, 246, 0.3)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = "translateY(0)";
+                            e.currentTarget.style.boxShadow = "none";
+                          }}
+                        >
+                          Generate AI Fitments
+                        </Button>
+                      </Group>
+                    )}
+                  </Stack>
+                </Card>
+              )}
+
+              {/* AI Progress Display (only show on step 4) */}
+              {currentStep === 4 && aiProcessing && (
+                <Card
+                  style={{
+                    background: "#ffffff",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "12px",
+                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                  }}
+                  h={800}
+                  mt={30}
+                  p="xl"
+                >
+                  <Stack gap="lg">
+                    <Group justify="space-between">
+                      <div>
+                        <Title order={3} c="#1e293b" fw={600}>
+                          🧠 AI Fitment Generation in Progress
+                        </Title>
+                        <Text size="sm" c="#64748b">
+                          Our AI is analyzing your data to generate optimal
+                          fitments
+                        </Text>
+                      </div>
+                    </Group>
+
                     <Progress
-                      value={uploadProgress}
+                      value={aiProgress}
                       size="lg"
                       radius="md"
                       styles={{
@@ -789,730 +2320,37 @@ export default function ApplyFitments() {
                             "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
                         },
                       }}
+                      animated
+                      style={{ marginBottom: "16px" }}
                     />
-                  </Stack>
-                </Card>
-              )}
 
-              {uploadStatus === "error" && (
-                <Alert
-                  icon={<IconAlertCircle size={20} />}
-                  color="red"
-                  radius="md"
-                >
-                  <Text fw={600} size="md">
-                    Failed to upload files. Please try again.
-                  </Text>
-                </Alert>
-              )}
-
-              {/* Upload Button */}
-              <Group justify="center">
-                <Button
-                  size="lg"
-                  leftSection={<IconUpload size={20} />}
-                  variant="filled"
-                  onClick={handleFileUpload}
-                  loading={uploadingFiles}
-                  disabled={
-                    !vcdbFile || !productsFile || uploadStatus === "uploading"
-                  }
-                  style={{
-                    background:
-                      "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                    border: "none",
-                    borderRadius: "8px",
-                    fontSize: "16px",
-                    fontWeight: 600,
-                    padding: "12px 24px",
-                    height: "48px",
-                    color: "white",
-                    transition: "all 0.2s ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = "translateY(-1px)";
-                    e.currentTarget.style.boxShadow =
-                      "0 4px 12px rgba(59, 130, 246, 0.3)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = "translateY(0)";
-                    e.currentTarget.style.boxShadow = "none";
-                  }}
-                >
-                  Upload Files
-                </Button>
-              </Group>
-            </Stack>
-          </Card>
-        )}
-
-        {/* Step 2: Method Selection Section */}
-        {currentStep === 2 && (
-          <Card
-            style={{
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "12px",
-              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-            }}
-            p="xl"
-          >
-            <Stack gap="xl">
-              {/* Back Button */}
-              <Group>
-                <Button
-                  variant="subtle"
-                  leftSection={<IconArrowLeft size={16} />}
-                  onClick={handleBackToUpload}
-                  style={{
-                    color: "#64748b",
-                    fontWeight: 500,
-                  }}
-                >
-                  Back to Upload
-                </Button>
-              </Group>
-
-              <div>
-                <Title order={2} c="#1e293b" fw={600} mb="xs">
-                  Choose Fitment Method
-                </Title>
-                <Text size="md" c="#64748b">
-                  Select how you want to apply fitments to your vehicle
-                  configurations
-                </Text>
-              </div>
-
-              <SimpleGrid cols={2} spacing="xl">
-                {/* Manual Method Card */}
-                <Card
-                  style={{
-                    background:
-                      selectedMethod === "manual" ? "#f0f9ff" : "#fefefe",
-                    border:
-                      selectedMethod === "manual"
-                        ? "2px solid #3b82f6"
-                        : "2px solid #f1f5f9",
-                    borderRadius: "12px",
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                    boxShadow:
-                      selectedMethod === "manual"
-                        ? "0 4px 12px rgba(59, 130, 246, 0.15)"
-                        : "0 2px 4px rgba(0, 0, 0, 0.05)",
-                  }}
-                  p="xl"
-                  onClick={handleManualMethodClick}
-                >
-                  <Stack align="center" gap="lg">
-                    <div
-                      style={{
-                        background: "#f8fafc",
-                        borderRadius: "12px",
-                        padding: "16px",
-                        marginBottom: "8px",
-                      }}
-                    >
-                      <IconUsers size={32} color="#3b82f6" />
-                    </div>
-
-                    <div style={{ textAlign: "center" }}>
-                      <Text fw={700} size="xl" c="#1e293b" mb="xs">
-                        Manual Method
-                      </Text>
-                      <Text size="sm" c="#64748b" ta="center">
-                        Apply fitments manually with full control over each
-                        configuration
-                      </Text>
-                    </div>
-
-                    {selectedMethod === "manual" && (
-                      <Badge variant="light" color="blue" size="lg">
-                        Selected
-                      </Badge>
-                    )}
-                  </Stack>
-                </Card>
-
-                {/* AI Method Card */}
-                <Card
-                  style={{
-                    background: selectedMethod === "ai" ? "#f0fdf4" : "#fefefe",
-                    border:
-                      selectedMethod === "ai"
-                        ? "2px solid #10b981"
-                        : "2px solid #f1f5f9",
-                    borderRadius: "12px",
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                    boxShadow:
-                      selectedMethod === "ai"
-                        ? "0 4px 12px rgba(16, 185, 129, 0.15)"
-                        : "0 2px 4px rgba(0, 0, 0, 0.05)",
-                  }}
-                  p="xl"
-                  onClick={handleAiMethodClick}
-                >
-                  <Stack align="center" gap="lg">
-                    <div
-                      style={{
-                        background: "#f8fafc",
-                        borderRadius: "12px",
-                        padding: "16px",
-                        marginBottom: "8px",
-                      }}
-                    >
-                      <IconBrain size={32} color="#10b981" />
-                    </div>
-
-                    <div style={{ textAlign: "center" }}>
-                      <Text fw={700} size="xl" c="#1e293b" mb="xs">
-                        AI Method
-                      </Text>
-                      <Text size="sm" c="#64748b" ta="center">
-                        Let AI automatically generate and apply fitments based
-                        on your data
-                      </Text>
-                    </div>
-
-                    {selectedMethod === "ai" && (
-                      <Badge variant="light" color="green" size="lg">
-                        Selected
-                      </Badge>
-                    )}
-                  </Stack>
-                </Card>
-              </SimpleGrid>
-            </Stack>
-          </Card>
-        )}
-
-        {/* Step 3: Manual Method Page */}
-        {currentStep === 3 && (
-          <Card
-            style={{
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "12px",
-              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-            }}
-            p="xl"
-          >
-            <Stack gap="xl">
-              {/* Back Button */}
-              <Group>
-                <Button
-                  variant="subtle"
-                  leftSection={<IconArrowLeft size={16} />}
-                  onClick={handleBackToMethodSelection}
-                  style={{
-                    color: "#64748b",
-                    fontWeight: 500,
-                  }}
-                >
-                  Back to Method Selection
-                </Button>
-              </Group>
-
-              <div>
-                <Title order={2} c="#1e293b" fw={600} mb="xs">
-                  Manual Fitment Configuration
-                </Title>
-                <Text size="md" c="#64748b">
-                  Configure fitments manually with full control over each
-                  setting
-                </Text>
-              </div>
-
-              {/* Manual Method Stepper */}
-              <Stepper active={manualStep - 1} onStepClick={setManualStep} allowNextStepsSelect={false}>
-                <Stepper.Step 
-                  label="Vehicle Selection" 
-                  description="Select vehicle criteria"
-                  icon={<IconCar size={18} />}
-                >
-                  <Card 
-                    style={{
-                      background: "#f8fafc",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "8px",
-                      marginTop: "20px"
-                    }}
-                    p="lg"
-                  >
-                    <Stack gap="md">
-                      <Text size="lg" fw={600} c="#1e293b" mb="sm">
-                        Step 1: Select Vehicle Criteria
-                      </Text>
-                      
-                      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
-                        <NumberInput
-                          label="Year From"
-                          placeholder="2010"
-                          min={2010}
-                          max={2025}
-                          value={vehicleFilters.yearFrom}
-                          onChange={(value) => setVehicleFilters(prev => ({ ...prev, yearFrom: value?.toString() || '' }))}
-                        />
-                        <NumberInput
-                          label="Year To"
-                          placeholder="2025"
-                          min={2010}
-                          max={2025}
-                          value={vehicleFilters.yearTo}
-                          onChange={(value) => setVehicleFilters(prev => ({ ...prev, yearTo: value?.toString() || '' }))}
-                        />
-                        <TextInput
-                          label="Make"
-                          placeholder="Toyota, Honda, Ford..."
-                          value={vehicleFilters.make}
-                          onChange={(e) => setVehicleFilters(prev => ({ ...prev, make: e.target.value }))}
-                        />
-                        <TextInput
-                          label="Model"
-                          placeholder="RAV4, Civic, F-150..."
-                          value={vehicleFilters.model}
-                          onChange={(e) => setVehicleFilters(prev => ({ ...prev, model: e.target.value }))}
-                        />
-                        <TextInput
-                          label="Submodel"
-                          placeholder="XLE, Si, XLT..."
-                          value={vehicleFilters.submodel}
-                          onChange={(e) => setVehicleFilters(prev => ({ ...prev, submodel: e.target.value }))}
-                        />
-                        <Select
-                          label="Fuel Type"
-                          placeholder="Select fuel type"
-                          data={[
-                            { value: 'Gas', label: 'Gas' },
-                            { value: 'Diesel', label: 'Diesel' },
-                            { value: 'Electric', label: 'Electric' },
-                            { value: 'Hybrid', label: 'Hybrid' }
-                          ]}
-                          value={vehicleFilters.fuelType}
-                          onChange={(value) => setVehicleFilters(prev => ({ ...prev, fuelType: value || '' }))}
-                        />
-                        <Select
-                          label="Number of Doors"
-                          placeholder="Select doors"
-                          data={[
-                            { value: '2', label: '2 Doors' },
-                            { value: '4', label: '4 Doors' },
-                            { value: '5', label: '5 Doors' }
-                          ]}
-                          value={vehicleFilters.numDoors}
-                          onChange={(value) => setVehicleFilters(prev => ({ ...prev, numDoors: value || '' }))}
-                        />
-                        <Select
-                          label="Drive Type"
-                          placeholder="Select drive type"
-                          data={[
-                            { value: 'FWD', label: 'Front Wheel Drive' },
-                            { value: 'RWD', label: 'Rear Wheel Drive' },
-                            { value: 'AWD', label: 'All Wheel Drive' },
-                            { value: '4WD', label: '4 Wheel Drive' }
-                          ]}
-                          value={vehicleFilters.driveType}
-                          onChange={(value) => setVehicleFilters(prev => ({ ...prev, driveType: value || '' }))}
-                        />
-                        <Select
-                          label="Body Type"
-                          placeholder="Select body type"
-                          data={[
-                            { value: 'Sedan', label: 'Sedan' },
-                            { value: 'SUV', label: 'SUV' },
-                            { value: 'Truck', label: 'Truck' },
-                            { value: 'Crossover', label: 'Crossover' },
-                            { value: 'Coupe', label: 'Coupe' },
-                            { value: 'Wagon', label: 'Wagon' }
-                          ]}
-                          value={vehicleFilters.bodyType}
-                          onChange={(value) => setVehicleFilters(prev => ({ ...prev, bodyType: value || '' }))}
-                        />
-                      </SimpleGrid>
-                      
-                      <Group justify="flex-end" mt="lg">
-                        <Button
-                          onClick={() => {
-                            // Simple search implementation using existing configs
-                            const filtered = configurationsData?.filter((config: any) => {
-                              const matchesYear = (!vehicleFilters.yearFrom || config.year >= parseInt(vehicleFilters.yearFrom)) &&
-                                                (!vehicleFilters.yearTo || config.year <= parseInt(vehicleFilters.yearTo));
-                              const matchesMake = !vehicleFilters.make || config.make.toLowerCase().includes(vehicleFilters.make.toLowerCase());
-                              const matchesModel = !vehicleFilters.model || config.model.toLowerCase().includes(vehicleFilters.model.toLowerCase());
-                              const matchesSubmodel = !vehicleFilters.submodel || config.submodel.toLowerCase().includes(vehicleFilters.submodel.toLowerCase());
-                              const matchesFuelType = !vehicleFilters.fuelType || config.fuelType === vehicleFilters.fuelType;
-                              const matchesDoors = !vehicleFilters.numDoors || config.numDoors.toString() === vehicleFilters.numDoors;
-                              const matchesDriveType = !vehicleFilters.driveType || config.driveType === vehicleFilters.driveType;
-                              const matchesBodyType = !vehicleFilters.bodyType || config.bodyType === vehicleFilters.bodyType;
-                              
-                              return matchesYear && matchesMake && matchesModel && matchesSubmodel && 
-                                     matchesFuelType && matchesDoors && matchesDriveType && matchesBodyType;
-                            }) || [];
-                            
-                            setFilteredVehicles(filtered);
-                            setManualStep(2);
-                          }}
-                          loading={false}
-                          style={{
-                            background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                            border: "none",
-                          }}
-                        >
-                          Search Vehicles
-                        </Button>
-                      </Group>
-                    </Stack>
-                  </Card>
-                </Stepper.Step>
-                
-                <Stepper.Step 
-                  label="Vehicle Selection" 
-                  description="Choose specific vehicles"
-                  icon={<IconList size={18} />}
-                >
-                  <Card 
-                    style={{
-                      background: "#f8fafc",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "8px",
-                      marginTop: "20px"
-                    }}
-                    p="lg"
-                  >
-                    <Stack gap="md">
-                      <Group justify="space-between">
-                        <Text size="lg" fw={600} c="#1e293b">
-                          Step 2: Select Vehicles ({filteredVehicles.length} found)
-                        </Text>
-                        <Group gap="sm">
-                          <Button 
-                            variant="light" 
+                    <ScrollArea h={600}>
+                      <Stack gap="xs">
+                        {aiLogs.map((log, index) => (
+                          <Text
+                            key={index}
                             size="sm"
-                            onClick={() => setSelectedVehicles(filteredVehicles.map((v: any) => v.id))}
+                            c="#374151"
+                            style={{
+                              fontFamily:
+                                "'Monaco', 'Menlo', 'Ubuntu Mono', monospace",
+                              background: "#f8fafc",
+                              padding: "8px 12px",
+                              borderRadius: "6px",
+                              border: "1px solid #e2e8f0",
+                            }}
                           >
-                            Select All
-                          </Button>
-                          <Button 
-                            variant="light" 
-                            size="sm"
-                            onClick={() => setSelectedVehicles([])}
-                          >
-                            Clear All
-                          </Button>
-                        </Group>
-                      </Group>
-                      
-                      <ScrollArea h={400}>
-                        <Stack gap="xs">
-                          {filteredVehicles.map((vehicle) => (
-                            <Card
-                              key={vehicle.id}
-                              p="md"
-                              style={{
-                                background: selectedVehicles.includes(vehicle.id) ? "#eff6ff" : "#ffffff",
-                                border: selectedVehicles.includes(vehicle.id) ? "2px solid #3b82f6" : "1px solid #e2e8f0",
-                                borderRadius: "8px",
-                                cursor: "pointer"
-                              }}
-                              onClick={() => {
-                                const vehicleId = vehicle.id;
-                                setSelectedVehicles(prev => 
-                                  prev.includes(vehicleId) 
-                                    ? prev.filter(id => id !== vehicleId)
-                                    : [...prev, vehicleId]
-                                );
-                              }}
-                            >
-                              <Group justify="space-between">
-                                <div>
-                                  <Text fw={600} size="sm" c="#1e293b">
-                                    {vehicle.year} {vehicle.make} {vehicle.model}
-                                  </Text>
-                                  <Text size="xs" c="#64748b">
-                                    {vehicle.submodel} • {vehicle.driveType} • {vehicle.fuelType} • {vehicle.bodyType}
-                                  </Text>
-                                </div>
-                                <Checkbox
-                                  checked={selectedVehicles.includes(vehicle.id)}
-                                  onChange={() => {}}
-                                />
-                              </Group>
-                            </Card>
-                          ))}
-                        </Stack>
-                      </ScrollArea>
-                      
-                      <Group justify="space-between" mt="lg">
-                        <Button variant="light" onClick={() => setManualStep(1)}>
-                          Back
-                        </Button>
-                        <Button
-                          onClick={() => setManualStep(3)}
-                          disabled={selectedVehicles.length === 0}
-                          style={{
-                            background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                            border: "none",
-                          }}
-                        >
-                          Continue ({selectedVehicles.length} selected)
-                        </Button>
-                      </Group>
-                    </Stack>
-                  </Card>
-                </Stepper.Step>
-                
-                <Stepper.Step 
-                  label="Fitment Details" 
-                  description="Configure fitment settings"
-                  icon={<IconSettings size={18} />}
-                >
-                  <Card 
-                    style={{
-                      background: "#f8fafc",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "8px",
-                      marginTop: "20px"
-                    }}
-                    p="lg"
-                  >
-                    <Stack gap="md">
-                      <Text size="lg" fw={600} c="#1e293b" mb="sm">
-                        Step 3: Fitment Details
-                      </Text>
-                      
-                      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                        <Select
-                          label="Part"
-                          placeholder="Select a part"
-                          data={parts?.map((part: any) => ({
-                            value: part.id,
-                            label: `${part.id} - ${part.description}`
-                          })) || []}
-                          value={fitmentDetails.partId}
-                          onChange={(value) => setFitmentDetails(prev => ({ ...prev, partId: value || '' }))}
-                          searchable
-                        />
-                        <Select
-                          label="Part Type"
-                          placeholder="Select part type"
-                          data={partTypes?.map((type: any) => ({
-                            value: type.id,
-                            label: type.description
-                          })) || []}
-                          value={fitmentDetails.partType}
-                          onChange={(value) => setFitmentDetails(prev => ({ ...prev, partType: value || '' }))}
-                          searchable
-                        />
-                        <TextInput
-                          label="Position"
-                          placeholder="Front, Rear, All, etc."
-                          value={fitmentDetails.position}
-                          onChange={(e) => setFitmentDetails(prev => ({ ...prev, position: e.target.value }))}
-                        />
-                        <NumberInput
-                          label="Quantity"
-                          placeholder="1"
-                          min={1}
-                          value={fitmentDetails.quantity}
-                          onChange={(value) => setFitmentDetails(prev => ({ ...prev, quantity: Number(value) || 1 }))}
-                        />
-                      </SimpleGrid>
-                      
-                      <TextInput
-                        label="Fitment Title"
-                        placeholder="Enter fitment title"
-                        value={fitmentDetails.title}
-                        onChange={(e) => setFitmentDetails(prev => ({ ...prev, title: e.target.value }))}
-                      />
-                      
-                      <Textarea
-                        label="Description"
-                        placeholder="Enter fitment description"
-                        rows={3}
-                        value={fitmentDetails.description}
-                        onChange={(e) => setFitmentDetails(prev => ({ ...prev, description: e.target.value }))}
-                      />
-                      
-                      <Textarea
-                        label="Notes (Optional)"
-                        placeholder="Additional notes or installation instructions"
-                        rows={2}
-                        value={fitmentDetails.notes}
-                        onChange={(e) => setFitmentDetails(prev => ({ ...prev, notes: e.target.value }))}
-                      />
-                      
-                      <Group justify="space-between" mt="lg">
-                        <Button variant="light" onClick={() => setManualStep(2)}>
-                          Back
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            // Simulate applying fitment
-                            setApplyingManualFitment(true);
-                            setTimeout(() => {
-                              setApplyingManualFitment(false);
-                              toast.success(`Applied fitment to ${selectedVehicles.length} vehicles`);
-                              handleBackToMethodSelection();
-                            }, 2000);
-                          }}
-                          loading={applyingManualFitment}
-                          disabled={!fitmentDetails.partId || !fitmentDetails.partType}
-                          style={{
-                            background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                            border: "none",
-                          }}
-                        >
-                          Apply Fitment
-                        </Button>
-                      </Group>
-                    </Stack>
-                  </Card>
-                </Stepper.Step>
-              </Stepper>
-            </Stack>
-          </Card>
-        )}
-
-        {/* Step 4: AI Method Page */}
-        {currentStep === 4 && (
-          <Card
-            style={{
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "12px",
-              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-            }}
-            p="xl"
-          >
-            <Stack gap="xl">
-              {/* Back Button */}
-              <Group>
-                <Button
-                  variant="subtle"
-                  leftSection={<IconArrowLeft size={16} />}
-                  onClick={handleBackToMethodSelection}
-                  style={{
-                    color: "#64748b",
-                    fontWeight: 500,
-                  }}
-                >
-                  Back to Method Selection
-                </Button>
-              </Group>
-
-              <div>
-                <Title order={2} c="#1e293b" fw={600} mb="xs">
-                  AI Fitment Generation
-                </Title>
-                <Text size="md" c="#64748b">
-                  Let our AI automatically generate optimal fitments based on
-                  your data
-                </Text>
-              </div>
-
-              {/* Generate AI Fitments Button */}
-              {!aiProcessing && aiFitments.length === 0 && (
-                <Group justify="center">
-                  <Button
-                    size="lg"
-                    leftSection={<IconRobot size={20} />}
-                    variant="filled"
-                    onClick={handleAiFitment}
-                    style={{
-                      background:
-                        "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                      border: "none",
-                      borderRadius: "8px",
-                      fontSize: "16px",
-                      fontWeight: 600,
-                      padding: "12px 24px",
-                      height: "48px",
-                      color: "white",
-                      transition: "all 0.2s ease",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = "translateY(-1px)";
-                      e.currentTarget.style.boxShadow =
-                        "0 4px 12px rgba(59, 130, 246, 0.3)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = "translateY(0)";
-                      e.currentTarget.style.boxShadow = "none";
-                    }}
-                  >
-                    Generate AI Fitments
-                  </Button>
-                </Group>
+                            {log}
+                          </Text>
+                        ))}
+                      </Stack>
+                    </ScrollArea>
+                  </Stack>
+                </Card>
               )}
-            </Stack>
-          </Card>
-        )}
-
-        {/* AI Progress Display (only show on step 4) */}
-        {currentStep === 4 && aiProcessing && (
-          <Card
-            style={{
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "12px",
-              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-            }}
-            p="xl"
-          >
-            <Stack gap="lg">
-              <Group justify="space-between">
-                <div>
-                  <Title order={3} c="#1e293b" fw={600}>
-                    🧠 AI Fitment Generation in Progress
-                  </Title>
-                  <Text size="sm" c="#64748b">
-                    Our AI is analyzing your data to generate optimal fitments
-                  </Text>
-                </div>
-              </Group>
-
-              <Progress
-                value={aiProgress}
-                size="lg"
-                radius="md"
-                styles={{
-                  root: {
-                    background: "#f1f5f9",
-                  },
-                  section: {
-                    background:
-                      "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                  },
-                }}
-                animated
-                style={{ marginBottom: "16px" }}
-              />
-
-              <ScrollArea h={200}>
-                <Stack gap="xs">
-                  {aiLogs.map((log, index) => (
-                    <Text
-                      key={index}
-                      size="sm"
-                      c="#374151"
-                      style={{
-                        fontFamily:
-                          "'Monaco', 'Menlo', 'Ubuntu Mono', monospace",
-                        background: "#f8fafc",
-                        padding: "8px 12px",
-                        borderRadius: "6px",
-                        border: "1px solid #e2e8f0",
-                      }}
-                    >
-                      {log}
-                    </Text>
-                  ))}
-                </Stack>
-              </ScrollArea>
-            </Stack>
-          </Card>
-        )}
+            </div>
+          )}
+        </Transition>
 
         {/* AI Progress Display (legacy - only show when NOT using new steps) */}
         {currentStep !== 4 && selectedMethod === "ai" && aiProcessing && (
@@ -1580,6 +2418,7 @@ export default function ApplyFitments() {
               borderRadius: "12px",
               boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
             }}
+            h={800}
             p="xl"
           >
             <Stack gap="lg">
@@ -1629,7 +2468,8 @@ export default function ApplyFitments() {
                 </Group>
               </Group>
 
-              <ScrollArea h={400}>
+              <div style={{ position: "relative" }}>
+                {/* Static Table Header */}
                 <Table striped highlightOnHover>
                   <Table.Thead>
                     <Table.Tr>
@@ -1651,368 +2491,104 @@ export default function ApplyFitments() {
                           onChange={(event) => {
                             if (event.currentTarget.checked) {
                               setSelectedAiFitments(
-                                aiFitments.map((fitment) => fitment.id),
+                                aiFitments.map((fitment) => fitment.id)
                               );
                             } else {
                               setSelectedAiFitments([]);
                             }
                           }}
+                          ml={7}
                         />
                       </Table.Th>
-                      <Table.Th>Part ID</Table.Th>
-                      <Table.Th>Description</Table.Th>
-                      <Table.Th>Year</Table.Th>
-                      <Table.Th>Make</Table.Th>
-                      <Table.Th>Model</Table.Th>
-                      <Table.Th>Submodel</Table.Th>
-                      <Table.Th>Position</Table.Th>
-                      <Table.Th>Confidence</Table.Th>
+                      <Table.Th style={{ width: "130px" }}>Part ID</Table.Th>
+                      <Table.Th style={{ width: "80px" }}>Year</Table.Th>
+                      <Table.Th style={{ width: "100px" }}>Make</Table.Th>
+                      <Table.Th style={{ width: "120px" }}>Model</Table.Th>
+                      <Table.Th style={{ width: "100px" }}>Submodel</Table.Th>
+                      <Table.Th style={{ width: "100px" }}>Position</Table.Th>
+                      <Table.Th style={{ width: "100px" }}>Confidence</Table.Th>
                     </Table.Tr>
                   </Table.Thead>
-                  <Table.Tbody>
-                    {aiFitments.map((fitment) => (
-                      <Table.Tr key={fitment.id}>
-                        <Table.Td
-                          style={{
-                            textAlign: "center",
-                            verticalAlign: "middle",
-                          }}
-                        >
-                          <Checkbox
-                            checked={selectedAiFitments.includes(fitment.id)}
-                            onChange={(event) => {
-                              if (event.currentTarget.checked) {
-                                setSelectedAiFitments((prev) => [
-                                  ...prev,
-                                  fitment.id,
-                                ]);
-                              } else {
-                                setSelectedAiFitments((prev) =>
-                                  prev.filter((id) => id !== fitment.id),
-                                );
-                              }
-                            }}
-                          />
-                        </Table.Td>
-                        <Table.Td>
-                          <Text size="sm" fw={600} c="#3b82f6">
-                            {fitment.partId}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td>
-                          <Text size="sm" fw={500}>
-                            {fitment.part_description ||
-                              fitment.partDescription}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td>
-                          <Text size="sm">{fitment.year}</Text>
-                        </Table.Td>
-                        <Table.Td>
-                          <Text size="sm" fw={500}>
-                            {fitment.make}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td>
-                          <Text size="sm">{fitment.model}</Text>
-                        </Table.Td>
-                        <Table.Td>
-                          <Text size="sm" c="#64748b">
-                            {fitment.submodel || "-"}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td>
-                          <Badge variant="light" size="sm" color="blue">
-                            {fitment.position}
-                          </Badge>
-                        </Table.Td>
-                        <Table.Td>
-                          <Badge
-                            variant="light"
-                            color={
-                              fitment.confidence > 0.8
-                                ? "green"
-                                : fitment.confidence > 0.6
-                                  ? "orange"
-                                  : "red"
-                            }
-                            size="sm"
-                          >
-                            {Math.round(fitment.confidence * 100)}%
-                          </Badge>
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
                 </Table>
-              </ScrollArea>
-            </Stack>
-          </Card>
-        )}
 
-        {/* Manual Method Interface */}
-        {selectedMethod === "manual" && (
-          <Grid gutter="xl">
-            {/* Vehicle Configurations */}
-            <Grid.Col span={8}>
-              <Card
-                style={{
-                  background: "#ffffff",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "12px",
-                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                }}
-                p="lg"
-              >
-                <Stack gap="lg">
-                  <Group justify="space-between">
-                    <div>
-                      <Title order={3} c="#1e293b" fw={600}>
-                        Vehicle Configurations
-                      </Title>
-                      <Text size="sm" c="#64748b">
-                        Search and select vehicle configurations
-                      </Text>
-                    </div>
-                    <Badge variant="light" color="blue">
-                      {selectedConfigs.length} selected
-                    </Badge>
-                  </Group>
-
-                  <Grid>
-                    <Grid.Col span={4}>
-                      <NumberInput
-                        label="Year From"
-                        value={filters.yearFrom}
-                        onChange={(value) =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            yearFrom: Number(value) || 2020,
-                          }))
-                        }
-                        min={1900}
-                        max={2030}
-                      />
-                    </Grid.Col>
-                    <Grid.Col span={4}>
-                      <NumberInput
-                        label="Year To"
-                        value={filters.yearTo}
-                        onChange={(value) =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            yearTo: Number(value) || 2025,
-                          }))
-                        }
-                        min={1900}
-                        max={2030}
-                      />
-                    </Grid.Col>
-                    <Grid.Col span={4}>
-                      <TextInput
-                        label="Make"
-                        placeholder="e.g., Ford"
-                        value={filters.make}
-                        onChange={(event) =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            make: event.currentTarget.value,
-                          }))
-                        }
-                      />
-                    </Grid.Col>
-                  </Grid>
-
-                  <Group gap="sm">
-                    <Button
-                      leftSection={<IconSearch size={16} />}
-                      variant="filled"
-                      color="blue"
-                      onClick={handleSearchVehicles}
-                      loading={configsLoading}
-                      size="sm"
-                    >
-                      Search Vehicles
-                    </Button>
-                    <Text size="sm" c="#64748b">
-                      {configurations.length} configurations found
-                    </Text>
-                  </Group>
-
-                  <ScrollArea h={300}>
-                    <Table striped highlightOnHover>
-                      <Table.Thead>
-                        <Table.Tr>
-                          <Table.Th>
+                {/* Scrollable Table Body */}
+                <ScrollArea h={600} style={{ marginTop: "-1px" }}>
+                  <Table striped highlightOnHover>
+                    <Table.Tbody>
+                      {aiFitments.map((fitment) => (
+                        <Table.Tr key={fitment.id}>
+                          <Table.Td
+                            style={{
+                              textAlign: "center",
+                              verticalAlign: "middle",
+                              width: "60px",
+                            }}
+                          >
                             <Checkbox
-                              checked={
-                                selectedConfigs.length ===
-                                  configurations.length &&
-                                configurations.length > 0
-                              }
-                              indeterminate={
-                                selectedConfigs.length > 0 &&
-                                selectedConfigs.length < configurations.length
-                              }
+                              checked={selectedAiFitments.includes(fitment.id)}
                               onChange={(event) => {
                                 if (event.currentTarget.checked) {
-                                  setSelectedConfigs(
-                                    configurations.map(
-                                      (config: any) => config.id,
-                                    ),
-                                  );
+                                  setSelectedAiFitments((prev) => [
+                                    ...prev,
+                                    fitment.id,
+                                  ]);
                                 } else {
-                                  setSelectedConfigs([]);
+                                  setSelectedAiFitments((prev) =>
+                                    prev.filter((id) => id !== fitment.id)
+                                  );
                                 }
                               }}
                             />
-                          </Table.Th>
-                          <Table.Th>Year</Table.Th>
-                          <Table.Th>Make</Table.Th>
-                          <Table.Th>Model</Table.Th>
-                          <Table.Th>Submodel</Table.Th>
+                          </Table.Td>
+                          <Table.Td style={{ width: "120px" }}>
+                            <Text size="sm" fw={600} c="#3b82f6">
+                              {fitment.part_id}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td style={{ width: "80px" }}>
+                            <Text size="sm">{fitment.year}</Text>
+                          </Table.Td>
+                          <Table.Td style={{ width: "100px" }}>
+                            <Text size="sm" fw={500}>
+                              {fitment.make}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td style={{ width: "120px" }}>
+                            <Text size="sm">{fitment.model}</Text>
+                          </Table.Td>
+                          <Table.Td style={{ width: "100px" }}>
+                            <Text size="sm" c="#64748b">
+                              {fitment.submodel || "-"}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td style={{ width: "100px" }}>
+                            <Badge variant="light" size="sm" color="blue">
+                              {fitment.position}
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td style={{ width: "100px" }}>
+                            <Badge
+                              variant="light"
+                              color={
+                                fitment.confidence > 0.8
+                                  ? "green"
+                                  : fitment.confidence > 0.6
+                                  ? "orange"
+                                  : "red"
+                              }
+                              size="sm"
+                            >
+                              {Math.round(fitment.confidence * 100)}%
+                            </Badge>
+                          </Table.Td>
                         </Table.Tr>
-                      </Table.Thead>
-                      <Table.Tbody>
-                        {configurations.map((config: any) => (
-                          <Table.Tr key={config.id}>
-                            <Table.Td>
-                              <Checkbox
-                                checked={selectedConfigs.includes(config.id)}
-                                onChange={(event) => {
-                                  if (event.currentTarget.checked) {
-                                    setSelectedConfigs((prev) => [
-                                      ...prev,
-                                      config.id,
-                                    ]);
-                                  } else {
-                                    setSelectedConfigs((prev) =>
-                                      prev.filter((id) => id !== config.id),
-                                    );
-                                  }
-                                }}
-                              />
-                            </Table.Td>
-                            <Table.Td>{config.year}</Table.Td>
-                            <Table.Td>{config.make}</Table.Td>
-                            <Table.Td>{config.model}</Table.Td>
-                            <Table.Td>{config.submodel || "-"}</Table.Td>
-                          </Table.Tr>
-                        ))}
-                      </Table.Tbody>
-                    </Table>
-                  </ScrollArea>
-                </Stack>
-              </Card>
-            </Grid.Col>
-
-            {/* Fitment Form */}
-            <Grid.Col span={4}>
-              <Card
-                style={{
-                  background: "#ffffff",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "12px",
-                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                }}
-                p="lg"
-              >
-                <Stack gap="md">
-                  <Title order={4} c="#1e293b" fw={600}>
-                    Fitment Details
-                  </Title>
-
-                  <Select
-                    label="Part"
-                    placeholder="Select part"
-                    value={fitmentForm.partId}
-                    onChange={(value) =>
-                      setFitmentForm((prev) => ({
-                        ...prev,
-                        partId: value || "",
-                      }))
-                    }
-                    data={
-                      Array.isArray(parts)
-                        ? parts.map((part: any) => ({
-                            value: part.id,
-                            label: part.name,
-                          }))
-                        : []
-                    }
-                  />
-
-                  <Select
-                    label="Part Type"
-                    placeholder="Select part type"
-                    value={fitmentForm.partTypeId}
-                    onChange={(value) =>
-                      setFitmentForm((prev) => ({
-                        ...prev,
-                        partTypeId: value || "",
-                      }))
-                    }
-                    data={
-                      Array.isArray(partTypes)
-                        ? partTypes.map((type: any) => ({
-                            value: type.id,
-                            label: type.name,
-                          }))
-                        : []
-                    }
-                  />
-
-                  <Select
-                    label="Position"
-                    placeholder="Select position"
-                    value={fitmentForm.position}
-                    onChange={(value) =>
-                      setFitmentForm((prev) => ({
-                        ...prev,
-                        position: value || "",
-                      }))
-                    }
-                    data={positions}
-                  />
-
-                  <NumberInput
-                    label="Quantity"
-                    value={fitmentForm.quantity}
-                    onChange={(value) =>
-                      setFitmentForm((prev) => ({
-                        ...prev,
-                        quantity: Number(value) || 1,
-                      }))
-                    }
-                    min={1}
-                    max={10}
-                  />
-
-                  <Button
-                    fullWidth
-                    size="md"
-                    variant="filled"
-                    color="blue"
-                    disabled={
-                      selectedConfigs.length === 0 ||
-                      !fitmentForm.partId ||
-                      !fitmentForm.partTypeId
-                    }
-                    loading={applyingFitment}
-                    onClick={handleApplyFitment}
-                    style={{
-                      borderRadius: "8px",
-                      fontWeight: 600,
-                      fontSize: "14px",
-                      height: "44px",
-                    }}
-                  >
-                    Apply Fitment ({selectedConfigs.length} configs)
-                  </Button>
-                </Stack>
-              </Card>
-            </Grid.Col>
-          </Grid>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </ScrollArea>
+              </div>
+            </Stack>
+          </Card>
         )}
       </Stack>
     </div>

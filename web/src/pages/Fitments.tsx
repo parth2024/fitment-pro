@@ -58,17 +58,14 @@ export default function Fitments() {
         page: currentPage,
         pageSize: 50,
       }),
-    [searchTerm, sortBy, sortOrder, currentPage],
+    [searchTerm, sortBy, sortOrder, currentPage]
   );
 
   // Fetch AI-generated fitments from Django backend
-  const {
-    data: aiFitmentsData,
-    refetch: refetchAi,
-  } = useApi<{ fitments: any[]; total_fitments: number }>(
-    () => fitmentUploadService.getAppliedFitments(),
-    [],
-  );
+  const { data: aiFitmentsData, refetch: refetchAi } = useApi<{
+    fitments: any[];
+    total_fitments: number;
+  }>(() => fitmentUploadService.getAppliedFitments(), []);
 
   const fitments = data?.fitments ?? [];
   const aiFitments = aiFitmentsData?.fitments ?? [];
@@ -164,82 +161,243 @@ export default function Fitments() {
             </Group>
           </Group>
 
-          {/* Filters and Actions */}
-          <Group justify="space-between">
-            <Group>
-              <TextInput
-                placeholder="Search by Part ID, Make, Model..."
-                leftSection={<IconSearch size={16} />}
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.currentTarget.value)}
-                style={{ minWidth: 300 }}
-              />
-              <Select
-                placeholder="Sort by"
-                value={sortBy}
-                onChange={(value) => setSortBy(value || "partId")}
-                data={[
-                  { value: "partId", label: "Part ID" },
-                  { value: "makeName", label: "Make" },
-                  { value: "modelName", label: "Model" },
-                  { value: "year", label: "Year" },
-                  { value: "updatedAt", label: "Last Updated" },
-                ]}
-                leftSection={<IconFilter size={16} />}
-              />
-              <Select
-                value={sortOrder}
-                onChange={(value) => setSortOrder(value as "asc" | "desc")}
-                data={[
-                  { value: "asc", label: "Ascending" },
-                  { value: "desc", label: "Descending" },
-                ]}
-                w={120}
-              />
-            </Group>
+          {/* Professional Filters and Actions */}
+          <div>
+            <Stack gap="lg">
+              <div>
+                <Group justify="space-between" align="flex-end">
+                  <Group gap="md" style={{ flex: 1 }}>
+                    <TextInput
+                      placeholder="Search by Part ID, Make, Model..."
+                      leftSection={<IconSearch size={16} color="#64748b" />}
+                      value={searchTerm}
+                      onChange={(event) =>
+                        setSearchTerm(event.currentTarget.value)
+                      }
+                      styles={{
+                        root: { flex: 1, minWidth: 320 },
+                        label: {
+                          fontWeight: 600,
+                          fontSize: "13px",
+                          color: "#374151",
+                          marginBottom: "8px",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.5px",
+                        },
+                        input: {
+                          borderRadius: "10px",
+                          border: "2px solid #e2e8f0",
+                          fontSize: "14px",
+                          height: "48px",
+                          paddingLeft: "40px",
+                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                          "&:focus": {
+                            borderColor: "#3b82f6",
+                            boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                            backgroundColor: "#ffffff",
+                          },
+                          "&:hover": {
+                            borderColor: "#cbd5e1",
+                            backgroundColor: "#ffffff",
+                          },
+                        },
+                      }}
+                    />
 
-            <Group>
-              {selectedFitments.length > 0 && (
-                <Button
-                  leftSection={<IconTrash size={16} />}
-                  color="red"
-                  variant="light"
-                  onClick={() => setDeleteModalOpen(true)}
-                >
-                  Delete ({selectedFitments.length})
-                </Button>
-              )}
-              <Button
-                leftSection={<IconDownload size={16} />}
-                variant="filled"
-                onClick={handleExport}
-              >
-                Export CSV
-              </Button>
-            </Group>
-          </Group>
+                    <Select
+                      placeholder="Sort by"
+                      value={sortBy}
+                      onChange={(value) => setSortBy(value || "partId")}
+                      data={[
+                        { value: "partId", label: "Part ID" },
+                        { value: "makeName", label: "Make" },
+                        { value: "modelName", label: "Model" },
+                        { value: "year", label: "Year" },
+                        { value: "updatedAt", label: "Last Updated" },
+                      ]}
+                      leftSection={<IconFilter size={16} color="#64748b" />}
+                      styles={{
+                        root: { minWidth: 160 },
+                        label: {
+                          fontWeight: 600,
+                          fontSize: "13px",
+                          color: "#374151",
+                          marginBottom: "8px",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.5px",
+                        },
+                        input: {
+                          borderRadius: "10px",
+                          border: "2px solid #e2e8f0",
+                          fontSize: "14px",
+                          height: "48px",
+                          paddingLeft: "40px",
+                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                          "&:focus": {
+                            borderColor: "#3b82f6",
+                            boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                            backgroundColor: "#ffffff",
+                          },
+                          "&:hover": {
+                            borderColor: "#cbd5e1",
+                            backgroundColor: "#ffffff",
+                          },
+                        },
+                      }}
+                    />
 
-          {/* Selection Summary */}
+                    <Select
+                      value={sortOrder}
+                      onChange={(value) =>
+                        setSortOrder(value as "asc" | "desc")
+                      }
+                      data={[
+                        { value: "asc", label: "Ascending" },
+                        { value: "desc", label: "Descending" },
+                      ]}
+                      styles={{
+                        root: { minWidth: 140 },
+                        label: {
+                          fontWeight: 600,
+                          fontSize: "13px",
+                          color: "#374151",
+                          marginBottom: "8px",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.5px",
+                        },
+                        input: {
+                          borderRadius: "10px",
+                          border: "2px solid #e2e8f0",
+                          fontSize: "14px",
+                          height: "48px",
+                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                          "&:focus": {
+                            borderColor: "#3b82f6",
+                            boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                            backgroundColor: "#ffffff",
+                          },
+                          "&:hover": {
+                            borderColor: "#cbd5e1",
+                            backgroundColor: "#ffffff",
+                          },
+                        },
+                      }}
+                    />
+                  </Group>
+
+                  <Group gap="sm">
+                    {selectedFitments.length > 0 && (
+                      <Button
+                        leftSection={<IconTrash size={16} />}
+                        color="red"
+                        variant="outline"
+                        onClick={() => setDeleteModalOpen(true)}
+                        styles={{
+                          root: {
+                            borderRadius: "10px",
+                            fontWeight: 600,
+                            fontSize: "14px",
+                            height: "48px",
+                            padding: "0 20px",
+                            border: "2px solid #ef4444",
+                            color: "#ef4444",
+                            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                            "&:hover": {
+                              backgroundColor: "#fef2f2",
+                              borderColor: "#dc2626",
+                              transform: "translateY(-1px)",
+                            },
+                          },
+                        }}
+                      >
+                        Delete ({selectedFitments.length})
+                      </Button>
+                    )}
+                    <Button
+                      leftSection={<IconDownload size={16} />}
+                      variant="filled"
+                      onClick={handleExport}
+                      styles={{
+                        root: {
+                          borderRadius: "10px",
+                          fontWeight: 600,
+                          fontSize: "14px",
+                          height: "48px",
+                          padding: "0 24px",
+                          background:
+                            "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                          border: "none",
+                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                          boxShadow:
+                            "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)",
+                          "&:hover": {
+                            transform: "translateY(-2px)",
+                            boxShadow:
+                              "0 8px 25px -5px rgba(59, 130, 246, 0.3), 0 4px 6px -1px rgba(59, 130, 246, 0.1)",
+                          },
+                        },
+                      }}
+                    >
+                      Export CSV
+                    </Button>
+                  </Group>
+                </Group>
+              </div>
+            </Stack>
+          </div>
+
+          {/* Professional Selection Summary */}
           {selectedFitments.length > 0 && (
-            <Group
-              justify="space-between"
-              p="sm"
+            <div
               style={{
-                backgroundColor: "var(--mantine-color-blue-0)",
-                borderRadius: 4,
+                background: "linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)",
+                borderRadius: "12px",
+                border: "1px solid #93c5fd",
+                padding: "16px 20px",
+                boxShadow: "0 2px 4px rgba(59, 130, 246, 0.1)",
               }}
             >
-              <Text size="sm" fw={500}>
-                {selectedFitments.length} of {fitments.length} fitments selected
-              </Text>
-              <Button
-                size="xs"
-                variant="light"
-                onClick={() => setSelectedFitments([])}
-              >
-                Clear Selection
-              </Button>
-            </Group>
+              <Group justify="space-between" align="center">
+                <Group gap="sm">
+                  <div
+                    style={{
+                      width: "8px",
+                      height: "8px",
+                      borderRadius: "50%",
+                      backgroundColor: "#3b82f6",
+                    }}
+                  />
+                  <Text size="sm" fw={600} c="#1e40af">
+                    {selectedFitments.length} of {fitments.length} fitments
+                    selected
+                  </Text>
+                </Group>
+                <Button
+                  size="sm"
+                  variant="light"
+                  onClick={() => setSelectedFitments([])}
+                  styles={{
+                    root: {
+                      borderRadius: "8px",
+                      fontWeight: 600,
+                      fontSize: "12px",
+                      height: "32px",
+                      padding: "0 16px",
+                      border: "1px solid #93c5fd",
+                      color: "#1e40af",
+                      backgroundColor: "rgba(255, 255, 255, 0.7)",
+                      transition: "all 0.2s ease",
+                      "&:hover": {
+                        backgroundColor: "rgba(255, 255, 255, 0.9)",
+                        transform: "translateY(-1px)",
+                      },
+                    },
+                  }}
+                >
+                  Clear Selection
+                </Button>
+              </Group>
+            </div>
           )}
 
           {/* AI Generated Fitments Section */}
@@ -260,6 +418,7 @@ export default function Fitments() {
                       onChange={(event) =>
                         handleSelectAll(event.currentTarget.checked)
                       }
+                      ml={7}
                     />
                   </Table.Th>
                   <Table.Th>Part ID</Table.Th>
@@ -350,85 +509,86 @@ export default function Fitments() {
                   </Table.Tr>
                 ) : (
                   fitments.map((fitment) => (
-                  <Table.Tr key={fitment.hash}>
-                    <Table.Td>
-                      <Checkbox
-                        checked={selectedFitments.includes(fitment.hash)}
-                        onChange={(event) =>
-                          handleSelectFitment(
-                            fitment.hash,
-                            event.currentTarget.checked,
-                          )
-                        }
-                      />
-                    </Table.Td>
-                    <Table.Td>
-                      <Text fw={500}>{fitment.partId}</Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge
-                        variant="light"
-                        color={getStatusColor(fitment.itemStatus)}
-                        size="sm"
-                      >
-                        {fitment.itemStatus}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      <div>
-                        <Text size="sm" fw={500}>
-                          {fitment.year} {fitment.makeName} {fitment.modelName}
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          {fitment.subModelName} • {fitment.driveTypeName}
-                        </Text>
-                      </div>
-                    </Table.Td>
-                    <Table.Td>{fitment.partTypeDescriptor}</Table.Td>
-                    <Table.Td>{fitment.position}</Table.Td>
-                    <Table.Td>{fitment.fitmentTitle}</Table.Td>
-                    {expandedView && (
-                      <>
-                        <Table.Td>
-                          <Text size="sm" truncate="end" maw={200}>
-                            {fitment.fitmentDescription}
+                    <Table.Tr key={fitment.hash}>
+                      <Table.Td>
+                        <Checkbox
+                          checked={selectedFitments.includes(fitment.hash)}
+                          onChange={(event) =>
+                            handleSelectFitment(
+                              fitment.hash,
+                              event.currentTarget.checked
+                            )
+                          }
+                        />
+                      </Table.Td>
+                      <Table.Td>
+                        <Text fw={500}>{fitment.partId}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Badge
+                          variant="light"
+                          color={getStatusColor(fitment.itemStatus)}
+                          size="sm"
+                        >
+                          {fitment.itemStatus}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td>
+                        <div>
+                          <Text size="sm" fw={500}>
+                            {fitment.year} {fitment.makeName}{" "}
+                            {fitment.modelName}
                           </Text>
-                        </Table.Td>
-                        <Table.Td>{fitment.quantity}</Table.Td>
-                        <Table.Td>{fitment.liftHeight}</Table.Td>
-                        <Table.Td>{fitment.wheelType}</Table.Td>
-                        <Table.Td>
                           <Text size="xs" c="dimmed">
-                            {new Date(fitment.updatedAt).toLocaleDateString()}
+                            {fitment.subModelName} • {fitment.driveTypeName}
                           </Text>
-                        </Table.Td>
-                      </>
-                    )}
-                    <Table.Td>
-                      <Menu shadow="md" width={200}>
-                        <Menu.Target>
-                          <ActionIcon variant="light" size="sm">
-                            <IconDots size={16} />
-                          </ActionIcon>
-                        </Menu.Target>
-                        <Menu.Dropdown>
-                          <Menu.Item leftSection={<IconEye size={14} />}>
-                            View Details
-                          </Menu.Item>
-                          <Menu.Item leftSection={<IconEdit size={14} />}>
-                            Edit Fitment
-                          </Menu.Item>
-                          <Menu.Divider />
-                          <Menu.Item
-                            leftSection={<IconTrash size={14} />}
-                            color="red"
-                          >
-                            Delete
-                          </Menu.Item>
-                        </Menu.Dropdown>
-                      </Menu>
-                    </Table.Td>
-                  </Table.Tr>
+                        </div>
+                      </Table.Td>
+                      <Table.Td>{fitment.partTypeDescriptor}</Table.Td>
+                      <Table.Td>{fitment.position}</Table.Td>
+                      <Table.Td>{fitment.fitmentTitle}</Table.Td>
+                      {expandedView && (
+                        <>
+                          <Table.Td>
+                            <Text size="sm" truncate="end" maw={200}>
+                              {fitment.fitmentDescription}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>{fitment.quantity}</Table.Td>
+                          <Table.Td>{fitment.liftHeight}</Table.Td>
+                          <Table.Td>{fitment.wheelType}</Table.Td>
+                          <Table.Td>
+                            <Text size="xs" c="dimmed">
+                              {new Date(fitment.updatedAt).toLocaleDateString()}
+                            </Text>
+                          </Table.Td>
+                        </>
+                      )}
+                      <Table.Td>
+                        <Menu shadow="md" width={200}>
+                          <Menu.Target>
+                            <ActionIcon variant="light" size="sm">
+                              <IconDots size={16} />
+                            </ActionIcon>
+                          </Menu.Target>
+                          <Menu.Dropdown>
+                            <Menu.Item leftSection={<IconEye size={14} />}>
+                              View Details
+                            </Menu.Item>
+                            <Menu.Item leftSection={<IconEdit size={14} />}>
+                              Edit Fitment
+                            </Menu.Item>
+                            <Menu.Divider />
+                            <Menu.Item
+                              leftSection={<IconTrash size={14} />}
+                              color="red"
+                            >
+                              Delete
+                            </Menu.Item>
+                          </Menu.Dropdown>
+                        </Menu>
+                      </Table.Td>
+                    </Table.Tr>
                   ))
                 )}
               </Table.Tbody>
@@ -441,7 +601,7 @@ export default function Fitments() {
               <Text size="sm" c="dimmed">
                 {data?.totalCount ? (
                   <>
-                    Showing {((currentPage - 1) * pageSize) + 1}-
+                    Showing {(currentPage - 1) * pageSize + 1}-
                     {Math.min(currentPage * pageSize, data.totalCount)} of{" "}
                     {data.totalCount} fitments
                   </>
@@ -458,9 +618,10 @@ export default function Fitments() {
                   withEdges
                   styles={{
                     control: {
-                      '&[data-active]': {
-                        background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-                        borderColor: 'transparent',
+                      "&[data-active]": {
+                        background:
+                          "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                        borderColor: "transparent",
                       },
                     },
                   }}

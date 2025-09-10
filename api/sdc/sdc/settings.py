@@ -89,11 +89,11 @@ WSGI_APPLICATION = 'sdc.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('PGDATABASE', ''),
-        'USER': os.getenv('PGUSER', ''),
-        'PASSWORD': os.getenv('PGPASSWORD', ''),
-        'HOST': os.getenv('PGHOST', 'localhost'),
-        'PORT': os.getenv('PGPORT', '5432'),
+        'NAME': "fitmentpro_db",
+        'USER': "fitmentpro_user",
+        'PASSWORD': "fitmentpro_pass",
+        'HOST': "localhost",
+        'PORT': "5432",
     }
 }
 

@@ -32,6 +32,7 @@ import PotentialFitments from "./pages/PotentialFitments";
 import Admin from "./pages/Admin";
 import UploadMap from "./pages/UploadMap";
 import ReviewPublish from "./pages/ReviewPublish";
+import { ToastContainer } from "./components/ToastContainer";
 
 const navigationItems = [
   {
@@ -361,6 +362,9 @@ function App() {
       >
         <Box style={{ padding: "32px", height: "100%" }}>{renderContent()}</Box>
       </AppShell.Main>
+
+      {/* Professional Toast Container */}
+      <ToastContainer />
     </AppShell>
   );
 }
