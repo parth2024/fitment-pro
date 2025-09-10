@@ -101,6 +101,8 @@ export default function ApplyFitments() {
   const [aiFitments, setAiFitments] = useState<any[]>([]);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [selectedAiFitments, setSelectedAiFitments] = useState<string[]>([]);
+  const [aiProgress, setAiProgress] = useState(0);
+  const [aiLogs, setAiLogs] = useState<string[]>([]);
 
   // API hooks
   const { data: yearRange } = useApi(
@@ -764,6 +766,7 @@ export default function ApplyFitments() {
                           background: "#f8fafc",
                           borderRadius: "12px",
                           padding: "16px",
+                          marginBottom: "8px",
                         }}
                       >
                         <IconUsers size={32} color="#3b82f6" />
@@ -809,6 +812,7 @@ export default function ApplyFitments() {
                           background: "#f8fafc",
                           borderRadius: "12px",
                           padding: "16px",
+                          marginBottom: "8px",
                         }}
                       >
                         <IconBrain size={32} color="#10b981" />
@@ -1169,10 +1173,10 @@ export default function ApplyFitments() {
                         }))
                       }
                       data={
-                        (parts as any)?.map((part: any) => ({
+                        Array.isArray(parts) ? parts.map((part: any) => ({
                           value: part.id,
                           label: part.name,
-                        })) || []
+                        })) : []
                       }
                     />
 
@@ -1187,10 +1191,10 @@ export default function ApplyFitments() {
                         }))
                       }
                       data={
-                        (partTypes as any)?.map((type: any) => ({
+                        Array.isArray(partTypes) ? partTypes.map((type: any) => ({
                           value: type.id,
                           label: type.name,
-                        })) || []
+                        })) : []
                       }
                     />
 
