@@ -123,18 +123,18 @@ function App() {
             padding: "0 24px",
           }}
         >
-          <Group gap="lg">
+          <Group gap="md">
             <div
               style={{
                 background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                borderRadius: "12px",
-                padding: "8px",
+                borderRadius: "8px",
+                padding: "6px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <IconCar size={24} color="white" />
+              <IconCar size={20} color="white" />
             </div>
             <div>
               <Title
@@ -145,7 +145,7 @@ function App() {
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                   fontWeight: 700,
-                  fontSize: "22px",
+                  fontSize: "20px",
                   marginBottom: "2px",
                 }}
               >
@@ -166,7 +166,8 @@ function App() {
           <Group gap="md">
             <Button
               variant="subtle"
-              leftSection={<IconBell size={18} />}
+              size="sm"
+              leftSection={<IconBell size={16} />}
               style={{ fontWeight: 500 }}
             >
               Notifications
@@ -176,9 +177,10 @@ function App() {
               <Menu.Target>
                 <Button
                   variant="subtle"
+                  size="sm"
                   leftSection={
                     <Avatar
-                      size={28}
+                      size={24}
                       radius="xl"
                       gradient={{
                         from: "primary.6",
@@ -189,17 +191,17 @@ function App() {
                       AD
                     </Avatar>
                   }
-                  rightSection={<IconChevronRight size={14} />}
-                  style={{ fontWeight: 500, padding: "8px 12px" }}
+                  rightSection={<IconChevronRight size={16} />}
+                  style={{ fontWeight: 500 }}
                 >
                   Admin User
                 </Button>
               </Menu.Target>
               <Menu.Dropdown>
-                <Menu.Item leftSection={<IconUser size={14} />}>
+                <Menu.Item leftSection={<IconUser size={16} />}>
                   Profile Settings
                 </Menu.Item>
-                <Menu.Item leftSection={<IconLogout size={14} />}>
+                <Menu.Item leftSection={<IconLogout size={16} />}>
                   Sign Out
                 </Menu.Item>
               </Menu.Dropdown>
@@ -234,14 +236,14 @@ function App() {
             <div
               style={{
                 background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                borderRadius: "12px",
-                padding: "8px",
+                borderRadius: "6px",
+                padding: "4px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <IconCar size={24} color="white" />
+              <IconCar size={16} color="white" />
             </div>
             <div>
               <Title
@@ -251,7 +253,7 @@ function App() {
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                   fontWeight: 700,
-                  fontSize: "16px",
+                  fontSize: "14px",
                   lineHeight: 1.2,
                 }}
               >
@@ -262,7 +264,7 @@ function App() {
                 c="dimmed"
                 style={{
                   fontWeight: 500,
-                  fontSize: "10px",
+                  fontSize: "11px",
                 }}
               >
                 v2.0
@@ -295,8 +297,8 @@ function App() {
                 label={item.label}
                 leftSection={
                   <ThemeIcon
-                    size={32}
-                    radius="lg"
+                    size={28}
+                    radius="md"
                     variant={isActive ? "gradient" : "light"}
                     gradient={
                       isActive
@@ -305,7 +307,7 @@ function App() {
                     }
                     color={isActive ? undefined : item.color}
                   >
-                    <Icon size={18} />
+                    <Icon size={16} />
                   </ThemeIcon>
                 }
                 rightSection={
@@ -316,7 +318,7 @@ function App() {
                       variant="light"
                       color="primary"
                     >
-                      <IconChevronRight size={12} />
+                      <IconChevronRight size={14} />
                     </ThemeIcon>
                   ) : null
                 }
