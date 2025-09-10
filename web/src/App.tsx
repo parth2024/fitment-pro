@@ -151,10 +151,10 @@ function App() {
             <Title
               order={2}
               style={{
-                color: "#1e293b",
                 fontWeight: 700,
                 fontSize: "24px",
                 lineHeight: 1.2,
+                color: "#475569",
               }}
             >
               {getCurrentPageName()}
@@ -227,7 +227,7 @@ function App() {
             justifyContent: "flex-start",
             borderBottom: "1px solid #e2e8f0",
             background: "linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)",
-            paddingLeft: "16px",
+            paddingLeft: "38px",
             paddingRight: "16px",
           }}
         >
@@ -241,25 +241,26 @@ function App() {
                 alignItems: "center",
                 justifyContent: "center",
                 flexShrink: 0,
-                width: "28px",
-                height: "28px",
+                width: "30px",
+                height: "30px",
               }}
             >
-              <IconCar size={16} color="white" />
+              <IconCar size={18} color="white" />
             </div>
             <div
               style={{
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "center",
+                gap: "2px",
               }}
             >
               <Title
                 order={4}
                 style={{
-                  color: "#1e293b",
+                  color: "#475569",
                   fontWeight: 700,
-                  fontSize: "14px",
+                  fontSize: "16px",
                   lineHeight: 1.2,
                   margin: 0,
                 }}
@@ -284,21 +285,6 @@ function App() {
 
         {/* Navigation Section */}
         <Stack gap={0} style={{ padding: "16px" }}>
-          <Text
-            size="xs"
-            fw={600}
-            tt="uppercase"
-            c="dimmed"
-            mb="sm"
-            style={{
-              letterSpacing: "0.5px",
-              paddingLeft: "20px",
-              lineHeight: 1.4,
-            }}
-          >
-            Navigation
-          </Text>
-
           {navigationItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.value;
