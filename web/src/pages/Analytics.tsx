@@ -26,7 +26,6 @@ import {
   IconDatabase,
   IconRobot,
   IconChevronRight,
-  IconChartDots,
 } from "@tabler/icons-react";
 import api from "../api/client";
 
@@ -308,15 +307,16 @@ const Analytics: React.FC = () => {
             <Grid.Col span={{ base: 12, md: 6 }}>
               <Card
                 style={{
-                  background: "rgba(255, 255, 255, 0.15)",
-                  backdropFilter: "blur(10px)",
-                  border: "1px solid rgba(255, 255, 255, 0.2)",
-                  borderRadius: "16px",
+                  background: "#ffffff",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "12px",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
                   height: "300px",
                 }}
+                p="lg"
               >
                 <Stack align="center" justify="center" h="100%">
-                  <Text size="lg" fw={600} c="white" mb="md">
+                  <Text size="lg" fw={600} c="#1e293b" mb="md">
                     Fitments by Method
                   </Text>
                   
@@ -330,7 +330,7 @@ const Analytics: React.FC = () => {
                           { value: aiPercentage, color: "#8b5cf6" },
                         ]}
                         label={
-                          <Text ta="center" fw={700} size="lg" c="white">
+                          <Text ta="center" fw={700} size="lg" c="#1e293b">
                             {data?.totalFitments || 0}
                           </Text>
                         }
@@ -347,7 +347,7 @@ const Analytics: React.FC = () => {
                             background: "#3b82f6",
                           }}
                         />
-                        <Text size="sm" c="white">
+                        <Text size="sm" c="#64748b" fw={500}>
                           Manual: {data?.manualFitments || 0} ({manualPercentage}%)
                         </Text>
                       </Group>
@@ -361,7 +361,7 @@ const Analytics: React.FC = () => {
                             background: "#8b5cf6",
                           }}
                         />
-                        <Text size="sm" c="white">
+                        <Text size="sm" c="#64748b" fw={500}>
                           AI-Based: {data?.aiFitments || 0} ({aiPercentage}%)
                         </Text>
                       </Group>
@@ -374,23 +374,24 @@ const Analytics: React.FC = () => {
             <Grid.Col span={{ base: 12, md: 6 }}>
               <Card
                 style={{
-                  background: "rgba(255, 255, 255, 0.15)",
-                  backdropFilter: "blur(10px)",
-                  border: "1px solid rgba(255, 255, 255, 0.2)",
-                  borderRadius: "16px",
+                  background: "#ffffff",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "12px",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
                   height: "300px",
                 }}
+                p="lg"
               >
                 <Stack justify="center" h="100%">
-                  <Text size="lg" fw={600} c="white" mb="md">
+                  <Text size="lg" fw={600} c="#1e293b" mb="md">
                     Quick Stats
                   </Text>
                   
                   <Stack gap="md">
                     <Group justify="space-between">
                       <Group gap="sm">
-                        <IconUsers size={16} color="white" />
-                        <Text size="sm" c="white">Manual Fitments</Text>
+                        <IconUsers size={16} color="#3b82f6" />
+                        <Text size="sm" c="#64748b" fw={500}>Manual Fitments</Text>
                       </Group>
                       <Badge variant="light" color="blue" size="lg">
                         {data?.manualFitments || 0}
@@ -399,8 +400,8 @@ const Analytics: React.FC = () => {
                     
                     <Group justify="space-between">
                       <Group gap="sm">
-                        <IconRobot size={16} color="white" />
-                        <Text size="sm" c="white">AI-Generated</Text>
+                        <IconRobot size={16} color="#8b5cf6" />
+                        <Text size="sm" c="#64748b" fw={500}>AI-Generated</Text>
                       </Group>
                       <Badge variant="light" color="violet" size="lg">
                         {data?.aiFitments || 0}
@@ -409,8 +410,8 @@ const Analytics: React.FC = () => {
                     
                     <Group justify="space-between">
                       <Group gap="sm">
-                        <IconTrendingUp size={16} color="white" />
-                        <Text size="sm" c="white">Success Rate</Text>
+                        <IconTrendingUp size={16} color="#10b981" />
+                        <Text size="sm" c="#64748b" fw={500}>Success Rate</Text>
                       </Group>
                       <Badge variant="light" color="green" size="lg">
                         98.5%
@@ -419,8 +420,8 @@ const Analytics: React.FC = () => {
                     
                     <Group justify="space-between">
                       <Group gap="sm">
-                        <IconChartBar size={16} color="white" />
-                        <Text size="sm" c="white">Coverage</Text>
+                        <IconChartBar size={16} color="#f59e0b" />
+                        <Text size="sm" c="#64748b" fw={500}>Coverage</Text>
                       </Group>
                       <Badge variant="light" color="orange" size="lg">
                         85.2%
@@ -435,15 +436,16 @@ const Analytics: React.FC = () => {
           {/* Navigation Shortcuts */}
           <Card
             style={{
-              background: "rgba(255, 255, 255, 0.15)",
-              backdropFilter: "blur(10px)",
-              border: "1px solid rgba(255, 255, 255, 0.2)",
-              borderRadius: "16px",
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "12px",
+              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
             }}
+            p="lg"
           >
             <Stack gap="lg">
               <Group justify="space-between">
-                <Text size="xl" fw={700} c="white">
+                <Text size="xl" fw={700} c="#1e293b">
                   Quick Navigation
                 </Text>
                 <Badge variant="light" color="blue" size="lg">
@@ -459,9 +461,9 @@ const Analytics: React.FC = () => {
                       key={shortcut.value}
                       p="md"
                       style={{
-                        background: "rgba(255, 255, 255, 0.1)",
-                        border: "1px solid rgba(255, 255, 255, 0.2)",
-                        borderRadius: "12px",
+                        background: "#f8fafc",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "8px",
                         cursor: "pointer",
                         transition: "all 0.2s ease",
                       }}
@@ -478,14 +480,14 @@ const Analytics: React.FC = () => {
                           >
                             <Icon size={16} />
                           </ThemeIcon>
-                          <IconChevronRight size={16} color="white" opacity={0.7} />
+                          <IconChevronRight size={16} color="#94a3b8" />
                         </Group>
                         
                         <div>
-                          <Text size="sm" fw={600} c="white">
+                          <Text size="sm" fw={600} c="#1e293b">
                             {shortcut.title}
                           </Text>
-                          <Text size="xs" c="white" opacity={0.8}>
+                          <Text size="xs" c="#64748b">
                             {shortcut.description}
                           </Text>
                         </div>
@@ -501,9 +503,10 @@ const Analytics: React.FC = () => {
 
       <style>{`
         .navigation-shortcut:hover {
-          background: rgba(255, 255, 255, 0.2) !important;
+          background: #f1f5f9 !important;
           transform: translateY(-2px);
-          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+          border-color: #cbd5e1 !important;
         }
       `}</style>
     </div>
