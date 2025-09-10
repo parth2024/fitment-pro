@@ -568,8 +568,8 @@ export default function ApplyFitments() {
               display: "inline-block",
               background:
                 "linear-gradient(145deg, #667eea 0%, #764ba2 50%, #f093fb 100%)",
-              borderRadius: "32px",
-              padding: "32px",
+              borderRadius: "20px",
+              padding: "16px",
               marginBottom: "32px",
               boxShadow:
                 "0 25px 50px rgba(102, 126, 234, 0.3), inset 0 1px 0 rgba(255,255,255,0.2)",
@@ -591,7 +591,7 @@ export default function ApplyFitments() {
               }}
             />
             <IconSettings
-              size={64}
+              size={32}
               color="white"
               style={{ position: "relative", zIndex: 1 }}
             />
@@ -599,17 +599,17 @@ export default function ApplyFitments() {
 
           <h1
             style={{
-              fontSize: "clamp(32px, 8vw, 64px)",
-              fontWeight: 900,
+              fontSize: "28px",
+              fontWeight: 700,
               background:
                 "linear-gradient(145deg, #ffffff 0%, #e2e8f0 25%, #cbd5e1 50%, #94a3b8 100%)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
-              marginBottom: "16px",
+              marginBottom: "12px",
               margin: 0,
-              lineHeight: 1.1,
-              letterSpacing: "-0.02em",
-              textShadow: "0 4px 8px rgba(0,0,0,0.1)",
+              lineHeight: 1.2,
+              letterSpacing: "-0.01em",
+              textShadow: "0 2px 4px rgba(0,0,0,0.1)",
             }}
           >
             Apply Fitments
@@ -617,14 +617,14 @@ export default function ApplyFitments() {
           <p
             style={{
               color: "#cbd5e1",
-              fontSize: "clamp(16px, 4vw, 24px)",
+              fontSize: "16px",
               margin: 0,
               fontWeight: 500,
               lineHeight: 1.5,
-              maxWidth: "800px",
+              maxWidth: "600px",
               marginLeft: "auto",
               marginRight: "auto",
-              textShadow: "0 2px 4px rgba(0,0,0,0.3)",
+              textShadow: "0 1px 2px rgba(0,0,0,0.2)",
             }}
           >
             Upload files and apply fitments using manual or AI-powered methods
@@ -637,7 +637,7 @@ export default function ApplyFitments() {
               height: "4px",
               background:
                 "linear-gradient(90deg, transparent 0%, #3b82f6 25%, #8b5cf6 50%, #10b981 75%, transparent 100%)",
-              margin: "32px auto 0 auto",
+              margin: "20px auto 0 auto",
               borderRadius: "2px",
             }}
           />
@@ -751,18 +751,18 @@ export default function ApplyFitments() {
                         WebkitTextFillColor: "transparent",
                         fontWeight: 800,
                         marginBottom: "8px",
-                        fontSize: "32px",
+                        fontSize: "24px",
                         letterSpacing: "-0.01em",
                       }}
                     >
                       Upload Required Files
                     </Title>
                     <Text
-                      size="lg"
+                      size="md"
                       style={{
                         color: "#64748b",
                         fontWeight: 500,
-                        fontSize: "18px",
+                        fontSize: "16px",
                       }}
                     >
                       Upload VCDB data and Products data to proceed
@@ -1271,18 +1271,18 @@ export default function ApplyFitments() {
                         WebkitTextFillColor: "transparent",
                         fontWeight: 800,
                         marginBottom: "8px",
-                        fontSize: "32px",
+                        fontSize: "24px",
                         letterSpacing: "-0.01em",
                       }}
                     >
                       Choose Fitment Method
                     </Title>
                     <Text
-                      size="lg"
+                      size="md"
                       style={{
                         color: "#64748b",
                         fontWeight: 500,
-                        fontSize: "18px",
+                        fontSize: "16px",
                       }}
                     >
                       Select how you want to apply fitments
@@ -1471,7 +1471,7 @@ export default function ApplyFitments() {
                                 />
                               )}
                               <IconSettings
-                                size={window.innerWidth < 768 ? 32 : 48}
+                                size={24}
                                 color="white"
                                 style={{ position: "relative", zIndex: 1 }}
                               />
@@ -1490,13 +1490,13 @@ export default function ApplyFitments() {
                                   WebkitBackgroundClip: "text",
                                   WebkitTextFillColor: "transparent",
                                   fontWeight: 700,
-                                  fontSize: "clamp(18px, 4vw, 24px)",
+                                  fontSize: "18px",
                                 }}
                               >
                                 Manual Fitment
                               </Title>
                               <Text
-                                size="md"
+                                size="sm"
                                 style={{
                                   color:
                                     selectedMethod === "manual"
@@ -1659,7 +1659,7 @@ export default function ApplyFitments() {
                                 />
                               )}
                               <IconBrain
-                                size={window.innerWidth < 768 ? 32 : 48}
+                                size={24}
                                 color="white"
                                 style={{ position: "relative", zIndex: 1 }}
                               />
@@ -1678,13 +1678,13 @@ export default function ApplyFitments() {
                                   WebkitBackgroundClip: "text",
                                   WebkitTextFillColor: "transparent",
                                   fontWeight: 700,
-                                  fontSize: "clamp(18px, 4vw, 24px)",
+                                  fontSize: "18px",
                                 }}
                               >
                                 AI Fitment
                               </Title>
                               <Text
-                                size="md"
+                                size="sm"
                                 style={{
                                   color:
                                     selectedMethod === "ai"
@@ -1739,7 +1739,7 @@ export default function ApplyFitments() {
           >
             <Stack gap="lg" align="center">
               <Group gap="sm">
-                <IconCheck size={32} color="white" />
+                <IconCheck size={24} color="white" />
                 <Title order={3} c="white">
                   Fitments Applied Successfully!
                 </Title>
@@ -1812,7 +1812,7 @@ export default function ApplyFitments() {
                     justifyContent: "center",
                   }}
                 >
-                  <IconRobot size={20} color="white" />
+                  <IconRobot size={16} color="white" />
                 </div>
               </Group>
 
@@ -1887,7 +1887,7 @@ export default function ApplyFitments() {
               <Group justify="space-between">
                 <div>
                   <Group gap="sm" mb="xs">
-                    <IconBrain size={24} color="#8b5cf6" />
+                    <IconBrain size={20} color="#8b5cf6" />
                     <Title order={3} c="violet">
                       AI Generated Fitments
                     </Title>
@@ -2369,7 +2369,7 @@ export default function ApplyFitments() {
                       radius="lg"
                       style={{
                         fontWeight: 600,
-                        fontSize: "clamp(14px, 3vw, 16px)",
+                        fontSize: "14px",
                         height: "clamp(44px, 8vw, 48px)",
                         boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                         transition: "all 0.2s ease",
@@ -2474,29 +2474,29 @@ export default function ApplyFitments() {
                             />
                           </Table.Th>
                           <Table.Th
-                            style={{ fontSize: "clamp(12px, 2.5vw, 14px)" }}
+                            style={{ fontSize: "12px" }}
                           >
                             Year
                           </Table.Th>
                           <Table.Th
-                            style={{ fontSize: "clamp(12px, 2.5vw, 14px)" }}
+                            style={{ fontSize: "12px" }}
                           >
                             Make
                           </Table.Th>
                           <Table.Th
-                            style={{ fontSize: "clamp(12px, 2.5vw, 14px)" }}
+                            style={{ fontSize: "12px" }}
                             visibleFrom="md"
                           >
                             Model
                           </Table.Th>
                           <Table.Th
-                            style={{ fontSize: "clamp(12px, 2.5vw, 14px)" }}
+                            style={{ fontSize: "12px" }}
                             visibleFrom="md"
                           >
                             Submodel
                           </Table.Th>
                           <Table.Th
-                            style={{ fontSize: "clamp(12px, 2.5vw, 14px)" }}
+                            style={{ fontSize: "12px" }}
                             visibleFrom="md"
                           >
                             Drive
@@ -2526,7 +2526,7 @@ export default function ApplyFitments() {
                             </Table.Td>
                             <Table.Td
                               style={{
-                                fontSize: "clamp(11px, 2.5vw, 14px)",
+                                fontSize: "12px",
                                 padding: "clamp(8px, 2vw, 12px)",
                               }}
                             >
@@ -2534,7 +2534,7 @@ export default function ApplyFitments() {
                             </Table.Td>
                             <Table.Td
                               style={{
-                                fontSize: "clamp(11px, 2.5vw, 14px)",
+                                fontSize: "12px",
                                 padding: "clamp(8px, 2vw, 12px)",
                               }}
                             >
@@ -2542,7 +2542,7 @@ export default function ApplyFitments() {
                             </Table.Td>
                             <Table.Td
                               style={{
-                                fontSize: "clamp(11px, 2.5vw, 14px)",
+                                fontSize: "12px",
                                 padding: "clamp(8px, 2vw, 12px)",
                               }}
                               visibleFrom="md"
@@ -2551,7 +2551,7 @@ export default function ApplyFitments() {
                             </Table.Td>
                             <Table.Td
                               style={{
-                                fontSize: "clamp(11px, 2.5vw, 14px)",
+                                fontSize: "12px",
                                 padding: "clamp(8px, 2vw, 12px)",
                               }}
                               visibleFrom="md"
@@ -2677,7 +2677,7 @@ export default function ApplyFitments() {
                       size="md"
                       styles={{
                         input: {
-                          fontSize: "clamp(14px, 3vw, 16px)",
+                          fontSize: "14px",
                           height: "clamp(42px, 8vw, 48px)",
                         },
                       }}
@@ -2700,7 +2700,7 @@ export default function ApplyFitments() {
                       size="md"
                       styles={{
                         input: {
-                          fontSize: "clamp(14px, 3vw, 16px)",
+                          fontSize: "14px",
                           height: "clamp(42px, 8vw, 48px)",
                         },
                       }}
@@ -2720,7 +2720,7 @@ export default function ApplyFitments() {
                       size="md"
                       styles={{
                         input: {
-                          fontSize: "clamp(14px, 3vw, 16px)",
+                          fontSize: "14px",
                           height: "clamp(42px, 8vw, 48px)",
                         },
                       }}
@@ -2865,7 +2865,7 @@ export default function ApplyFitments() {
                       style={{
                         marginTop: "clamp(16px, 4vw, 24px)",
                         fontWeight: 600,
-                        fontSize: "clamp(14px, 3.5vw, 16px)",
+                        fontSize: "14px",
                         height: "clamp(44px, 8vw, 48px)",
                         boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                         transition: "all 0.2s ease",
