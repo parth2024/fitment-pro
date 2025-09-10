@@ -150,10 +150,7 @@ function App() {
             <Title
               order={2}
               style={{
-                background:
-                  "linear-gradient(135deg, #1e293b 0%, #3b82f6 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
+                color: "#1e293b",
                 fontWeight: 700,
                 fontSize: "24px",
                 lineHeight: 1.2,
@@ -226,13 +223,13 @@ function App() {
             height: "90px",
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
+            justifyContent: "flex-start",
             borderBottom: "1px solid #e2e8f0",
             background: "linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)",
             padding: "0 16px",
           }}
         >
-          <Group gap="sm">
+          <Group gap="sm" align="center">
             <div
               style={{
                 background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
@@ -241,21 +238,20 @@ function App() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                flexShrink: 0,
               }}
             >
               <IconCar size={16} color="white" />
             </div>
-            <div>
+            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
               <Title
                 order={4}
                 style={{
-                  background:
-                    "linear-gradient(135deg, #1e293b 0%, #3b82f6 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
+                  color: "#1e293b",
                   fontWeight: 700,
                   fontSize: "14px",
                   lineHeight: 1.2,
+                  margin: 0,
                 }}
               >
                 Fitmentpro.ai
@@ -266,6 +262,8 @@ function App() {
                 style={{
                   fontWeight: 500,
                   fontSize: "11px",
+                  lineHeight: 1,
+                  margin: 0,
                 }}
               >
                 v2.0
@@ -282,7 +280,11 @@ function App() {
             tt="uppercase"
             c="dimmed"
             mb="sm"
-            style={{ letterSpacing: "0.5px" }}
+            style={{ 
+              letterSpacing: "0.5px",
+              marginLeft: "44px",
+              lineHeight: 1.4,
+            }}
           >
             Navigation
           </Text>
