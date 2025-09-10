@@ -59,6 +59,19 @@ waitForPort = 5000
 [workflows.workflow.metadata]
 outputType = "webview"
 
+[[workflows.workflow]]
+name = "Bakend-local"
+mode = "sequential"
+author = 47355358
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd api/sdc "
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
 [[ports]]
 localPort = 5000
 externalPort = 80
