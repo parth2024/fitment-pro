@@ -54,4 +54,6 @@ urlpatterns = [
     path('api/apply/apply-fitments', apply_fitments_batch),
     # Fitment Uploads
     path('api/', include('fitment_uploads.urls')),
+    # Data Uploads
+    path('api/data-uploads/', include('data_uploads.urls')),
 ]

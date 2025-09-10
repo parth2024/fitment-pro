@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'parts',
     'fitments',
     'fitment_uploads',
+    'data_uploads',
 ]
 
 MIDDLEWARE = [

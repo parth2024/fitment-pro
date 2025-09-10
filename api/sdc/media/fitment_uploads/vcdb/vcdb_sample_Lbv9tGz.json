@@ -1,0 +1,57 @@
+[
+  {
+    "id": "1",
+    "year": 2020,
+    "make": "Toyota",
+    "model": "RAV4",
+    "submodel": "XLE",
+    "driveType": "AWD",
+    "fuelType": "Gas",
+    "numDoors": 5,
+    "bodyType": "SUV"
+  },
+  {
+    "id": "2",
+    "year": 2021,
+    "make": "Honda",
+    "model": "CR-V",
+    "submodel": "EX",
+    "driveType": "FWD",
+    "fuelType": "Gas",
+    "numDoors": 5,
+    "bodyType": "SUV"
+  },
+  {
+    "id": "3",
+    "year": 2022,
+    "make": "Ford",
+    "model": "F-150",
+    "submodel": "Lariat",
+    "driveType": "4WD",
+    "fuelType": "Gas",
+    "numDoors": 4,
+    "bodyType": "Truck"
+  },
+  {
+    "id": "4",
+    "year": 2023,
+    "make": "Jeep",
+    "model": "Wrangler",
+    "submodel": "Rubicon",
+    "driveType": "4WD",
+    "fuelType": "Gas",
+    "numDoors": 2,
+    "bodyType": "SUV"
+  },
+  {
+    "id": "5",
+    "year": 2024,
+    "make": "Tesla",
+    "model": "Model Y",
+    "submodel": "Long Range",
+    "driveType": "AWD",
+    "fuelType": "Electric",
+    "numDoors": 5,
+    "bodyType": "SUV"
+  }
+]

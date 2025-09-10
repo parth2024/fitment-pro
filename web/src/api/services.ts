@@ -237,6 +237,30 @@ export const fitmentUploadService = {
       responseType: "blob",
     });
   },
+  getUploadedProducts: (sessionId: string) =>
+    apiClient.get(`/api/uploaded-products/?session_id=${sessionId}`),
+  applyManualFitment: (fitmentData: {
+    sessionId: string;
+    vehicleIds: string[];
+    partId: string;
+    partType: string;
+    position: string;
+    quantity: number;
+    title: string;
+    description: string;
+    notes: string;
+  }) =>
+    apiClient.post("/api/apply-manual-fitment/", {
+      session_id: fitmentData.sessionId,
+      vehicle_ids: fitmentData.vehicleIds,
+      part_id: fitmentData.partId,
+      part_type: fitmentData.partType,
+      position: fitmentData.position,
+      quantity: fitmentData.quantity,
+      title: fitmentData.title,
+      description: fitmentData.description,
+      notes: fitmentData.notes,
+    }),
 };
 
 // Enhanced fitments service with export
@@ -263,4 +287,45 @@ export const djangoFitmentsService = {
       responseType: "blob",
     });
   },
+};
+
+// Data upload services
+export const dataUploadService = {
+  // Upload files
+  uploadFiles: (vcdbFile?: File, productsFile?: File) => {
+    const formData = new FormData();
+    if (vcdbFile) formData.append("vcdb_file", vcdbFile);
+    if (productsFile) formData.append("products_file", productsFile);
+    return apiClient.post("/api/data-uploads/sessions/", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+
+  // Get all sessions
+  getSessions: () => apiClient.get("/api/data-uploads/sessions/"),
+
+  // Get session details
+  getSession: (sessionId: string) =>
+    apiClient.get(`/api/data-uploads/sessions/${sessionId}/`),
+
+  // Delete session
+  deleteSession: (sessionId: string) =>
+    apiClient.delete(`/api/data-uploads/sessions/${sessionId}/`),
+
+  // Get current data status
+  getDataStatus: () => apiClient.get("/api/data-uploads/status/"),
+
+  // Replace file
+  replaceFile: (fileType: "vcdb" | "products", file: File) => {
+    const formData = new FormData();
+    formData.append("file_type", fileType);
+    formData.append("file", file);
+    return apiClient.post("/api/data-uploads/replace-file/", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+
+  // Get file data
+  getFileData: (sessionId: string, fileType: "vcdb" | "products") =>
+    apiClient.get(`/api/data-uploads/sessions/${sessionId}/data/${fileType}/`),
 };

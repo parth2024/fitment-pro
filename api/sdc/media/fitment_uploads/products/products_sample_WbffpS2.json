@@ -1,0 +1,101 @@
+[
+  {
+    "id": "WHEEL001",
+    "description": "18\" Alloy Wheel - Black Finish",
+    "category": "Wheels",
+    "partType": "Wheel",
+    "compatibility": "Universal",
+    "specifications": {
+      "diameter": "18",
+      "width": "8.5",
+      "boltPattern": "5x114.3",
+      "offset": "35"
+    }
+  },
+  {
+    "id": "BRAKE001",
+    "description": "Front Brake Rotor - Vented",
+    "category": "Brakes",
+    "partType": "Brake Rotor",
+    "compatibility": "Front",
+    "specifications": {
+      "diameter": "320mm",
+      "thickness": "28mm",
+      "material": "Cast Iron"
+    }
+  },
+  {
+    "id": "SHOCK001",
+    "description": "Front Shock Absorber - Gas Charged",
+    "category": "Suspension",
+    "partType": "Shock Absorber",
+    "compatibility": "Front",
+    "specifications": {
+      "type": "Gas Charged",
+      "travel": "6.5 inches",
+      "mounting": "Eyelet/Top Hat"
+    }
+  },
+  {
+    "id": "FILTER001",
+    "description": "Engine Air Filter - High Performance",
+    "category": "Engine",
+    "partType": "Air Filter",
+    "compatibility": "Universal",
+    "specifications": {
+      "type": "High Performance",
+      "material": "Cotton Gauze",
+      "reusable": true
+    }
+  },
+  {
+    "id": "LIGHT001",
+    "description": "LED Headlight Bulb - H11",
+    "category": "Lighting",
+    "partType": "Headlight Bulb",
+    "compatibility": "Front",
+    "specifications": {
+      "type": "LED",
+      "base": "H11",
+      "color": "6000K White",
+      "lifespan": "50000 hours"
+    }
+  },
+  {
+    "id": "TIRE001",
+    "description": "All-Season Tire - 255/55R18",
+    "category": "Tires",
+    "partType": "Tire",
+    "compatibility": "Universal",
+    "specifications": {
+      "size": "255/55R18",
+      "type": "All-Season",
+      "loadIndex": "109",
+      "speedRating": "V"
+    }
+  },
+  {
+    "id": "EXHAUST001",
+    "description": "Cat-Back Exhaust System - Stainless Steel",
+    "category": "Exhaust",
+    "partType": "Exhaust System",
+    "compatibility": "Universal",
+    "specifications": {
+      "material": "Stainless Steel",
+      "type": "Cat-Back",
+      "tips": "Dual 4\" Round"
+    }
+  },
+  {
+    "id": "SPRING001",
+    "description": "Lowering Springs - 1.5\" Drop",
+    "category": "Suspension",
+    "partType": "Spring",
+    "compatibility": "Universal",
+    "specifications": {
+      "drop": "1.5 inches",
+      "material": "Spring Steel",
+      "type": "Progressive Rate"
+    }
+  }
+]
