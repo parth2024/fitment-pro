@@ -197,10 +197,9 @@ const Analytics: React.FC = () => {
       style={{
         minHeight: "100vh",
         background: "#f8fafc",
-        padding: "24px",
       }}
     >
-      <Container size="xl">
+      <Container size="100%">
         <Stack gap="xl">
 
           {/* Key Metrics Cards */}

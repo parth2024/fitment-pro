@@ -533,10 +533,9 @@ export default function ApplyFitments() {
       style={{
         minHeight: "100vh",
         background: "#f8fafc",
-        padding: "24px",
       }}
     >
-      <Container size="xl">
+      <Container size="100%">
         <Stack gap="xl">
           {/* Step 1: File Upload Section */}
           {currentStep === 1 && (
