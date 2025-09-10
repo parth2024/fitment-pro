@@ -7,12 +7,11 @@ import {
   Stack,
   Title,
   Badge,
-  Loader,
   SimpleGrid,
   ThemeIcon,
   RingProgress,
-  Container,
   Paper,
+  Skeleton,
 } from "@mantine/core";
 import {
   IconChartBar,
@@ -176,22 +175,140 @@ const Analytics: React.FC = () => {
 
   if (loading) {
     return (
-      <Container
-        size="100%"
-        h="100vh"
+      <div
         style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          minHeight: "100vh",
         }}
       >
-        <Stack align="center" gap="md">
-          <Loader size="xl" />
-          <Text size="lg" c="dimmed">
-            Loading analytics data...
-          </Text>
+        <Stack gap="xl">
+          {/* Key Metrics Cards Skeleton */}
+          <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="lg">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Card
+                key={`skeleton-metric-${index}`}
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "12px",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                }}
+                p="lg"
+              >
+                <Group justify="space-between">
+                  <div>
+                    <Skeleton height={16} width={100} mb="xs" />
+                    <Skeleton height={32} width={80} />
+                  </div>
+                  <Skeleton height={48} width={48} radius="md" />
+                </Group>
+              </Card>
+            ))}
+          </SimpleGrid>
+
+          {/* Fitments Breakdown Skeleton */}
+          <Grid>
+            <Grid.Col span={{ base: 12, md: 6 }}>
+              <Card
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "12px",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                  height: "300px",
+                }}
+                p="lg"
+              >
+                <Stack h="100%">
+                  <Skeleton height={24} width={150} mb="lg" />
+                  <Group
+                    justify="center"
+                    gap="xl"
+                    style={{ flex: 1, alignItems: "center" }}
+                  >
+                    <Skeleton height={120} width={120} radius="50%" />
+                    <Stack gap="sm">
+                      <Skeleton height={16} width={120} />
+                      <Skeleton height={16} width={110} />
+                    </Stack>
+                  </Group>
+                </Stack>
+              </Card>
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 12, md: 6 }}>
+              <Card
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "12px",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                  height: "300px",
+                }}
+                p="lg"
+              >
+                <Stack h="100%">
+                  <Skeleton height={24} width={120} mb="lg" />
+                  <Stack gap="lg" style={{ flex: 1, justifyContent: "center" }}>
+                    {Array.from({ length: 4 }).map((_, index) => (
+                      <Group key={index} justify="space-between">
+                        <Group gap="sm">
+                          <Skeleton height={16} width={16} radius="sm" />
+                          <Skeleton height={16} width={100} />
+                        </Group>
+                        <Skeleton height={24} width={60} radius="sm" />
+                      </Group>
+                    ))}
+                  </Stack>
+                </Stack>
+              </Card>
+            </Grid.Col>
+          </Grid>
+
+          {/* Navigation Shortcuts Skeleton */}
+          <Card
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "12px",
+              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+            }}
+            p="lg"
+          >
+            <Stack gap="lg">
+              <Group justify="space-between">
+                <Skeleton height={28} width={180} />
+                <Skeleton height={32} width={100} radius="sm" />
+              </Group>
+
+              <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
+                {Array.from({ length: 8 }).map((_, index) => (
+                  <Paper
+                    key={`skeleton-nav-${index}`}
+                    p="md"
+                    style={{
+                      background: "#fefefe",
+                      border: "1px solid #f1f5f9",
+                      borderRadius: "8px",
+                      boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
+                    }}
+                  >
+                    <Stack gap="sm">
+                      <Group justify="space-between">
+                        <Skeleton height={32} width={32} radius="md" />
+                        <Skeleton height={16} width={16} />
+                      </Group>
+                      <div>
+                        <Skeleton height={16} width="80%" mb="xs" />
+                        <Skeleton height={12} width="60%" />
+                      </div>
+                    </Stack>
+                  </Paper>
+                ))}
+              </SimpleGrid>
+            </Stack>
+          </Card>
         </Stack>
-      </Container>
+      </div>
     );
   }
 
