@@ -18,6 +18,8 @@ import {
   Modal,
   Flex,
   ScrollArea,
+  Skeleton,
+  Center,
 } from "@mantine/core";
 import {
   IconSearch,
@@ -27,7 +29,6 @@ import {
   IconDots,
   IconEdit,
   IconEye,
-  IconBrain,
 } from "@tabler/icons-react";
 import { useApi } from "../hooks/useApi";
 import {
@@ -41,6 +42,7 @@ export default function Fitments() {
   const [selectedFitments, setSelectedFitments] = useState<string[]>([]);
   const [expandedView, setExpandedView] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 50;
   const [sortBy, setSortBy] = useState("partId");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -62,7 +64,6 @@ export default function Fitments() {
   // Fetch AI-generated fitments from Django backend
   const {
     data: aiFitmentsData,
-    loading: aiLoading,
     refetch: refetchAi,
   } = useApi<{ fitments: any[]; total_fitments: number }>(
     () => fitmentUploadService.getAppliedFitments(),
@@ -245,7 +246,6 @@ export default function Fitments() {
 
           {/* Table */}
           {error && <Text c="red">{error}</Text>}
-          {(loading || aiLoading) && <Text>Loading...</Text>}
           <ScrollArea>
             <Table striped highlightOnHover>
               <Table.Thead>
@@ -281,7 +281,75 @@ export default function Fitments() {
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {fitments.map((fitment) => (
+                {loading ? (
+                  // Professional loading skeleton rows
+                  Array.from({ length: 8 }).map((_, index) => (
+                    <Table.Tr key={`skeleton-${index}`}>
+                      <Table.Td>
+                        <Skeleton height={16} width={16} />
+                      </Table.Td>
+                      <Table.Td>
+                        <Skeleton height={16} width={80} />
+                      </Table.Td>
+                      <Table.Td>
+                        <Skeleton height={20} width={60} radius="sm" />
+                      </Table.Td>
+                      <Table.Td>
+                        <Stack gap="xs">
+                          <Skeleton height={14} width={150} />
+                          <Skeleton height={12} width={100} />
+                        </Stack>
+                      </Table.Td>
+                      <Table.Td>
+                        <Skeleton height={16} width={90} />
+                      </Table.Td>
+                      <Table.Td>
+                        <Skeleton height={16} width={70} />
+                      </Table.Td>
+                      <Table.Td>
+                        <Skeleton height={16} width={120} />
+                      </Table.Td>
+                      {expandedView && (
+                        <>
+                          <Table.Td>
+                            <Skeleton height={16} width={150} />
+                          </Table.Td>
+                          <Table.Td>
+                            <Skeleton height={16} width={40} />
+                          </Table.Td>
+                          <Table.Td>
+                            <Skeleton height={16} width={60} />
+                          </Table.Td>
+                          <Table.Td>
+                            <Skeleton height={16} width={80} />
+                          </Table.Td>
+                          <Table.Td>
+                            <Skeleton height={16} width={90} />
+                          </Table.Td>
+                        </>
+                      )}
+                      <Table.Td>
+                        <Skeleton height={24} width={24} radius="sm" />
+                      </Table.Td>
+                    </Table.Tr>
+                  ))
+                ) : fitments.length === 0 ? (
+                  <Table.Tr>
+                    <Table.Td colSpan={expandedView ? 12 : 8}>
+                      <Center py="xl">
+                        <Stack align="center" gap="md">
+                          <Text size="lg" c="dimmed">
+                            No fitments found
+                          </Text>
+                          <Text size="sm" c="dimmed">
+                            Try adjusting your search criteria or filters
+                          </Text>
+                        </Stack>
+                      </Center>
+                    </Table.Td>
+                  </Table.Tr>
+                ) : (
+                  fitments.map((fitment) => (
                   <Table.Tr key={fitment.hash}>
                     <Table.Td>
                       <Checkbox
@@ -361,23 +429,45 @@ export default function Fitments() {
                       </Menu>
                     </Table.Td>
                   </Table.Tr>
-                ))}
+                  ))
+                )}
               </Table.Tbody>
             </Table>
           </ScrollArea>
 
           {/* Pagination */}
-          <Flex justify="space-between" align="center">
-            <Text size="sm" c="dimmed">
-              Showing 1-{fitments.length} of{" "}
-              {data?.totalCount ?? fitments.length} fitments
-            </Text>
-            <Pagination
-              value={currentPage}
-              onChange={setCurrentPage}
-              total={5}
-            />
-          </Flex>
+          {!loading && (
+            <Flex justify="space-between" align="center">
+              <Text size="sm" c="dimmed">
+                {data?.totalCount ? (
+                  <>
+                    Showing {((currentPage - 1) * pageSize) + 1}-
+                    {Math.min(currentPage * pageSize, data.totalCount)} of{" "}
+                    {data.totalCount} fitments
+                  </>
+                ) : (
+                  `${fitments.length} fitments`
+                )}
+              </Text>
+              {data?.totalCount && data.totalCount > pageSize && (
+                <Pagination
+                  value={currentPage}
+                  onChange={setCurrentPage}
+                  total={Math.ceil(data.totalCount / pageSize)}
+                  size="sm"
+                  withEdges
+                  styles={{
+                    control: {
+                      '&[data-active]': {
+                        background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+                        borderColor: 'transparent',
+                      },
+                    },
+                  }}
+                />
+              )}
+            </Flex>
+          )}
         </Stack>
       </Card>
 

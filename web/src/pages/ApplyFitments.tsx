@@ -57,7 +57,7 @@ export default function ApplyFitments() {
 
   // Step management for UI flow
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1); // 1 = Upload Files, 2 = Choose Method, 3 = Manual Method, 4 = AI Method
-  
+
   // Navigation handlers
   const handleBackToUpload = () => {
     setCurrentStep(1);
@@ -65,7 +65,7 @@ export default function ApplyFitments() {
     setUploadProgress(0);
     setSelectedMethod(null);
   };
-  
+
   const handleBackToMethodSelection = () => {
     setCurrentStep(2);
     setSelectedMethod(null);
@@ -74,12 +74,12 @@ export default function ApplyFitments() {
     setAiProgress(0);
     setAiLogs([]);
   };
-  
+
   const handleManualMethodClick = () => {
     setSelectedMethod("manual");
     setCurrentStep(3);
   };
-  
+
   const handleAiMethodClick = () => {
     setSelectedMethod("ai");
     setCurrentStep(4);
@@ -754,8 +754,9 @@ export default function ApplyFitments() {
                           background: "#f1f5f9",
                         },
                         section: {
-                          background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)"
-                        }
+                          background:
+                            "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                        },
                       }}
                     />
                   </Stack>
@@ -786,7 +787,8 @@ export default function ApplyFitments() {
                     !vcdbFile || !productsFile || uploadStatus === "uploading"
                   }
                   style={{
-                    background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                    background:
+                      "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
                     border: "none",
                     borderRadius: "8px",
                     fontSize: "16px",
@@ -797,12 +799,13 @@ export default function ApplyFitments() {
                     transition: "all 0.2s ease",
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = "translateY(-1px)"
-                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(59, 130, 246, 0.3)"
+                    e.currentTarget.style.transform = "translateY(-1px)";
+                    e.currentTarget.style.boxShadow =
+                      "0 4px 12px rgba(59, 130, 246, 0.3)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = "translateY(0)"
-                    e.currentTarget.style.boxShadow = "none"
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = "none";
                   }}
                 >
                   Upload Files
@@ -838,7 +841,7 @@ export default function ApplyFitments() {
                   Back to Upload
                 </Button>
               </Group>
-              
+
               <div>
                 <Title order={2} c="#1e293b" fw={600} mb="xs">
                   Choose Fitment Method
@@ -949,7 +952,6 @@ export default function ApplyFitments() {
                   </Stack>
                 </Card>
               </SimpleGrid>
-
             </Stack>
           </Card>
         )}
@@ -980,13 +982,14 @@ export default function ApplyFitments() {
                   Back to Method Selection
                 </Button>
               </Group>
-              
+
               <div>
                 <Title order={2} c="#1e293b" fw={600} mb="xs">
                   Manual Fitment Configuration
                 </Title>
                 <Text size="md" c="#64748b">
-                  Configure fitments manually with full control over each setting
+                  Configure fitments manually with full control over each
+                  setting
                 </Text>
               </div>
 
@@ -996,7 +999,8 @@ export default function ApplyFitments() {
                   🚧 Manual Method Stepper (Coming Soon)
                 </Text>
                 <Text c="#64748b">
-                  This will contain a professional stepper interface for manual fitment configuration.
+                  This will contain a professional stepper interface for manual
+                  fitment configuration.
                 </Text>
               </div>
             </Stack>
@@ -1029,13 +1033,14 @@ export default function ApplyFitments() {
                   Back to Method Selection
                 </Button>
               </Group>
-              
+
               <div>
                 <Title order={2} c="#1e293b" fw={600} mb="xs">
                   AI Fitment Generation
                 </Title>
                 <Text size="md" c="#64748b">
-                  Let our AI automatically generate optimal fitments based on your data
+                  Let our AI automatically generate optimal fitments based on
+                  your data
                 </Text>
               </div>
 
@@ -1048,7 +1053,8 @@ export default function ApplyFitments() {
                     variant="filled"
                     onClick={handleAiFitment}
                     style={{
-                      background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                      background:
+                        "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
                       border: "none",
                       borderRadius: "8px",
                       fontSize: "16px",
@@ -1059,12 +1065,13 @@ export default function ApplyFitments() {
                       transition: "all 0.2s ease",
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = "translateY(-1px)"
-                      e.currentTarget.style.boxShadow = "0 4px 12px rgba(59, 130, 246, 0.3)"
+                      e.currentTarget.style.transform = "translateY(-1px)";
+                      e.currentTarget.style.boxShadow =
+                        "0 4px 12px rgba(59, 130, 246, 0.3)";
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = "translateY(0)"
-                      e.currentTarget.style.boxShadow = "none"
+                      e.currentTarget.style.transform = "translateY(0)";
+                      e.currentTarget.style.boxShadow = "none";
                     }}
                   >
                     Generate AI Fitments
@@ -1107,8 +1114,9 @@ export default function ApplyFitments() {
                     background: "#f1f5f9",
                   },
                   section: {
-                    background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)"
-                  }
+                    background:
+                      "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                  },
                 }}
                 animated
                 style={{ marginBottom: "16px" }}
@@ -1135,77 +1143,6 @@ export default function ApplyFitments() {
                   ))}
                 </Stack>
               </ScrollArea>
-            </Stack>
-          </Card>
-        )}
-
-        {/* AI Results Display (only show on step 4 when complete) */}
-        {currentStep === 4 && aiFitments.length > 0 && (
-          <Card
-            style={{
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "12px",
-              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-            }}
-            p="xl"
-          >
-            <Stack gap="lg">
-              <Group justify="space-between">
-                <div>
-                  <Title order={3} c="#1e293b" fw={600}>
-                    AI Generated Fitments
-                  </Title>
-                  <Text size="sm" c="#64748b">
-                    Review and select fitments to apply
-                  </Text>
-                </div>
-                <Group gap="sm">
-                  <Group gap="xs">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleExportFitments("csv")}
-                    >
-                      CSV
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleExportFitments("xlsx")}
-                    >
-                      XLSX
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleExportFitments("json")}
-                    >
-                      JSON
-                    </Button>
-                  </Group>
-                  <Button
-                    variant="filled"
-                    style={{
-                      background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                      border: "none",
-                    }}
-                    size="sm"
-                    onClick={handleApplyAiFitments}
-                    disabled={selectedAiFitments.length === 0}
-                    loading={applyingFitment}
-                  >
-                    Apply Selected ({selectedAiFitments.length})
-                  </Button>
-                </Group>
-              </Group>
-
-              {/* AI Fitments Table content */}
-              <div>
-                <Text size="md" c="#64748b">
-                  AI Fitments table content will be displayed here...
-                </Text>
-              </div>
             </Stack>
           </Card>
         )}
