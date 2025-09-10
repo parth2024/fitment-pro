@@ -149,7 +149,7 @@ function App() {
                   marginBottom: "2px",
                 }}
               >
-                Mass Fitment Tool
+                Fitmentpro.ai
               </Title>
               <Badge
                 variant="gradient"
@@ -255,7 +255,7 @@ function App() {
                   lineHeight: 1.2,
                 }}
               >
-                MFT
+                Fitmentpro.ai
               </Title>
               <Text
                 size="xs"

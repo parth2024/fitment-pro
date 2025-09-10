@@ -1,8 +1,8 @@
-# Mass Fitment Tool (MFT) v2.0
+# Fitmentpro.ai v2.0
 
 ## Overview
 
-The Mass Fitment Tool is a comprehensive automotive parts fitment management system that enables users to manage vehicle-part compatibility data. The application facilitates the mapping of automotive parts to specific vehicle configurations using the Vehicle Configuration Database (VCDB) standard. Key functionality includes applying fitments to vehicle configurations, managing bulk fitment uploads via CSV, analyzing coverage statistics, discovering potential fitments through similarity algorithms, and comprehensive administrative controls for data import/export operations.
+Fitmentpro.ai is a comprehensive automotive parts fitment management system that enables users to manage vehicle-part compatibility data. The application facilitates the mapping of automotive parts to specific vehicle configurations using the Vehicle Configuration Database (VCDB) standard. Key functionality includes applying fitments to vehicle configurations, managing bulk fitment uploads via CSV, analyzing coverage statistics, discovering potential fitments through similarity algorithms, and comprehensive administrative controls for data import/export operations.
 
 ## User Preferences
 
