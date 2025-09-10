@@ -261,7 +261,7 @@ const Analytics: React.FC = () => {
                     Total Fitments
                   </Text>
                   <Title order={2} c="white">
-                    {data?.totalFitments.toLocaleString()}
+                    {data?.totalFitments?.toLocaleString() || "0"}
                   </Title>
                 </div>
                 <ThemeIcon size={48} radius="md" variant="light" color="blue">
@@ -284,7 +284,7 @@ const Analytics: React.FC = () => {
                     Total Parts
                   </Text>
                   <Title order={2} c="white">
-                    {data?.totalParts.toLocaleString()}
+                    {data?.totalParts?.toLocaleString() || "0"}
                   </Title>
                 </div>
                 <ThemeIcon size={48} radius="md" variant="light" color="green">
@@ -307,7 +307,7 @@ const Analytics: React.FC = () => {
                     Vehicle Configs
                   </Text>
                   <Title order={2} c="white">
-                    {data?.totalVehicles.toLocaleString()}
+                    {data?.totalVehicles?.toLocaleString() || "0"}
                   </Title>
                 </div>
                 <ThemeIcon size={48} radius="md" variant="light" color="orange">
@@ -330,7 +330,7 @@ const Analytics: React.FC = () => {
                     Recent Activity
                   </Text>
                   <Title order={2} c="white">
-                    {data?.recentActivity.toLocaleString()}
+                    {data?.recentActivity?.toLocaleString() || "0"}
                   </Title>
                 </div>
                 <ThemeIcon size={48} radius="md" variant="light" color="purple">
@@ -368,7 +368,7 @@ const Analytics: React.FC = () => {
                         ]}
                         label={
                           <Text ta="center" fw={700} size="lg" c="white">
-                            {data?.totalFitments}
+                            {data?.totalFitments || 0}
                           </Text>
                         }
                       />
@@ -385,7 +385,7 @@ const Analytics: React.FC = () => {
                           }}
                         />
                         <Text size="sm" c="white">
-                          Manual: {data?.manualFitments} ({manualPercentage}%)
+                          Manual: {data?.manualFitments || 0} ({manualPercentage}%)
                         </Text>
                       </Group>
                       
@@ -399,7 +399,7 @@ const Analytics: React.FC = () => {
                           }}
                         />
                         <Text size="sm" c="white">
-                          AI-Based: {data?.aiFitments} ({aiPercentage}%)
+                          AI-Based: {data?.aiFitments || 0} ({aiPercentage}%)
                         </Text>
                       </Group>
                     </Stack>
@@ -430,7 +430,7 @@ const Analytics: React.FC = () => {
                         <Text size="sm" c="white">Manual Fitments</Text>
                       </Group>
                       <Badge variant="light" color="blue" size="lg">
-                        {data?.manualFitments}
+                        {data?.manualFitments || 0}
                       </Badge>
                     </Group>
                     
@@ -440,7 +440,7 @@ const Analytics: React.FC = () => {
                         <Text size="sm" c="white">AI-Generated</Text>
                       </Group>
                       <Badge variant="light" color="violet" size="lg">
-                        {data?.aiFitments}
+                        {data?.aiFitments || 0}
                       </Badge>
                     </Group>
                     
