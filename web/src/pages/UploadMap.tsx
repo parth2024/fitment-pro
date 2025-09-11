@@ -6,7 +6,6 @@ import {
   Button,
   Group,
   Stack,
-  Alert,
   Table,
   Badge,
   Center,
@@ -18,7 +17,7 @@ import {
   IconChecks,
   IconCheck,
 } from "@tabler/icons-react";
-import { uploadsService, presetsService } from "../api/services";
+import { uploadsService } from "../api/services";
 
 export default function UploadMap() {
   const [file, setFile] = useState<File | null>(null);

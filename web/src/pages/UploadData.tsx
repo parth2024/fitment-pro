@@ -6,11 +6,8 @@ import {
   Button,
   Group,
   Stack,
-  FileInput,
   Progress,
-  Alert,
   Badge,
-  Box,
   ThemeIcon,
   ActionIcon,
   Modal,
@@ -349,32 +346,6 @@ export default function UploadData() {
     },
     []
   );
-
-  const validateFileType = (file: File, type: "vcdb" | "products") => {
-    const validExtensions = [".csv", ".xlsx", ".xls", ".json"];
-    const fileExtension = file.name
-      .toLowerCase()
-      .substring(file.name.lastIndexOf("."));
-
-    if (!validExtensions.includes(fileExtension)) {
-      return false;
-    }
-
-    // Additional validation based on file type
-    if (type === "vcdb") {
-      return (
-        file.name.toLowerCase().includes("vcdb") ||
-        file.name.toLowerCase().includes("vehicle") ||
-        validExtensions.includes(fileExtension)
-      );
-    } else {
-      return (
-        file.name.toLowerCase().includes("product") ||
-        file.name.toLowerCase().includes("part") ||
-        validExtensions.includes(fileExtension)
-      );
-    }
-  };
 
   console.log("uploadedFiles", uploadedFiles);
 
