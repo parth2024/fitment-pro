@@ -1484,7 +1484,6 @@ export default function ApplyFitments() {
                                         sessionId: selectedSession,
                                         vehicleIds: selectedVehicles,
                                         partId: fitmentDetails.partId,
-                                        partType: fitmentDetails.partType,
                                         position: fitmentDetails.position,
                                         quantity: fitmentDetails.quantity,
                                         title: fitmentDetails.title,
