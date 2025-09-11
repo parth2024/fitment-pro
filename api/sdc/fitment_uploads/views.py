@@ -634,6 +634,165 @@ def export_ai_fitments(request):
         )
 
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_session_dropdown_data(request, session_id):
+    """Get dropdown data for manual fitment based on session files"""
+    try:
+        # Get session
+        try:
+            session = FitmentUploadSession.objects.get(id=session_id)
+        except FitmentUploadSession.DoesNotExist:
+            return Response(
+                {'error': 'Session not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Parse VCDB data to get unique values for dropdowns
+        vcdb_data = parse_file_data(session.vcdb_file)
+        
+        # Extract unique values for each field
+        years = sorted(list(set([item.get('year') for item in vcdb_data if item.get('year')])))
+        makes = sorted(list(set([item.get('make') for item in vcdb_data if item.get('make')])))
+        models = sorted(list(set([item.get('model') for item in vcdb_data if item.get('model')])))
+        submodels = sorted(list(set([item.get('submodel') for item in vcdb_data if item.get('submodel')])))
+        drive_types = sorted(list(set([item.get('driveType') for item in vcdb_data if item.get('driveType')])))
+        fuel_types = sorted(list(set([item.get('fuelType') for item in vcdb_data if item.get('fuelType')])))
+        num_doors = sorted(list(set([item.get('numDoors') for item in vcdb_data if item.get('numDoors')])))
+        body_types = sorted(list(set([item.get('bodyType') for item in vcdb_data if item.get('bodyType')])))
+        
+        # Parse Products data to get unique part information
+        products_data = parse_file_data(session.products_file)
+        
+        # Extract unique part information
+        part_ids = sorted(list(set([item.get('id') or item.get('partId') or item.get('part_id') for item in products_data if item.get('id') or item.get('partId') or item.get('part_id')])))
+        part_descriptions = sorted(list(set([item.get('description') or item.get('partDescription') or item.get('part_description') for item in products_data if item.get('description') or item.get('partDescription') or item.get('part_description')])))
+        
+        # Create dropdown options
+        dropdown_data = {
+            'years': [{'value': str(year), 'label': str(year)} for year in years],
+            'makes': [{'value': make, 'label': make} for make in makes],
+            'models': [{'value': model, 'label': model} for model in models],
+            'submodels': [{'value': submodel, 'label': submodel} for submodel in submodels],
+            'drive_types': [{'value': drive_type, 'label': drive_type} for drive_type in drive_types],
+            'fuel_types': [{'value': fuel_type, 'label': fuel_type} for fuel_type in fuel_types],
+            'num_doors': [{'value': str(num_door), 'label': f"{num_door} Doors"} for num_door in num_doors],
+            'body_types': [{'value': body_type, 'label': body_type} for body_type in body_types],
+            'parts': [{'value': part_id, 'label': f"{part_id} - {desc}"} for part_id, desc in zip(part_ids, part_descriptions) if part_id and desc],
+            'part_types': [
+                {'value': 'Engine', 'label': 'Engine'},
+                {'value': 'Transmission', 'label': 'Transmission'},
+                {'value': 'Brake', 'label': 'Brake'},
+                {'value': 'Suspension', 'label': 'Suspension'},
+                {'value': 'Exhaust', 'label': 'Exhaust'},
+                {'value': 'Electrical', 'label': 'Electrical'},
+                {'value': 'Body', 'label': 'Body'},
+                {'value': 'Interior', 'label': 'Interior'},
+                {'value': 'Other', 'label': 'Other'},
+            ],
+            'positions': [
+                {'value': 'Front', 'label': 'Front'},
+                {'value': 'Rear', 'label': 'Rear'},
+                {'value': 'Left', 'label': 'Left'},
+                {'value': 'Right', 'label': 'Right'},
+                {'value': 'Top', 'label': 'Top'},
+                {'value': 'Bottom', 'label': 'Bottom'},
+                {'value': 'Universal', 'label': 'Universal'},
+            ]
+        }
+        
+        return Response({
+            'session_id': str(session_id),
+            'dropdown_data': dropdown_data,
+            'total_vcdb_records': len(vcdb_data),
+            'total_products_records': len(products_data)
+        })
+        
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to get dropdown data: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def get_filtered_vehicles(request):
+    """Get filtered vehicles based on criteria from session data"""
+    try:
+        session_id = request.data.get('session_id')
+        filters = request.data.get('filters', {})
+        
+        if not session_id:
+            return Response(
+                {'error': 'Session ID is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get session
+        try:
+            session = FitmentUploadSession.objects.get(id=session_id)
+        except FitmentUploadSession.DoesNotExist:
+            return Response(
+                {'error': 'Session not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Parse VCDB data
+        vcdb_data = parse_file_data(session.vcdb_file)
+        
+        # Apply filters
+        filtered_vehicles = []
+        for vehicle in vcdb_data:
+            # Check each filter
+            matches = True
+            
+            if filters.get('yearFrom') and vehicle.get('year', 0) < int(filters['yearFrom']):
+                matches = False
+            if filters.get('yearTo') and vehicle.get('year', 0) > int(filters['yearTo']):
+                matches = False
+            if filters.get('make') and filters['make'].lower() not in vehicle.get('make', '').lower():
+                matches = False
+            if filters.get('model') and filters['model'].lower() not in vehicle.get('model', '').lower():
+                matches = False
+            if filters.get('submodel') and filters['submodel'].lower() not in vehicle.get('submodel', '').lower():
+                matches = False
+            if filters.get('driveType') and vehicle.get('driveType') != filters['driveType']:
+                matches = False
+            if filters.get('fuelType') and vehicle.get('fuelType') != filters['fuelType']:
+                matches = False
+            if filters.get('numDoors') and str(vehicle.get('numDoors', '')) != filters['numDoors']:
+                matches = False
+            if filters.get('bodyType') and vehicle.get('bodyType') != filters['bodyType']:
+                matches = False
+            
+            if matches:
+                filtered_vehicles.append({
+                    'id': vehicle.get('id'),
+                    'year': vehicle.get('year'),
+                    'make': vehicle.get('make'),
+                    'model': vehicle.get('model'),
+                    'submodel': vehicle.get('submodel'),
+                    'driveType': vehicle.get('driveType'),
+                    'fuelType': vehicle.get('fuelType'),
+                    'numDoors': vehicle.get('numDoors'),
+                    'bodyType': vehicle.get('bodyType'),
+                })
+        
+        return Response({
+            'session_id': str(session_id),
+            'vehicles': filtered_vehicles,
+            'total_count': len(filtered_vehicles),
+            'filters_applied': filters
+        })
+        
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to get filtered vehicles: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
 def parse_file_data(file):
     """Parse uploaded file based on extension"""
     try:

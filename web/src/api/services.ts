@@ -251,6 +251,13 @@ export const fitmentUploadService = {
   },
   getUploadedProducts: (sessionId: string) =>
     apiClient.get(`/api/uploaded-products/?session_id=${sessionId}`),
+  getSessionDropdownData: (sessionId: string) =>
+    apiClient.get(`/api/session/${sessionId}/dropdown-data/`),
+  getFilteredVehicles: (sessionId: string, filters: any) =>
+    apiClient.post("/api/filtered-vehicles/", {
+      session_id: sessionId,
+      filters: filters,
+    }),
   applyManualFitment: (fitmentData: {
     sessionId: string;
     vehicleIds: string[];
