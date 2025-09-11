@@ -664,9 +664,23 @@ def get_session_dropdown_data(request, session_id):
         # Parse Products data to get unique part information
         products_data = parse_file_data(session.products_file)
         
-        # Extract unique part information
-        part_ids = sorted(list(set([item.get('id') or item.get('partId') or item.get('part_id') for item in products_data if item.get('id') or item.get('partId') or item.get('part_id')])))
-        part_descriptions = sorted(list(set([item.get('description') or item.get('partDescription') or item.get('part_description') for item in products_data if item.get('description') or item.get('partDescription') or item.get('part_description')])))
+        # Extract unique part information with better structure
+        parts = []
+        for item in products_data:
+            part_id = item.get('id') or item.get('partId') or item.get('part_id')
+            description = item.get('description') or item.get('partDescription') or item.get('part_description')
+            if part_id and description:
+                parts.append({
+                    'value': part_id,
+                    'label': f"{part_id} - {description}",
+                    'description': description,
+                    'category': item.get('category', ''),
+                    'partType': item.get('partType', ''),
+                    'compatibility': item.get('compatibility', 'Universal')
+                })
+        
+        # Extract unique compatibility positions from products
+        compatibility_positions = sorted(list(set([item.get('compatibility', 'Universal') for item in products_data if item.get('compatibility')])))
         
         # Create dropdown options
         dropdown_data = {
@@ -678,27 +692,8 @@ def get_session_dropdown_data(request, session_id):
             'fuel_types': [{'value': fuel_type, 'label': fuel_type} for fuel_type in fuel_types],
             'num_doors': [{'value': str(num_door), 'label': f"{num_door} Doors"} for num_door in num_doors],
             'body_types': [{'value': body_type, 'label': body_type} for body_type in body_types],
-            'parts': [{'value': part_id, 'label': f"{part_id} - {desc}"} for part_id, desc in zip(part_ids, part_descriptions) if part_id and desc],
-            'part_types': [
-                {'value': 'Engine', 'label': 'Engine'},
-                {'value': 'Transmission', 'label': 'Transmission'},
-                {'value': 'Brake', 'label': 'Brake'},
-                {'value': 'Suspension', 'label': 'Suspension'},
-                {'value': 'Exhaust', 'label': 'Exhaust'},
-                {'value': 'Electrical', 'label': 'Electrical'},
-                {'value': 'Body', 'label': 'Body'},
-                {'value': 'Interior', 'label': 'Interior'},
-                {'value': 'Other', 'label': 'Other'},
-            ],
-            'positions': [
-                {'value': 'Front', 'label': 'Front'},
-                {'value': 'Rear', 'label': 'Rear'},
-                {'value': 'Left', 'label': 'Left'},
-                {'value': 'Right', 'label': 'Right'},
-                {'value': 'Top', 'label': 'Top'},
-                {'value': 'Bottom', 'label': 'Bottom'},
-                {'value': 'Universal', 'label': 'Universal'},
-            ]
+            'parts': parts,
+            'positions': [{'value': pos, 'label': pos} for pos in compatibility_positions]
         }
         
         return Response({
@@ -789,6 +784,126 @@ def get_filtered_vehicles(request):
     except Exception as e:
         return Response(
             {'error': f'Failed to get filtered vehicles: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def apply_manual_fitment(request):
+    """Apply manual fitment with permutations/combinations"""
+    try:
+        session_id = request.data.get('session_id')
+        vehicle_ids = request.data.get('vehicle_ids', [])
+        part_id = request.data.get('part_id')
+        position = request.data.get('position')
+        quantity = request.data.get('quantity', 1)
+        title = request.data.get('title', '')
+        description = request.data.get('description', '')
+        notes = request.data.get('notes', '')
+        
+        if not session_id or not vehicle_ids or not part_id:
+            return Response(
+                {'error': 'Session ID, vehicle IDs, and part ID are required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get session
+        try:
+            session = FitmentUploadSession.objects.get(id=session_id)
+        except FitmentUploadSession.DoesNotExist:
+            return Response(
+                {'error': 'Session not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Parse VCDB data to get vehicle details
+        vcdb_data = parse_file_data(session.vcdb_file)
+        vcdb_dict = {str(item.get('id')): item for item in vcdb_data}
+        
+        # Parse Products data to get part details
+        products_data = parse_file_data(session.products_file)
+        part_data = None
+        for item in products_data:
+            if item.get('id') == part_id or item.get('partId') == part_id or item.get('part_id') == part_id:
+                part_data = item
+                break
+        
+        if not part_data:
+            return Response(
+                {'error': 'Part not found in uploaded products'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create fitments for each selected vehicle
+        applied_fitments = []
+        created_fitments = []
+        
+        for vehicle_id in vehicle_ids:
+            vehicle_data = vcdb_dict.get(str(vehicle_id))
+            if not vehicle_data:
+                continue
+            
+            # Create AppliedFitment record
+            applied_fitment = AppliedFitment.objects.create(
+                session=session,
+                part_id=part_id,
+                part_description=part_data.get('description', ''),
+                year=vehicle_data.get('year'),
+                make=vehicle_data.get('make'),
+                model=vehicle_data.get('model'),
+                submodel=vehicle_data.get('submodel'),
+                drive_type=vehicle_data.get('driveType'),
+                position=position or 'Universal',
+                quantity=quantity,
+                title=title or f"Manual Fitment - {part_id}",
+                description=description,
+                notes=notes
+            )
+            applied_fitments.append(applied_fitment)
+            
+            # Create Fitment record
+            fitment = Fitment.objects.create(
+                hash=uuid.uuid4().hex,
+                partId=part_id,
+                itemStatus='Active',
+                itemStatusCode=0,
+                baseVehicleId=str(vehicle_id),
+                year=vehicle_data.get('year'),
+                makeName=vehicle_data.get('make'),
+                modelName=vehicle_data.get('model'),
+                subModelName=vehicle_data.get('submodel'),
+                driveTypeName=vehicle_data.get('driveType'),
+                fuelTypeName=vehicle_data.get('fuelType', 'Gas'),
+                bodyNumDoors=vehicle_data.get('numDoors', 4),
+                bodyTypeName=vehicle_data.get('bodyType', 'Sedan'),
+                ptid='PT-22',  # Default part type ID
+                partTypeDescriptor=part_data.get('description', ''),
+                uom='EA',  # Each
+                quantity=quantity,
+                fitmentTitle=title or f"Manual Fitment - {part_id}",
+                fitmentDescription=description,
+                fitmentNotes=notes,
+                position=position or 'Universal',
+                positionId=1,  # Default position ID
+                liftHeight='Stock',  # Default value
+                wheelType='Alloy',  # Default value
+                createdBy='manual_user',
+                updatedBy='manual_user'
+            )
+            created_fitments.append(fitment)
+        
+        return Response({
+            'message': f'Successfully applied fitment to {len(applied_fitments)} vehicles',
+            'applied_count': len(applied_fitments),
+            'session_id': str(session_id),
+            'part_id': part_id,
+            'vehicles_processed': len(vehicle_ids)
+        })
+        
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to apply manual fitment: {str(e)}'}, 
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 

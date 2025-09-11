@@ -40,7 +40,6 @@ import {
   IconRefresh,
   IconSearch,
   IconPackage,
-  IconTag,
   IconMapPin,
   IconHash,
 } from "@tabler/icons-react";
@@ -154,7 +153,6 @@ export default function ApplyFitments() {
   const [selectedVehicles, setSelectedVehicles] = useState<string[]>([]);
   const [fitmentDetails, setFitmentDetails] = useState({
     partId: "",
-    partType: "",
     position: "",
     quantity: 1,
     title: "",
@@ -1774,57 +1772,6 @@ export default function ApplyFitments() {
                                   }}
                                 />
                                 <Select
-                                  label="Part Type"
-                                  placeholder={
-                                    loadingDropdownData
-                                      ? "Loading part types..."
-                                      : "Select part type"
-                                  }
-                                  data={dropdownData?.part_types || []}
-                                  disabled={loadingDropdownData}
-                                  value={fitmentDetails.partType}
-                                  onChange={(value) =>
-                                    setFitmentDetails((prev) => ({
-                                      ...prev,
-                                      partType: value || "",
-                                    }))
-                                  }
-                                  searchable
-                                  leftSection={
-                                    <IconTag size={16} color="#64748b" />
-                                  }
-                                  styles={{
-                                    label: {
-                                      fontWeight: 600,
-                                      fontSize: "13px",
-                                      color: "#374151",
-                                      marginBottom: "8px",
-                                      textTransform: "uppercase",
-                                      letterSpacing: "0.5px",
-                                    },
-                                    input: {
-                                      borderRadius: "10px",
-                                      border: "2px solid #e2e8f0",
-                                      fontSize: "14px",
-                                      height: "48px",
-                                      paddingLeft: "40px",
-                                      transition:
-                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      backgroundColor: "#fafafa",
-                                      "&:focus": {
-                                        borderColor: "#3b82f6",
-                                        boxShadow:
-                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                                        backgroundColor: "#ffffff",
-                                      },
-                                      "&:hover": {
-                                        borderColor: "#cbd5e1",
-                                        backgroundColor: "#ffffff",
-                                      },
-                                    },
-                                  }}
-                                />
-                                <Select
                                   label="Position"
                                   placeholder="Select position"
                                   data={dropdownData?.positions || []}
@@ -2080,21 +2027,62 @@ export default function ApplyFitments() {
                               <Button
                                 size="md"
                                 leftSection={<IconSettings size={16} />}
-                                onClick={() => {
-                                  // Simulate applying fitment
-                                  setApplyingManualFitment(true);
-                                  setTimeout(() => {
-                                    setApplyingManualFitment(false);
-                                    showSuccess(
-                                      `Applied fitment to ${selectedVehicles.length} vehicles`
+                                onClick={async () => {
+                                  if (!sessionId) {
+                                    showError("Session not found");
+                                    return;
+                                  }
+
+                                  if (!fitmentDetails.partId) {
+                                    showError("Please select a part");
+                                    return;
+                                  }
+
+                                  if (selectedVehicles.length === 0) {
+                                    showError(
+                                      "Please select at least one vehicle"
                                     );
-                                    handleBackToMethodSelection();
-                                  }, 2000);
+                                    return;
+                                  }
+
+                                  setApplyingManualFitment(true);
+                                  try {
+                                    const result: any = await applyFitment(() =>
+                                      fitmentUploadService.applyManualFitment({
+                                        sessionId: sessionId,
+                                        vehicleIds: selectedVehicles,
+                                        partId: fitmentDetails.partId,
+                                        position: fitmentDetails.position,
+                                        quantity: fitmentDetails.quantity,
+                                        title: fitmentDetails.title,
+                                        description: fitmentDetails.description,
+                                        notes: fitmentDetails.notes,
+                                      })
+                                    );
+
+                                    if (result && result.data) {
+                                      showSuccess(
+                                        `Successfully applied fitment to ${result.data.applied_count} vehicles!`,
+                                        5000
+                                      );
+                                      handleBackToMethodSelection();
+                                    } else {
+                                      showError("Failed to apply fitment");
+                                    }
+                                  } catch (error) {
+                                    console.error(
+                                      "Apply fitment error:",
+                                      error
+                                    );
+                                    showError("Failed to apply fitment");
+                                  } finally {
+                                    setApplyingManualFitment(false);
+                                  }
                                 }}
                                 loading={applyingManualFitment}
                                 disabled={
                                   !fitmentDetails.partId ||
-                                  !fitmentDetails.partType
+                                  selectedVehicles.length === 0
                                 }
                                 style={{
                                   borderRadius: "10px",

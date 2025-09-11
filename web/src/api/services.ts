@@ -262,18 +262,16 @@ export const fitmentUploadService = {
     sessionId: string;
     vehicleIds: string[];
     partId: string;
-    partType: string;
     position: string;
     quantity: number;
     title: string;
     description: string;
     notes: string;
   }) =>
-    apiClient.post("/api/data-uploads/apply-manual-fitment/", {
+    apiClient.post("/api/apply-manual-fitment/", {
       session_id: fitmentData.sessionId,
       vehicle_ids: fitmentData.vehicleIds,
       part_id: fitmentData.partId,
-      part_type: fitmentData.partType,
       position: fitmentData.position,
       quantity: fitmentData.quantity,
       title: fitmentData.title,
