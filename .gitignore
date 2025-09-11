@@ -5,6 +5,8 @@ __pycache__/
 
 # C extensions
 *.so
+web/node_modules/
+web/dist/
 
 # Distribution / packaging
 .Python
