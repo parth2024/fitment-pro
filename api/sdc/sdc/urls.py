@@ -19,7 +19,7 @@ from django.urls import path, include
 from tenants.views import TenantListCreateView
 from vcdb.views import version, year_range, configurations
 from parts.views import list_parts, list_part_types
-from fitments.views import export_fitments_advanced_csv, export_fitments_advanced_xlsx, fitments_root, coverage, property_values, validate, submit, export_csv, coverage_export, export_ai_fitments, ai_fitments_list, applied_fitments_list, fitment_filter_options, fitment_detail, update_fitment, delete_fitment, validate_fitments_csv, submit_validated_fitments, get_validation_results, detailed_coverage, coverage_trends, coverage_gaps, get_potential_fitments, get_parts_with_fitments, apply_potential_fitments
+from fitments.views import export_fitments_advanced_csv, export_fitments_advanced_xlsx, fitments_root, coverage, property_values, validate, submit, export_csv, coverage_export, export_ai_fitments, ai_fitments_list, applied_fitments_list, fitment_filter_options, fitment_detail, update_fitment, delete_fitment, validate_fitments_csv, submit_validated_fitments, get_validation_results, detailed_coverage, coverage_trends, coverage_gaps, get_potential_fitments, get_parts_with_fitments, apply_potential_fitments, analytics_dashboard
 from workflow.views import uploads as wf_uploads, ai_map, vcdb_validate, review_queue, review_actions, publish, presets as wf_presets, preset_detail, ai_fitments, apply_fitments_batch
 
 
@@ -75,6 +75,8 @@ urlpatterns = [
     # Apply Fitments (AI + batch persist)
     path('api/apply/ai-fitments', ai_fitments),
     path('api/apply/apply-fitments', apply_fitments_batch),
+    # Analytics
+    path('api/analytics/dashboard/', analytics_dashboard),
     # Fitment Uploads (temporarily disabled due to missing openai dependency)
     # path('api/', include('fitment_uploads.urls')),
     # Data Uploads

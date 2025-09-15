@@ -33,8 +33,15 @@ interface AnalyticsData {
   manualFitments: number;
   aiFitments: number;
   totalParts: number;
-  totalVehicles: number;
+  totalVcdbConfigs: number;
   recentActivity: number;
+  activeFitments: number;
+  inactiveFitments: number;
+  successRate: number;
+  coveragePercentage: number;
+  topMakes: Array<{ makeName: string; count: number }>;
+  yearlyStats: Array<{ year: number; count: number }>;
+  lastUpdated: string;
 }
 
 interface NavigationShortcut {
@@ -77,7 +84,7 @@ const Analytics: React.FC = () => {
       description: "Map uploaded data to vehicles",
       icon: IconUpload,
       color: "purple",
-      value: "upload-map",
+      value: "upload-data",
     },
     {
       title: "Mistmatches",
@@ -113,39 +120,11 @@ const Analytics: React.FC = () => {
     try {
       setLoading(true);
 
-      // Fetch fitments data
-      const [fitmentsResponse, partsResponse, vehiclesResponse] =
-        await Promise.all([
-          api.get("/api/fitments?pageSize=1000"),
-          api.get("/api/parts"),
-          api.get("/api/vcdb/configurations?yearFrom=2010&yearTo=2025"),
-        ]);
+      // Fetch analytics data from the new endpoint
+      const response = await api.get("/api/analytics/dashboard/");
+      const analyticsData = response.data;
 
-      const fitments = fitmentsResponse.data.results || [];
-      const parts = partsResponse.data || [];
-      const vehicles = vehiclesResponse.data || [];
-
-      // Calculate manual vs AI fitments (assuming a field to distinguish)
-      // For now, we'll use a simple heuristic - newer fitments as AI-based
-      const totalFitments = fitments.length;
-      const recentCutoff = new Date();
-      recentCutoff.setMonth(recentCutoff.getMonth() - 3); // Last 3 months as "AI"
-
-      const aiFitments = fitments.filter(
-        (f: any) =>
-          new Date(f.created_at || f.createdAt || Date.now()) > recentCutoff
-      ).length;
-
-      const manualFitments = totalFitments - aiFitments;
-
-      setData({
-        totalFitments,
-        manualFitments,
-        aiFitments,
-        totalParts: parts.length,
-        totalVehicles: vehicles.length,
-        recentActivity: aiFitments, // Recent fitments as activity indicator
-      });
+      setData(analyticsData);
     } catch (error) {
       console.error("Failed to fetch analytics data:", error);
       // Set fallback data
@@ -154,8 +133,15 @@ const Analytics: React.FC = () => {
         manualFitments: 0,
         aiFitments: 0,
         totalParts: 0,
-        totalVehicles: 0,
+        totalVcdbConfigs: 0,
         recentActivity: 0,
+        activeFitments: 0,
+        inactiveFitments: 0,
+        successRate: 0,
+        coveragePercentage: 0,
+        topMakes: [],
+        yearlyStats: [],
+        lastUpdated: new Date().toISOString(),
       });
     } finally {
       setLoading(false);
@@ -388,10 +374,10 @@ const Analytics: React.FC = () => {
             <Group justify="space-between">
               <div>
                 <Text size="sm" c="#64748b" fw={500}>
-                  Vehicle Configs
+                  VCDB Configs
                 </Text>
                 <Title order={2} c="#1e293b" mt="xs">
-                  {data?.totalVehicles?.toLocaleString() || "0"}
+                  {data?.totalVcdbConfigs?.toLocaleString() || "0"}
                 </Title>
               </div>
               <ThemeIcon size={48} radius="md" variant="light" color="orange">
@@ -548,7 +534,7 @@ const Analytics: React.FC = () => {
                       </Text>
                     </Group>
                     <Badge variant="light" color="green" size="lg">
-                      98.5%
+                      {data?.successRate || 0}%
                     </Badge>
                   </Group>
 
@@ -560,9 +546,95 @@ const Analytics: React.FC = () => {
                       </Text>
                     </Group>
                     <Badge variant="light" color="orange" size="lg">
-                      85.2%
+                      {data?.coveragePercentage || 0}%
                     </Badge>
                   </Group>
+                </Stack>
+              </Stack>
+            </Card>
+          </Grid.Col>
+        </Grid>
+
+        {/* Top Makes and Yearly Stats */}
+        <Grid>
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Card
+              style={{
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: "12px",
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                height: "300px",
+              }}
+              p="lg"
+            >
+              <Stack h="100%">
+                <Text size="lg" fw={600} c="#1e293b" mb="lg">
+                  Top Makes
+                </Text>
+
+                <Stack gap="md" style={{ flex: 1, justifyContent: "center" }}>
+                  {data?.topMakes && data.topMakes.length > 0 ? (
+                    data.topMakes.map((make, index) => (
+                      <Group key={make.makeName} justify="space-between">
+                        <Group gap="sm">
+                          <Text size="sm" fw={600} c="#1e293b">
+                            {index + 1}.
+                          </Text>
+                          <Text size="sm" c="#64748b" fw={500}>
+                            {make.makeName}
+                          </Text>
+                        </Group>
+                        <Badge variant="light" color="blue" size="lg">
+                          {make.count}
+                        </Badge>
+                      </Group>
+                    ))
+                  ) : (
+                    <Text size="sm" c="#64748b" ta="center">
+                      No data available
+                    </Text>
+                  )}
+                </Stack>
+              </Stack>
+            </Card>
+          </Grid.Col>
+
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Card
+              style={{
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: "12px",
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                height: "300px",
+              }}
+              p="lg"
+            >
+              <Stack h="100%">
+                <Text size="lg" fw={600} c="#1e293b" mb="lg">
+                  Yearly Distribution
+                </Text>
+
+                <Stack gap="md" style={{ flex: 1, justifyContent: "center" }}>
+                  {data?.yearlyStats && data.yearlyStats.length > 0 ? (
+                    data.yearlyStats.map((year) => (
+                      <Group key={year.year} justify="space-between">
+                        <Group gap="sm">
+                          <Text size="sm" c="#64748b" fw={500}>
+                            {year.year}
+                          </Text>
+                        </Group>
+                        <Badge variant="light" color="teal" size="lg">
+                          {year.count}
+                        </Badge>
+                      </Group>
+                    ))
+                  ) : (
+                    <Text size="sm" c="#64748b" ta="center">
+                      No data available
+                    </Text>
+                  )}
                 </Stack>
               </Stack>
             </Card>
@@ -581,9 +653,16 @@ const Analytics: React.FC = () => {
         >
           <Stack gap="lg">
             <Group justify="space-between">
-              <Text size="xl" fw={700} c="#1e293b">
-                Quick Navigation
-              </Text>
+              <div>
+                <Text size="xl" fw={700} c="#1e293b">
+                  Quick Navigation
+                </Text>
+                {data?.lastUpdated && (
+                  <Text size="xs" c="#64748b" mt="xs">
+                    Last updated: {new Date(data.lastUpdated).toLocaleString()}
+                  </Text>
+                )}
+              </div>
               <Badge variant="light" color="blue" size="lg">
                 8 Modules
               </Badge>

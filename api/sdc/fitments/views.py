@@ -1766,3 +1766,92 @@ def apply_potential_fitments(request):
             {'error': str(e)}, 
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@api_view(['GET'])
+def analytics_dashboard(request):
+    """
+    GET /api/analytics/dashboard/
+    
+    Returns aggregated analytics data for the dashboard.
+    """
+    try:
+        from datetime import timedelta
+        from django.db.models import Count, Q
+        from django.utils import timezone
+        
+        # Get total fitments count
+        total_fitments = Fitment.objects.count()
+        
+        # Get manual fitments count (fitmentType = 'manual_fitment')
+        manual_fitments = Fitment.objects.filter(fitmentType='manual_fitment').count()
+        
+        # Get AI fitments count (fitmentType = 'ai_fitment' or 'potential_fitment')
+        ai_fitments = Fitment.objects.filter(
+            Q(fitmentType='ai_fitment') | Q(fitmentType='potential_fitment')
+        ).count()
+        
+        # Get total parts count (unique partIds)
+        total_parts = Fitment.objects.values('partId').distinct().count()
+        
+        # Get total VCDB configurations count (unique vehicle configurations)
+        total_vcdb_configs = Fitment.objects.values(
+            'year', 'makeName', 'modelName', 'subModelName'
+        ).distinct().count()
+        
+        # Get recent activity (fitments created in last 30 days)
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        recent_activity = Fitment.objects.filter(
+            createdAt__gte=thirty_days_ago
+        ).count()
+        
+        # Get fitments by status
+        active_fitments = Fitment.objects.filter(itemStatus='Active').count()
+        inactive_fitments = Fitment.objects.filter(itemStatus='Inactive').count()
+        
+        # Get fitments by make (top 5)
+        top_makes = Fitment.objects.values('makeName').annotate(
+            count=Count('hash')
+        ).order_by('-count')[:5]
+        
+        # Get fitments by year (last 5 years)
+        current_year = timezone.now().year
+        yearly_stats = []
+        for year in range(current_year - 4, current_year + 1):
+            year_count = Fitment.objects.filter(year=year).count()
+            yearly_stats.append({
+                'year': year,
+                'count': year_count
+            })
+        
+        # Calculate success rate (active vs total)
+        success_rate = round((active_fitments / total_fitments * 100), 1) if total_fitments > 0 else 0
+        
+        # Calculate coverage percentage (fitments with vehicles vs total possible)
+        # This is a simplified calculation - in reality you'd compare against actual VCDB
+        coverage_percentage = min(100, round((total_fitments / max(total_vcdb_configs, 1)) * 100), 1)
+        
+        analytics_data = {
+            'totalFitments': total_fitments,
+            'manualFitments': manual_fitments,
+            'aiFitments': ai_fitments,
+            'totalParts': total_parts,
+            'totalVcdbConfigs': total_vcdb_configs,
+            'recentActivity': recent_activity,
+            'activeFitments': active_fitments,
+            'inactiveFitments': inactive_fitments,
+            'successRate': success_rate,
+            'coveragePercentage': coverage_percentage,
+            'topMakes': list(top_makes),
+            'yearlyStats': yearly_stats,
+            'lastUpdated': timezone.now().isoformat()
+        }
+        
+        return Response(analytics_data)
+        
+    except Exception as e:
+        logger.error(f"Error in analytics_dashboard: {str(e)}")
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
