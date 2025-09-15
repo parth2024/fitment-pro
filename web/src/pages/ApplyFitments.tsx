@@ -1,21 +1,17 @@
-import { useState, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
-  Grid,
   Card,
   Title,
   Text,
   Select,
   NumberInput,
   Button,
-  Table,
   Checkbox,
   TextInput,
   Group,
   Stack,
   Badge,
   ScrollArea,
-  FileInput,
-  Progress,
   Alert,
   SimpleGrid,
   Stepper,
@@ -23,13 +19,8 @@ import {
   Transition,
 } from "@mantine/core";
 import {
-  IconUpload,
-  IconFileText,
-  IconRobot,
-  IconAlertCircle,
   IconBrain,
   IconUsers,
-  IconDatabase,
   IconArrowLeft,
   IconCar,
   IconList,
@@ -42,83 +33,87 @@ import {
   IconPackage,
   IconMapPin,
   IconHash,
+  IconFileText,
 } from "@tabler/icons-react";
-import { fitmentUploadService } from "../api/services";
-import { useAsyncOperation } from "../hooks/useApi";
+import { dataUploadService, fitmentUploadService } from "../api/services";
+import { useAsyncOperation, useApi } from "../hooks/useApi";
 import { useProfessionalToast } from "../hooks/useProfessionalToast";
 
 export default function ApplyFitments() {
   // Professional toast hook
   const { showSuccess, showError } = useProfessionalToast();
 
-  // File upload states
-  const [vcdbFile, setVcdbFile] = useState<File | null>(null);
-  const [productsFile, setProductsFile] = useState<File | null>(null);
-  const [vcdbDragActive, setVcdbDragActive] = useState(false);
-  const [productsDragActive, setProductsDragActive] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadStatus, setUploadStatus] = useState<
-    "idle" | "uploading" | "completed" | "error"
-  >("idle");
-  const [uploadedFiles, setUploadedFiles] = useState<{
-    vcdb: boolean;
-    products: boolean;
-  }>({ vcdb: false, products: false });
+  // Session state
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const uploadProcessedRef = useRef(false);
+
+  // Get latest session on component mount
+  const { data: sessionsData } = useApi(
+    () => dataUploadService.getSessions(),
+    []
+  ) as any;
+
+  // Set the latest session ID when sessions data is available
+  useEffect(() => {
+    if (sessionsData && sessionsData.length > 0) {
+      // Get the most recent session (first in the list since they're ordered by created_at desc)
+      const latestSession = sessionsData[0];
+      setSessionId(latestSession.id);
+    }
+  }, [sessionsData]);
 
   // Step management for UI flow
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1); // 1 = Upload Files, 2 = Choose Method, 3 = Manual Method, 4 = AI Method
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1); // 1 = Choose Method, 2 = Manual Method, 3 = AI Method (disabled)
 
   // Navigation handlers
-  const handleBackToUpload = () => {
-    setCurrentStep(1);
-    setUploadStatus("idle");
-    setUploadProgress(0);
-    setSelectedMethod(null);
-    uploadProcessedRef.current = false; // Reset the ref
-  };
-
   const handleBackToMethodSelection = () => {
-    setCurrentStep(2);
+    setCurrentStep(1);
     setSelectedMethod(null);
-    setAiProcessing(false);
-    setAiFitments([]);
-    setAiProgress(0);
-    setAiLogs([]);
   };
 
   const handleManualMethodClick = async () => {
     setSelectedMethod("manual");
-    setCurrentStep(3);
+    setCurrentStep(2);
 
-    // Fetch dropdown data from session
-    if (sessionId) {
-      setLoadingDropdownData(true);
-      try {
-        const result: any = await fetchDropdownData(() =>
-          fitmentUploadService.getSessionDropdownData(sessionId)
-        );
+    // Fetch dropdown data from VCDBData and ProductData tables
+    setLoadingDropdownData(true);
+    try {
+      const result: any = await fetchDropdownData(() =>
+        dataUploadService.getNewDataDropdownData()
+      );
 
-        if (result && result.data && result.data.dropdown_data) {
-          setDropdownData(result.data.dropdown_data);
-          showSuccess("Vehicle data loaded successfully!", 3000);
-        } else {
-          showError("Failed to load vehicle data");
-        }
-      } catch (error) {
-        console.error("Failed to fetch dropdown data:", error);
-        showError("Failed to load vehicle data");
-      } finally {
-        setLoadingDropdownData(false);
+      if (result && result.data) {
+        setDropdownData(result.data);
+
+        // Set available columns based on VCDB data structure
+        const vcdbColumns = [
+          "year",
+          "make",
+          "model",
+          "submodel",
+          "fuelType",
+          "bodyType",
+          "driveType",
+          "numDoors",
+          "engineType",
+          "transmission",
+          "trimLevel",
+        ];
+        setAvailableColumns(vcdbColumns);
+      } else {
+        showError("Failed to load vehicle and product data");
       }
+    } catch (error) {
+      console.error("Failed to fetch dropdown data:", error);
+      showError("Failed to load vehicle and product data");
+    } finally {
+      setLoadingDropdownData(false);
     }
   };
 
-  const handleAiMethodClick = () => {
-    setSelectedMethod("ai");
-    setCurrentStep(4);
-  };
+  // const handleAiMethodClick = () => {
+  //   // AI method is disabled - show coming soon message
+  //   showError("AI Method is coming soon! Please use Manual Method for now.");
+  // };
 
   // Fitment method selection
   const [selectedMethod, setSelectedMethod] = useState<"manual" | "ai" | null>(
@@ -130,11 +125,6 @@ export default function ApplyFitments() {
   // Session dropdown data states
   const [dropdownData, setDropdownData] = useState<any>(null);
   const [loadingDropdownData, setLoadingDropdownData] = useState(false);
-
-  // AI fitment states
-  const [aiFitments, setAiFitments] = useState<any[]>([]);
-  const [aiProcessing, setAiProcessing] = useState(false);
-  const [selectedAiFitments, setSelectedAiFitments] = useState<string[]>([]);
 
   // Manual Method Stepper State
   const [manualStep, setManualStep] = useState(1);
@@ -160,334 +150,24 @@ export default function ApplyFitments() {
     notes: "",
   });
   const [applyingManualFitment, setApplyingManualFitment] = useState(false);
-  const [aiProgress, setAiProgress] = useState(0);
-  const [aiLogs, setAiLogs] = useState<string[]>([]);
 
-  // API hooks - removed unused yearRange
-  const { execute: applyFitment, loading: applyingFitment } =
-    useAsyncOperation();
-  const { execute: uploadFiles, loading: uploadingFiles } = useAsyncOperation();
-  const { execute: processAiFitment } = useAsyncOperation();
+  // Configurable columns state
+  const [showColumnConfig, setShowColumnConfig] = useState(false);
+  const [availableColumns, setAvailableColumns] = useState<string[]>([]);
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([
+    "year",
+    "make",
+    "model",
+    "submodel",
+    "fuelType",
+    "bodyType",
+    "driveType",
+  ]);
+
+  // API hooks
+  const { execute: applyFitment } = useAsyncOperation();
   const { execute: fetchDropdownData } = useAsyncOperation();
   const { execute: fetchFilteredVehicles } = useAsyncOperation();
-
-  // Update year range when data loads - removed unused effect
-
-  // Drag & Drop handlers for VCDB files
-  const handleVcdbDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setVcdbDragActive(true);
-    } else if (e.type === "dragleave") {
-      setVcdbDragActive(false);
-    }
-  };
-
-  const handleVcdbDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setVcdbDragActive(false);
-
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setVcdbFile(e.dataTransfer.files[0]);
-    }
-  };
-
-  // Drag & Drop handlers for Products files
-  const handleProductsDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setProductsDragActive(true);
-    } else if (e.type === "dragleave") {
-      setProductsDragActive(false);
-    }
-  };
-
-  const handleProductsDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setProductsDragActive(false);
-
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setProductsFile(e.dataTransfer.files[0]);
-    }
-  };
-
-  const handleFileUpload = async () => {
-    if (!vcdbFile || !productsFile) {
-      showError("Please upload both VCDB and Products files");
-      return;
-    }
-
-    // Prevent duplicate processing in StrictMode
-    if (uploadProcessedRef.current) {
-      return;
-    }
-    uploadProcessedRef.current = true;
-
-    setUploadStatus("uploading");
-    setUploadProgress(0);
-
-    try {
-      // Simulate upload progress
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
-        });
-      }, 200);
-
-      // Upload files to backend
-      const result: any = await uploadFiles(() =>
-        fitmentUploadService.uploadFiles(vcdbFile, productsFile)
-      );
-
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      console.log("Upload result:", result);
-
-      if (result && result.data && result.data.session) {
-        setUploadStatus("completed");
-        setUploadedFiles({ vcdb: true, products: true });
-        setSessionId(result.data.session.id);
-        setCurrentStep(2); // Move to step 2 after successful upload
-        showSuccess(
-          "Files uploaded successfully! Now choose your fitment method.",
-          5000
-        );
-      } else {
-        console.error("Invalid response structure:", result);
-        throw new Error("Invalid response from server");
-      }
-    } catch (error: any) {
-      setUploadStatus("error");
-      console.error("Upload error:", error);
-      const errorMessage =
-        error?.response?.data?.error ||
-        error?.message ||
-        "Failed to upload files";
-      showError(errorMessage);
-    } finally {
-      // Reset the ref after processing is complete
-      uploadProcessedRef.current = false;
-    }
-  };
-
-  const handleAiFitment = async () => {
-    if (!uploadedFiles.vcdb || !uploadedFiles.products || !sessionId) {
-      showError("Please upload both files first");
-      return;
-    }
-
-    setAiProcessing(true);
-    setAiProgress(0);
-    setAiLogs([]);
-
-    // Simulate professional AI processing with realistic logs
-    const logs = [
-      "🔍 Initializing AI Fitment Engine...",
-      "📊 Analyzing VCDB vehicle configurations...",
-      "🔧 Processing product specifications...",
-      "🧠 Running compatibility algorithms...",
-      "⚡ Applying machine learning models...",
-      "🎯 Calculating fitment probabilities...",
-      "📈 Optimizing recommendation scores...",
-      "🔍 Checking for potential conflicts...",
-      "🔬 Cross-referencing OEM specifications...",
-      "📋 Validating part compatibility matrices...",
-      "🌐 Querying manufacturer databases...",
-      "🔍 Scanning for alternative configurations...",
-      "📊 Computing confidence intervals...",
-      "🎨 Applying design pattern recognition...",
-      "⚙️ Optimizing fitment algorithms...",
-      "🔍 Detecting edge cases and exceptions...",
-      "📈 Analyzing historical fitment data...",
-      "🧪 Running compatibility stress tests...",
-      "🔍 Performing quality assurance checks...",
-      "📊 Generating performance metrics...",
-      "🎯 Refining recommendation accuracy...",
-      "🔍 Validating against industry standards...",
-      "📋 Compiling fitment documentation...",
-      "✅ Generating fitment suggestions...",
-    ];
-
-    // Progressive log updates
-    const logInterval = setInterval(() => {
-      setAiLogs((prev) => {
-        const nextIndex = prev.length;
-        if (nextIndex < logs.length) {
-          return [...prev, logs[nextIndex]];
-        }
-        return prev;
-      });
-      setAiProgress((prev) => Math.min(prev + 12, 95));
-    }, 800);
-
-    try {
-      // Call Azure AI Foundry API
-      const result: any = await processAiFitment(() =>
-        fitmentUploadService.processAiFitment(sessionId)
-      );
-
-      clearInterval(logInterval);
-      setAiProgress(100);
-      setAiLogs((prev) => [...prev, "🎉 AI fitment generation completed!"]);
-
-      console.log("Full API result:", result);
-      console.log("Result data:", result?.data);
-      console.log("Result fitments:", result?.fitments);
-      console.log("Result data fitments:", result?.data?.fitments);
-
-      // Check different possible response structures
-      const fitments =
-        result?.fitments ||
-        result?.data?.fitments ||
-        result?.data?.data?.fitments;
-
-      if (fitments && Array.isArray(fitments) && fitments.length > 0) {
-        console.log("Setting fitments:", fitments);
-
-        // Add unique IDs to fitments for proper selection handling
-        const fitmentsWithIds = fitments.map((fitment: any, index: number) => ({
-          ...fitment,
-          id: fitment.id || `fitment_${index}`,
-          part_name:
-            fitment.partDescription || fitment.part_name || "Unknown Part",
-          part_description:
-            fitment.partDescription || "No description available",
-        }));
-
-        setAiFitments(fitmentsWithIds);
-        // Auto-select all fitments by default
-        setSelectedAiFitments(
-          fitmentsWithIds.map((fitment: any) => fitment.id)
-        );
-        showSuccess(
-          `AI generated ${fitments.length} fitment suggestions!`,
-          5000
-        );
-      } else {
-        console.log("No fitments found in response structure");
-        console.log("Available keys in result:", Object.keys(result || {}));
-        if (result?.data) {
-          console.log(
-            "Available keys in result.data:",
-            Object.keys(result.data)
-          );
-        }
-        showError(
-          "No fitments were generated. Please check your uploaded files and try again."
-        );
-      }
-    } catch (error) {
-      clearInterval(logInterval);
-      console.error("AI fitment error:", error);
-      setAiLogs((prev) => [
-        ...prev,
-        "❌ AI processing failed. Please try again.",
-      ]);
-      showError("Failed to process AI fitment");
-    } finally {
-      setAiProcessing(false);
-    }
-  };
-
-  const handleApplyAiFitments = async () => {
-    if (selectedAiFitments.length === 0) {
-      showError("Please select fitments to apply");
-      return;
-    }
-
-    if (!sessionId) {
-      showError("Session not found");
-      return;
-    }
-
-    try {
-      const result: any = await applyFitment(() =>
-        fitmentUploadService.applyAiFitments(sessionId, selectedAiFitments)
-      );
-
-      if (result) {
-        showSuccess(
-          `Successfully applied ${result.applied_count} AI fitments to the database!`,
-          5000
-        );
-        setSelectedAiFitments([]);
-        setAiFitments([]);
-
-        // Reset the method selection to allow new uploads
-        setSelectedMethod(null);
-        setUploadedFiles({ vcdb: false, products: false });
-        setSessionId(null);
-        setCurrentStep(1); // Reset to step 1
-        uploadProcessedRef.current = false; // Reset the ref
-      }
-    } catch (error) {
-      showError("Failed to apply AI fitments");
-    }
-  };
-
-  const handleExportFitments = async (format: "csv" | "xlsx" | "json") => {
-    try {
-      // Export only selected AI fitments if any are selected, otherwise export all AI fitments
-      const fitmentIds =
-        selectedAiFitments.length > 0 ? selectedAiFitments : undefined;
-
-      if (!sessionId) {
-        showError("Session ID is required for export");
-        return;
-      }
-
-      const response = await fitmentUploadService.exportAiFitments(
-        format,
-        sessionId,
-        fitmentIds
-      );
-
-      // Create blob and download
-      const blob = new Blob([response.data], {
-        type:
-          format === "csv"
-            ? "text/csv"
-            : format === "xlsx"
-            ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            : "application/json",
-      });
-
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-
-      // Generate filename based on selection
-      const selectionSuffix = fitmentIds
-        ? `_selected_${fitmentIds.length}`
-        : "_all";
-      link.download = `ai_fitments${selectionSuffix}.${format}`;
-
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      const exportMessage = fitmentIds
-        ? `${
-            fitmentIds.length
-          } selected AI fitments exported as ${format.toUpperCase()}`
-        : `All AI fitments exported as ${format.toUpperCase()}`;
-
-      showSuccess(exportMessage);
-    } catch (error) {
-      console.error("Export error:", error);
-      showError(`Failed to export AI fitments as ${format.toUpperCase()}`);
-    }
-  };
 
   return (
     <div
@@ -495,11 +175,49 @@ export default function ApplyFitments() {
         minHeight: "100vh",
       }}
     >
+      {/* CSS Animations for AI Card Effects */}
+      <style>{`
+        @keyframes pulse {
+          0% {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 0.7;
+          }
+          50% {
+            transform: translate(-50%, -50%) scale(1.1);
+            opacity: 0.3;
+          }
+          100% {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 0.7;
+          }
+        }
+        
+        @keyframes shimmer {
+          0% {
+            left: -100%;
+          }
+          100% {
+            left: 100%;
+          }
+        }
+        
+        @keyframes progress {
+          0% {
+            width: 0%;
+          }
+          50% {
+            width: 45%;
+          }
+          100% {
+            width: 0%;
+          }
+        }
+      `}</style>
       <Stack gap="xl">
-        {/* Step 1: File Upload Section */}
+        {/* Step 1: Method Selection Section */}
         <Transition
           mounted={currentStep === 1}
-          transition="slide-right"
+          transition="slide-left"
           duration={400}
           timingFunction="ease"
         >
@@ -516,282 +234,6 @@ export default function ApplyFitments() {
                   p="xl"
                 >
                   <Stack gap="xl">
-                    <div>
-                      <Title order={2} c="#1e293b" fw={600} mb="xs">
-                        Upload Required Files
-                      </Title>
-                      <Text size="md" c="#64748b">
-                        Upload VCDB data and Products data to proceed
-                      </Text>
-                    </div>
-
-                    <Grid gutter="xl">
-                      <Grid.Col span={6}>
-                        {/* VCDB File Upload with Drag & Drop */}
-                        <Card
-                          style={{
-                            background: vcdbDragActive ? "#f0f9ff" : "#ffffff",
-                            border: vcdbDragActive
-                              ? "2px dashed #3b82f6"
-                              : "2px dashed #e2e8f0",
-                            borderRadius: "12px",
-                            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
-                            transition: "all 0.15s ease",
-                            cursor: "pointer",
-                            minHeight: "200px",
-                          }}
-                          p="lg"
-                          onDragEnter={handleVcdbDrag}
-                          onDragLeave={handleVcdbDrag}
-                          onDragOver={handleVcdbDrag}
-                          onDrop={handleVcdbDrop}
-                        >
-                          <Stack align="center" justify="center" h="100%">
-                            <div
-                              style={{
-                                background: "#f8fafc",
-                                borderRadius: "12px",
-                                padding: "16px",
-                                marginBottom: "16px",
-                              }}
-                            >
-                              <IconFileText size={24} color="#3b82f6" />
-                            </div>
-
-                            <div style={{ textAlign: "center" }}>
-                              <Text fw={600} size="lg" c="#1e293b" mb="xs">
-                                VCDB Data File
-                              </Text>
-                              <Text size="sm" c="#64748b" mb="md">
-                                Drag & drop or click to upload
-                              </Text>
-                            </div>
-
-                            <FileInput
-                              value={vcdbFile}
-                              onChange={setVcdbFile}
-                              accept=".csv,.xlsx,.json"
-                              placeholder={
-                                vcdbFile
-                                  ? vcdbFile.name
-                                  : "Select VCDB file (.csv, .xlsx, .json)"
-                              }
-                              style={{ width: "100%" }}
-                              styles={{
-                                input: {
-                                  backgroundColor: "#f8fafc",
-                                  border: "1px solid #e2e8f0",
-                                  borderRadius: "8px",
-                                  padding: "12px",
-                                  fontSize: "14px",
-                                  fontWeight: 500,
-                                  textAlign: "center",
-                                },
-                              }}
-                            />
-                          </Stack>
-                        </Card>
-                      </Grid.Col>
-
-                      <Grid.Col span={6}>
-                        {/* Products File Upload with Drag & Drop */}
-                        <Card
-                          style={{
-                            background: productsDragActive
-                              ? "#f0fdf4"
-                              : "#ffffff",
-                            border: productsDragActive
-                              ? "2px dashed #10b981"
-                              : "2px dashed #e2e8f0",
-                            borderRadius: "12px",
-                            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
-                            transition: "all 0.15s ease",
-                            cursor: "pointer",
-                            minHeight: "200px",
-                          }}
-                          p="lg"
-                          onDragEnter={handleProductsDrag}
-                          onDragLeave={handleProductsDrag}
-                          onDragOver={handleProductsDrag}
-                          onDrop={handleProductsDrop}
-                        >
-                          <Stack align="center" justify="center" h="100%">
-                            <div
-                              style={{
-                                background: "#f8fafc",
-                                borderRadius: "12px",
-                                padding: "16px",
-                                marginBottom: "16px",
-                              }}
-                            >
-                              <IconDatabase size={24} color="#10b981" />
-                            </div>
-
-                            <div style={{ textAlign: "center" }}>
-                              <Text fw={600} size="lg" c="#1e293b" mb="xs">
-                                Products Data File
-                              </Text>
-                              <Text size="sm" c="#64748b" mb="md">
-                                Drag & drop or click to upload
-                              </Text>
-                            </div>
-
-                            <FileInput
-                              value={productsFile}
-                              onChange={setProductsFile}
-                              accept=".csv,.xlsx,.json"
-                              placeholder={
-                                productsFile
-                                  ? productsFile.name
-                                  : "Select Products file (.csv, .xlsx, .json)"
-                              }
-                              style={{ width: "100%" }}
-                              styles={{
-                                input: {
-                                  backgroundColor: "#f8fafc",
-                                  border: "1px solid #e2e8f0",
-                                  borderRadius: "8px",
-                                  padding: "12px",
-                                  fontSize: "14px",
-                                  fontWeight: 500,
-                                  textAlign: "center",
-                                },
-                              }}
-                            />
-                          </Stack>
-                        </Card>
-                      </Grid.Col>
-                    </Grid>
-
-                    {/* Upload Progress */}
-                    {uploadStatus === "uploading" && (
-                      <Card
-                        p="lg"
-                        style={{
-                          background: "#f0f9ff",
-                          border: "1px solid #dbeafe",
-                          borderRadius: "12px",
-                        }}
-                      >
-                        <Stack gap="md">
-                          <Group justify="space-between">
-                            <Text fw={600} size="lg" c="#1e293b">
-                              Uploading Files...
-                            </Text>
-                            <Text fw={600} size="lg" c="#3b82f6">
-                              {uploadProgress}%
-                            </Text>
-                          </Group>
-                          <Progress
-                            value={uploadProgress}
-                            size="lg"
-                            radius="md"
-                            styles={{
-                              root: {
-                                background: "#f1f5f9",
-                              },
-                              section: {
-                                background:
-                                  "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                              },
-                            }}
-                          />
-                        </Stack>
-                      </Card>
-                    )}
-
-                    {uploadStatus === "error" && (
-                      <Alert
-                        icon={<IconAlertCircle size={20} />}
-                        color="red"
-                        radius="md"
-                      >
-                        <Text fw={600} size="md">
-                          Failed to upload files. Please try again.
-                        </Text>
-                      </Alert>
-                    )}
-
-                    {/* Upload Button */}
-                    <Group justify="center">
-                      <Button
-                        size="lg"
-                        leftSection={<IconUpload size={20} />}
-                        variant="filled"
-                        onClick={handleFileUpload}
-                        loading={uploadingFiles}
-                        disabled={
-                          !vcdbFile ||
-                          !productsFile ||
-                          uploadStatus === "uploading"
-                        }
-                        style={{
-                          background:
-                            "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                          border: "none",
-                          borderRadius: "8px",
-                          fontSize: "16px",
-                          fontWeight: 600,
-                          padding: "12px 24px",
-                          height: "48px",
-                          color: "white",
-                          transition: "all 0.2s ease",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.transform = "translateY(-1px)";
-                          e.currentTarget.style.boxShadow =
-                            "0 4px 12px rgba(59, 130, 246, 0.3)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.transform = "translateY(0)";
-                          e.currentTarget.style.boxShadow = "none";
-                        }}
-                      >
-                        Upload Files
-                      </Button>
-                    </Group>
-                  </Stack>
-                </Card>
-              )}
-            </div>
-          )}
-        </Transition>
-
-        {/* Step 2: Method Selection Section */}
-        <Transition
-          mounted={currentStep === 2}
-          transition="slide-left"
-          duration={400}
-          timingFunction="ease"
-        >
-          {(styles) => (
-            <div style={styles}>
-              {currentStep === 2 && (
-                <Card
-                  style={{
-                    background: "#ffffff",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "12px",
-                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                  }}
-                  p="xl"
-                >
-                  <Stack gap="xl">
-                    {/* Back Button */}
-                    <Group>
-                      <Button
-                        variant="subtle"
-                        leftSection={<IconArrowLeft size={16} />}
-                        onClick={handleBackToUpload}
-                        style={{
-                          color: "#64748b",
-                          fontWeight: 500,
-                        }}
-                      >
-                        Back to Upload
-                      </Button>
-                    </Group>
-
                     <div>
                       <Title order={2} c="#1e293b" fw={600} mb="xs">
                         Choose Fitment Method
@@ -869,69 +311,88 @@ export default function ApplyFitments() {
                         </Stack>
                       </Card>
 
-                      {/* AI Method Card */}
+                      {/* AI Method Card - Coming Soon */}
                       <Card
+                        aria-disabled={true}
                         style={{
                           background:
-                            selectedMethod === "ai" ? "#f0fdf4" : "#fefefe",
-                          border:
-                            selectedMethod === "ai"
-                              ? "2px solid #10b981"
-                              : "2px solid #f1f5f9",
+                            "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
+                          border: "2px solid #e2e8f0",
                           borderRadius: "12px",
-                          cursor: "pointer",
                           transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                          boxShadow:
-                            selectedMethod === "ai"
-                              ? "0 4px 12px rgba(16, 185, 129, 0.15)"
-                              : "0 2px 4px rgba(0, 0, 0, 0.05)",
+                          boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)",
                           transform: "translateY(0)",
-                        }}
-                        onMouseEnter={(e) => {
-                          if (selectedMethod !== "ai") {
-                            e.currentTarget.style.transform =
-                              "translateY(-4px)";
-                            e.currentTarget.style.boxShadow =
-                              "0 8px 25px rgba(0, 0, 0, 0.1)";
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (selectedMethod !== "ai") {
-                            e.currentTarget.style.transform = "translateY(0)";
-                            e.currentTarget.style.boxShadow =
-                              "0 2px 4px rgba(0, 0, 0, 0.05)";
-                          }
+                          position: "relative",
+                          opacity: 0.85,
                         }}
                         p="xl"
-                        onClick={handleAiMethodClick}
                       >
                         <Stack align="center" gap="lg">
                           <div
                             style={{
-                              background: "#f8fafc",
+                              background:
+                                "linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)",
                               borderRadius: "12px",
                               padding: "16px",
                               marginBottom: "8px",
+                              position: "relative",
                             }}
                           >
-                            <IconBrain size={32} color="#10b981" />
+                            <IconBrain size={32} color="#6366f1" />
+                            {/* Subtle pulse effect */}
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: "50%",
+                                left: "50%",
+                                transform: "translate(-50%, -50%)",
+                                width: "60px",
+                                height: "60px",
+                                borderRadius: "50%",
+                                background: "rgba(99, 102, 241, 0.1)",
+                                animation: "pulse 2s infinite",
+                              }}
+                            />
                           </div>
 
                           <div style={{ textAlign: "center" }}>
-                            <Text fw={700} size="xl" c="#1e293b" mb="xs">
+                            <Text fw={700} size="xl" c="#374151" mb="xs">
                               AI Method
                             </Text>
-                            <Text size="sm" c="#64748b" ta="center">
+                            <Text size="sm" c="#6b7280" ta="center">
                               Let AI automatically generate and apply fitments
                               based on your data
                             </Text>
                           </div>
 
-                          {selectedMethod === "ai" && (
-                            <Badge variant="light" color="green" size="lg">
-                              Selected
+                          <div style={{ position: "relative" }}>
+                            <Badge
+                              variant="gradient"
+                              gradient={{ from: "indigo", to: "violet" }}
+                              size="lg"
+                              style={{
+                                fontWeight: 600,
+                                letterSpacing: "0.5px",
+                                textTransform: "uppercase",
+                                fontSize: "11px",
+                              }}
+                            >
+                              Coming Soon
                             </Badge>
-                          )}
+                            {/* Subtle shimmer effect */}
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: 0,
+                                left: "-100%",
+                                width: "100%",
+                                height: "100%",
+                                background:
+                                  "linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)",
+                                animation: "shimmer 3s infinite",
+                              }}
+                            />
+                          </div>
                         </Stack>
                       </Card>
                     </SimpleGrid>
@@ -942,16 +403,16 @@ export default function ApplyFitments() {
           )}
         </Transition>
 
-        {/* Step 3: Manual Method Page */}
+        {/* Step 2: Manual Method Page */}
         <Transition
-          mounted={currentStep === 3}
+          mounted={currentStep === 2}
           transition="slide-up"
           duration={400}
           timingFunction="ease"
         >
           {(styles) => (
             <div style={styles}>
-              {currentStep === 3 && (
+              {currentStep === 2 && (
                 <Card
                   style={{
                     background: "#ffffff",
@@ -977,8 +438,8 @@ export default function ApplyFitments() {
                       </Button>
                     </Group>
 
-                    <div>
-                      <Title order={2} c="#1e293b" fw={600} mb="xs">
+                    <div style={{ marginBottom: "15px" }}>
+                      <Title order={2} c="#1e293b" fw={600}>
                         Manual Fitment Configuration
                       </Title>
                       <Text size="md" c="#64748b">
@@ -1011,8 +472,8 @@ export default function ApplyFitments() {
                       >
                         <div>
                           <Stack gap="md" mt={20}>
-                            <div>
-                              <Title order={3} c="#1e293b" fw={700} mb="xs">
+                            <div style={{ marginBottom: "15px" }}>
+                              <Title order={3} c="#1e293b" fw={700}>
                                 Vehicle Search Criteria
                               </Title>
                               <Text size="sm" c="#64748b">
@@ -1535,16 +996,11 @@ export default function ApplyFitments() {
                                     "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)";
                                 }}
                                 onClick={async () => {
-                                  if (!sessionId) {
-                                    showError("Session not found");
-                                    return;
-                                  }
-
                                   try {
                                     const result: any =
                                       await fetchFilteredVehicles(() =>
                                         fitmentUploadService.getFilteredVehicles(
-                                          sessionId,
+                                          sessionId || "",
                                           vehicleFilters
                                         )
                                       );
@@ -1677,8 +1133,28 @@ export default function ApplyFitments() {
 
                             <Group justify="space-between" mt="lg">
                               <Button
-                                variant="light"
+                                variant="outline"
+                                size="md"
+                                leftSection={<IconArrowLeft size={16} />}
                                 onClick={() => setManualStep(1)}
+                                styles={{
+                                  root: {
+                                    borderRadius: "10px",
+                                    fontWeight: 600,
+                                    fontSize: "14px",
+                                    height: "48px",
+                                    padding: "0 24px",
+                                    border: "2px solid #e2e8f0",
+                                    color: "#64748b",
+                                    transition:
+                                      "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                    "&:hover": {
+                                      borderColor: "#cbd5e1",
+                                      backgroundColor: "#f8fafc",
+                                      transform: "translateY(-1px)",
+                                    },
+                                  },
+                                }}
                               >
                                 Back
                               </Button>
@@ -1996,6 +1472,81 @@ export default function ApplyFitments() {
                               />
                             </div>
 
+                            {/* Configurable Columns Section */}
+                            <div>
+                              <Group
+                                justify="space-between"
+                                align="center"
+                                mb="md"
+                              >
+                                <div>
+                                  <Title order={4} c="#1e293b" fw={600} mb="xs">
+                                    Configurable Columns
+                                  </Title>
+                                  <Text size="sm" c="#64748b">
+                                    Select which vehicle attributes to include
+                                    in the fitment
+                                  </Text>
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    setShowColumnConfig(!showColumnConfig)
+                                  }
+                                  leftSection={<IconSettings size={16} />}
+                                >
+                                  {showColumnConfig ? "Hide" : "Configure"}
+                                </Button>
+                              </Group>
+
+                              {showColumnConfig && (
+                                <Card
+                                  withBorder
+                                  p="md"
+                                  style={{
+                                    backgroundColor: "#f8fafc",
+                                    border: "1px solid #e2e8f0",
+                                  }}
+                                >
+                                  <Stack gap="sm">
+                                    <Text size="sm" fw={500} c="#374151">
+                                      Select columns to display:
+                                    </Text>
+                                    <SimpleGrid cols={4} spacing="sm">
+                                      {availableColumns.map((column) => (
+                                        <Checkbox
+                                          key={column}
+                                          label={
+                                            column.charAt(0).toUpperCase() +
+                                            column.slice(1)
+                                          }
+                                          checked={selectedColumns.includes(
+                                            column
+                                          )}
+                                          onChange={(event) => {
+                                            if (event.currentTarget.checked) {
+                                              setSelectedColumns((prev) => [
+                                                ...prev,
+                                                column,
+                                              ]);
+                                            } else {
+                                              setSelectedColumns((prev) =>
+                                                prev.filter(
+                                                  (col) => col !== column
+                                                )
+                                              );
+                                            }
+                                          }}
+                                          size="sm"
+                                        />
+                                      ))}
+                                    </SimpleGrid>
+                                  </Stack>
+                                </Card>
+                              )}
+                            </div>
+
                             <Group justify="space-between" mt="xl">
                               <Button
                                 variant="outline"
@@ -2057,6 +1608,7 @@ export default function ApplyFitments() {
                                         title: fitmentDetails.title,
                                         description: fitmentDetails.description,
                                         notes: fitmentDetails.notes,
+                                        selectedColumns: selectedColumns,
                                       })
                                     );
 
@@ -2127,16 +1679,16 @@ export default function ApplyFitments() {
           )}
         </Transition>
 
-        {/* Step 4: AI Method Page */}
+        {/* Step 3: AI Method Page - Disabled */}
         <Transition
-          mounted={currentStep === 4}
+          mounted={currentStep === 3}
           transition="fade"
           duration={400}
           timingFunction="ease"
         >
           {(styles) => (
             <div style={styles}>
-              {currentStep === 4 && (
+              {currentStep === 3 && (
                 <Card
                   style={{
                     background: "#ffffff",
@@ -2173,7 +1725,7 @@ export default function ApplyFitments() {
                     </div>
 
                     {/* Generate AI Fitments Button */}
-                    {!aiProcessing && aiFitments.length === 0 && (
+                    {/* {!aiProcessing && aiFitments.length === 0 && (
                       <Group justify="center">
                         <Button
                           size="lg"
@@ -2206,13 +1758,13 @@ export default function ApplyFitments() {
                           Generate AI Fitments
                         </Button>
                       </Group>
-                    )}
+                    )} */}
                   </Stack>
                 </Card>
               )}
 
               {/* AI Progress Display (only show on step 4) */}
-              {currentStep === 4 && aiProcessing && (
+              {/*{currentStep === 4 && aiProcessing && (
                 <Card
                   style={{
                     background: "#ffffff",
@@ -2277,13 +1829,13 @@ export default function ApplyFitments() {
                     </ScrollArea>
                   </Stack>
                 </Card>
-              )}
+              )} */}
             </div>
           )}
         </Transition>
 
-        {/* AI Progress Display (legacy - only show when NOT using new steps) */}
-        {currentStep !== 4 && selectedMethod === "ai" && aiProcessing && (
+        {/* AI Progress Display (legacy - only show when NOT using new steps)
+        {/* {currentStep !== 4 && selectedMethod === "ai" && aiProcessing && (
           <Card
             style={{
               background: "#ffffff",
@@ -2337,10 +1889,10 @@ export default function ApplyFitments() {
               </ScrollArea>
             </Stack>
           </Card>
-        )}
+        )} */}
 
         {/* AI Fitments Results */}
-        {selectedMethod === "ai" && aiFitments.length > 0 && (
+        {/* {selectedMethod === "ai" && aiFitments.length > 0 && (
           <Card
             style={{
               background: "#ffffff",
@@ -2397,129 +1949,125 @@ export default function ApplyFitments() {
                   </Button>
                 </Group>
               </Group>
+        )} */}
 
-              <div style={{ position: "relative" }}>
-                {/* Static Table Header */}
-                <Table striped highlightOnHover>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th
-                        style={{
-                          textAlign: "center",
-                          verticalAlign: "middle",
-                          width: "60px",
+        {/* <div style={{ position: "relative" }}> */}
+        {/* Static Table Header */}
+        {/* <Table striped highlightOnHover>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th
+                  style={{
+                    textAlign: "center",
+                    verticalAlign: "middle",
+                    width: "60px",
+                  }}
+                >
+                  <Checkbox
+                    checked={selectedAiFitments.length === aiFitments.length}
+                    indeterminate={
+                      selectedAiFitments.length > 0 &&
+                      selectedAiFitments.length < aiFitments.length
+                    }
+                    onChange={(event) => {
+                      if (event.currentTarget.checked) {
+                        setSelectedAiFitments(
+                          aiFitments.map((fitment) => fitment.id)
+                        );
+                      } else {
+                        setSelectedAiFitments([]);
+                      }
+                    }}
+                    ml={7}
+                  />
+                </Table.Th>
+                <Table.Th style={{ width: "130px" }}>Part ID</Table.Th>
+                <Table.Th style={{ width: "80px" }}>Year</Table.Th>
+                <Table.Th style={{ width: "100px" }}>Make</Table.Th>
+                <Table.Th style={{ width: "120px" }}>Model</Table.Th>
+                <Table.Th style={{ width: "100px" }}>Submodel</Table.Th>
+                <Table.Th style={{ width: "100px" }}>Position</Table.Th>
+                <Table.Th style={{ width: "100px" }}>Confidence</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+          </Table> */}
+
+        {/* Scrollable Table Body */}
+        {/* <ScrollArea h={600} style={{ marginTop: "-1px" }}>
+            <Table striped highlightOnHover>
+              <Table.Tbody>
+                {aiFitments.map((fitment) => (
+                  <Table.Tr key={fitment.id}>
+                    <Table.Td
+                      style={{
+                        textAlign: "center",
+                        verticalAlign: "middle",
+                        width: "60px",
+                      }}
+                    >
+                      <Checkbox
+                        checked={selectedAiFitments.includes(fitment.id)}
+                        onChange={(event) => {
+                          if (event.currentTarget.checked) {
+                            setSelectedAiFitments((prev) => [
+                              ...prev,
+                              fitment.id,
+                            ]);
+                          } else {
+                            setSelectedAiFitments((prev) =>
+                              prev.filter((id) => id !== fitment.id)
+                            );
+                          }
                         }}
+                      />
+                    </Table.Td>
+                    <Table.Td style={{ width: "120px" }}>
+                      <Text size="sm" fw={600} c="#3b82f6">
+                        {fitment.part_id}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td style={{ width: "80px" }}>
+                      <Text size="sm">{fitment.year}</Text>
+                    </Table.Td>
+                    <Table.Td style={{ width: "100px" }}>
+                      <Text size="sm" fw={500}>
+                        {fitment.make}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td style={{ width: "120px" }}>
+                      <Text size="sm">{fitment.model}</Text>
+                    </Table.Td>
+                    <Table.Td style={{ width: "100px" }}>
+                      <Text size="sm" c="#64748b">
+                        {fitment.submodel || "-"}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td style={{ width: "100px" }}>
+                      <Badge variant="light" size="sm" color="blue">
+                        {fitment.position}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td style={{ width: "100px" }}>
+                      <Badge
+                        variant="light"
+                        color={
+                          fitment.confidence > 0.8
+                            ? "green"
+                            : fitment.confidence > 0.6
+                            ? "orange"
+                            : "red"
+                        }
+                        size="sm"
                       >
-                        <Checkbox
-                          checked={
-                            selectedAiFitments.length === aiFitments.length
-                          }
-                          indeterminate={
-                            selectedAiFitments.length > 0 &&
-                            selectedAiFitments.length < aiFitments.length
-                          }
-                          onChange={(event) => {
-                            if (event.currentTarget.checked) {
-                              setSelectedAiFitments(
-                                aiFitments.map((fitment) => fitment.id)
-                              );
-                            } else {
-                              setSelectedAiFitments([]);
-                            }
-                          }}
-                          ml={7}
-                        />
-                      </Table.Th>
-                      <Table.Th style={{ width: "130px" }}>Part ID</Table.Th>
-                      <Table.Th style={{ width: "80px" }}>Year</Table.Th>
-                      <Table.Th style={{ width: "100px" }}>Make</Table.Th>
-                      <Table.Th style={{ width: "120px" }}>Model</Table.Th>
-                      <Table.Th style={{ width: "100px" }}>Submodel</Table.Th>
-                      <Table.Th style={{ width: "100px" }}>Position</Table.Th>
-                      <Table.Th style={{ width: "100px" }}>Confidence</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                </Table>
-
-                {/* Scrollable Table Body */}
-                <ScrollArea h={600} style={{ marginTop: "-1px" }}>
-                  <Table striped highlightOnHover>
-                    <Table.Tbody>
-                      {aiFitments.map((fitment) => (
-                        <Table.Tr key={fitment.id}>
-                          <Table.Td
-                            style={{
-                              textAlign: "center",
-                              verticalAlign: "middle",
-                              width: "60px",
-                            }}
-                          >
-                            <Checkbox
-                              checked={selectedAiFitments.includes(fitment.id)}
-                              onChange={(event) => {
-                                if (event.currentTarget.checked) {
-                                  setSelectedAiFitments((prev) => [
-                                    ...prev,
-                                    fitment.id,
-                                  ]);
-                                } else {
-                                  setSelectedAiFitments((prev) =>
-                                    prev.filter((id) => id !== fitment.id)
-                                  );
-                                }
-                              }}
-                            />
-                          </Table.Td>
-                          <Table.Td style={{ width: "120px" }}>
-                            <Text size="sm" fw={600} c="#3b82f6">
-                              {fitment.part_id}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td style={{ width: "80px" }}>
-                            <Text size="sm">{fitment.year}</Text>
-                          </Table.Td>
-                          <Table.Td style={{ width: "100px" }}>
-                            <Text size="sm" fw={500}>
-                              {fitment.make}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td style={{ width: "120px" }}>
-                            <Text size="sm">{fitment.model}</Text>
-                          </Table.Td>
-                          <Table.Td style={{ width: "100px" }}>
-                            <Text size="sm" c="#64748b">
-                              {fitment.submodel || "-"}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td style={{ width: "100px" }}>
-                            <Badge variant="light" size="sm" color="blue">
-                              {fitment.position}
-                            </Badge>
-                          </Table.Td>
-                          <Table.Td style={{ width: "100px" }}>
-                            <Badge
-                              variant="light"
-                              color={
-                                fitment.confidence > 0.8
-                                  ? "green"
-                                  : fitment.confidence > 0.6
-                                  ? "orange"
-                                  : "red"
-                              }
-                              size="sm"
-                            >
-                              {Math.round(fitment.confidence * 100)}%
-                            </Badge>
-                          </Table.Td>
-                        </Table.Tr>
-                      ))}
-                    </Table.Tbody>
-                  </Table>
-                </ScrollArea>
-              </div>
-            </Stack>
-          </Card>
-        )}
+                        {Math.round(fitment.confidence * 100)}%
+                      </Badge>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </ScrollArea> */}
+        {/* </div> */}
       </Stack>
     </div>
   );

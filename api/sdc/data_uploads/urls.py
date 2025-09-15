@@ -24,4 +24,10 @@ urlpatterns = [
     
     # AI fitment application
     path('apply-ai-fitments/', views.apply_ai_fitments, name='apply_ai_fitments'),
+    
+    # Dropdown data from new tables
+    path('dropdown-data/', views.get_dropdown_data, name='get_dropdown_data'),
+    
+    # Filtered vehicles search
+    path('filtered-vehicles/', views.get_filtered_vehicles, name='get_filtered_vehicles'),
 ]

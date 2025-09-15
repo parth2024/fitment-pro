@@ -618,18 +618,18 @@ def _generate_mock_fitments(vcdb_df, products_df):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def apply_manual_fitment(request):
-    """Apply manual fitment to selected vehicles"""
+    """Apply manual fitment to selected vehicles using VCDBData and ProductData"""
     try:
         # Extract data from request
-        session_id = request.data.get('session_id')
-        vehicle_ids = request.data.get('vehicle_ids', [])
-        part_id = request.data.get('part_id')
-        part_type = request.data.get('part_type')
+        session_id = request.data.get('sessionId')
+        vehicle_ids = request.data.get('vehicleIds', [])
+        part_id = request.data.get('partId')
         position = request.data.get('position', '')
         quantity = request.data.get('quantity', 1)
         title = request.data.get('title', '')
         description = request.data.get('description', '')
         notes = request.data.get('notes', '')
+        selected_columns = request.data.get('selectedColumns', [])
         
         # Validate required fields
         if not session_id:
@@ -650,127 +650,66 @@ def apply_manual_fitment(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Get session
+        # Get vehicles from VCDBData table
         try:
-            session = DataUploadSession.objects.get(id=session_id)
-        except DataUploadSession.DoesNotExist:
-            return Response(
-                {'error': 'Session not found'}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
-        
-        # Validate session has valid files
-        if not session.vcdb_valid or not session.products_valid:
-            return Response(
-                {'error': 'Files must be valid before applying fitments'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Get vehicle data from session
-        try:
-            vcdb_file_path = os.path.join(settings.MEDIA_ROOT, session.vcdb_file.name)
+            vehicles = VCDBData.objects.filter(id__in=vehicle_ids)
             
-            # Try to read the file with different methods based on extension
-            if session.vcdb_filename.lower().endswith('.csv'):
-                # Try different CSV reading approaches
-                try:
-                    # First try with default settings
-                    vehicles_df = pd.read_csv(vcdb_file_path)
-                except pd.errors.ParserError:
-                    try:
-                        # Try with different separators
-                        vehicles_df = pd.read_csv(vcdb_file_path, sep=';')
-                    except pd.errors.ParserError:
-                        try:
-                            # Try with tab separator
-                            vehicles_df = pd.read_csv(vcdb_file_path, sep='\t')
-                        except pd.errors.ParserError:
-                            try:
-                                # Try with error handling
-                                vehicles_df = pd.read_csv(vcdb_file_path, error_bad_lines=False, warn_bad_lines=True)
-                            except:
-                                # Last resort: try with low_memory=False
-                                vehicles_df = pd.read_csv(vcdb_file_path, low_memory=False)
-            elif session.vcdb_filename.lower().endswith('.json'):
-                import json
-                with open(vcdb_file_path, 'r') as f:
-                    data = json.load(f)
-                if isinstance(data, list):
-                    vehicles_df = pd.DataFrame(data)
-                elif isinstance(data, dict):
-                    vehicles_df = pd.DataFrame([data])
-                else:
-                    vehicles_df = pd.DataFrame()
-            elif session.vcdb_filename.lower().endswith('.xlsx'):
-                vehicles_df = pd.read_excel(vcdb_file_path, engine='openpyxl')
-            elif session.vcdb_filename.lower().endswith('.xls'):
-                vehicles_df = pd.read_excel(vcdb_file_path, engine='xlrd')
-            else:
-                # Default to CSV with error handling
-                vehicles_df = pd.read_csv(vcdb_file_path, error_bad_lines=False, warn_bad_lines=True)
-            
-            # Check if DataFrame is empty
-            if vehicles_df.empty:
+            if not vehicles.exists():
                 return Response(
-                    {'error': 'No data found in VCDB file'}, 
-                    status=status.HTTP_400_BAD_REQUEST
+                    {'error': 'No vehicles found with the provided IDs'}, 
+                    status=status.HTTP_404_NOT_FOUND
                 )
-            
-            # Check if 'id' column exists, if not try common alternatives
-            if 'id' not in vehicles_df.columns:
-                # Try common ID column names
-                id_columns = ['ID', 'Id', 'vehicle_id', 'VehicleID', 'vehicleId', 'index']
-                for col in id_columns:
-                    if col in vehicles_df.columns:
-                        vehicles_df = vehicles_df.rename(columns={col: 'id'})
-                        break
-                else:
-                    # If no ID column found, create one from index
-                    vehicles_df['id'] = vehicles_df.index.astype(str)
-            
-            # Filter vehicles by IDs
-            selected_vehicles = vehicles_df[vehicles_df['id'].isin(vehicle_ids)]
-            
-            if selected_vehicles.empty:
-                return Response(
-                    {'error': 'No matching vehicles found'}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
         except Exception as e:
-            logger.error(f"Failed to read vehicle data: {str(e)}", exc_info=True)
+            logger.error(f"Failed to fetch vehicles: {str(e)}", exc_info=True)
             return Response(
-                {'error': f'Failed to read vehicle data: {str(e)}'}, 
+                {'error': f'Failed to fetch vehicles: {str(e)}'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+        # Verify part exists in ProductData
+        try:
+            product = ProductData.objects.get(part_id=part_id)
+        except ProductData.DoesNotExist:
+            return Response(
+                {'error': f'Part {part_id} not found in product database'}, 
+                status=status.HTTP_404_NOT_FOUND
             )
         
         # Create fitments for each selected vehicle
         applied_fitments = []
         
-        for _, vehicle in selected_vehicles.iterrows():
+        for vehicle in vehicles:
             try:
+                # Create vehicle data with configurable columns
+                vehicle_data = {}
+                for column in selected_columns:
+                    if hasattr(vehicle, column):
+                        value = getattr(vehicle, column)
+                        # Convert to string for JSON serialization
+                        vehicle_data[column] = str(value) if value is not None else ''
+                
                 # Create Fitment record
                 fitment = Fitment.objects.create(
                     hash=uuid.uuid4().hex,
                     partId=part_id,
                     itemStatus='Active',
                     itemStatusCode=0,
-                    baseVehicleId=str(vehicle.get('id', '')),
-                    year=int(vehicle.get('year', 2025)),
-                    makeName=str(vehicle.get('make', '')),
-                    modelName=str(vehicle.get('model', '')),
-                    subModelName=str(vehicle.get('submodel', '')),
-                    driveTypeName=str(vehicle.get('driveType', '')),
-                    fuelTypeName=str(vehicle.get('fuelType', 'Gas')),
-                    bodyNumDoors=int(vehicle.get('numDoors', 4)),
-                    bodyTypeName=str(vehicle.get('bodyType', 'Sedan')),
-                    ptid=part_type or 'PT-22',
-                    partTypeDescriptor=part_type or 'Manual Fitment',
+                    baseVehicleId=str(vehicle.id),
+                    year=int(vehicle.year),
+                    makeName=str(vehicle.make),
+                    modelName=str(vehicle.model),
+                    subModelName=str(vehicle.submodel or ''),
+                    driveTypeName=str(vehicle.drive_type or ''),
+                    fuelTypeName=str(vehicle.fuel_type or 'Gas'),
+                    bodyNumDoors=int(vehicle.num_doors or 4),
+                    bodyTypeName=str(vehicle.body_type or 'Sedan'),
+                    ptid='PT-22',
+                    partTypeDescriptor='Manual Fitment',
                     uom='EA',
                     quantity=int(quantity),
                     fitmentTitle=title or f"Manual Fitment - {part_id}",
-                    fitmentDescription=description or f"Manual fitment for {vehicle.get('make', '')} {vehicle.get('model', '')}",
-                    fitmentNotes=notes or f"Applied manually from session {session_id}",
+                    fitmentDescription=description or f"Manual fitment for {vehicle.make} {vehicle.model}",
+                    fitmentNotes=notes or f"Applied manually with columns: {', '.join(selected_columns)}",
                     position=position or 'Front',
                     positionId=1,
                     liftHeight='Stock',
@@ -780,32 +719,41 @@ def apply_manual_fitment(request):
                 )
                 
                 applied_fitments.append({
-                    'vehicle_id': vehicle.get('id'),
-                    'vehicle_info': f"{vehicle.get('year', '')} {vehicle.get('make', '')} {vehicle.get('model', '')}",
-                    'fitment_hash': fitment.hash
+                    'vehicle_id': str(vehicle.id),
+                    'vehicle_info': f"{vehicle.year} {vehicle.make} {vehicle.model}",
+                    'fitment_hash': fitment.hash,
+                    'vehicle_data': vehicle_data,
+                    'selected_columns': selected_columns
                 })
                 
             except Exception as e:
-                logger.error(f"Failed to create fitment for vehicle {vehicle.get('id', '')}: {str(e)}", exc_info=True)
+                logger.error(f"Failed to create fitment for vehicle {vehicle.id}: {str(e)}", exc_info=True)
                 continue
         
         # Log the processing activity
         try:
+            session = DataUploadSession.objects.get(id=session_id)
             DataProcessingLog.objects.create(
                 session=session,
                 step='manual_fitment',
                 status='completed',
                 message=f"Applied manual fitment to {len(applied_fitments)} vehicles",
-                details={'records_processed': len(applied_fitments), 'part_id': part_id}
+                details={
+                    'records_processed': len(applied_fitments), 
+                    'part_id': part_id,
+                    'selected_columns': selected_columns
+                }
             )
         except Exception as e:
             logger.error(f"Failed to create processing log: {str(e)}", exc_info=True)
         
         return Response({
             'message': f'Successfully applied fitment to {len(applied_fitments)} vehicles',
+            'applied_count': len(applied_fitments),
             'applied_fitments': applied_fitments,
             'session_id': str(session_id),
-            'part_id': part_id
+            'part_id': part_id,
+            'selected_columns': selected_columns
         })
         
     except Exception as e:
@@ -1095,5 +1043,143 @@ def get_data_status(request):
         logger.error(f"Error getting data status: {str(e)}")
         return Response(
             {"error": "Failed to get data status"}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_dropdown_data(request):
+    """Get dropdown data from VCDBData and ProductData tables"""
+    try:
+        # Get unique values from VCDBData
+        vcdb_years = VCDBData.objects.values_list('year', flat=True).distinct().order_by('year')
+        vcdb_makes = VCDBData.objects.values_list('make', flat=True).distinct().order_by('make')
+        vcdb_models = VCDBData.objects.values_list('model', flat=True).distinct().order_by('model')
+        vcdb_submodels = VCDBData.objects.values_list('submodel', flat=True).distinct().order_by('submodel')
+        vcdb_fuel_types = VCDBData.objects.values_list('fuel_type', flat=True).distinct().order_by('fuel_type')
+        vcdb_body_types = VCDBData.objects.values_list('body_type', flat=True).distinct().order_by('body_type')
+        vcdb_drive_types = VCDBData.objects.values_list('drive_type', flat=True).distinct().order_by('drive_type')
+        vcdb_num_doors = VCDBData.objects.values_list('num_doors', flat=True).distinct().order_by('num_doors')
+        vcdb_engine_types = VCDBData.objects.values_list('engine_type', flat=True).distinct().order_by('engine_type')
+        vcdb_transmissions = VCDBData.objects.values_list('transmission', flat=True).distinct().order_by('transmission')
+        vcdb_trim_levels = VCDBData.objects.values_list('trim_level', flat=True).distinct().order_by('trim_level')
+
+        # Get unique values from ProductData
+        product_ids = ProductData.objects.values_list('part_id', flat=True).distinct().order_by('part_id')
+        product_categories = ProductData.objects.values_list('category', flat=True).distinct().order_by('category')
+        product_brands = ProductData.objects.values_list('brand', flat=True).distinct().order_by('brand')
+        positions = ProductData.objects.values_list('compatibility', flat=True).distinct().order_by('compatibility')
+
+        response_data = {
+            'years': [str(year) for year in vcdb_years if year],
+            'makes': [make for make in vcdb_makes if make],
+            'models': [model for model in vcdb_models if model],
+            'submodels': [submodel for submodel in vcdb_submodels if submodel],
+            'fuel_types': [fuel_type for fuel_type in vcdb_fuel_types if fuel_type],
+            'body_types': [body_type for body_type in vcdb_body_types if body_type],
+            'drive_types': [drive_type for drive_type in vcdb_drive_types if drive_type],
+            'num_doors': [str(num_doors) for num_doors in vcdb_num_doors if num_doors],
+            'engine_types': [engine_type for engine_type in vcdb_engine_types if engine_type],
+            'transmissions': [transmission for transmission in vcdb_transmissions if transmission],
+            'trim_levels': [trim_level for trim_level in vcdb_trim_levels if trim_level],
+            'parts': [part_id for part_id in product_ids if part_id],
+            'categories': [category for category in product_categories if category],
+            'brands': [brand for brand in product_brands if brand],
+            'positions': positions,
+        }
+        
+        return Response(response_data)
+        
+    except Exception as e:
+        print(f"Error in get_dropdown_data: {e}")
+        return Response(
+            {"error": "Failed to get dropdown data"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def get_filtered_vehicles(request):
+    """Get filtered vehicles from VCDBData table based on provided filters"""
+    try:
+        # Extract filters from request data
+        filters = request.data.get('filters', {})
+        
+        # Build query for VCDBData
+        queryset = VCDBData.objects.all()
+        
+        # Apply filters
+        if filters.get('yearFrom'):
+            try:
+                year_from = int(filters['yearFrom'])
+                queryset = queryset.filter(year__gte=year_from)
+            except (ValueError, TypeError):
+                pass
+        
+        if filters.get('yearTo'):
+            try:
+                year_to = int(filters['yearTo'])
+                queryset = queryset.filter(year__lte=year_to)
+            except (ValueError, TypeError):
+                pass
+        
+        if filters.get('make'):
+            queryset = queryset.filter(make__icontains=filters['make'])
+        
+        if filters.get('model'):
+            queryset = queryset.filter(model__icontains=filters['model'])
+        
+        if filters.get('submodel'):
+            queryset = queryset.filter(submodel__icontains=filters['submodel'])
+        
+        if filters.get('fuelType'):
+            queryset = queryset.filter(fuel_type__icontains=filters['fuelType'])
+        
+        if filters.get('numDoors'):
+            try:
+                num_doors = int(filters['numDoors'])
+                queryset = queryset.filter(num_doors=num_doors)
+            except (ValueError, TypeError):
+                pass
+        
+        if filters.get('driveType'):
+            queryset = queryset.filter(drive_type__icontains=filters['driveType'])
+        
+        if filters.get('bodyType'):
+            queryset = queryset.filter(body_type__icontains=filters['bodyType'])
+        
+        # Apply limit to prevent too many results
+        limit = 1000  # Maximum 1000 vehicles
+        queryset = queryset[:limit]
+        
+        # Serialize the results
+        vehicles = []
+        for vehicle in queryset:
+            vehicles.append({
+                'id': str(vehicle.id),
+                'year': vehicle.year,
+                'make': vehicle.make,
+                'model': vehicle.model,
+                'submodel': vehicle.submodel or '',
+                'driveType': vehicle.drive_type or '',
+                'fuelType': vehicle.fuel_type or '',
+                'numDoors': vehicle.num_doors,
+                'bodyType': vehicle.body_type or '',
+                'engineType': vehicle.engine_type or '',
+                'transmission': vehicle.transmission or '',
+                'trimLevel': vehicle.trim_level or '',
+            })
+        
+        return Response({
+            'vehicles': vehicles,
+            'total_count': len(vehicles),
+            'filters_applied': filters
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting filtered vehicles: {str(e)}")
+        return Response(
+            {"error": "Failed to get filtered vehicles"}, 
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

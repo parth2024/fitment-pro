@@ -213,15 +213,6 @@ function App() {
             </div>
 
             <Group gap="md">
-              <Button
-                variant="subtle"
-                size="sm"
-                leftSection={<IconBell size={16} />}
-                style={{ fontWeight: 500 }}
-              >
-                Notifications
-              </Button>
-
               <Menu width={200} position="bottom-end" withArrow>
                 <Menu.Target>
                   <Button

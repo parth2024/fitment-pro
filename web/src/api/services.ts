@@ -253,9 +253,8 @@ export const fitmentUploadService = {
     apiClient.get(`/api/uploaded-products/?session_id=${sessionId}`),
   getSessionDropdownData: (sessionId: string) =>
     apiClient.get(`/api/session/${sessionId}/dropdown-data/`),
-  getFilteredVehicles: (sessionId: string, filters: any) =>
-    apiClient.post("/api/filtered-vehicles/", {
-      session_id: sessionId,
+  getFilteredVehicles: (_sessionId: string, filters: any) =>
+    apiClient.post("/api/data-uploads/filtered-vehicles/", {
       filters: filters,
     }),
   applyManualFitment: (fitmentData: {
@@ -267,6 +266,7 @@ export const fitmentUploadService = {
     title: string;
     description: string;
     notes: string;
+    selectedColumns?: string[];
   }) =>
     apiClient.post("/api/apply-manual-fitment/", {
       session_id: fitmentData.sessionId,
@@ -277,6 +277,7 @@ export const fitmentUploadService = {
       title: fitmentData.title,
       description: fitmentData.description,
       notes: fitmentData.notes,
+      selectedColumns: fitmentData.selectedColumns,
     }),
 };
 
@@ -356,4 +357,8 @@ export const dataUploadService = {
 
   // Get new data status (with database counts)
   getNewDataStatus: () => apiClient.get("/api/data-uploads/data-status/"),
+
+  // Get dropdown data from VCDBData and ProductData tables
+  getNewDataDropdownData: () =>
+    apiClient.get("/api/data-uploads/dropdown-data/"),
 };
