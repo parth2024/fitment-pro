@@ -3,9 +3,14 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Q, Count, Case, When, IntegerField, Min, Max
-from django.http import StreamingHttpResponse, HttpResponse
+from django.http import StreamingHttpResponse, HttpResponse, JsonResponse
 from django.core.paginator import Paginator
-from .models import Fitment
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+from .models import Fitment, FitmentUploadSession, FitmentValidationResult
+from .validators import validate_fitment_row
 import os
 import csv
 import json
@@ -15,6 +20,7 @@ from io import BytesIO
 import uuid
 from datetime import datetime
 import logging
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -880,3 +886,275 @@ def delete_fitment(request, fitment_hash):
             {"error": "Failed to delete fitment"}, 
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def validate_fitments_csv(request):
+    """Validate uploaded CSV file"""
+    try:
+        # Get uploaded file
+        if 'fitments' not in request.FILES:
+            return JsonResponse({'error': 'No file uploaded'}, status=400)
+            
+        csv_file = request.FILES['fitments']
+        
+        # Validate file type
+        if not csv_file.name.lower().endswith(('.csv', '.xlsx', '.xls')):
+            return JsonResponse({'error': 'Only CSV and Excel files are allowed'}, status=400)
+        
+        # Validate file size (10MB limit)
+        if csv_file.size > 10 * 1024 * 1024:
+            return JsonResponse({'error': 'File size must be less than 10MB'}, status=400)
+        
+        # Create session
+        session_id = uuid.uuid4()
+        session = FitmentUploadSession.objects.create(
+            user=request.user if hasattr(request, 'user') and request.user.is_authenticated else None,
+            session_id=session_id,
+            status='validating',
+            file_name=csv_file.name
+        )
+        
+        # Read CSV/Excel file
+        try:
+            if csv_file.name.lower().endswith('.csv'):
+                df = pd.read_csv(csv_file)
+            else:
+                df = pd.read_excel(csv_file)
+        except Exception as e:
+            session.status = 'failed'
+            session.save()
+            return JsonResponse({'error': f'Error reading file: {str(e)}'}, status=400)
+        
+        # Update session with total rows
+        session.total_rows = len(df)
+        session.save()
+        
+        validation_results = []
+        repaired_rows = {}
+        invalid_rows = {}
+        ignored_columns = []
+        
+        # Validate each row
+        for index, row in df.iterrows():
+            row_number = index + 2  # +2 for header and 0-based indexing
+            
+            validation_result = validate_fitment_row(row, row_number)
+            
+            if validation_result['is_valid']:
+                # Row is valid - store all fields as valid
+                for column, value in row.items():
+                    FitmentValidationResult.objects.create(
+                        session=session,
+                        row_number=row_number,
+                        column_name=column,
+                        original_value=str(value) if not pd.isna(value) else '',
+                        is_valid=True
+                    )
+            elif validation_result['can_repair']:
+                # Row can be auto-repaired
+                repaired_rows[row_number] = validation_result['repairs']
+                for column, value in row.items():
+                    corrected_value = validation_result['repairs'].get(column, value)
+                    FitmentValidationResult.objects.create(
+                        session=session,
+                        row_number=row_number,
+                        column_name=column,
+                        original_value=str(value) if not pd.isna(value) else '',
+                        corrected_value=str(corrected_value) if not pd.isna(corrected_value) else '',
+                        is_valid=True,
+                        error_message='Auto-corrected' if column in validation_result['repairs'] else None
+                    )
+            else:
+                # Row has errors that cannot be auto-repaired
+                invalid_rows[row_number] = validation_result['errors']
+                for column, value in row.items():
+                    error_message = validation_result['errors'].get(column)
+                    FitmentValidationResult.objects.create(
+                        session=session,
+                        row_number=row_number,
+                        column_name=column,
+                        original_value=str(value) if not pd.isna(value) else '',
+                        is_valid=column not in validation_result['errors'],
+                        error_message=error_message
+                    )
+        
+        # Calculate statistics
+        valid_rows = session.total_rows - len(invalid_rows)
+        session.valid_rows = valid_rows
+        session.invalid_rows = len(invalid_rows)
+        session.status = 'validated'
+        session.save()
+        
+        return JsonResponse({
+            'session_id': str(session_id),
+            'repairedRows': repaired_rows,
+            'invalidRows': invalid_rows,
+            'ignoredColumns': ignored_columns,
+            'totalRows': session.total_rows,
+            'validRows': valid_rows,
+            'invalidRowsCount': len(invalid_rows)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error validating CSV: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def submit_validated_fitments(request, session_id):
+    """Submit validated fitments to database"""
+    try:
+        session = FitmentUploadSession.objects.get(
+            session_id=session_id,
+            user=request.user if hasattr(request, 'user') and request.user.is_authenticated else None,
+            status='validated'
+        )
+        
+        # Get all valid validation results
+        valid_results = FitmentValidationResult.objects.filter(
+            session=session,
+            is_valid=True
+        )
+        
+        if not valid_results.exists():
+            return JsonResponse({
+                'error': 'No valid fitments to submit'
+            }, status=400)
+        
+        # Group by row number and create fitment records
+        rows_data = {}
+        for result in valid_results:
+            row_num = result.row_number
+            if row_num not in rows_data:
+                rows_data[row_num] = {}
+            
+            # Use corrected value if available, otherwise original
+            value = result.corrected_value or result.original_value
+            rows_data[row_num][result.column_name] = value
+        
+        # Create fitment records
+        created_count = 0
+        skipped_count = 0
+        errors = []
+        
+        for row_number, row_data in rows_data.items():
+            try:
+                # Validate required fields
+                required_fields = ['PartID', 'YearID', 'MakeName', 'ModelName', 'PTID']
+                for field in required_fields:
+                    if not row_data.get(field):
+                        raise ValueError(f'Missing required field: {field}')
+                
+                # Check for existing fitment with same key data
+                existing_fitment = Fitment.objects.filter(
+                    partId=row_data['PartID'],
+                    year=int(row_data['YearID']),
+                    makeName=row_data['MakeName'],
+                    modelName=row_data['ModelName'],
+                    ptid=row_data['PTID'],
+                    isDeleted=False
+                ).first()
+                
+                if existing_fitment:
+                    skipped_count += 1
+                    continue  # Skip creating duplicate
+                
+                # Create fitment record
+                fitment = Fitment.objects.create(
+                    partId=row_data['PartID'],
+                    year=int(row_data['YearID']),
+                    makeName=row_data['MakeName'],
+                    modelName=row_data['ModelName'],
+                    subModelName=row_data.get('SubModelName', ''),
+                    driveTypeName=row_data.get('DriveTypeName', ''),
+                    fuelTypeName=row_data.get('FuelTypeName', ''),
+                    bodyNumDoors=int(row_data.get('BodyNumDoors', 4)),
+                    bodyTypeName=row_data.get('BodyTypeName', ''),
+                    ptid=row_data['PTID'],
+                    partTypeDescriptor=row_data.get('PTID', ''),  # Using PTID as descriptor
+                    quantity=int(row_data.get('Quantity', 1)),
+                    fitmentTitle=row_data.get('FitmentTitle', ''),
+                    fitmentDescription=row_data.get('FitmentDescription', ''),
+                    fitmentNotes=row_data.get('FitmentNotes', ''),
+                    position=row_data.get('Position', ''),
+                    positionId=int(row_data.get('PositionId', 1)),
+                    liftHeight=row_data.get('LiftHeight', ''),
+                    uom=row_data.get('UOM', 'EA'),
+                    wheelType=row_data.get('WheelType', ''),
+                    fitmentType='manual_fitment',
+                    createdBy='bulk_upload',
+                    updatedBy='bulk_upload'
+                )
+                created_count += 1
+                
+            except Exception as e:
+                errors.append(f'Row {row_number}: {str(e)}')
+                continue
+        
+        # Update session status
+        session.status = 'submitted'
+        session.save()
+        
+        return JsonResponse({
+            'success': True,
+            'created_count': created_count,
+            'skipped_count': skipped_count,
+            'total_rows': len(rows_data),
+            'errors': errors,
+            'message': f'Successfully created {created_count} fitments' + (f', skipped {skipped_count} duplicates' if skipped_count > 0 else '')
+        })
+        
+    except FitmentUploadSession.DoesNotExist:
+        return JsonResponse({'error': 'Session not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Error submitting fitments: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_http_methods(["GET"])
+def get_validation_results(request, session_id):
+    """Get validation results for a session"""
+    try:
+        session = FitmentUploadSession.objects.get(
+            session_id=session_id,
+            user=request.user if hasattr(request, 'user') and request.user.is_authenticated else None
+        )
+        
+        # Get validation results grouped by row
+        validation_results = FitmentValidationResult.objects.filter(session=session)
+        
+        # Group by row number
+        rows_data = {}
+        for result in validation_results:
+            row_num = result.row_number
+            if row_num not in rows_data:
+                rows_data[row_num] = {
+                    'is_valid': result.is_valid,
+                    'errors': {},
+                    'repairs': {}
+                }
+            
+            if result.is_valid and result.corrected_value:
+                rows_data[row_num]['repairs'][result.column_name] = result.corrected_value
+            elif not result.is_valid:
+                rows_data[row_num]['errors'][result.column_name] = result.error_message
+        
+        # Separate valid, invalid, and repaired rows
+        invalid_rows = {k: v['errors'] for k, v in rows_data.items() if v['errors']}
+        repaired_rows = {k: v['repairs'] for k, v in rows_data.items() if v['repairs']}
+        
+        return JsonResponse({
+            'session_id': str(session_id),
+            'invalidRows': invalid_rows,
+            'repairedRows': repaired_rows,
+            'ignoredColumns': [],  # Could be stored in session
+            'totalRows': session.total_rows,
+            'validRows': session.valid_rows,
+            'invalidRowsCount': session.invalid_rows
+        })
+        
+    except FitmentUploadSession.DoesNotExist:
+        return JsonResponse({'error': 'Session not found'}, status=404)

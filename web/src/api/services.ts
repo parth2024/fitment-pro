@@ -120,6 +120,19 @@ export const fitmentsService = {
   },
   submitValidated: () => apiClient.post("/api/fitments/submit"),
 
+  // New bulk upload endpoints for MFT V1
+  validateFitmentsCSV: (file: File) => {
+    const formData = new FormData();
+    formData.append("fitments", file);
+    return apiClient.post("/api/fitments/validate/", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+  submitValidatedFitments: (sessionId: string) =>
+    apiClient.post(`/api/fitments/submit/${sessionId}/`),
+  getValidationResults: (sessionId: string) =>
+    apiClient.get(`/api/fitments/validation/${sessionId}/`),
+
   // Enhanced fitments service with new endpoints
   getFitmentDetail: (fitmentHash: string) =>
     apiClient.get(`/api/fitments/${fitmentHash}`),

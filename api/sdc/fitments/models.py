@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from django.contrib.auth.models import User
 import uuid
 
 # Create your models here.
@@ -95,3 +96,48 @@ class Fitment(models.Model):
     def hard_delete(self):
         """Permanently delete the fitment"""
         super().delete()
+
+
+class FitmentUploadSession(models.Model):
+    """Model to track bulk upload sessions"""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('validating', 'Validating'),
+        ('validated', 'Validated'),
+        ('submitted', 'Submitted'),
+        ('failed', 'Failed'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    session_id = models.UUIDField(unique=True, default=uuid.uuid4)
+    created_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    total_rows = models.IntegerField(default=0)
+    valid_rows = models.IntegerField(default=0)
+    invalid_rows = models.IntegerField(default=0)
+    file_name = models.CharField(max_length=255, blank=True)
+    
+    class Meta:
+        db_table = 'fitment_upload_sessions'
+        
+    def __str__(self):
+        return f"Session {self.session_id} - {self.status}"
+
+
+class FitmentValidationResult(models.Model):
+    """Model to store validation results for each row"""
+    session = models.ForeignKey(FitmentUploadSession, on_delete=models.CASCADE, related_name='validation_results')
+    row_number = models.IntegerField()
+    column_name = models.CharField(max_length=100)
+    original_value = models.TextField(blank=True)
+    corrected_value = models.TextField(null=True, blank=True)
+    is_valid = models.BooleanField(default=True)
+    error_message = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'fitment_validation_results'
+        unique_together = ['session', 'row_number', 'column_name']
+        
+    def __str__(self):
+        return f"Row {self.row_number} - {self.column_name} - {'Valid' if self.is_valid else 'Invalid'}"

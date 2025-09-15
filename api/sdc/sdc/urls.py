@@ -19,7 +19,7 @@ from django.urls import path, include
 from tenants.views import TenantListCreateView
 from vcdb.views import version, year_range, configurations
 from parts.views import list_parts, list_part_types
-from fitments.views import export_fitments_advanced_csv, export_fitments_advanced_xlsx, fitments_root, coverage, property_values, validate, submit, export_csv, coverage_export, export_ai_fitments, ai_fitments_list, applied_fitments_list, fitment_filter_options, fitment_detail, update_fitment, delete_fitment
+from fitments.views import export_fitments_advanced_csv, export_fitments_advanced_xlsx, fitments_root, coverage, property_values, validate, submit, export_csv, coverage_export, export_ai_fitments, ai_fitments_list, applied_fitments_list, fitment_filter_options, fitment_detail, update_fitment, delete_fitment, validate_fitments_csv, submit_validated_fitments, get_validation_results
 from workflow.views import uploads as wf_uploads, ai_map, vcdb_validate, review_queue, review_actions, publish, presets as wf_presets, preset_detail, ai_fitments, apply_fitments_batch
 
 
@@ -36,6 +36,11 @@ urlpatterns = [
     path('api/fitments/coverage/export', coverage_export),
     path('api/fitments/coverage', coverage),
     path('api/fitments/property/<str:property_name>', property_values),
+    # New bulk upload endpoints (MFT V1)
+    path('api/fitments/validate/', validate_fitments_csv),
+    path('api/fitments/submit/<uuid:session_id>/', submit_validated_fitments),
+    path('api/fitments/validation/<uuid:session_id>/', get_validation_results),
+    # Legacy endpoints (keep for backward compatibility)
     path('api/fitments/validate', validate),
     path('api/fitments/submit', submit),
     # New enhanced fitments endpoints (most specific first)

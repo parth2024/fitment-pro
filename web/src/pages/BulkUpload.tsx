@@ -13,6 +13,15 @@ import {
   Divider,
   Center,
   rem,
+  Modal,
+  Flex,
+  Stepper,
+  TextInput,
+  NumberInput,
+  Select,
+  Textarea,
+  Grid,
+  LoadingOverlay,
 } from "@mantine/core";
 import {
   IconUpload,
@@ -22,27 +31,118 @@ import {
   IconCloudUpload,
   IconFileSpreadsheet,
   IconDownload,
+  IconArrowRight,
+  IconRefresh,
 } from "@tabler/icons-react";
 import { fitmentsService } from "../api/services";
+import { notifications } from "@mantine/notifications";
+
+interface FitmentRow {
+  PartID: string;
+  YearID: string;
+  MakeName: string;
+  ModelName: string;
+  SubModelName: string;
+  DriveTypeName: string;
+  FuelTypeName: string;
+  BodyNumDoors: string;
+  BodyTypeName: string;
+  PTID: string;
+  Quantity: string;
+  FitmentTitle: string;
+  FitmentDescription: string;
+  FitmentNotes: string;
+  Position: string;
+  LiftHeight: string;
+  UOM: string;
+  WheelType: string;
+  TireDiameter1: string;
+  WheelDiameter1: string;
+  BackSpacing1: string;
+  TireDiameter2: string;
+  WheelDiameter2: string;
+  BackSpacing2: string;
+  TireDiameter3: string;
+  WheelDiameter3: string;
+  BackSpacing3: string;
+  filePos: number;
+}
+
+interface ValidationResult {
+  session_id: string;
+  repairedRows: Record<string, Record<string, string>>;
+  invalidRows: Record<string, Record<string, string>>;
+  ignoredColumns: string[];
+  totalRows: number;
+  validRows: number;
+  invalidRowsCount: number;
+}
+
+interface SubmissionResult {
+  success: boolean;
+  created_count: number;
+  skipped_count: number;
+  total_rows: number;
+  errors: string[];
+  message: string;
+}
 
 export default function BulkUpload() {
+  const [currentStep, setCurrentStep] = useState(0);
   const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [validationResults, setValidationResults] = useState<any>(null);
+  const [data, setData] = useState<FitmentRow[]>([]);
+  const [validating, setValidating] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [validation, setValidation] = useState<ValidationResult | null>(null);
+  const [submissionResult, setSubmissionResult] =
+    useState<SubmissionResult | null>(null);
+  const [sessionId, setSessionId] = useState<string>("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const steps = [
+    { label: "Upload CSV", description: "Select and upload your fitment data" },
+    { label: "Validate Data", description: "Process and validate your data" },
+    {
+      label: "Review & Submit",
+      description: "Review results and import fitments",
+    },
+    { label: "Complete", description: "Upload finished successfully" },
+  ];
+
   const handleFileSelect = (selectedFile: File) => {
     if (!selectedFile) return;
+
+    // Check file size (10MB = 10 * 1024 * 1024 bytes)
+    const maxSize = 10 * 1024 * 1024;
+    if (selectedFile.size > maxSize) {
+      notifications.show({
+        title: "File Too Large",
+        message:
+          "File size must be 10MB or less. Your file is " +
+          (selectedFile.size > 1024 * 1024
+            ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB`
+            : `${(selectedFile.size / 1024).toFixed(2)} KB`),
+        color: "red",
+      });
+      return;
+    }
+
     const name = selectedFile.name.toLowerCase();
     const ok =
       name.endsWith(".csv") || name.endsWith(".tsv") || name.endsWith(".xlsx");
     if (!ok) {
-      alert("Please select a .csv, .tsv, or .xlsx file");
+      notifications.show({
+        title: "Invalid File Type",
+        message: "Please select a .csv, .tsv, or .xlsx file",
+        color: "red",
+      });
       return;
     }
     setFile(selectedFile);
-    setValidationResults(null);
+    setValidation(null);
+    setSubmissionResult(null);
+    // Don't automatically move to next step - let user click "Next Step"
   };
 
   const handleDrop = (event: React.DragEvent) => {
@@ -61,64 +161,135 @@ export default function BulkUpload() {
     if (!file) return;
 
     try {
-      setUploading(true);
+      setValidating(true);
       setUploadProgress(0);
-      const res = await fitmentsService.validateCSV(file);
-      setValidationResults(res.data);
+
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 200);
+
+      const response = await fitmentsService.validateFitmentsCSV(file);
+      const result = response.data;
+
+      clearInterval(progressInterval);
       setUploadProgress(100);
-    } catch (e: any) {
-      const msg =
-        e?.response?.data?.message || e?.message || "Validation failed";
-      alert(msg);
-      setValidationResults(null);
+
+      setValidation(result);
+      setSessionId(result.session_id);
+      setCurrentStep(2);
+
+      notifications.show({
+        title: "Validation Complete",
+        message: `Found ${result.validRows} valid rows and ${result.invalidRowsCount} invalid rows`,
+        color: result.invalidRowsCount === 0 ? "green" : "yellow",
+      });
+    } catch (error: any) {
+      notifications.show({
+        title: "Validation Failed",
+        message:
+          error.response?.data?.error || error.message || "Validation failed",
+        color: "red",
+      });
     } finally {
-      setUploading(false);
+      setValidating(false);
+      setUploadProgress(0);
     }
   };
 
   const submitFitments = async () => {
+    if (!sessionId) return;
+
     try {
-      const res = await fitmentsService.submitValidated();
-      alert(res.data?.message || "Fitments submitted successfully!");
-      setFile(null);
-      setValidationResults(null);
-    } catch (e: any) {
-      const msg = e?.response?.data?.message || e?.message || "Submit failed";
-      alert(msg);
+      setSubmitting(true);
+      const response = await fitmentsService.submitValidatedFitments(sessionId);
+      const result = response.data;
+
+      setSubmissionResult(result);
+      setCurrentStep(3);
+
+      notifications.show({
+        title: "Upload Complete",
+        message: result.message,
+        color: "green",
+      });
+    } catch (error: any) {
+      notifications.show({
+        title: "Submission Failed",
+        message:
+          error.response?.data?.error || error.message || "Submission failed",
+        color: "red",
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const downloadTemplate = () => {
-    // Create a sample CSV template
     const headers = [
-      "partId",
-      "partTypeId",
-      "configurationId",
-      "quantity",
-      "position",
-      "liftHeight",
-      "wheelType",
-      "wheelDiameter1",
-      "tireDiameter1",
-      "backspacing1",
-      "title",
-      "description",
-      "notes",
+      "PartID",
+      "YearID",
+      "MakeName",
+      "ModelName",
+      "SubModelName",
+      "DriveTypeName",
+      "FuelTypeName",
+      "BodyNumDoors",
+      "BodyTypeName",
+      "PTID",
+      "Quantity",
+      "FitmentTitle",
+      "FitmentDescription",
+      "FitmentNotes",
+      "Position",
+      "LiftHeight",
+      "UOM",
+      "WheelType",
+      "TireDiameter1",
+      "WheelDiameter1",
+      "BackSpacing1",
+      "TireDiameter2",
+      "WheelDiameter2",
+      "BackSpacing2",
+      "TireDiameter3",
+      "WheelDiameter3",
+      "BackSpacing3",
     ];
+
     const sampleRow = [
-      "P-12345",
-      "PT-22",
-      "cfg-1001",
+      "12345",
+      "2020",
+      "Ford",
+      "F-150",
+      "XLT",
+      "4WD",
+      "Gas",
+      "4",
+      "Pickup",
+      "PT001",
       "1",
+      "Heavy Duty Brake Pads",
+      "For towing applications",
+      "Professional grade",
       "Front",
-      "Stock",
+      "2 inch",
+      "EA",
       "Alloy",
-      "18",
-      "255/55R18",
-      "35mm",
-      "Standard fit",
-      "Works with OEM wheel",
-      "Check brake clearance",
+      "33",
+      "17",
+      "4.5",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
     ];
 
     const csvContent = [headers.join(","), sampleRow.join(",")].join("\n");
@@ -131,22 +302,80 @@ export default function BulkUpload() {
     window.URL.revokeObjectURL(url);
   };
 
+  const resetUpload = () => {
+    setCurrentStep(0);
+    setFile(null);
+    setData([]);
+    setValidation(null);
+    setSubmissionResult(null);
+    setSessionId("");
+    setUploadProgress(0);
+    setValidating(false);
+    setSubmitting(false);
+  };
+
+  const getRowStatus = (rowIndex: number) => {
+    if (!validation) return "unknown";
+
+    const rowNumber = rowIndex + 2; // +2 for header and 0-based indexing
+
+    if (validation.invalidRows[rowNumber]) {
+      return "invalid";
+    } else if (validation.repairedRows[rowNumber]) {
+      return "repaired";
+    } else {
+      return "valid";
+    }
+  };
+
+  const getRowStyle = (rowIndex: number) => {
+    const status = getRowStatus(rowIndex);
+
+    switch (status) {
+      case "invalid":
+        return { backgroundColor: "#ffebee" }; // Light red
+      case "repaired":
+        return { backgroundColor: "#fff3e0" }; // Light orange
+      case "valid":
+        return { backgroundColor: "#e8f5e8" }; // Light green
+      default:
+        return { backgroundColor: "white" };
+    }
+  };
+
   return (
-    <div style={{ padding: "24px 0" }}>
-      <Stack gap="lg">
-        {/* Header */}
-        <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <Group justify="space-between" mb="md">
+    <div style={{ minHeight: "100vh" }}>
+      <Card shadow="sm" padding="lg" radius="md" withBorder>
+        <Stack gap="lg">
+          {/* Header */}
+          <Group justify="space-between">
             <div>
-              <Title order={2}>Bulk Upload Fitments</Title>
+              <Title order={2}>Fitments Bulk Upload</Title>
               <Text c="dimmed">
-                Upload CSV files to import fitments in bulk
+                Upload CSV files to import fitments in bulk with validation
               </Text>
             </div>
             <Button
               leftSection={<IconDownload size={16} />}
               variant="light"
               onClick={downloadTemplate}
+              styles={{
+                root: {
+                  borderRadius: "10px",
+                  fontWeight: 600,
+                  fontSize: "14px",
+                  height: "40px",
+                  padding: "0 20px",
+                  border: "2px solid #e2e8f0",
+                  color: "#64748b",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  "&:hover": {
+                    backgroundColor: "#f8fafc",
+                    borderColor: "#cbd5e1",
+                    transform: "translateY(-1px)",
+                  },
+                },
+              }}
             >
               Download Template
             </Button>
@@ -154,253 +383,501 @@ export default function BulkUpload() {
 
           <Alert
             icon={<IconAlertTriangle size={16} />}
-            title="Important"
+            title="Important Requirements"
             color="yellow"
-            mb="lg"
-          >
-            Maximum file size: 10MB. Ensure your CSV includes required columns:
-            partId, partTypeId, configurationId, quantity, position.
-          </Alert>
-        </Card>
-
-        {/* File Upload */}
-        <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <Title order={3} mb="md">
-            1. Select CSV File
-          </Title>
-
-          <div
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            style={{
-              border: "2px dashed var(--mantine-color-gray-4)",
-              borderRadius: rem(8),
-              padding: rem(40),
-              textAlign: "center",
-              cursor: "pointer",
-              backgroundColor: file
-                ? "var(--mantine-color-green-0)"
-                : "var(--mantine-color-gray-0)",
+            styles={{
+              root: {
+                borderRadius: "10px",
+                border: "1px solid #fbbf24",
+              },
             }}
-            onClick={() => fileInputRef.current?.click()}
           >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv,.tsv,.xlsx"
-              onChange={(e) =>
-                e.target.files?.[0] && handleFileSelect(e.target.files[0])
-              }
-              style={{ display: "none" }}
-            />
-
-            <Center>
-              <Stack align="center" gap="sm">
-                {file ? (
-                  <>
-                    <IconFileSpreadsheet
-                      size={48}
-                      color="var(--mantine-color-green-6)"
-                    />
-                    <Text fw={500}>{file.name}</Text>
-                    <Text size="sm" c="dimmed">
-                      {(file.size / 1024 / 1024).toFixed(2)} MB
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <IconCloudUpload
-                      size={48}
-                      color="var(--mantine-color-gray-6)"
-                    />
-                    <Text fw={500}>
-                      Drop your CSV/TSV/XLSX file here or click to browse
-                    </Text>
-                    <Text size="sm" c="dimmed">
-                      Supports files up to 10MB
-                    </Text>
-                  </>
-                )}
-              </Stack>
-            </Center>
-          </div>
-
-          {file && !validationResults && (
-            <Group justify="center" mt="md">
-              <Button
-                leftSection={<IconUpload size={16} />}
-                onClick={validateFile}
-                loading={uploading}
-                disabled={!file}
-              >
-                Validate File
-              </Button>
-            </Group>
-          )}
-
-          {uploading && (
-            <Stack gap="sm" mt="md">
+            <Stack gap="xs">
               <Text size="sm" fw={500}>
-                Validating file...
+                File Requirements:
               </Text>
-              <Progress value={uploadProgress} animated />
+              <Text size="sm">
+                • Maximum file size: <strong>10MB</strong>
+              </Text>
+              <Text size="sm">• Supported formats: CSV, TSV, XLSX</Text>
+              <Text size="sm">
+                • Required columns:{" "}
+                <strong>PartID, YearID, MakeName, ModelName, PTID</strong>
+              </Text>
+              <Text size="sm">
+                • Duplicate fitments will be automatically skipped
+              </Text>
             </Stack>
-          )}
-        </Card>
+          </Alert>
 
-        {/* Validation Results */}
-        {validationResults && (
-          <>
-            <Card shadow="sm" padding="lg" radius="md" withBorder>
-              <Title order={3} mb="md">
-                2. Validation Results
-              </Title>
+          {/* Stepper */}
+          <Stepper
+            active={submissionResult ? steps.length : currentStep}
+            onStepClick={setCurrentStep}
+            breakpoint="sm"
+            styles={{
+              stepIcon: {
+                "&[data-progress]": {
+                  borderColor: "#3b82f6",
+                },
+              },
+              stepCompleted: {
+                backgroundColor: "#3b82f6",
+                borderColor: "#3b82f6",
+              },
+            }}
+          >
+            {steps.map((step, index) => (
+              <Stepper.Step
+                key={index}
+                label={step.label}
+                description={step.description}
+                allowStepSelect={index <= currentStep}
+              >
+                {/* Step Content */}
+                {index === 0 && (
+                  <Stack gap="lg" mt="lg">
+                    <Title order={3}>1. Upload CSV File</Title>
 
-              <Stack gap="md">
-                {/* Summary */}
-                <Group>
-                  <Badge
-                    leftSection={<IconCheck size={12} />}
-                    color="green"
-                    size="lg"
-                  >
-                    {Object.keys(validationResults.repairedRows || {}).length}{" "}
-                    Repaired
-                  </Badge>
-                  <Badge
-                    leftSection={<IconX size={12} />}
-                    color="red"
-                    size="lg"
-                  >
-                    {Object.keys(validationResults.invalidRows || {}).length}{" "}
-                    Invalid
-                  </Badge>
-                  <Badge
-                    leftSection={<IconAlertTriangle size={12} />}
-                    color="yellow"
-                    size="lg"
-                  >
-                    {(validationResults.ignoredColumns || []).length} Ignored
-                    Columns
-                  </Badge>
-                </Group>
-
-                <Divider />
-
-                {/* Repaired Rows */}
-                {Object.keys(validationResults.repairedRows || {}).length >
-                  0 && (
-                  <div>
-                    <Title order={4} c="green" mb="sm">
-                      Repaired Rows (Auto-fixed)
-                    </Title>
-                    <Table>
-                      <Table.Thead>
-                        <Table.Tr>
-                          <Table.Th>Row</Table.Th>
-                          <Table.Th>Column</Table.Th>
-                          <Table.Th>Corrected Value</Table.Th>
-                        </Table.Tr>
-                      </Table.Thead>
-                      <Table.Tbody>
-                        {Object.entries(validationResults.repairedRows).map(
-                          ([rowIndex, fixes]: [string, any]) =>
-                            Object.entries(fixes).map(([column, value]) => (
-                              <Table.Tr key={`${rowIndex}-${column}`}>
-                                <Table.Td>{rowIndex}</Table.Td>
-                                <Table.Td>{column}</Table.Td>
-                                <Table.Td>
-                                  <Badge variant="light" color="green">
-                                    {value as string}
-                                  </Badge>
-                                </Table.Td>
-                              </Table.Tr>
-                            ))
-                        )}
-                      </Table.Tbody>
-                    </Table>
-                  </div>
-                )}
-
-                {/* Invalid Rows */}
-                {Object.keys(validationResults.invalidRows || {}).length >
-                  0 && (
-                  <div>
-                    <Title order={4} c="red" mb="sm">
-                      Invalid Rows (Require Attention)
-                    </Title>
-                    <Table>
-                      <Table.Thead>
-                        <Table.Tr>
-                          <Table.Th>Row</Table.Th>
-                          <Table.Th>Column</Table.Th>
-                          <Table.Th>Error</Table.Th>
-                        </Table.Tr>
-                      </Table.Thead>
-                      <Table.Tbody>
-                        {Object.entries(validationResults.invalidRows).map(
-                          ([rowIndex, errors]: [string, any]) =>
-                            Object.entries(errors).map(([column, error]) => (
-                              <Table.Tr key={`${rowIndex}-${column}`}>
-                                <Table.Td>{rowIndex}</Table.Td>
-                                <Table.Td>{column}</Table.Td>
-                                <Table.Td>
-                                  <Text c="red" size="sm">
-                                    {error as string}
-                                  </Text>
-                                </Table.Td>
-                              </Table.Tr>
-                            ))
-                        )}
-                      </Table.Tbody>
-                    </Table>
-                  </div>
-                )}
-
-                {/* Ignored Columns */}
-                {(validationResults.ignoredColumns || []).length > 0 && (
-                  <Alert icon={<IconAlertTriangle size={16} />} color="yellow">
-                    <Text fw={500}>Ignored Columns:</Text>
-                    <Text size="sm">
-                      {validationResults.ignoredColumns.join(", ")}
-                    </Text>
-                  </Alert>
-                )}
-              </Stack>
-            </Card>
-
-            {/* Submit */}
-            <Card shadow="sm" padding="lg" radius="md" withBorder>
-              <Title order={3} mb="md">
-                3. Submit Fitments
-              </Title>
-
-              {Object.keys(validationResults.invalidRows || {}).length === 0 ? (
-                <Stack gap="md">
-                  <Alert icon={<IconCheck size={16} />} color="green">
-                    All data is valid and ready for import. Click Submit to
-                    proceed.
-                  </Alert>
-                  <Group justify="center">
-                    <Button
-                      leftSection={<IconCheck size={16} />}
-                      size="lg"
-                      onClick={submitFitments}
+                    <div
+                      onDrop={handleDrop}
+                      onDragOver={handleDragOver}
+                      style={{
+                        border: "2px dashed #d1d5db",
+                        borderRadius: rem(12),
+                        padding: rem(40),
+                        textAlign: "center",
+                        cursor: "pointer",
+                        backgroundColor: file ? "#f0f9ff" : "#f9fafb",
+                        borderColor: file ? "#3b82f6" : "#d1d5db",
+                        transition: "all 0.3s ease",
+                      }}
+                      onClick={() => fileInputRef.current?.click()}
                     >
-                      Submit Fitments
-                    </Button>
-                  </Group>
-                </Stack>
-              ) : (
-                <Alert icon={<IconX size={16} />} color="red">
-                  Please fix all invalid rows before submitting. You can
-                  download the corrected file, make changes, and re-upload.
-                </Alert>
-              )}
-            </Card>
-          </>
-        )}
-      </Stack>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".csv,.tsv,.xlsx"
+                        onChange={(e) =>
+                          e.target.files?.[0] &&
+                          handleFileSelect(e.target.files[0])
+                        }
+                        style={{ display: "none" }}
+                      />
+
+                      <Center>
+                        <Stack align="center" gap="sm">
+                          {file ? (
+                            <>
+                              <IconFileSpreadsheet size={48} color="#3b82f6" />
+                              <Text fw={500} c="#1e40af">
+                                {file.name}
+                              </Text>
+                              <Text size="sm" c="dimmed">
+                                {file.size > 1024 * 1024
+                                  ? `${(file.size / 1024 / 1024).toFixed(2)} MB`
+                                  : `${(file.size / 1024).toFixed(2)} KB`}
+                              </Text>
+                              <Badge color="green" variant="light" size="sm">
+                                ✓ File Ready
+                              </Badge>
+                            </>
+                          ) : (
+                            <>
+                              <IconCloudUpload size={48} color="#6b7280" />
+                              <Text fw={500} c="#374151">
+                                Drop your CSV/TSV/XLSX file here or click to
+                                browse
+                              </Text>
+                              <Text size="sm" c="dimmed">
+                                Maximum file size: 10MB
+                              </Text>
+                            </>
+                          )}
+                        </Stack>
+                      </Center>
+                    </div>
+
+                    {file && (
+                      <Stack gap="md">
+                        <Alert icon={<IconCheck size={16} />} color="green">
+                          <Text fw={500}>File uploaded successfully!</Text>
+                          <Text size="sm">
+                            Your file is ready for validation. Click "Next Step"
+                            to proceed.
+                          </Text>
+                        </Alert>
+
+                        <Group justify="center">
+                          <Button
+                            leftSection={<IconArrowRight size={16} />}
+                            onClick={() => setCurrentStep(1)}
+                            size="lg"
+                            styles={{
+                              root: {
+                                borderRadius: "10px",
+                                fontWeight: 600,
+                                fontSize: "16px",
+                                height: "48px",
+                                padding: "0 32px",
+                                background:
+                                  "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                                border: "none",
+                                transition:
+                                  "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                "&:hover": {
+                                  transform: "translateY(-2px)",
+                                  boxShadow:
+                                    "0 8px 25px -5px rgba(16, 185, 129, 0.3)",
+                                },
+                              },
+                            }}
+                          >
+                            Next Step
+                          </Button>
+                        </Group>
+                      </Stack>
+                    )}
+                  </Stack>
+                )}
+
+                {index === 1 && file && (
+                  <Stack gap="lg" mt="lg">
+                    <Title order={3}>2. Validate Data</Title>
+
+                    <Alert icon={<IconAlertTriangle size={16} />} color="blue">
+                      <Text fw={500}>Ready to Validate</Text>
+                      <Text size="sm">
+                        Click the button below to validate your uploaded file:{" "}
+                        <strong>{file.name}</strong>
+                      </Text>
+                    </Alert>
+
+                    <Group justify="center">
+                      <Button
+                        leftSection={<IconUpload size={16} />}
+                        onClick={validateFile}
+                        loading={validating}
+                        disabled={!file}
+                        size="lg"
+                        styles={{
+                          root: {
+                            borderRadius: "10px",
+                            fontWeight: 600,
+                            fontSize: "16px",
+                            height: "48px",
+                            padding: "0 32px",
+                            background:
+                              "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                            border: "none",
+                            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                            boxShadow: "0 4px 6px -1px rgba(59, 130, 246, 0.2)",
+                            "&:hover": {
+                              transform: "translateY(-2px)",
+                              boxShadow:
+                                "0 8px 25px -5px rgba(59, 130, 246, 0.3)",
+                            },
+                          },
+                        }}
+                      >
+                        {validating ? "Validating..." : "Start Validation"}
+                      </Button>
+                    </Group>
+
+                    {validating && (
+                      <Stack gap="sm">
+                        <Text size="sm" fw={500} ta="center">
+                          Processing your file...
+                        </Text>
+                        <Progress
+                          value={uploadProgress}
+                          animated
+                          size="lg"
+                          radius="xl"
+                        />
+                      </Stack>
+                    )}
+                  </Stack>
+                )}
+
+                {index === 2 && validation && !submissionResult && (
+                  <Stack gap="lg" mt="lg">
+                    <Title order={3}>3. Review Results</Title>
+
+                    {/* Summary Stats */}
+                    <Group>
+                      <Badge
+                        leftSection={<IconCheck size={12} />}
+                        color="green"
+                        size="lg"
+                        styles={{
+                          root: {
+                            borderRadius: "8px",
+                            fontSize: "14px",
+                            fontWeight: 600,
+                          },
+                        }}
+                      >
+                        {validation.validRows} Valid Rows
+                      </Badge>
+                      <Badge
+                        leftSection={<IconX size={12} />}
+                        color="red"
+                        size="lg"
+                        styles={{
+                          root: {
+                            borderRadius: "8px",
+                            fontSize: "14px",
+                            fontWeight: 600,
+                          },
+                        }}
+                      >
+                        {validation.invalidRowsCount} Invalid Rows
+                      </Badge>
+                      {Object.keys(validation.repairedRows).length > 0 && (
+                        <Badge
+                          leftSection={<IconAlertTriangle size={12} />}
+                          color="yellow"
+                          size="lg"
+                          styles={{
+                            root: {
+                              borderRadius: "8px",
+                              fontSize: "14px",
+                              fontWeight: 600,
+                            },
+                          }}
+                        >
+                          {Object.keys(validation.repairedRows).length}{" "}
+                          Auto-repaired
+                        </Badge>
+                      )}
+                    </Group>
+
+                    <Divider />
+
+                    {/* Repaired Rows */}
+                    {Object.keys(validation.repairedRows).length > 0 && (
+                      <div>
+                        <Title order={4} c="orange" mb="sm">
+                          Auto-repaired Rows
+                        </Title>
+                        <Table striped>
+                          <Table.Thead>
+                            <Table.Tr>
+                              <Table.Th>Row</Table.Th>
+                              <Table.Th>Column</Table.Th>
+                              <Table.Th>Original Value</Table.Th>
+                              <Table.Th>Corrected Value</Table.Th>
+                            </Table.Tr>
+                          </Table.Thead>
+                          <Table.Tbody>
+                            {Object.entries(validation.repairedRows).map(
+                              ([rowIndex, fixes]: [string, any]) =>
+                                Object.entries(fixes).map(([column, value]) => (
+                                  <Table.Tr key={`${rowIndex}-${column}`}>
+                                    <Table.Td>{rowIndex}</Table.Td>
+                                    <Table.Td>{column}</Table.Td>
+                                    <Table.Td>
+                                      <Text size="sm" c="dimmed">
+                                        {validation.invalidRows[rowIndex]?.[
+                                          column
+                                        ] || "N/A"}
+                                      </Text>
+                                    </Table.Td>
+                                    <Table.Td>
+                                      <Badge variant="light" color="green">
+                                        {value as string}
+                                      </Badge>
+                                    </Table.Td>
+                                  </Table.Tr>
+                                ))
+                            )}
+                          </Table.Tbody>
+                        </Table>
+                      </div>
+                    )}
+
+                    {/* Invalid Rows */}
+                    {Object.keys(validation.invalidRows).length > 0 && (
+                      <div>
+                        <Title order={4} c="red" mb="sm">
+                          Invalid Rows (Require Attention)
+                        </Title>
+                        <Table striped>
+                          <Table.Thead>
+                            <Table.Tr>
+                              <Table.Th>Row</Table.Th>
+                              <Table.Th>Column</Table.Th>
+                              <Table.Th>Error</Table.Th>
+                            </Table.Tr>
+                          </Table.Thead>
+                          <Table.Tbody>
+                            {Object.entries(validation.invalidRows).map(
+                              ([rowIndex, errors]: [string, any]) =>
+                                Object.entries(errors).map(
+                                  ([column, error]) => (
+                                    <Table.Tr key={`${rowIndex}-${column}`}>
+                                      <Table.Td>{rowIndex}</Table.Td>
+                                      <Table.Td>{column}</Table.Td>
+                                      <Table.Td>
+                                        <Text c="red" size="sm">
+                                          {error as string}
+                                        </Text>
+                                      </Table.Td>
+                                    </Table.Tr>
+                                  )
+                                )
+                            )}
+                          </Table.Tbody>
+                        </Table>
+                      </div>
+                    )}
+
+                    {/* Ignored Columns */}
+                    {validation.ignoredColumns &&
+                      validation.ignoredColumns.length > 0 && (
+                        <Alert
+                          icon={<IconAlertTriangle size={16} />}
+                          color="yellow"
+                        >
+                          <Text fw={500}>Ignored Columns:</Text>
+                          <Text size="sm">
+                            {validation.ignoredColumns.join(", ")}
+                          </Text>
+                        </Alert>
+                      )}
+
+                    <Group justify="center" mt="lg">
+                      <Button
+                        leftSection={<IconCheck size={16} />}
+                        onClick={submitFitments}
+                        loading={submitting}
+                        disabled={validation.validRows === 0}
+                        size="lg"
+                        styles={{
+                          root: {
+                            borderRadius: "10px",
+                            fontWeight: 600,
+                            fontSize: "16px",
+                            height: "48px",
+                            padding: "0 32px",
+                            background:
+                              validation.validRows > 0
+                                ? "linear-gradient(135deg, #10b981 0%, #059669 100%)"
+                                : "#9ca3af",
+                            border: "none",
+                            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                            "&:hover": {
+                              transform:
+                                validation.validRows > 0
+                                  ? "translateY(-2px)"
+                                  : "none",
+                            },
+                          },
+                        }}
+                      >
+                        Import {validation.validRows} Fitments
+                      </Button>
+                    </Group>
+                  </Stack>
+                )}
+
+                {index === 3 && submissionResult && (
+                  <Stack gap="lg" mt="lg">
+                    <Title order={3}>4. Upload Complete!</Title>
+
+                    <Alert icon={<IconCheck size={16} />} color="green">
+                      <Text fw={500} size="lg">
+                        ✅ Success!
+                      </Text>
+                      <Text size="sm">{submissionResult.message}</Text>
+                    </Alert>
+
+                    <Grid>
+                      <Grid.Col span={4}>
+                        <Card withBorder p="md" radius="md">
+                          <Text fw={600} size="lg" c="green">
+                            {submissionResult.created_count}
+                          </Text>
+                          <Text size="sm" c="dimmed">
+                            Fitments Created
+                          </Text>
+                        </Card>
+                      </Grid.Col>
+                      {submissionResult.skipped_count > 0 && (
+                        <Grid.Col span={4}>
+                          <Card withBorder p="md" radius="md">
+                            <Text fw={600} size="lg" c="orange">
+                              {submissionResult.skipped_count}
+                            </Text>
+                            <Text size="sm" c="dimmed">
+                              Duplicates Skipped
+                            </Text>
+                          </Card>
+                        </Grid.Col>
+                      )}
+                      <Grid.Col
+                        span={submissionResult.skipped_count > 0 ? 4 : 8}
+                      >
+                        <Card withBorder p="md" radius="md">
+                          <Text fw={600} size="lg">
+                            {submissionResult.total_rows}
+                          </Text>
+                          <Text size="sm" c="dimmed">
+                            Total Processed
+                          </Text>
+                        </Card>
+                      </Grid.Col>
+                    </Grid>
+
+                    {submissionResult.errors &&
+                      submissionResult.errors.length > 0 && (
+                        <Alert
+                          icon={<IconAlertTriangle size={16} />}
+                          color="yellow"
+                        >
+                          <Text fw={500}>Some rows had errors:</Text>
+                          <ul>
+                            {submissionResult.errors.map((error, index) => (
+                              <li key={index}>{error}</li>
+                            ))}
+                          </ul>
+                        </Alert>
+                      )}
+
+                    <Group justify="center">
+                      <Button
+                        leftSection={<IconRefresh size={16} />}
+                        onClick={resetUpload}
+                        variant="light"
+                        styles={{
+                          root: {
+                            borderRadius: "10px",
+                            fontWeight: 600,
+                            fontSize: "16px",
+                            height: "48px",
+                            padding: "0 32px",
+                            border: "2px solid #e2e8f0",
+                            color: "#64748b",
+                            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                            "&:hover": {
+                              backgroundColor: "#f8fafc",
+                              borderColor: "#cbd5e1",
+                              transform: "translateY(-1px)",
+                            },
+                          },
+                        }}
+                      >
+                        Upload Another File
+                      </Button>
+                    </Group>
+                  </Stack>
+                )}
+              </Stepper.Step>
+            ))}
+          </Stepper>
+        </Stack>
+      </Card>
     </div>
   );
 }
