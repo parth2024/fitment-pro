@@ -272,3 +272,58 @@ class AppliedFitment(models.Model):
     
     def __str__(self):
         return f"{self.part_id} -> {self.year} {self.make} {self.model}"
+
+
+class LiftHeight(models.Model):
+    id = models.CharField(max_length=10, primary_key=True)
+    value = models.CharField(max_length=50)
+
+    class Meta:
+        db_table = 'lift_heights'
+
+    def __str__(self):
+        return self.value
+
+
+class WheelType(models.Model):
+    id = models.CharField(max_length=10, primary_key=True)
+    value = models.CharField(max_length=50)
+
+    class Meta:
+        db_table = 'wheel_types'
+
+    def __str__(self):
+        return self.value
+
+
+class TireDiameter(models.Model):
+    id = models.CharField(max_length=10, primary_key=True)
+    value = models.CharField(max_length=50)
+
+    class Meta:
+        db_table = 'tire_diameters'
+
+    def __str__(self):
+        return self.value
+
+
+class WheelDiameter(models.Model):
+    id = models.CharField(max_length=10, primary_key=True)
+    value = models.CharField(max_length=50)
+
+    class Meta:
+        db_table = 'wheel_diameters'
+
+    def __str__(self):
+        return self.value
+
+
+class Backspacing(models.Model):
+    id = models.CharField(max_length=10, primary_key=True)
+    value = models.CharField(max_length=50)
+
+    class Meta:
+        db_table = 'backspacing'
+
+    def __str__(self):
+        return self.value

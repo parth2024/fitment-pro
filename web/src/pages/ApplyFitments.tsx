@@ -77,12 +77,13 @@ export default function ApplyFitments() {
     // Fetch dropdown data from VCDBData and ProductData tables
     setLoadingDropdownData(true);
     try {
-      const result: any = await fetchDropdownData(() =>
-        dataUploadService.getNewDataDropdownData()
-      );
+      const [dropdownResult, lookupResult] = await Promise.all([
+        fetchDropdownData(() => dataUploadService.getNewDataDropdownData()),
+        fetchLookupData(() => dataUploadService.getLookupData()),
+      ]);
 
-      if (result && result.data) {
-        setDropdownData(result.data);
+      if (dropdownResult && dropdownResult.data) {
+        setDropdownData(dropdownResult.data);
 
         // Set available columns based on VCDB data structure
         const vcdbColumns = [
@@ -102,9 +103,15 @@ export default function ApplyFitments() {
       } else {
         showError("Failed to load vehicle and product data");
       }
+
+      if (lookupResult && lookupResult.data) {
+        setLookupData(lookupResult.data);
+      } else {
+        showError("Failed to load lookup data");
+      }
     } catch (error) {
-      console.error("Failed to fetch dropdown data:", error);
-      showError("Failed to load vehicle and product data");
+      console.error("Failed to fetch data:", error);
+      showError("Failed to load data");
     } finally {
       setLoadingDropdownData(false);
     }
@@ -128,6 +135,7 @@ export default function ApplyFitments() {
 
   // Manual Method Stepper State
   const [manualStep, setManualStep] = useState(1);
+  const [formKey, setFormKey] = useState(0);
   const [vehicleFilters, setVehicleFilters] = useState({
     yearFrom: "",
     yearTo: "",
@@ -148,7 +156,19 @@ export default function ApplyFitments() {
     title: "",
     description: "",
     notes: "",
+    liftHeight: "",
+    wheelType: "",
   });
+
+  // Wheel parameters state
+  const [wheelParameters, setWheelParameters] = useState([
+    { tireDiameter: "", wheelDiameter: "", backspacing: "" },
+    { tireDiameter: "", wheelDiameter: "", backspacing: "" },
+    { tireDiameter: "", wheelDiameter: "", backspacing: "" },
+  ]);
+
+  // Lookup data state
+  const [lookupData, setLookupData] = useState<any>(null);
   const [applyingManualFitment, setApplyingManualFitment] = useState(false);
 
   // Configurable columns state
@@ -165,9 +185,10 @@ export default function ApplyFitments() {
   ]);
 
   // API hooks
-  const { execute: applyFitment } = useAsyncOperation();
   const { execute: fetchDropdownData } = useAsyncOperation();
   const { execute: fetchFilteredVehicles } = useAsyncOperation();
+  const { execute: fetchLookupData } = useAsyncOperation();
+  const { execute: createFitment } = useAsyncOperation();
 
   return (
     <div
@@ -466,8 +487,8 @@ export default function ApplyFitments() {
                       }}
                     >
                       <Stepper.Step
-                        label="Vehicle Selection"
-                        description="Select vehicle criteria"
+                        label="Specify Vehicle Configurations"
+                        description="Specify vehicle criteria"
                         icon={<IconCar size={18} />}
                       >
                         <div>
@@ -494,7 +515,7 @@ export default function ApplyFitments() {
                               )}
                             </div>
 
-                            <div>
+                            <div key={formKey}>
                               <SimpleGrid
                                 cols={{ base: 1, sm: 2, lg: 3 }}
                                 spacing="xl"
@@ -931,6 +952,9 @@ export default function ApplyFitments() {
                                 size="md"
                                 leftSection={<IconRefresh size={16} />}
                                 onClick={() => {
+                                  console.log("Clearing filters...");
+
+                                  // Clear all vehicle filters
                                   setVehicleFilters({
                                     yearFrom: "",
                                     yearTo: "",
@@ -942,7 +966,61 @@ export default function ApplyFitments() {
                                     driveType: "",
                                     bodyType: "",
                                   });
+
+                                  // Clear vehicle selection results
                                   setFilteredVehicles([]);
+                                  setSelectedVehicles([]);
+
+                                  // Clear fitment details
+                                  setFitmentDetails({
+                                    partId: "",
+                                    position: "",
+                                    quantity: 1,
+                                    title: "",
+                                    description: "",
+                                    notes: "",
+                                    liftHeight: "",
+                                    wheelType: "",
+                                  });
+
+                                  // Clear wheel parameters
+                                  setWheelParameters([
+                                    {
+                                      tireDiameter: "",
+                                      wheelDiameter: "",
+                                      backspacing: "",
+                                    },
+                                    {
+                                      tireDiameter: "",
+                                      wheelDiameter: "",
+                                      backspacing: "",
+                                    },
+                                    {
+                                      tireDiameter: "",
+                                      wheelDiameter: "",
+                                      backspacing: "",
+                                    },
+                                  ]);
+
+                                  // Reset to first step
+                                  setManualStep(1);
+
+                                  // Reset column configuration
+                                  setShowColumnConfig(false);
+                                  setSelectedColumns([
+                                    "year",
+                                    "make",
+                                    "model",
+                                    "submodel",
+                                    "fuelType",
+                                    "bodyType",
+                                    "driveType",
+                                  ]);
+
+                                  // Force form re-render
+                                  setFormKey((prev) => prev + 1);
+
+                                  console.log("Filters cleared!");
                                 }}
                                 styles={{
                                   root: {
@@ -1106,7 +1184,13 @@ export default function ApplyFitments() {
                                       );
                                     }}
                                   >
-                                    <Group justify="space-between">
+                                    <Group gap={40}>
+                                      <Checkbox
+                                        checked={selectedVehicles.includes(
+                                          vehicle.id
+                                        )}
+                                        onChange={() => {}}
+                                      />
                                       <div>
                                         <Text fw={600} size="sm" c="#1e293b">
                                           {vehicle.year} {vehicle.make}{" "}
@@ -1119,12 +1203,6 @@ export default function ApplyFitments() {
                                           {vehicle.bodyType}
                                         </Text>
                                       </div>
-                                      <Checkbox
-                                        checked={selectedVehicles.includes(
-                                          vehicle.id
-                                        )}
-                                        onChange={() => {}}
-                                      />
                                     </Group>
                                   </Card>
                                 ))}
@@ -1339,6 +1417,114 @@ export default function ApplyFitments() {
                                     },
                                   }}
                                 />
+                                <Select
+                                  label="Lift Height"
+                                  placeholder="Select lift height"
+                                  data={
+                                    lookupData?.lift_heights?.map(
+                                      (item: any) => ({
+                                        value: item.value,
+                                        label: item.value,
+                                      })
+                                    ) || []
+                                  }
+                                  value={fitmentDetails.liftHeight}
+                                  onChange={(value) =>
+                                    setFitmentDetails((prev) => ({
+                                      ...prev,
+                                      liftHeight: value || "",
+                                    }))
+                                  }
+                                  searchable
+                                  disabled={loadingDropdownData}
+                                  leftSection={
+                                    <IconCar size={16} color="#64748b" />
+                                  }
+                                  styles={{
+                                    label: {
+                                      fontWeight: 600,
+                                      fontSize: "13px",
+                                      color: "#374151",
+                                      marginBottom: "8px",
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.5px",
+                                    },
+                                    input: {
+                                      borderRadius: "10px",
+                                      border: "2px solid #e2e8f0",
+                                      fontSize: "14px",
+                                      height: "48px",
+                                      paddingLeft: "40px",
+                                      transition:
+                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                      backgroundColor: "#fafafa",
+                                      "&:focus": {
+                                        borderColor: "#3b82f6",
+                                        boxShadow:
+                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                      "&:hover": {
+                                        borderColor: "#cbd5e1",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                    },
+                                  }}
+                                />
+                                <Select
+                                  label="Wheel Type"
+                                  placeholder="Select wheel type"
+                                  data={
+                                    lookupData?.wheel_types?.map(
+                                      (item: any) => ({
+                                        value: item.value,
+                                        label: item.value,
+                                      })
+                                    ) || []
+                                  }
+                                  value={fitmentDetails.wheelType}
+                                  onChange={(value) =>
+                                    setFitmentDetails((prev) => ({
+                                      ...prev,
+                                      wheelType: value || "",
+                                    }))
+                                  }
+                                  searchable
+                                  disabled={loadingDropdownData}
+                                  leftSection={
+                                    <IconCar size={16} color="#64748b" />
+                                  }
+                                  styles={{
+                                    label: {
+                                      fontWeight: 600,
+                                      fontSize: "13px",
+                                      color: "#374151",
+                                      marginBottom: "8px",
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.5px",
+                                    },
+                                    input: {
+                                      borderRadius: "10px",
+                                      border: "2px solid #e2e8f0",
+                                      fontSize: "14px",
+                                      height: "48px",
+                                      paddingLeft: "40px",
+                                      transition:
+                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                      backgroundColor: "#fafafa",
+                                      "&:focus": {
+                                        borderColor: "#3b82f6",
+                                        boxShadow:
+                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                      "&:hover": {
+                                        borderColor: "#cbd5e1",
+                                        backgroundColor: "#ffffff",
+                                      },
+                                    },
+                                  }}
+                                />
                               </SimpleGrid>
 
                               <TextInput
@@ -1470,6 +1656,109 @@ export default function ApplyFitments() {
                                   },
                                 }}
                               />
+
+                              {/* Wheel Parameters Section */}
+                              <div style={{ marginTop: "24px" }}>
+                                <Title order={4} c="#1e293b" fw={600} mb="md">
+                                  Wheel Parameters
+                                </Title>
+                                <Text size="sm" c="#64748b" mb="lg">
+                                  Configure tire diameter, wheel diameter, and
+                                  backspacing for each wheel position
+                                </Text>
+
+                                <SimpleGrid cols={3} spacing="lg">
+                                  {wheelParameters.map((param, index) => (
+                                    <Card
+                                      key={index}
+                                      withBorder
+                                      p="md"
+                                      style={{ backgroundColor: "#f8fafc" }}
+                                    >
+                                      <Stack gap="sm">
+                                        <Text size="sm" fw={600} c="#374151">
+                                          Position {index + 1}
+                                        </Text>
+
+                                        <Select
+                                          label="Tire Diameter"
+                                          placeholder="Select diameter"
+                                          data={
+                                            lookupData?.tire_diameters?.map(
+                                              (item: any) => ({
+                                                value: item.value,
+                                                label: item.value,
+                                              })
+                                            ) || []
+                                          }
+                                          value={param.tireDiameter}
+                                          onChange={(value) => {
+                                            const newParams = [
+                                              ...wheelParameters,
+                                            ];
+                                            newParams[index].tireDiameter =
+                                              value || "";
+                                            setWheelParameters(newParams);
+                                          }}
+                                          searchable
+                                          disabled={loadingDropdownData}
+                                          size="sm"
+                                        />
+
+                                        <Select
+                                          label="Wheel Diameter"
+                                          placeholder="Select diameter"
+                                          data={
+                                            lookupData?.wheel_diameters?.map(
+                                              (item: any) => ({
+                                                value: item.value,
+                                                label: item.value,
+                                              })
+                                            ) || []
+                                          }
+                                          value={param.wheelDiameter}
+                                          onChange={(value) => {
+                                            const newParams = [
+                                              ...wheelParameters,
+                                            ];
+                                            newParams[index].wheelDiameter =
+                                              value || "";
+                                            setWheelParameters(newParams);
+                                          }}
+                                          searchable
+                                          disabled={loadingDropdownData}
+                                          size="sm"
+                                        />
+
+                                        <Select
+                                          label="Backspacing"
+                                          placeholder="Select backspacing"
+                                          data={
+                                            lookupData?.backspacing?.map(
+                                              (item: any) => ({
+                                                value: item.value,
+                                                label: item.value,
+                                              })
+                                            ) || []
+                                          }
+                                          value={param.backspacing}
+                                          onChange={(value) => {
+                                            const newParams = [
+                                              ...wheelParameters,
+                                            ];
+                                            newParams[index].backspacing =
+                                              value || "";
+                                            setWheelParameters(newParams);
+                                          }}
+                                          searchable
+                                          disabled={loadingDropdownData}
+                                          size="sm"
+                                        />
+                                      </Stack>
+                                    </Card>
+                                  ))}
+                                </SimpleGrid>
+                              </div>
                             </div>
 
                             {/* Configurable Columns Section */}
@@ -1598,35 +1887,63 @@ export default function ApplyFitments() {
 
                                   setApplyingManualFitment(true);
                                   try {
-                                    const result: any = await applyFitment(() =>
-                                      fitmentUploadService.applyManualFitment({
-                                        sessionId: sessionId,
-                                        vehicleIds: selectedVehicles,
-                                        partId: fitmentDetails.partId,
-                                        position: fitmentDetails.position,
-                                        quantity: fitmentDetails.quantity,
-                                        title: fitmentDetails.title,
-                                        description: fitmentDetails.description,
-                                        notes: fitmentDetails.notes,
-                                        selectedColumns: selectedColumns,
-                                      })
+                                    // Create fitments for each selected vehicle
+                                    const fitmentsData = selectedVehicles.map(
+                                      (vehicleId) => {
+                                        const vehicle = filteredVehicles.find(
+                                          (v) => v.id === vehicleId
+                                        );
+                                        return {
+                                          partId: fitmentDetails.partId,
+                                          title: fitmentDetails.title,
+                                          description:
+                                            fitmentDetails.description,
+                                          notes: fitmentDetails.notes,
+                                          quantity: fitmentDetails.quantity,
+                                          position: fitmentDetails.position,
+                                          liftHeight: fitmentDetails.liftHeight,
+                                          wheelType: fitmentDetails.wheelType,
+                                          fitmentType: "manual_fitment",
+                                          // Vehicle data
+                                          year: vehicle?.year || 0,
+                                          make: vehicle?.make || "",
+                                          model: vehicle?.model || "",
+                                          submodel: vehicle?.submodel || "",
+                                          driveType: vehicle?.driveType || "",
+                                          fuelType: vehicle?.fuelType || "",
+                                          numDoors: vehicle?.numDoors || 0,
+                                          bodyType: vehicle?.bodyType || "",
+                                          baseVehicleId: vehicleId,
+                                          partTypeId: fitmentDetails.partId,
+                                          partTypeDescriptor:
+                                            fitmentDetails.title,
+                                          positionId: 0,
+                                        };
+                                      }
+                                    );
+
+                                    const result: any = await createFitment(
+                                      () =>
+                                        dataUploadService.createFitment(
+                                          fitmentsData
+                                        )
                                     );
 
                                     if (result && result.data) {
                                       showSuccess(
-                                        `Successfully applied fitment to ${result.data.applied_count} vehicles!`,
+                                        `Successfully created ${result.data.created} fitments!`,
                                         5000
                                       );
                                       handleBackToMethodSelection();
                                     } else {
-                                      showError("Failed to apply fitment");
+                                      showError("Failed to create fitments");
                                     }
                                   } catch (error) {
                                     console.error(
-                                      "Apply fitment error:",
+                                      "Create fitment error:",
                                       error
                                     );
-                                    showError("Failed to apply fitment");
+                                    showError("Failed to create fitments");
                                   } finally {
                                     setApplyingManualFitment(false);
                                   }

@@ -30,4 +30,7 @@ urlpatterns = [
     
     # Filtered vehicles search
     path('filtered-vehicles/', views.get_filtered_vehicles, name='get_filtered_vehicles'),
+    
+    # Lookup data for fitment filters
+    path('lookup-data/', views.get_lookup_data, name='get_lookup_data'),
 ]

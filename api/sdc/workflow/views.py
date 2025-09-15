@@ -15,6 +15,7 @@ from .utils import preflight, compute_checksum
 
 from .models import Upload, Job, NormalizationResult, Lineage, Preset
 from tenants.models import Tenant
+from fitments.models import Fitment
 from django.core.exceptions import ValidationError
 
 
@@ -383,6 +384,7 @@ def apply_fitments_batch(request):
                 positionId=int(it.get('positionId', 0) or 0),
                 liftHeight=it.get('liftHeight', ''),
                 wheelType=it.get('wheelType', ''),
+                fitmentType=it.get('fitmentType', 'manual_fitment'),
                 createdBy='api', updatedBy='api'
             )
             created += 1

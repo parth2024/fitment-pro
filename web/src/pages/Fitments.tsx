@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Card,
   Title,
@@ -20,15 +20,25 @@ import {
   ScrollArea,
   Skeleton,
   Center,
+  NumberInput,
+  Collapse,
+  Grid,
+  Tooltip,
+  Divider,
 } from "@mantine/core";
 import {
   IconSearch,
   IconDownload,
   IconTrash,
   IconFilter,
-  IconDots,
   IconEdit,
   IconEye,
+  IconChevronDown,
+  IconChevronUp,
+  IconX,
+  IconCheck,
+  IconFileSpreadsheet,
+  IconFileText,
 } from "@tabler/icons-react";
 import { useApi } from "../hooks/useApi";
 import {
@@ -36,6 +46,46 @@ import {
   fitmentUploadService,
   type FlattenedAppliedFitment,
 } from "../api/services";
+import { notifications } from "@mantine/notifications";
+
+interface FilterOptions {
+  itemStatus: string[];
+  makeName: string[];
+  modelName: string[];
+  driveTypeName: string[];
+  fuelTypeName: string[];
+  bodyTypeName: string[];
+  partTypeDescriptor: string[];
+  position: string[];
+  liftHeight: string[];
+  wheelType: string[];
+  fitmentType: string[];
+  createdBy: string[];
+  yearRange: { min: number; max: number };
+}
+
+interface AdvancedFilters {
+  partId: string;
+  itemStatus: string;
+  yearFrom: number | null;
+  yearTo: number | null;
+  makeName: string;
+  modelName: string;
+  subModelName: string;
+  driveTypeName: string;
+  fuelTypeName: string;
+  bodyTypeName: string;
+  partTypeDescriptor: string;
+  position: string;
+  liftHeight: string;
+  wheelType: string;
+  fitmentType: string;
+  createdBy: string;
+  createdAtFrom: string;
+  createdAtTo: string;
+  updatedAtFrom: string;
+  updatedAtTo: string;
+}
 
 export default function Fitments() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -43,45 +93,103 @@ export default function Fitments() {
   const [expandedView, setExpandedView] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 50;
-  const [sortBy, setSortBy] = useState("partId");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [sortBy, setSortBy] = useState("updatedAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+
+  // Advanced filtering state
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(
+    null
+  );
+  const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>({
+    partId: "",
+    itemStatus: "",
+    yearFrom: null,
+    yearTo: null,
+    makeName: "",
+    modelName: "",
+    subModelName: "",
+    driveTypeName: "",
+    fuelTypeName: "",
+    bodyTypeName: "",
+    partTypeDescriptor: "",
+    position: "",
+    liftHeight: "",
+    wheelType: "",
+    fitmentType: "",
+    createdBy: "",
+    createdAtFrom: "",
+    createdAtTo: "",
+    updatedAtFrom: "",
+    updatedAtTo: "",
+  });
+
+  // Edit functionality state
+  const [editingFitment, setEditingFitment] = useState<string | null>(null);
+  const [editFormData, setEditFormData] = useState<any>({});
+
+  // View details state
+  const [viewDetailsModalOpen, setViewDetailsModalOpen] = useState(false);
+  const [selectedFitmentDetails, setSelectedFitmentDetails] =
+    useState<any>(null);
+
+  // Export state
+  const [exportLoading, setExportLoading] = useState(false);
+  // Build API parameters including advanced filters
+  const buildApiParams = useCallback(() => {
+    const params: any = {
+      search: searchTerm || undefined,
+      sortBy,
+      sortOrder,
+      page: currentPage,
+      pageSize: 50,
+    };
+
+    // Add advanced filters
+    Object.entries(advancedFilters).forEach(([key, value]) => {
+      if (value !== "" && value !== null && value !== undefined) {
+        params[key] = value;
+      }
+    });
+
+    return params;
+  }, [searchTerm, sortBy, sortOrder, currentPage, advancedFilters]);
+
   const { data, loading, error, refetch } = useApi<{
     fitments: FlattenedAppliedFitment[];
     totalCount: number;
-  }>(
-    () =>
-      fitmentsService.getFitments({
-        search: searchTerm || undefined,
-        sortBy,
-        sortOrder,
-        page: currentPage,
-        pageSize: 50,
-      }),
-    [searchTerm, sortBy, sortOrder, currentPage]
-  );
+  }>(() => fitmentsService.getFitments(buildApiParams()), [buildApiParams]);
 
   // Fetch AI-generated fitments from Django backend
-  const { data: aiFitmentsData, refetch: refetchAi } = useApi<{
+  const { refetch: refetchAi } = useApi<{
     fitments: any[];
     total_fitments: number;
   }>(() => fitmentUploadService.getAppliedFitments(), []);
 
-  const fitments = data?.fitments ?? [];
-  const aiFitments = aiFitmentsData?.fitments ?? [];
+  // Fetch filter options
+  const { data: filterOptionsData, refetch: refetchFilterOptions } =
+    useApi<FilterOptions>(() => fitmentsService.getFilterOptions(), []);
 
-  // Debug logging
-  console.log("AI Fitments Data:", aiFitmentsData);
-  console.log("AI Fitments Array:", aiFitments);
+  const fitments = data?.fitments ?? [];
+
+  // Update filter options when data is loaded
+  useEffect(() => {
+    if (filterOptionsData) {
+      setFilterOptions(filterOptionsData);
+    }
+  }, [filterOptionsData]);
   useEffect(() => {
     const onFocus = () => {
       refetch();
       refetchAi();
+      refetchFilterOptions();
     };
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
         refetch();
         refetchAi();
+        refetchFilterOptions();
       }
     };
     window.addEventListener("focus", onFocus);
@@ -90,13 +198,164 @@ export default function Fitments() {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [refetch, refetchAi]);
-  const handleExport = () => {
-    const params = new URLSearchParams();
-    if (searchTerm) params.set("search", searchTerm);
-    if (sortBy) params.set("sortBy", sortBy);
-    if (sortOrder) params.set("sortOrder", sortOrder);
-    window.location.href = `http://localhost:8000/api/fitments/export?${params.toString()}`;
+  }, [refetch, refetchAi, refetchFilterOptions]);
+
+  // Handler functions
+  const handleAdvancedFilterChange = (
+    field: keyof AdvancedFilters,
+    value: any
+  ) => {
+    setAdvancedFilters((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+    setCurrentPage(1); // Reset to first page when filters change
+  };
+
+  const clearAdvancedFilters = () => {
+    setAdvancedFilters({
+      partId: "",
+      itemStatus: "",
+      yearFrom: null,
+      yearTo: null,
+      makeName: "",
+      modelName: "",
+      subModelName: "",
+      driveTypeName: "",
+      fuelTypeName: "",
+      bodyTypeName: "",
+      partTypeDescriptor: "",
+      position: "",
+      liftHeight: "",
+      wheelType: "",
+      fitmentType: "",
+      createdBy: "",
+      createdAtFrom: "",
+      createdAtTo: "",
+      updatedAtFrom: "",
+      updatedAtTo: "",
+    });
+    setCurrentPage(1);
+  };
+
+  const handleEditFitment = (fitment: FlattenedAppliedFitment) => {
+    setEditingFitment(fitment.hash);
+    setEditFormData({
+      itemStatus: fitment.itemStatus,
+      year: fitment.year,
+      makeName: fitment.makeName,
+      modelName: fitment.modelName,
+      subModelName: fitment.subModelName,
+      driveTypeName: fitment.driveTypeName,
+      fuelTypeName: fitment.fuelTypeName,
+      bodyTypeName: fitment.bodyTypeName,
+      partTypeDescriptor: fitment.partTypeDescriptor,
+      position: fitment.position,
+      liftHeight: fitment.liftHeight,
+      wheelType: fitment.wheelType,
+      fitmentTitle: fitment.fitmentTitle,
+      fitmentDescription: fitment.fitmentDescription,
+      fitmentNotes: fitment.fitmentNotes,
+      quantity: fitment.quantity,
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingFitment) return;
+
+    try {
+      await fitmentsService.updateFitment(editingFitment, {
+        ...editFormData,
+        updatedBy: "user",
+      });
+
+      notifications.show({
+        title: "Success",
+        message: "Fitment updated successfully",
+        color: "green",
+      });
+
+      setEditingFitment(null);
+      setEditFormData({});
+      refetch();
+    } catch (error) {
+      notifications.show({
+        title: "Error",
+        message: "Failed to update fitment",
+        color: "red",
+      });
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingFitment(null);
+    setEditFormData({});
+  };
+
+  const handleViewDetails = async (fitmentHash: string) => {
+    try {
+      const response = await fitmentsService.getFitmentDetail(fitmentHash);
+      setSelectedFitmentDetails(response.data);
+      setViewDetailsModalOpen(true);
+    } catch (error) {
+      notifications.show({
+        title: "Error",
+        message: "Failed to load fitment details",
+        color: "red",
+      });
+    }
+  };
+
+  const handleDeleteFitment = async (fitmentHash: string) => {
+    try {
+      await fitmentsService.deleteFitment(fitmentHash);
+      notifications.show({
+        title: "Success",
+        message: "Fitment deleted successfully",
+        color: "green",
+      });
+      refetch();
+    } catch (error) {
+      notifications.show({
+        title: "Error",
+        message: "Failed to delete fitment",
+        color: "red",
+      });
+    }
+  };
+
+  const handleExport = async (format: "csv" | "xlsx") => {
+    setExportLoading(true);
+    try {
+      const response = await fitmentsService.exportFitments(
+        format,
+        buildApiParams()
+      );
+
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `fitments_export.${format}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      notifications.show({
+        title: "Success",
+        message: `Fitments exported as ${format.toUpperCase()}`,
+        color: "green",
+      });
+    } catch (error) {
+      notifications.show({
+        title: "Error",
+        message: "Failed to export fitments",
+        color: "red",
+      });
+    } finally {
+      setExportLoading(false);
+    }
   };
 
   const handleSelectAll = (checked: boolean) => {
@@ -207,13 +466,16 @@ export default function Fitments() {
                     <Select
                       placeholder="Sort by"
                       value={sortBy}
-                      onChange={(value) => setSortBy(value || "partId")}
+                      onChange={(value) => setSortBy(value || "updatedAt")}
                       data={[
                         { value: "partId", label: "Part ID" },
                         { value: "makeName", label: "Make" },
                         { value: "modelName", label: "Model" },
                         { value: "year", label: "Year" },
                         { value: "updatedAt", label: "Last Updated" },
+                        { value: "createdAt", label: "Created Date" },
+                        { value: "itemStatus", label: "Status" },
+                        { value: "fitmentType", label: "Fitment Type" },
                       ]}
                       leftSection={<IconFilter size={16} color="#64748b" />}
                       styles={{
@@ -283,6 +545,39 @@ export default function Fitments() {
                         },
                       }}
                     />
+
+                    <Button
+                      leftSection={
+                        showAdvancedFilters ? (
+                          <IconChevronUp size={16} />
+                        ) : (
+                          <IconChevronDown size={16} />
+                        )
+                      }
+                      variant="outline"
+                      onClick={() =>
+                        setShowAdvancedFilters(!showAdvancedFilters)
+                      }
+                      styles={{
+                        root: {
+                          borderRadius: "10px",
+                          fontWeight: 600,
+                          fontSize: "14px",
+                          height: "48px",
+                          padding: "0 20px",
+                          border: "2px solid #e2e8f0",
+                          color: "#374151",
+                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                          "&:hover": {
+                            backgroundColor: "#f8fafc",
+                            borderColor: "#cbd5e1",
+                            transform: "translateY(-1px)",
+                          },
+                        },
+                      }}
+                    >
+                      Advanced Filters
+                    </Button>
                   </Group>
 
                   <Group gap="sm">
@@ -313,36 +608,255 @@ export default function Fitments() {
                         Delete ({selectedFitments.length})
                       </Button>
                     )}
-                    <Button
-                      leftSection={<IconDownload size={16} />}
-                      variant="filled"
-                      onClick={handleExport}
-                      styles={{
-                        root: {
-                          borderRadius: "10px",
-                          fontWeight: 600,
-                          fontSize: "14px",
-                          height: "48px",
-                          padding: "0 24px",
-                          background:
-                            "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-                          border: "none",
-                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                          boxShadow:
-                            "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)",
-                          "&:hover": {
-                            transform: "translateY(-2px)",
-                            boxShadow:
-                              "0 8px 25px -5px rgba(59, 130, 246, 0.3), 0 4px 6px -1px rgba(59, 130, 246, 0.1)",
-                          },
-                        },
-                      }}
-                    >
-                      Export CSV
-                    </Button>
+
+                    <Menu shadow="md" width={200}>
+                      <Menu.Target>
+                        <Button
+                          leftSection={<IconDownload size={16} />}
+                          variant="filled"
+                          loading={exportLoading}
+                          styles={{
+                            root: {
+                              borderRadius: "10px",
+                              fontWeight: 600,
+                              fontSize: "14px",
+                              height: "48px",
+                              padding: "0 24px",
+                              background:
+                                "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                              border: "none",
+                              transition:
+                                "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                              boxShadow:
+                                "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)",
+                              "&:hover": {
+                                transform: "translateY(-2px)",
+                                boxShadow:
+                                  "0 8px 25px -5px rgba(59, 130, 246, 0.3), 0 4px 6px -1px rgba(59, 130, 246, 0.1)",
+                              },
+                            },
+                          }}
+                        >
+                          Export
+                        </Button>
+                      </Menu.Target>
+                      <Menu.Dropdown>
+                        <Menu.Item
+                          leftSection={<IconFileText size={14} />}
+                          onClick={() => handleExport("csv")}
+                        >
+                          Export as CSV
+                        </Menu.Item>
+                        <Menu.Item
+                          leftSection={<IconFileSpreadsheet size={14} />}
+                          onClick={() => handleExport("xlsx")}
+                        >
+                          Export as XLSX
+                        </Menu.Item>
+                      </Menu.Dropdown>
+                    </Menu>
                   </Group>
                 </Group>
               </div>
+
+              {/* Advanced Filters */}
+              <Collapse in={showAdvancedFilters}>
+                <Card
+                  withBorder
+                  radius="md"
+                  p="lg"
+                  style={{ backgroundColor: "#f8fafc" }}
+                >
+                  <Stack gap="md">
+                    <Group justify="space-between">
+                      <Text fw={600} size="sm" c="#374151">
+                        Advanced Filters
+                      </Text>
+                      <Button
+                        size="xs"
+                        variant="light"
+                        onClick={clearAdvancedFilters}
+                        leftSection={<IconX size={12} />}
+                      >
+                        Clear All
+                      </Button>
+                    </Group>
+
+                    <Grid>
+                      <Grid.Col span={6}>
+                        <TextInput
+                          label="Part ID"
+                          placeholder="Filter by Part ID"
+                          value={advancedFilters.partId}
+                          onChange={(event) =>
+                            handleAdvancedFilterChange(
+                              "partId",
+                              event.currentTarget.value
+                            )
+                          }
+                        />
+                      </Grid.Col>
+                      <Grid.Col span={6}>
+                        <Select
+                          label="Status"
+                          placeholder="Select status"
+                          value={advancedFilters.itemStatus}
+                          onChange={(value) =>
+                            handleAdvancedFilterChange(
+                              "itemStatus",
+                              value || ""
+                            )
+                          }
+                          data={
+                            filterOptions?.itemStatus.map((status) => ({
+                              value: status,
+                              label: status,
+                            })) || []
+                          }
+                          clearable
+                        />
+                      </Grid.Col>
+                      <Grid.Col span={3}>
+                        <NumberInput
+                          label="Year From"
+                          placeholder="Min year"
+                          value={advancedFilters.yearFrom || undefined}
+                          onChange={(value) =>
+                            handleAdvancedFilterChange("yearFrom", value)
+                          }
+                          min={filterOptions?.yearRange.min || 2000}
+                          max={filterOptions?.yearRange.max || 2030}
+                        />
+                      </Grid.Col>
+                      <Grid.Col span={3}>
+                        <NumberInput
+                          label="Year To"
+                          placeholder="Max year"
+                          value={advancedFilters.yearTo || undefined}
+                          onChange={(value) =>
+                            handleAdvancedFilterChange("yearTo", value)
+                          }
+                          min={filterOptions?.yearRange.min || 2000}
+                          max={filterOptions?.yearRange.max || 2030}
+                        />
+                      </Grid.Col>
+                      <Grid.Col span={6}>
+                        <Select
+                          label="Make"
+                          placeholder="Select make"
+                          value={advancedFilters.makeName}
+                          onChange={(value) =>
+                            handleAdvancedFilterChange("makeName", value || "")
+                          }
+                          data={
+                            filterOptions?.makeName.map((make) => ({
+                              value: make,
+                              label: make,
+                            })) || []
+                          }
+                          clearable
+                          searchable
+                        />
+                      </Grid.Col>
+                      <Grid.Col span={6}>
+                        <Select
+                          label="Model"
+                          placeholder="Select model"
+                          value={advancedFilters.modelName}
+                          onChange={(value) =>
+                            handleAdvancedFilterChange("modelName", value || "")
+                          }
+                          data={
+                            filterOptions?.modelName.map((model) => ({
+                              value: model,
+                              label: model,
+                            })) || []
+                          }
+                          clearable
+                          searchable
+                        />
+                      </Grid.Col>
+                      <Grid.Col span={6}>
+                        <Select
+                          label="Drive Type"
+                          placeholder="Select drive type"
+                          value={advancedFilters.driveTypeName}
+                          onChange={(value) =>
+                            handleAdvancedFilterChange(
+                              "driveTypeName",
+                              value || ""
+                            )
+                          }
+                          data={
+                            filterOptions?.driveTypeName.map((drive) => ({
+                              value: drive,
+                              label: drive,
+                            })) || []
+                          }
+                          clearable
+                        />
+                      </Grid.Col>
+                      <Grid.Col span={6}>
+                        <Select
+                          label="Fuel Type"
+                          placeholder="Select fuel type"
+                          value={advancedFilters.fuelTypeName}
+                          onChange={(value) =>
+                            handleAdvancedFilterChange(
+                              "fuelTypeName",
+                              value || ""
+                            )
+                          }
+                          data={
+                            filterOptions?.fuelTypeName.map((fuel) => ({
+                              value: fuel,
+                              label: fuel,
+                            })) || []
+                          }
+                          clearable
+                        />
+                      </Grid.Col>
+                      <Grid.Col span={6}>
+                        <Select
+                          label="Position"
+                          placeholder="Select position"
+                          value={advancedFilters.position}
+                          onChange={(value) =>
+                            handleAdvancedFilterChange("position", value || "")
+                          }
+                          data={
+                            filterOptions?.position.map((pos) => ({
+                              value: pos,
+                              label: pos,
+                            })) || []
+                          }
+                          clearable
+                        />
+                      </Grid.Col>
+                      <Grid.Col span={6}>
+                        <Select
+                          label="Lift Height"
+                          placeholder="Select lift height"
+                          value={advancedFilters.liftHeight}
+                          onChange={(value) =>
+                            handleAdvancedFilterChange(
+                              "liftHeight",
+                              value || ""
+                            )
+                          }
+                          data={
+                            filterOptions?.liftHeight.map((lift) => ({
+                              value: lift,
+                              label: lift,
+                            })) || []
+                          }
+                          clearable
+                        />
+                      </Grid.Col>
+                    </Grid>
+                  </Stack>
+                </Card>
+              </Collapse>
             </Stack>
           </div>
 
@@ -522,31 +1036,242 @@ export default function Fitments() {
                         />
                       </Table.Td>
                       <Table.Td>
-                        <Text fw={500}>{fitment.partId}</Text>
+                        {editingFitment === fitment.hash ? (
+                          <TextInput
+                            value={editFormData.partId || fitment.partId}
+                            onChange={(event) =>
+                              setEditFormData((prev: any) => ({
+                                ...prev,
+                                partId: event.currentTarget.value,
+                              }))
+                            }
+                            size="xs"
+                            styles={{
+                              input: { fontSize: "12px", height: "28px" },
+                            }}
+                          />
+                        ) : (
+                          <Text fw={500}>{fitment.partId}</Text>
+                        )}
                       </Table.Td>
                       <Table.Td>
-                        <Badge
-                          variant="light"
-                          color={getStatusColor(fitment.itemStatus)}
-                          size="sm"
-                        >
-                          {fitment.itemStatus}
-                        </Badge>
+                        {editingFitment === fitment.hash ? (
+                          <Select
+                            value={
+                              editFormData.itemStatus || fitment.itemStatus
+                            }
+                            onChange={(value) =>
+                              setEditFormData((prev: any) => ({
+                                ...prev,
+                                itemStatus: value || "",
+                              }))
+                            }
+                            data={
+                              filterOptions?.itemStatus.map((status) => ({
+                                value: status,
+                                label: status,
+                              })) || []
+                            }
+                            size="xs"
+                            styles={{
+                              input: { fontSize: "12px", height: "28px" },
+                            }}
+                          />
+                        ) : (
+                          <Badge
+                            variant="light"
+                            color={getStatusColor(fitment.itemStatus)}
+                            size="sm"
+                          >
+                            {fitment.itemStatus}
+                          </Badge>
+                        )}
                       </Table.Td>
                       <Table.Td>
-                        <div>
-                          <Text size="sm" fw={500}>
-                            {fitment.year} {fitment.makeName}{" "}
-                            {fitment.modelName}
-                          </Text>
-                          <Text size="xs" c="dimmed">
-                            {fitment.subModelName} • {fitment.driveTypeName}
-                          </Text>
-                        </div>
+                        {editingFitment === fitment.hash ? (
+                          <Stack gap="xs">
+                            <Group gap="xs">
+                              <NumberInput
+                                value={editFormData.year || fitment.year}
+                                onChange={(value) =>
+                                  setEditFormData((prev: any) => ({
+                                    ...prev,
+                                    year: value || fitment.year,
+                                  }))
+                                }
+                                size="xs"
+                                styles={{
+                                  input: {
+                                    fontSize: "12px",
+                                    height: "28px",
+                                    width: "60px",
+                                  },
+                                }}
+                              />
+                              <TextInput
+                                value={
+                                  editFormData.makeName || fitment.makeName
+                                }
+                                onChange={(event) =>
+                                  setEditFormData((prev: any) => ({
+                                    ...prev,
+                                    makeName: event.currentTarget.value,
+                                  }))
+                                }
+                                size="xs"
+                                styles={{
+                                  input: {
+                                    fontSize: "12px",
+                                    height: "28px",
+                                    width: "80px",
+                                  },
+                                }}
+                              />
+                              <TextInput
+                                value={
+                                  editFormData.modelName || fitment.modelName
+                                }
+                                onChange={(event) =>
+                                  setEditFormData((prev: any) => ({
+                                    ...prev,
+                                    modelName: event.currentTarget.value,
+                                  }))
+                                }
+                                size="xs"
+                                styles={{
+                                  input: {
+                                    fontSize: "12px",
+                                    height: "28px",
+                                    width: "80px",
+                                  },
+                                }}
+                              />
+                            </Group>
+                            <Group gap="xs">
+                              <TextInput
+                                value={
+                                  editFormData.subModelName ||
+                                  fitment.subModelName
+                                }
+                                onChange={(event) =>
+                                  setEditFormData((prev: any) => ({
+                                    ...prev,
+                                    subModelName: event.currentTarget.value,
+                                  }))
+                                }
+                                size="xs"
+                                styles={{
+                                  input: {
+                                    fontSize: "12px",
+                                    height: "28px",
+                                    width: "80px",
+                                  },
+                                }}
+                                placeholder="Sub Model"
+                              />
+                              <TextInput
+                                value={
+                                  editFormData.driveTypeName ||
+                                  fitment.driveTypeName
+                                }
+                                onChange={(event) =>
+                                  setEditFormData((prev: any) => ({
+                                    ...prev,
+                                    driveTypeName: event.currentTarget.value,
+                                  }))
+                                }
+                                size="xs"
+                                styles={{
+                                  input: {
+                                    fontSize: "12px",
+                                    height: "28px",
+                                    width: "80px",
+                                  },
+                                }}
+                                placeholder="Drive Type"
+                              />
+                            </Group>
+                          </Stack>
+                        ) : (
+                          <div>
+                            <Text size="sm" fw={500}>
+                              {fitment.year} {fitment.makeName}{" "}
+                              {fitment.modelName}
+                            </Text>
+                            <Text size="xs" c="dimmed">
+                              {fitment.subModelName} • {fitment.driveTypeName}
+                            </Text>
+                          </div>
+                        )}
                       </Table.Td>
-                      <Table.Td>{fitment.partTypeDescriptor}</Table.Td>
-                      <Table.Td>{fitment.position}</Table.Td>
-                      <Table.Td>{fitment.fitmentTitle}</Table.Td>
+                      <Table.Td>
+                        {editingFitment === fitment.hash ? (
+                          <TextInput
+                            value={
+                              editFormData.partTypeDescriptor ||
+                              fitment.partTypeDescriptor
+                            }
+                            onChange={(event) =>
+                              setEditFormData((prev: any) => ({
+                                ...prev,
+                                partTypeDescriptor: event.currentTarget.value,
+                              }))
+                            }
+                            size="xs"
+                            styles={{
+                              input: { fontSize: "12px", height: "28px" },
+                            }}
+                          />
+                        ) : (
+                          fitment.partTypeDescriptor
+                        )}
+                      </Table.Td>
+                      <Table.Td>
+                        {editingFitment === fitment.hash ? (
+                          <Select
+                            value={editFormData.position || fitment.position}
+                            onChange={(value) =>
+                              setEditFormData((prev: any) => ({
+                                ...prev,
+                                position: value || "",
+                              }))
+                            }
+                            data={
+                              filterOptions?.position.map((pos) => ({
+                                value: pos,
+                                label: pos,
+                              })) || []
+                            }
+                            size="xs"
+                            styles={{
+                              input: { fontSize: "12px", height: "28px" },
+                            }}
+                          />
+                        ) : (
+                          fitment.position
+                        )}
+                      </Table.Td>
+                      <Table.Td>
+                        {editingFitment === fitment.hash ? (
+                          <TextInput
+                            value={
+                              editFormData.fitmentTitle || fitment.fitmentTitle
+                            }
+                            onChange={(event) =>
+                              setEditFormData((prev: any) => ({
+                                ...prev,
+                                fitmentTitle: event.currentTarget.value,
+                              }))
+                            }
+                            size="xs"
+                            styles={{
+                              input: { fontSize: "12px", height: "28px" },
+                            }}
+                          />
+                        ) : (
+                          fitment.fitmentTitle
+                        )}
+                      </Table.Td>
                       {expandedView && (
                         <>
                           <Table.Td>
@@ -565,28 +1290,69 @@ export default function Fitments() {
                         </>
                       )}
                       <Table.Td>
-                        <Menu shadow="md" width={200}>
-                          <Menu.Target>
-                            <ActionIcon variant="light" size="sm">
-                              <IconDots size={16} />
-                            </ActionIcon>
-                          </Menu.Target>
-                          <Menu.Dropdown>
-                            <Menu.Item leftSection={<IconEye size={14} />}>
-                              View Details
-                            </Menu.Item>
-                            <Menu.Item leftSection={<IconEdit size={14} />}>
-                              Edit Fitment
-                            </Menu.Item>
-                            <Menu.Divider />
-                            <Menu.Item
-                              leftSection={<IconTrash size={14} />}
-                              color="red"
-                            >
-                              Delete
-                            </Menu.Item>
-                          </Menu.Dropdown>
-                        </Menu>
+                        <Group gap="xs">
+                          {editingFitment === fitment.hash ? (
+                            <>
+                              <Tooltip label="Save changes">
+                                <ActionIcon
+                                  color="green"
+                                  variant="light"
+                                  size="sm"
+                                  onClick={handleSaveEdit}
+                                >
+                                  <IconCheck size={14} />
+                                </ActionIcon>
+                              </Tooltip>
+                              <Tooltip label="Cancel editing">
+                                <ActionIcon
+                                  color="gray"
+                                  variant="light"
+                                  size="sm"
+                                  onClick={handleCancelEdit}
+                                >
+                                  <IconX size={14} />
+                                </ActionIcon>
+                              </Tooltip>
+                            </>
+                          ) : (
+                            <>
+                              <Tooltip label="View details">
+                                <ActionIcon
+                                  color="blue"
+                                  variant="light"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleViewDetails(fitment.hash)
+                                  }
+                                >
+                                  <IconEye size={14} />
+                                </ActionIcon>
+                              </Tooltip>
+                              <Tooltip label="Edit fitment">
+                                <ActionIcon
+                                  color="orange"
+                                  variant="light"
+                                  size="sm"
+                                  onClick={() => handleEditFitment(fitment)}
+                                >
+                                  <IconEdit size={14} />
+                                </ActionIcon>
+                              </Tooltip>
+                              <Tooltip label="Delete fitment">
+                                <ActionIcon
+                                  color="red"
+                                  variant="light"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleDeleteFitment(fitment.hash)
+                                  }
+                                >
+                                  <IconTrash size={14} />
+                                </ActionIcon>
+                              </Tooltip>
+                            </>
+                          )}
+                        </Group>
                       </Table.Td>
                     </Table.Tr>
                   ))
@@ -654,6 +1420,173 @@ export default function Fitments() {
             </Button>
           </Group>
         </Stack>
+      </Modal>
+
+      {/* View Details Modal */}
+      <Modal
+        opened={viewDetailsModalOpen}
+        onClose={() => setViewDetailsModalOpen(false)}
+        title="Fitment Details"
+        size="lg"
+        centered
+      >
+        {selectedFitmentDetails && (
+          <Stack gap="md">
+            <Grid>
+              <Grid.Col span={6}>
+                <Text fw={600} size="sm" c="#374151">
+                  Part ID
+                </Text>
+                <Text size="sm">{selectedFitmentDetails.partId}</Text>
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <Text fw={600} size="sm" c="#374151">
+                  Status
+                </Text>
+                <Badge
+                  variant="light"
+                  color={getStatusColor(selectedFitmentDetails.itemStatus)}
+                  size="sm"
+                >
+                  {selectedFitmentDetails.itemStatus}
+                </Badge>
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <Text fw={600} size="sm" c="#374151">
+                  Year
+                </Text>
+                <Text size="sm">{selectedFitmentDetails.year}</Text>
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <Text fw={600} size="sm" c="#374151">
+                  Make
+                </Text>
+                <Text size="sm">{selectedFitmentDetails.makeName}</Text>
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <Text fw={600} size="sm" c="#374151">
+                  Model
+                </Text>
+                <Text size="sm">{selectedFitmentDetails.modelName}</Text>
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <Text fw={600} size="sm" c="#374151">
+                  Sub Model
+                </Text>
+                <Text size="sm">{selectedFitmentDetails.subModelName}</Text>
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <Text fw={600} size="sm" c="#374151">
+                  Drive Type
+                </Text>
+                <Text size="sm">{selectedFitmentDetails.driveTypeName}</Text>
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <Text fw={600} size="sm" c="#374151">
+                  Fuel Type
+                </Text>
+                <Text size="sm">{selectedFitmentDetails.fuelTypeName}</Text>
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <Text fw={600} size="sm" c="#374151">
+                  Body Type
+                </Text>
+                <Text size="sm">{selectedFitmentDetails.bodyTypeName}</Text>
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <Text fw={600} size="sm" c="#374151">
+                  Part Type
+                </Text>
+                <Text size="sm">
+                  {selectedFitmentDetails.partTypeDescriptor}
+                </Text>
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <Text fw={600} size="sm" c="#374151">
+                  Position
+                </Text>
+                <Text size="sm">{selectedFitmentDetails.position}</Text>
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <Text fw={600} size="sm" c="#374151">
+                  Lift Height
+                </Text>
+                <Text size="sm">{selectedFitmentDetails.liftHeight}</Text>
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <Text fw={600} size="sm" c="#374151">
+                  Wheel Type
+                </Text>
+                <Text size="sm">{selectedFitmentDetails.wheelType}</Text>
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <Text fw={600} size="sm" c="#374151">
+                  Quantity
+                </Text>
+                <Text size="sm">{selectedFitmentDetails.quantity}</Text>
+              </Grid.Col>
+              <Grid.Col span={12}>
+                <Text fw={600} size="sm" c="#374151">
+                  Fitment Title
+                </Text>
+                <Text size="sm">{selectedFitmentDetails.fitmentTitle}</Text>
+              </Grid.Col>
+              <Grid.Col span={12}>
+                <Text fw={600} size="sm" c="#374151">
+                  Description
+                </Text>
+                <Text size="sm">
+                  {selectedFitmentDetails.fitmentDescription ||
+                    "No description"}
+                </Text>
+              </Grid.Col>
+              <Grid.Col span={12}>
+                <Text fw={600} size="sm" c="#374151">
+                  Notes
+                </Text>
+                <Text size="sm">
+                  {selectedFitmentDetails.fitmentNotes || "No notes"}
+                </Text>
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <Text fw={600} size="sm" c="#374151">
+                  Created
+                </Text>
+                <Text size="sm">
+                  {new Date(selectedFitmentDetails.createdAt).toLocaleString()}
+                </Text>
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <Text fw={600} size="sm" c="#374151">
+                  Updated
+                </Text>
+                <Text size="sm">
+                  {new Date(selectedFitmentDetails.updatedAt).toLocaleString()}
+                </Text>
+              </Grid.Col>
+            </Grid>
+
+            <Divider />
+
+            <Group justify="flex-end">
+              <Button
+                variant="light"
+                onClick={() => setViewDetailsModalOpen(false)}
+              >
+                Close
+              </Button>
+              <Button
+                leftSection={<IconEdit size={14} />}
+                onClick={() => {
+                  setViewDetailsModalOpen(false);
+                  handleEditFitment(selectedFitmentDetails);
+                }}
+              >
+                Edit Fitment
+              </Button>
+            </Group>
+          </Stack>
+        )}
       </Modal>
     </div>
   );

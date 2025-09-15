@@ -119,6 +119,19 @@ export const fitmentsService = {
     });
   },
   submitValidated: () => apiClient.post("/api/fitments/submit"),
+
+  // Enhanced fitments service with new endpoints
+  getFitmentDetail: (fitmentHash: string) =>
+    apiClient.get(`/api/fitments/${fitmentHash}`),
+  updateFitment: (fitmentHash: string, data: any) =>
+    apiClient.put(`/api/fitments/${fitmentHash}/update/`, data),
+  deleteFitment: (fitmentHash: string) =>
+    apiClient.delete(`/api/fitments/${fitmentHash}/delete/`),
+  getFilterOptions: () => apiClient.get("/api/fitments/filter-options/"),
+  exportFitments: (format: "csv" | "xlsx", params?: any) =>
+    apiClient.get(`/api/fitments/export-advanced-${format}/`, {
+      responseType: "blob",
+    }),
 };
 
 export const potentialService = {
@@ -361,4 +374,11 @@ export const dataUploadService = {
   // Get dropdown data from VCDBData and ProductData tables
   getNewDataDropdownData: () =>
     apiClient.get("/api/data-uploads/dropdown-data/"),
+
+  // Lookup data for fitment filters
+  getLookupData: () => apiClient.get("/api/data-uploads/lookup-data/"),
+
+  // Fitment management
+  createFitment: (fitmentData: any) =>
+    apiClient.post("/api/apply/apply-fitments", { fitments: fitmentData }),
 };

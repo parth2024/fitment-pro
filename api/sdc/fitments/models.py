@@ -5,6 +5,12 @@ import uuid
 
 
 class Fitment(models.Model):
+    FITMENT_TYPE_CHOICES = [
+        ('manual_fitment', 'Manual Fitment'),
+        ('potential_fitment', 'Potential Fitment'),
+        ('ai_fitment', 'AI Fitment'),
+    ]
+    
     hash = models.CharField(max_length=64, primary_key=True, editable=False)
     partId = models.CharField(max_length=64)
     itemStatus = models.CharField(max_length=32, default='Active')
@@ -29,6 +35,7 @@ class Fitment(models.Model):
     positionId = models.IntegerField()
     liftHeight = models.CharField(max_length=32)
     wheelType = models.CharField(max_length=64)
+    fitmentType = models.CharField(max_length=50, choices=FITMENT_TYPE_CHOICES, default='manual_fitment')
     createdAt = models.DateTimeField(auto_now_add=True)
     createdBy = models.CharField(max_length=64, default='system')
     updatedAt = models.DateTimeField(auto_now=True)

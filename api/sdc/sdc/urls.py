@@ -19,8 +19,10 @@ from django.urls import path, include
 from tenants.views import TenantListCreateView
 from vcdb.views import version, year_range, configurations
 from parts.views import list_parts, list_part_types
-from fitments.views import fitments_root, coverage, property_values, validate, submit, export_csv, coverage_export, export_ai_fitments, ai_fitments_list, applied_fitments_list
+from fitments.views import export_fitments_advanced_csv, export_fitments_advanced_xlsx, fitments_root, coverage, property_values, validate, submit, export_csv, coverage_export, export_ai_fitments, ai_fitments_list, applied_fitments_list, fitment_filter_options, fitment_detail, update_fitment, delete_fitment
 from workflow.views import uploads as wf_uploads, ai_map, vcdb_validate, review_queue, review_actions, publish, presets as wf_presets, preset_detail, ai_fitments, apply_fitments_batch
+
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -30,13 +32,22 @@ urlpatterns = [
     path('api/vcdb/configurations', configurations),
     path('api/parts', list_parts),
     path('api/parts/types', list_part_types),
-    path('api/fitments', fitments_root),
-    path('api/fitments/coverage', coverage),
+    # Existing fitments endpoints (specific patterns first)
     path('api/fitments/coverage/export', coverage_export),
+    path('api/fitments/coverage', coverage),
     path('api/fitments/property/<str:property_name>', property_values),
     path('api/fitments/validate', validate),
     path('api/fitments/submit', submit),
+    # New enhanced fitments endpoints (most specific first)
+    path('api/fitments/export-advanced-csv/', export_fitments_advanced_csv),
+    path('api/fitments/export-advanced-xlsx/', export_fitments_advanced_xlsx),
     path('api/fitments/export', export_csv),
+    path('api/fitments/filter-options/', fitment_filter_options),
+    path('api/fitments/<str:fitment_hash>/update/', update_fitment),
+    path('api/fitments/<str:fitment_hash>/delete/', delete_fitment),
+    path('api/fitments/<str:fitment_hash>/', fitment_detail),
+    # Main fitments endpoint (last to avoid conflicts)
+    path('api/fitments/', fitments_root),
     path('api/export-ai-fitments/', export_ai_fitments),
     path('api/ai-fitments/', ai_fitments_list),
     path('api/applied-fitments/', applied_fitments_list),
@@ -52,8 +63,8 @@ urlpatterns = [
     # Apply Fitments (AI + batch persist)
     path('api/apply/ai-fitments', ai_fitments),
     path('api/apply/apply-fitments', apply_fitments_batch),
-    # Fitment Uploads
-    path('api/', include('fitment_uploads.urls')),
+    # Fitment Uploads (temporarily disabled due to missing openai dependency)
+    # path('api/', include('fitment_uploads.urls')),
     # Data Uploads
     path('api/data-uploads/', include('data_uploads.urls')),
 ]

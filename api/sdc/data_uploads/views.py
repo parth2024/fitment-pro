@@ -26,9 +26,13 @@ from .models import (
     AIFitmentResult, 
     AppliedFitment,
     VCDBData,
-    ProductData
+    ProductData,
+    LiftHeight,
+    WheelType,
+    TireDiameter,
+    WheelDiameter,
+    Backspacing,
 )
-from fitments.models import Fitment
 from .serializers import (
     DataUploadSessionSerializer, 
     DataUploadSessionListSerializer,
@@ -1183,3 +1187,33 @@ def get_filtered_vehicles(request):
             {"error": "Failed to get filtered vehicles"}, 
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_lookup_data(request):
+    """Get lookup data for fitment filters"""
+    try:
+        # Get all lookup data
+        lift_heights = list(LiftHeight.objects.values('id', 'value'))
+        wheel_types = list(WheelType.objects.values('id', 'value'))
+        tire_diameters = list(TireDiameter.objects.values('id', 'value'))
+        wheel_diameters = list(WheelDiameter.objects.values('id', 'value'))
+        backspacing = list(Backspacing.objects.values('id', 'value'))
+        
+        return Response({
+            'lift_heights': lift_heights,
+            'wheel_types': wheel_types,
+            'tire_diameters': tire_diameters,
+            'wheel_diameters': wheel_diameters,
+            'backspacing': backspacing,
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting lookup data: {str(e)}")
+        return Response(
+            {"error": "Failed to get lookup data"}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+

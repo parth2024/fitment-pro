@@ -1,8 +1,10 @@
 from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from django.db.models import Q
+from rest_framework import status
+from django.db.models import Q, Count, Case, When, IntegerField, Min, Max
 from django.http import StreamingHttpResponse, HttpResponse
+from django.core.paginator import Paginator
 from .models import Fitment
 import os
 import csv
@@ -11,22 +13,119 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill
 from io import BytesIO
 import uuid
+from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # Create your views here.
 
 
 def _apply_filters(queryset, params):
+    """Apply comprehensive filtering to fitments queryset"""
+    # Global search
     search = params.get("search")
     if search:
-        q = Q(partId__icontains=search) | Q(makeName__icontains=search) | Q(modelName__icontains=search)
+        q = Q(partId__icontains=search) | Q(makeName__icontains=search) | Q(modelName__icontains=search) | Q(fitmentTitle__icontains=search) | Q(fitmentDescription__icontains=search)
         queryset = queryset.filter(q)
+    
+    # Column-wise filtering
+    if params.get("partId"):
+        queryset = queryset.filter(partId__icontains=params.get("partId"))
+    
+    if params.get("itemStatus"):
+        queryset = queryset.filter(itemStatus__icontains=params.get("itemStatus"))
+    
+    if params.get("yearFrom"):
+        try:
+            queryset = queryset.filter(year__gte=int(params.get("yearFrom")))
+        except ValueError:
+            pass
+    
+    if params.get("yearTo"):
+        try:
+            queryset = queryset.filter(year__lte=int(params.get("yearTo")))
+        except ValueError:
+            pass
+    
+    if params.get("makeName"):
+        queryset = queryset.filter(makeName__icontains=params.get("makeName"))
+    
+    if params.get("modelName"):
+        queryset = queryset.filter(modelName__icontains=params.get("modelName"))
+    
+    if params.get("subModelName"):
+        queryset = queryset.filter(subModelName__icontains=params.get("subModelName"))
+    
+    if params.get("driveTypeName"):
+        queryset = queryset.filter(driveTypeName__icontains=params.get("driveTypeName"))
+    
+    if params.get("fuelTypeName"):
+        queryset = queryset.filter(fuelTypeName__icontains=params.get("fuelTypeName"))
+    
+    if params.get("bodyTypeName"):
+        queryset = queryset.filter(bodyTypeName__icontains=params.get("bodyTypeName"))
+    
+    if params.get("partTypeDescriptor"):
+        queryset = queryset.filter(partTypeDescriptor__icontains=params.get("partTypeDescriptor"))
+    
+    if params.get("position"):
+        queryset = queryset.filter(position__icontains=params.get("position"))
+    
+    if params.get("liftHeight"):
+        queryset = queryset.filter(liftHeight__icontains=params.get("liftHeight"))
+    
+    if params.get("wheelType"):
+        queryset = queryset.filter(wheelType__icontains=params.get("wheelType"))
+    
+    if params.get("fitmentType"):
+        queryset = queryset.filter(fitmentType=params.get("fitmentType"))
+    
+    if params.get("createdBy"):
+        queryset = queryset.filter(createdBy__icontains=params.get("createdBy"))
+    
+    # Date range filtering
+    if params.get("createdAtFrom"):
+        try:
+            date_from = datetime.fromisoformat(params.get("createdAtFrom").replace('Z', '+00:00'))
+            queryset = queryset.filter(createdAt__gte=date_from)
+        except ValueError:
+            pass
+    
+    if params.get("createdAtTo"):
+        try:
+            date_to = datetime.fromisoformat(params.get("createdAtTo").replace('Z', '+00:00'))
+            queryset = queryset.filter(createdAt__lte=date_to)
+        except ValueError:
+            pass
+    
+    if params.get("updatedAtFrom"):
+        try:
+            date_from = datetime.fromisoformat(params.get("updatedAtFrom").replace('Z', '+00:00'))
+            queryset = queryset.filter(updatedAt__gte=date_from)
+        except ValueError:
+            pass
+    
+    if params.get("updatedAtTo"):
+        try:
+            date_to = datetime.fromisoformat(params.get("updatedAtTo").replace('Z', '+00:00'))
+            queryset = queryset.filter(updatedAt__lte=date_to)
+        except ValueError:
+            pass
+    
     return queryset
 
 
 def _apply_sort(queryset, sort_by: str | None, sort_order: str | None):
-    allowed = {"partId", "makeName", "modelName", "year", "updatedAt"}
-    field = sort_by if sort_by in allowed else "partId"
+    """Apply sorting to fitments queryset"""
+    allowed = {
+        "partId", "makeName", "modelName", "year", "updatedAt", "createdAt", 
+        "itemStatus", "subModelName", "driveTypeName", "fuelTypeName", 
+        "bodyTypeName", "partTypeDescriptor", "position", "liftHeight", 
+        "wheelType", "fitmentType", "createdBy", "updatedBy", "quantity"
+    }
+    field = sort_by if sort_by in allowed else "updatedAt"
     if sort_order == "desc":
         field = f"-{field}"
     return queryset.order_by(field)
@@ -557,3 +656,208 @@ def applied_fitments_list(request):
         'offset': offset,
         'fitments': fitments
     })
+
+
+@api_view(["GET"])
+def fitment_detail(request, fitment_hash):
+    """Get detailed information for a specific fitment"""
+    try:
+        fitment = Fitment.objects.get(hash=fitment_hash)
+        fitment_data = {
+            'hash': fitment.hash,
+            'partId': fitment.partId,
+            'itemStatus': fitment.itemStatus,
+            'itemStatusCode': fitment.itemStatusCode,
+            'baseVehicleId': fitment.baseVehicleId,
+            'year': fitment.year,
+            'makeName': fitment.makeName,
+            'modelName': fitment.modelName,
+            'subModelName': fitment.subModelName,
+            'driveTypeName': fitment.driveTypeName,
+            'fuelTypeName': fitment.fuelTypeName,
+            'bodyNumDoors': fitment.bodyNumDoors,
+            'bodyTypeName': fitment.bodyTypeName,
+            'ptid': fitment.ptid,
+            'partTypeDescriptor': fitment.partTypeDescriptor,
+            'uom': fitment.uom,
+            'quantity': fitment.quantity,
+            'fitmentTitle': fitment.fitmentTitle,
+            'fitmentDescription': fitment.fitmentDescription,
+            'fitmentNotes': fitment.fitmentNotes,
+            'position': fitment.position,
+            'positionId': fitment.positionId,
+            'liftHeight': fitment.liftHeight,
+            'wheelType': fitment.wheelType,
+            'fitmentType': fitment.fitmentType,
+            'createdAt': fitment.createdAt.isoformat(),
+            'createdBy': fitment.createdBy,
+            'updatedAt': fitment.updatedAt.isoformat(),
+            'updatedBy': fitment.updatedBy,
+        }
+        return Response(fitment_data)
+    except Fitment.DoesNotExist:
+        return Response(
+            {"error": "Fitment not found"}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger.error(f"Error getting fitment detail: {str(e)}")
+        return Response(
+            {"error": "Failed to get fitment details"}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(["PUT", "PATCH"])
+def update_fitment(request, fitment_hash):
+    """Update a specific fitment"""
+    try:
+        fitment = Fitment.objects.get(hash=fitment_hash)
+        
+        # Get the data from request
+        data = request.data
+        
+        # Update allowed fields
+        allowed_fields = [
+            'itemStatus', 'itemStatusCode', 'year', 'makeName', 'modelName', 
+            'subModelName', 'driveTypeName', 'fuelTypeName', 'bodyNumDoors', 
+            'bodyTypeName', 'ptid', 'partTypeDescriptor', 'uom', 'quantity',
+            'fitmentTitle', 'fitmentDescription', 'fitmentNotes', 'position',
+            'positionId', 'liftHeight', 'wheelType', 'fitmentType'
+        ]
+        
+        for field in allowed_fields:
+            if field in data:
+                setattr(fitment, field, data[field])
+        
+        # Always update the updatedBy and updatedAt fields
+        fitment.updatedBy = data.get('updatedBy', 'api_user')
+        fitment.save()
+        
+        return Response({
+            "message": "Fitment updated successfully",
+            "hash": fitment.hash,
+            "updatedAt": fitment.updatedAt.isoformat()
+        })
+        
+    except Fitment.DoesNotExist:
+        return Response(
+            {"error": "Fitment not found"}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger.error(f"Error updating fitment: {str(e)}")
+        return Response(
+            {"error": "Failed to update fitment"}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(["GET"])
+def fitment_filter_options(request):
+    """Get filter options for fitments (unique values for dropdowns)"""
+    try:
+        # Get unique values for various filter fields
+        options = {
+            'itemStatus': list(Fitment.objects.values_list('itemStatus', flat=True).distinct().order_by('itemStatus')),
+            'makeName': list(Fitment.objects.values_list('makeName', flat=True).distinct().order_by('makeName')),
+            'modelName': list(Fitment.objects.values_list('modelName', flat=True).distinct().order_by('modelName')),
+            'driveTypeName': list(Fitment.objects.values_list('driveTypeName', flat=True).distinct().order_by('driveTypeName')),
+            'fuelTypeName': list(Fitment.objects.values_list('fuelTypeName', flat=True).distinct().order_by('fuelTypeName')),
+            'bodyTypeName': list(Fitment.objects.values_list('bodyTypeName', flat=True).distinct().order_by('bodyTypeName')),
+            'partTypeDescriptor': list(Fitment.objects.values_list('partTypeDescriptor', flat=True).distinct().order_by('partTypeDescriptor')),
+            'position': list(Fitment.objects.values_list('position', flat=True).distinct().order_by('position')),
+            'liftHeight': list(Fitment.objects.values_list('liftHeight', flat=True).distinct().order_by('liftHeight')),
+            'wheelType': list(Fitment.objects.values_list('wheelType', flat=True).distinct().order_by('wheelType')),
+            'fitmentType': list(Fitment.objects.values_list('fitmentType', flat=True).distinct().order_by('fitmentType')),
+            'createdBy': list(Fitment.objects.values_list('createdBy', flat=True).distinct().order_by('createdBy')),
+            'yearRange': {
+                'min': Fitment.objects.aggregate(min_year=Min('year'))['min_year'] or 2000,
+                'max': Fitment.objects.aggregate(max_year=Max('year'))['max_year'] or 2030
+            }
+        }
+        
+        return Response(options)
+        
+    except Exception as e:
+        logger.error(f"Error getting filter options: {str(e)}")
+        return Response(
+            {"error": "Failed to get filter options"}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(["GET"])
+def export_fitments_advanced_csv(request):
+    """Export fitments with advanced filtering in CSV or XLSX format"""
+    try:
+        print(request.query_params)
+        
+        # Get filtered queryset
+        qs = Fitment.objects.all()
+        qs = _apply_filters(qs, request.query_params)
+        qs = _apply_sort(qs, request.query_params.get("sortBy"), request.query_params.get("sortOrder"))
+        
+        # Convert to list of dictionaries
+        fitments_data = list(qs.values())
+        
+        
+        return _export_csv_response(fitments_data, 'fitments_export')
+        
+            
+    except Exception as e:
+        logger.error(f"Error exporting fitments: {str(e)}")
+        return Response(
+            {"error": "Failed to export fitments"}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@api_view(["GET"])
+def export_fitments_advanced_xlsx(request):
+    """Export fitments with advanced filtering in CSV or XLSX format"""
+    try:
+        print(request.query_params)
+        
+        # Get filtered queryset
+        qs = Fitment.objects.all()
+        qs = _apply_filters(qs, request.query_params)
+        qs = _apply_sort(qs, request.query_params.get("sortBy"), request.query_params.get("sortOrder"))
+        
+        # Convert to list of dictionaries
+        fitments_data = list(qs.values())
+        
+
+        return _export_xls_response(fitments_data, 'fitments_export')
+        
+            
+    except Exception as e:
+        logger.error(f"Error exporting fitments: {str(e)}")
+        return Response(
+            {"error": "Failed to export fitments"}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(["DELETE"])
+def delete_fitment(request, fitment_hash):
+    """Delete a specific fitment"""
+    try:
+        fitment = Fitment.objects.get(hash=fitment_hash)
+        fitment.delete()
+        
+        return Response({
+            "message": "Fitment deleted successfully",
+            "hash": fitment_hash
+        })
+        
+    except Fitment.DoesNotExist:
+        return Response(
+            {"error": "Fitment not found"}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger.error(f"Error deleting fitment: {str(e)}")
+        return Response(
+            {"error": "Failed to delete fitment"}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
