@@ -17,20 +17,19 @@ import {
   IconTable,
   IconUser,
   IconLogout,
-  IconBell,
   IconChevronRight,
   IconDashboard,
   IconDatabase,
-  IconBrain,
-  IconFileText,
   IconChartBar,
   IconBulb,
   IconAlertTriangle,
+  IconUpload,
 } from "@tabler/icons-react";
 import { useState, useEffect } from "react";
 import Analytics from "./pages/Analytics";
 import ApplyFitments from "./pages/ApplyFitments";
 import Fitments from "./pages/Fitments";
+import EditFitment from "./pages/EditFitment";
 import BulkUpload from "./pages/BulkUpload";
 import Coverage from "./pages/Coverage";
 import PotentialFitments from "./pages/PotentialFitments";
@@ -52,13 +51,6 @@ const navigationItems = [
     color: "blue",
   },
 
-  // { label: "Bulk Upload", value: "bulk", icon: IconUpload, color: "orange" },
-  // {
-  //   label: "Upload & Map",
-  //   value: "upload-map",
-  //   icon: IconUpload,
-  //   color: "purple",
-  // },
   {
     label: "Upload Data",
     value: "upload-data",
@@ -67,6 +59,13 @@ const navigationItems = [
   },
   { label: "Apply Fitments", value: "apply", icon: IconCar, color: "green" },
   { label: "Fitments", value: "fitments", icon: IconTable, color: "teal" },
+  { label: "Bulk Upload", value: "bulk", icon: IconUpload, color: "orange" },
+  // {
+  //   label: "Upload & Map",
+  //   value: "upload-map",
+  //   icon: IconUpload,
+  //   color: "purple",
+  // },
   // {
   //   label: "Manual Fitment",
   //   value: "manual-fitment",
@@ -108,6 +107,7 @@ const navigationItems = [
 
 function App() {
   const [activeTab, setActiveTab] = useState("analytics");
+  const [editFitmentHash, setEditFitmentHash] = useState<string | null>(null);
   const { user, logout } = useAuth();
   const { showSuccess } = useProfessionalToast();
 
@@ -117,16 +117,26 @@ function App() {
     return currentNav ? currentNav.label : "Dashboard";
   };
 
-  // Add event listener for navigation changes from Analytics component
+  // Add event listener for navigation changes from components
   useEffect(() => {
     const handleTabChange = (event: CustomEvent) => {
       setActiveTab(event.detail.tab);
     };
 
+    const handleEditFitment = (event: CustomEvent) => {
+      setEditFitmentHash(event.detail.fitmentHash);
+      setActiveTab("edit-fitment");
+    };
+
     window.addEventListener("changeTab", handleTabChange as EventListener);
+    window.addEventListener("editFitment", handleEditFitment as EventListener);
 
     return () => {
       window.removeEventListener("changeTab", handleTabChange as EventListener);
+      window.removeEventListener(
+        "editFitment",
+        handleEditFitment as EventListener
+      );
     };
   }, []);
 
@@ -144,6 +154,15 @@ function App() {
         return <ApplyFitments />;
       case "fitments":
         return <Fitments />;
+      case "edit-fitment":
+        return editFitmentHash ? (
+          <EditFitment
+            fitmentHash={editFitmentHash}
+            onBack={() => setActiveTab("fitments")}
+          />
+        ) : (
+          <Fitments />
+        );
       case "bulk":
         return <BulkUpload />;
       case "upload-map":

@@ -1,7 +1,20 @@
 from django.db import models
+from django.utils import timezone
 import uuid
 
 # Create your models here.
+
+class FitmentManager(models.Manager):
+    """Custom manager to handle soft delete functionality"""
+    
+    def get_queryset(self):
+        return super().get_queryset().filter(isDeleted=False)
+    
+    def all_with_deleted(self):
+        return super().get_queryset()
+    
+    def deleted_only(self):
+        return super().get_queryset().filter(isDeleted=True)
 
 
 class Fitment(models.Model):
@@ -40,6 +53,15 @@ class Fitment(models.Model):
     createdBy = models.CharField(max_length=64, default='system')
     updatedAt = models.DateTimeField(auto_now=True)
     updatedBy = models.CharField(max_length=64, default='system')
+    
+    # Soft delete fields
+    isDeleted = models.BooleanField(default=False)
+    deletedAt = models.DateTimeField(null=True, blank=True)
+    deletedBy = models.CharField(max_length=64, blank=True, null=True)
+
+    # Custom manager
+    objects = FitmentManager()
+    all_objects = models.Manager()  # Access to all objects including deleted
 
     class Meta:
         indexes = [
@@ -54,3 +76,22 @@ class Fitment(models.Model):
         if not self.hash:
             self.hash = uuid.uuid4().hex
         return super().save(*args, **kwargs)
+    
+    def soft_delete(self, deleted_by='system'):
+        """Soft delete the fitment"""
+        self.isDeleted = True
+        self.deletedAt = timezone.now()
+        self.deletedBy = deleted_by
+        self.save()
+    
+    def restore(self, restored_by='system'):
+        """Restore a soft deleted fitment"""
+        self.isDeleted = False
+        self.deletedAt = None
+        self.deletedBy = None
+        self.updatedBy = restored_by
+        self.save()
+    
+    def hard_delete(self):
+        """Permanently delete the fitment"""
+        super().delete()

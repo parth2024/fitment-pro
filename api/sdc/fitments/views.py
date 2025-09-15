@@ -173,10 +173,20 @@ def fitments_root(request):
             "hash": fitment.hash,
         })
 
-    # DELETE (bulk by hashes param)
+    # DELETE (bulk by hashes param) - Soft delete
     hashes = request.query_params.getlist("hashes") or []
-    deleted, _ = Fitment.objects.filter(hash__in=hashes).delete()
-    return Response({"message": f"Deleted {deleted} fitments"})
+    deleted_by = request.data.get('deletedBy', 'api_user')
+    deleted_count = 0
+    
+    for fitment_hash in hashes:
+        try:
+            fitment = Fitment.all_objects.get(hash=fitment_hash)
+            fitment.soft_delete(deleted_by=deleted_by)
+            deleted_count += 1
+        except Fitment.DoesNotExist:
+            continue
+    
+    return Response({"message": f"Deleted {deleted_count} fitments"})
 
 
 @api_view(["GET"]) 
@@ -662,7 +672,8 @@ def applied_fitments_list(request):
 def fitment_detail(request, fitment_hash):
     """Get detailed information for a specific fitment"""
     try:
-        fitment = Fitment.objects.get(hash=fitment_hash)
+        # Allow access to soft deleted fitments for detail view
+        fitment = Fitment.all_objects.get(hash=fitment_hash)
         fitment_data = {
             'hash': fitment.hash,
             'partId': fitment.partId,
@@ -712,7 +723,8 @@ def fitment_detail(request, fitment_hash):
 def update_fitment(request, fitment_hash):
     """Update a specific fitment"""
     try:
-        fitment = Fitment.objects.get(hash=fitment_hash)
+        # Allow updating soft deleted fitments (they can be restored during update)
+        fitment = Fitment.all_objects.get(hash=fitment_hash)
         
         # Get the data from request
         data = request.data
@@ -732,7 +744,12 @@ def update_fitment(request, fitment_hash):
         
         # Always update the updatedBy and updatedAt fields
         fitment.updatedBy = data.get('updatedBy', 'api_user')
-        fitment.save()
+        
+        # If the fitment was soft deleted, restore it
+        if fitment.isDeleted:
+            fitment.restore(restored_by=fitment.updatedBy)
+        else:
+            fitment.save()
         
         return Response({
             "message": "Fitment updated successfully",
@@ -840,14 +857,16 @@ def export_fitments_advanced_xlsx(request):
 
 @api_view(["DELETE"])
 def delete_fitment(request, fitment_hash):
-    """Delete a specific fitment"""
+    """Soft delete a specific fitment"""
     try:
-        fitment = Fitment.objects.get(hash=fitment_hash)
-        fitment.delete()
+        fitment = Fitment.all_objects.get(hash=fitment_hash)
+        deleted_by = request.data.get('deletedBy', 'api_user')
+        fitment.soft_delete(deleted_by=deleted_by)
         
         return Response({
             "message": "Fitment deleted successfully",
-            "hash": fitment_hash
+            "hash": fitment_hash,
+            "deletedAt": fitment.deletedAt.isoformat() if fitment.deletedAt else None
         })
         
     except Fitment.DoesNotExist:
