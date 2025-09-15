@@ -13,15 +13,8 @@ import {
   Divider,
   Center,
   rem,
-  Modal,
-  Flex,
   Stepper,
-  TextInput,
-  NumberInput,
-  Select,
-  Textarea,
   Grid,
-  LoadingOverlay,
 } from "@mantine/core";
 import {
   IconUpload,
@@ -36,37 +29,6 @@ import {
 } from "@tabler/icons-react";
 import { fitmentsService } from "../api/services";
 import { notifications } from "@mantine/notifications";
-
-interface FitmentRow {
-  PartID: string;
-  YearID: string;
-  MakeName: string;
-  ModelName: string;
-  SubModelName: string;
-  DriveTypeName: string;
-  FuelTypeName: string;
-  BodyNumDoors: string;
-  BodyTypeName: string;
-  PTID: string;
-  Quantity: string;
-  FitmentTitle: string;
-  FitmentDescription: string;
-  FitmentNotes: string;
-  Position: string;
-  LiftHeight: string;
-  UOM: string;
-  WheelType: string;
-  TireDiameter1: string;
-  WheelDiameter1: string;
-  BackSpacing1: string;
-  TireDiameter2: string;
-  WheelDiameter2: string;
-  BackSpacing2: string;
-  TireDiameter3: string;
-  WheelDiameter3: string;
-  BackSpacing3: string;
-  filePos: number;
-}
 
 interface ValidationResult {
   session_id: string;
@@ -90,7 +52,6 @@ interface SubmissionResult {
 export default function BulkUpload() {
   const [currentStep, setCurrentStep] = useState(0);
   const [file, setFile] = useState<File | null>(null);
-  const [data, setData] = useState<FitmentRow[]>([]);
   const [validating, setValidating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
@@ -305,42 +266,12 @@ export default function BulkUpload() {
   const resetUpload = () => {
     setCurrentStep(0);
     setFile(null);
-    setData([]);
     setValidation(null);
     setSubmissionResult(null);
     setSessionId("");
     setUploadProgress(0);
     setValidating(false);
     setSubmitting(false);
-  };
-
-  const getRowStatus = (rowIndex: number) => {
-    if (!validation) return "unknown";
-
-    const rowNumber = rowIndex + 2; // +2 for header and 0-based indexing
-
-    if (validation.invalidRows[rowNumber]) {
-      return "invalid";
-    } else if (validation.repairedRows[rowNumber]) {
-      return "repaired";
-    } else {
-      return "valid";
-    }
-  };
-
-  const getRowStyle = (rowIndex: number) => {
-    const status = getRowStatus(rowIndex);
-
-    switch (status) {
-      case "invalid":
-        return { backgroundColor: "#ffebee" }; // Light red
-      case "repaired":
-        return { backgroundColor: "#fff3e0" }; // Light orange
-      case "valid":
-        return { backgroundColor: "#e8f5e8" }; // Light green
-      default:
-        return { backgroundColor: "white" };
-    }
   };
 
   return (
@@ -414,17 +345,13 @@ export default function BulkUpload() {
           <Stepper
             active={submissionResult ? steps.length : currentStep}
             onStepClick={setCurrentStep}
-            breakpoint="sm"
             styles={{
               stepIcon: {
                 "&[data-progress]": {
                   borderColor: "#3b82f6",
                 },
               },
-              stepCompleted: {
-                backgroundColor: "#3b82f6",
-                borderColor: "#3b82f6",
-              },
+              // Removed invalid 'stepCompleted' style property
             }}
           >
             {steps.map((step, index) => (

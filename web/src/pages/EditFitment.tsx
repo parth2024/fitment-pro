@@ -14,7 +14,7 @@ import {
   Divider,
   LoadingOverlay,
 } from "@mantine/core";
-import { IconArrowLeft, IconDeviceFloppy, IconX } from "@tabler/icons-react";
+import { IconArrowLeft, IconDeviceFloppy } from "@tabler/icons-react";
 import { useApi } from "../hooks/useApi";
 import { fitmentsService, type FlattenedAppliedFitment } from "../api/services";
 import { notifications } from "@mantine/notifications";

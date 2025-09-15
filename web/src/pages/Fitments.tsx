@@ -291,10 +291,7 @@ export default function Fitments() {
   const handleExport = async (format: "csv" | "xlsx") => {
     setExportLoading(true);
     try {
-      const response = await fitmentsService.exportFitments(
-        format,
-        buildApiParams()
-      );
+      const response = await fitmentsService.exportFitments(format);
 
       // Create download link
       const url = window.URL.createObjectURL(new Blob([response.data]));

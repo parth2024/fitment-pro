@@ -19,7 +19,6 @@ import {
   IconTable,
   IconUpload,
   IconBulb,
-  IconSettings,
   IconTrendingUp,
   IconUsers,
   IconDatabase,

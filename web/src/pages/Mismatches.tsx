@@ -4,21 +4,12 @@ import {
   Title,
   Text,
   Stack,
-  Group,
   Badge,
-  Progress,
   Button,
   Center,
   ThemeIcon,
 } from "@mantine/core";
-import {
-  IconClock,
-  IconRocket,
-  IconBell,
-  IconMail,
-  IconBug,
-  IconSettings,
-} from "@tabler/icons-react";
+import { IconRocket } from "@tabler/icons-react";
 
 export default function Mismatches() {
   return (

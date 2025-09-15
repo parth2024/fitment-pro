@@ -181,7 +181,7 @@ export const fitmentsService = {
   deleteFitment: (fitmentHash: string) =>
     apiClient.delete(`/api/fitments/${fitmentHash}/delete/`),
   getFilterOptions: () => apiClient.get("/api/fitments/filter-options/"),
-  exportFitments: (format: "csv" | "xlsx", params?: any) =>
+  exportFitments: (format: "csv" | "xlsx") =>
     apiClient.get(`/api/fitments/export-advanced-${format}/`, {
       responseType: "blob",
     }),
