@@ -345,4 +345,15 @@ export const dataUploadService = {
   // Get file data
   getFileData: (sessionId: string, fileType: "vcdb" | "products") =>
     apiClient.get(`/api/data-uploads/sessions/${sessionId}/data/${fileType}/`),
+
+  // Get VCDB data from database
+  getVCDBData: (params?: any) =>
+    apiClient.get("/api/data-uploads/vcdb/", { params }),
+
+  // Get Product data from database
+  getProductData: (params?: any) =>
+    apiClient.get("/api/data-uploads/products/", { params }),
+
+  // Get new data status (with database counts)
+  getNewDataStatus: () => apiClient.get("/api/data-uploads/data-status/"),
 };

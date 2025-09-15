@@ -25,6 +25,7 @@ import {
   IconDatabase,
   IconRobot,
   IconChevronRight,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 import api from "../api/client";
 
@@ -80,11 +81,11 @@ const Analytics: React.FC = () => {
       value: "upload-map",
     },
     {
-      title: "Review & Publish",
-      description: "Review and publish fitments",
-      icon: IconTable,
-      color: "pink",
-      value: "review-publish",
+      title: "Mistmatches",
+      description: "Find mistmatches between fitments and vehicles",
+      icon: IconAlertTriangle,
+      color: "red",
+      value: "mistmatches",
     },
     {
       title: "Potential Fitments",
@@ -100,13 +101,13 @@ const Analytics: React.FC = () => {
       color: "teal",
       value: "coverage",
     },
-    {
-      title: "Admin Panel",
-      description: "System administration",
-      icon: IconSettings,
-      color: "red",
-      value: "admin",
-    },
+    // {
+    //   title: "Admin Panel",
+    //   description: "System administration",
+    //   icon: IconSettings,
+    //   color: "red",
+    //   value: "admin",
+    // },
   ];
 
   const fetchAnalyticsData = async () => {
@@ -133,7 +134,7 @@ const Analytics: React.FC = () => {
 
       const aiFitments = fitments.filter(
         (f: any) =>
-          new Date(f.created_at || f.createdAt || Date.now()) > recentCutoff,
+          new Date(f.created_at || f.createdAt || Date.now()) > recentCutoff
       ).length;
 
       const manualFitments = totalFitments - aiFitments;
@@ -169,7 +170,7 @@ const Analytics: React.FC = () => {
   const handleNavigationClick = (value: string) => {
     // Emit custom event to change tab in parent App component
     window.dispatchEvent(
-      new CustomEvent("changeTab", { detail: { tab: value } }),
+      new CustomEvent("changeTab", { detail: { tab: value } })
     );
   };
 

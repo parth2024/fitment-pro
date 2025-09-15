@@ -1,0 +1,51 @@
+id,description,category,partType,compatibility,position,quantity,price,weight,manufacturer,status
+PART001,Brake Pad Set - Front,Brake System,Brake Pads,Universal,Front,1,89.99,2.5,ACME Auto,Active
+PART002,Brake Pad Set - Rear,Brake System,Brake Pads,Universal,Rear,1,79.99,2.0,ACME Auto,Active
+PART003,Brake Rotor - Front,Brake System,Brake Rotors,Universal,Front,2,129.99,8.5,ACME Auto,Active
+PART004,Brake Rotor - Rear,Brake System,Brake Rotors,Universal,Rear,2,119.99,7.8,ACME Auto,Active
+PART005,Oil Filter,Engine,Oil Filter,Universal,Engine,1,12.99,0.3,ACME Auto,Active
+PART006,Air Filter,Engine,Air Filter,Universal,Engine,1,24.99,0.8,ACME Auto,Active
+PART007,Fuel Filter,Engine,Fuel Filter,Universal,Engine,1,18.99,0.4,ACME Auto,Active
+PART008,Spark Plugs Set,Engine,Spark Plugs,Universal,Engine,4,45.99,0.6,ACME Auto,Active
+PART009,Timing Belt,Engine,Timing Belt,Universal,Engine,1,89.99,1.2,ACME Auto,Active
+PART010,Water Pump,Engine,Water Pump,Universal,Engine,1,149.99,3.2,ACME Auto,Active
+PART011,Alternator,Electrical,Alternator,Universal,Engine,1,199.99,8.5,ACME Auto,Active
+PART012,Starter Motor,Electrical,Starter Motor,Universal,Engine,1,179.99,6.8,ACME Auto,Active
+PART013,Battery,Electrical,Battery,Universal,Engine,1,129.99,35.0,ACME Auto,Active
+PART014,Headlight Bulb,Electrical,Lighting,Universal,Front,2,19.99,0.1,ACME Auto,Active
+PART015,Taillight Bulb,Electrical,Lighting,Universal,Rear,2,14.99,0.1,ACME Auto,Active
+PART016,Windshield Wiper Blade,Exterior,Windshield Wipers,Universal,Front,2,24.99,0.3,ACME Auto,Active
+PART017,Windshield Wiper Blade,Exterior,Windshield Wipers,Universal,Rear,1,19.99,0.2,ACME Auto,Active
+PART018,Shock Absorber - Front,Suspension,Shock Absorbers,Universal,Front,2,89.99,4.2,ACME Auto,Active
+PART019,Shock Absorber - Rear,Suspension,Shock Absorbers,Universal,Rear,2,79.99,3.8,ACME Auto,Active
+PART020,Strut Assembly - Front,Suspension,Struts,Universal,Front,2,199.99,12.5,ACME Auto,Active
+PART021,Strut Assembly - Rear,Suspension,Struts,Universal,Rear,2,179.99,11.8,ACME Auto,Active
+PART022,Control Arm - Front,Suspension,Control Arms,Universal,Front,2,149.99,6.5,ACME Auto,Active
+PART023,Control Arm - Rear,Suspension,Control Arms,Universal,Rear,2,129.99,5.8,ACME Auto,Active
+PART024,Tie Rod End - Front,Steering,Tie Rod Ends,Universal,Front,2,39.99,0.8,ACME Auto,Active
+PART025,Tie Rod End - Rear,Steering,Tie Rod Ends,Universal,Rear,2,34.99,0.7,ACME Auto,Active
+PART026,Ball Joint - Front,Steering,Ball Joints,Universal,Front,2,49.99,1.2,ACME Auto,Active
+PART027,Ball Joint - Rear,Steering,Ball Joints,Universal,Rear,2,44.99,1.1,ACME Auto,Active
+PART028,Wheel Bearing - Front,Suspension,Wheel Bearings,Universal,Front,2,79.99,2.8,ACME Auto,Active
+PART029,Wheel Bearing - Rear,Suspension,Wheel Bearings,Universal,Rear,2,69.99,2.5,ACME Auto,Active
+PART030,CV Axle - Front,Drivetrain,CV Axles,Universal,Front,2,149.99,8.5,ACME Auto,Active
+PART031,CV Axle - Rear,Drivetrain,CV Axles,Universal,Rear,2,129.99,7.8,ACME Auto,Active
+PART032,Transmission Filter,Transmission,Transmission Filter,Universal,Transmission,1,29.99,0.5,ACME Auto,Active
+PART033,Transmission Fluid,Transmission,Transmission Fluid,Universal,Transmission,4,12.99,1.0,ACME Auto,Active
+PART034,Engine Oil,Engine,Engine Oil,Universal,Engine,5,8.99,1.0,ACME Auto,Active
+PART035,Coolant,Engine,Coolant,Universal,Engine,2,15.99,1.0,ACME Auto,Active
+PART036,Power Steering Fluid,Steering,Power Steering Fluid,Universal,Steering,1,11.99,1.0,ACME Auto,Active
+PART037,Brake Fluid,Brake System,Brake Fluid,Universal,Brake System,1,9.99,1.0,ACME Auto,Active
+PART038,Windshield Washer Fluid,Exterior,Windshield Washer Fluid,Universal,Exterior,1,4.99,1.0,ACME Auto,Active
+PART039,Air Conditioning Filter,HVAC,Air Conditioning Filter,Universal,HVAC,1,19.99,0.3,ACME Auto,Active
+PART040,Serpentine Belt,Engine,Serpentine Belt,Universal,Engine,1,34.99,0.8,ACME Auto,Active
+PART041,Clutch Kit,Transmission,Clutch Kit,Manual Transmission,Transmission,1,299.99,15.5,ACME Auto,Active
+PART042,Clutch Master Cylinder,Transmission,Clutch Master Cylinder,Manual Transmission,Transmission,1,89.99,2.1,ACME Auto,Active
+PART043,Clutch Slave Cylinder,Transmission,Clutch Slave Cylinder,Manual Transmission,Transmission,1,69.99,1.8,ACME Auto,Active
+PART044,Exhaust Muffler,Exhaust,Exhaust Muffler,Universal,Exhaust,1,149.99,12.5,ACME Auto,Active
+PART045,Catalytic Converter,Exhaust,Catalytic Converter,Universal,Exhaust,1,399.99,8.8,ACME Auto,Active
+PART046,O2 Sensor,Exhaust,O2 Sensor,Universal,Exhaust,2,79.99,0.3,ACME Auto,Active
+PART047,EGR Valve,Engine,EGR Valve,Universal,Engine,1,129.99,1.2,ACME Auto,Active
+PART048,PCV Valve,Engine,PCV Valve,Universal,Engine,1,19.99,0.1,ACME Auto,Active
+PART049,Throttle Body,Engine,Throttle Body,Universal,Engine,1,199.99,3.5,ACME Auto,Active
+PART050,Mass Air Flow Sensor,Engine,Mass Air Flow Sensor,Universal,Engine,1,89.99,0.4,ACME Auto,Active

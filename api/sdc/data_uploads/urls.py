@@ -8,8 +8,13 @@ urlpatterns = [
     
     # Data status and file operations
     path('status/', views.get_current_data_status, name='data_status'),
+    path('data-status/', views.get_data_status, name='new_data_status'),
     path('replace-file/', views.replace_file, name='replace_file'),
     path('sessions/<uuid:session_id>/data/<str:file_type>/', views.get_file_data, name='get_file_data'),
+    
+    # Data retrieval endpoints
+    path('vcdb/', views.get_vcdb_data, name='get_vcdb_data'),
+    path('products/', views.get_product_data, name='get_product_data'),
     
     # AI fitment processing
     path('ai-fitment/', views.process_ai_fitment, name='process_ai_fitment'),

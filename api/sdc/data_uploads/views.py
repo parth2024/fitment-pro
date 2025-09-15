@@ -5,6 +5,7 @@ import pandas as pd
 import requests
 import uuid
 from django.conf import settings
+from django.db.models import Q
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -18,7 +19,15 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from fitment_uploads.azure_ai_service import azure_ai_service
-from .models import DataUploadSession, FileValidationLog, DataProcessingLog, AIFitmentResult, AppliedFitment
+from .models import (
+    DataUploadSession, 
+    FileValidationLog, 
+    DataProcessingLog, 
+    AIFitmentResult, 
+    AppliedFitment,
+    VCDBData,
+    ProductData
+)
 from fitments.models import Fitment
 from .serializers import (
     DataUploadSessionSerializer, 
@@ -29,6 +38,7 @@ from .serializers import (
     AppliedFitmentSerializer,
     ApplyFitmentsRequestSerializer
 )
+from .utils import FileParser, VCDBValidator, ProductValidator, DataProcessor
 import logging
 
 logger = logging.getLogger(__name__)
@@ -53,6 +63,14 @@ class DataUploadSessionView(APIView):
             # Handle file uploads
             vcdb_file = request.FILES.get('vcdb_file')
             products_file = request.FILES.get('products_file')
+            
+            # Check if at least one file is provided
+            if not vcdb_file and not products_file:
+                session.delete()
+                return Response(
+                    {"error": "At least one file (VCDB or Products) must be provided"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             
             if vcdb_file:
                 session.vcdb_file = vcdb_file
@@ -95,39 +113,12 @@ class DataUploadSessionView(APIView):
                                   f"Invalid file format. Expected CSV, XLSX, XLS, or JSON")
                 return
             
-            # Try to read the file with robust error handling
+            # Get file path for parsing
+            file_path = os.path.join(settings.MEDIA_ROOT, file_field.name)
+            
             try:
-                if file_name.lower().endswith('.csv'):
-                    # Try different CSV reading approaches
-                    try:
-                        df = pd.read_csv(file_field)
-                    except pd.errors.ParserError:
-                        try:
-                            df = pd.read_csv(file_field, sep=';')
-                        except pd.errors.ParserError:
-                            try:
-                                df = pd.read_csv(file_field, sep='\t')
-                            except pd.errors.ParserError:
-                                try:
-                                    df = pd.read_csv(file_field, error_bad_lines=False, warn_bad_lines=True)
-                                except:
-                                    df = pd.read_csv(file_field, low_memory=False)
-                elif file_name.lower().endswith('.json'):
-                    import json
-                    data = json.load(file_field)
-                    if isinstance(data, list):
-                        df = pd.DataFrame(data)
-                    elif isinstance(data, dict):
-                        df = pd.DataFrame([data])
-                    else:
-                        df = pd.DataFrame()
-                elif file_name.lower().endswith('.xlsx'):
-                    df = pd.read_excel(file_field, engine='openpyxl')
-                elif file_name.lower().endswith('.xls'):
-                    df = pd.read_excel(file_field, engine='xlrd')
-                else:
-                    # Try to read as Excel with openpyxl engine
-                    df = pd.read_excel(file_field, engine='openpyxl')
+                # Parse the file using our utility
+                df = FileParser.parse_file(file_path, file_name)
                 
                 # Basic validation
                 if df.empty:
@@ -135,14 +126,45 @@ class DataUploadSessionView(APIView):
                                       "File is empty")
                     return
                 
+                # Normalize and validate data based on file type
+                if file_type == 'vcdb':
+                    # Normalize VCDB data
+                    normalized_df = VCDBValidator.normalize_dataframe(df)
+                    is_valid, validation_errors = VCDBValidator.validate_data(normalized_df)
+                elif file_type == 'products':
+                    # Normalize Product data
+                    normalized_df = ProductValidator.normalize_dataframe(df)
+                    is_valid, validation_errors = ProductValidator.validate_data(normalized_df)
+                else:
+                    is_valid = True
+                    validation_errors = []
+                
+                if not is_valid:
+                    error_message = f"Data validation failed: {'; '.join(validation_errors)}"
+                    self._log_validation(session, file_type, 'data', False, error_message)
+                    return
+                
+                # Process and store the data
+                if file_type == 'vcdb':
+                    created_count, processing_errors = DataProcessor.process_vcdb_data(normalized_df, str(session.id))
+                elif file_type == 'products':
+                    created_count, processing_errors = DataProcessor.process_product_data(normalized_df, str(session.id))
+                else:
+                    created_count = len(df)
+                    processing_errors = []
+                
                 # Update record count
-                setattr(session, f'{file_type}_records', len(df))
+                setattr(session, f'{file_type}_records', created_count)
                 
                 # Mark as valid
                 setattr(session, f'{file_type}_valid', True)
                 session.save()  # Save the changes
-                self._log_validation(session, file_type, 'data', True, 
-                                  f"File validated successfully. {len(df)} records found")
+                
+                success_message = f"File validated and processed successfully. {created_count} records created."
+                if processing_errors:
+                    success_message += f" Warnings: {'; '.join(processing_errors[:3])}"  # Show first 3 errors
+                
+                self._log_validation(session, file_type, 'data', True, success_message)
                 
             except Exception as e:
                 self._log_validation(session, file_type, 'data', False, 
@@ -904,5 +926,174 @@ def apply_ai_fitments(request):
         logger.error(f"Failed to apply fitments: {str(e)}", exc_info=True)
         return Response(
             {'error': f'Failed to apply fitments: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_vcdb_data(request):
+    """Get all VCDB data from the database"""
+    try:
+        # Get query parameters for filtering
+        year = request.GET.get('year')
+        make = request.GET.get('make')
+        model = request.GET.get('model')
+        limit = request.GET.get('limit', 1000)  # Default limit
+        
+        # Build query
+        queryset = VCDBData.objects.all()
+        
+        if year:
+            queryset = queryset.filter(year=year)
+        if make:
+            queryset = queryset.filter(make__icontains=make)
+        if model:
+            queryset = queryset.filter(model__icontains=model)
+        
+        # Apply limit
+        try:
+            limit = int(limit)
+            queryset = queryset[:limit]
+        except ValueError:
+            queryset = queryset[:1000]
+        
+        # Serialize data
+        data = []
+        for record in queryset:
+            data.append({
+                'id': record.id,
+                'year': record.year,
+                'make': record.make,
+                'model': record.model,
+                'submodel': record.submodel,
+                'drive_type': record.drive_type,
+                'fuel_type': record.fuel_type,
+                'num_doors': record.num_doors,
+                'body_type': record.body_type,
+                'engine_type': record.engine_type,
+                'transmission': record.transmission,
+                'trim_level': record.trim_level,
+                'created_at': record.created_at.isoformat(),
+                'updated_at': record.updated_at.isoformat(),
+            })
+        
+        return Response({
+            'data': data,
+            'total_count': VCDBData.objects.count(),
+            'returned_count': len(data)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting VCDB data: {str(e)}")
+        return Response(
+            {"error": "Failed to get VCDB data"}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_product_data(request):
+    """Get all Product data from the database"""
+    try:
+        # Get query parameters for filtering
+        category = request.GET.get('category')
+        part_type = request.GET.get('part_type')
+        search = request.GET.get('search')  # Search in description
+        limit = request.GET.get('limit', 1000)  # Default limit
+        
+        # Build query
+        queryset = ProductData.objects.all()
+        
+        if category:
+            queryset = queryset.filter(category__icontains=category)
+        if part_type:
+            queryset = queryset.filter(part_type__icontains=part_type)
+        if search:
+            queryset = queryset.filter(description__icontains=search)
+        
+        # Apply limit
+        try:
+            limit = int(limit)
+            queryset = queryset[:limit]
+        except ValueError:
+            queryset = queryset[:1000]
+        
+        # Serialize data
+        data = []
+        for record in queryset:
+            data.append({
+                'id': record.id,
+                'part_id': record.part_id,
+                'description': record.description,
+                'category': record.category,
+                'part_type': record.part_type,
+                'compatibility': record.compatibility,
+                'specifications': record.specifications,
+                'brand': record.brand,
+                'sku': record.sku,
+                'price': float(record.price) if record.price else None,
+                'weight': float(record.weight) if record.weight else None,
+                'dimensions': record.dimensions,
+                'created_at': record.created_at.isoformat(),
+                'updated_at': record.updated_at.isoformat(),
+            })
+        
+        return Response({
+            'data': data,
+            'total_count': ProductData.objects.count(),
+            'returned_count': len(data)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting Product data: {str(e)}")
+        return Response(
+            {"error": "Failed to get Product data"}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_data_status(request):
+    """Get the current status of uploaded and processed data"""
+    try:
+        # Get counts from database tables
+        vcdb_count = VCDBData.objects.count()
+        product_count = ProductData.objects.count()
+        
+        # Get latest session info (any session with valid files)
+        latest_session = DataUploadSession.objects.filter(
+            Q(vcdb_valid=True) | Q(products_valid=True)
+        ).order_by('-created_at').first()
+        
+        response_data = {
+            'vcdb': {
+                'exists': vcdb_count > 0,
+                'record_count': vcdb_count,
+                'filename': latest_session.vcdb_filename if latest_session else None,
+                'uploaded_at': latest_session.created_at.isoformat() if latest_session and latest_session.vcdb_file else None,
+                'valid': latest_session.vcdb_valid if latest_session else False,
+            },
+            'products': {
+                'exists': product_count > 0,
+                'record_count': product_count,
+                'filename': latest_session.products_filename if latest_session else None,
+                'uploaded_at': latest_session.created_at.isoformat() if latest_session and latest_session.products_file else None,
+                'valid': latest_session.products_valid if latest_session else False,
+            },
+            'ready_for_fitment': (
+                vcdb_count > 0 and 
+                product_count > 0
+            )
+        }
+        
+        return Response(response_data)
+        
+    except Exception as e:
+        logger.error(f"Error getting data status: {str(e)}")
+        return Response(
+            {"error": "Failed to get data status"}, 
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

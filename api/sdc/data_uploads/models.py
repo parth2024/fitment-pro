@@ -98,6 +98,69 @@ class DataUploadSession(models.Model):
         return None
 
 
+class VCDBData(models.Model):
+    """Model to store VCDB (Vehicle Configuration Database) data"""
+    id = models.AutoField(primary_key=True)
+    year = models.IntegerField()
+    make = models.CharField(max_length=100)
+    model = models.CharField(max_length=100)
+    submodel = models.CharField(max_length=100, blank=True)
+    drive_type = models.CharField(max_length=50, blank=True)
+    fuel_type = models.CharField(max_length=50, blank=True)
+    num_doors = models.IntegerField(null=True, blank=True)
+    body_type = models.CharField(max_length=100, blank=True)
+    
+    # Additional fields that might be in the data
+    engine_type = models.CharField(max_length=100, blank=True)
+    transmission = models.CharField(max_length=100, blank=True)
+    trim_level = models.CharField(max_length=100, blank=True)
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['year', 'make', 'model']
+        verbose_name = "VCDB Data"
+        verbose_name_plural = "VCDB Data"
+        unique_together = ['year', 'make', 'model', 'submodel', 'drive_type']
+    
+    def __str__(self):
+        return f"{self.year} {self.make} {self.model} {self.submodel}"
+
+
+class ProductData(models.Model):
+    """Model to store Product/Parts data"""
+    id = models.AutoField(primary_key=True)
+    part_id = models.CharField(max_length=100, unique=True)
+    description = models.TextField()
+    category = models.CharField(max_length=100, blank=True)
+    part_type = models.CharField(max_length=100, blank=True)
+    compatibility = models.CharField(max_length=100, blank=True)
+    
+    # Specifications as JSON field for flexibility
+    specifications = models.JSONField(default=dict, blank=True)
+    
+    # Additional fields
+    brand = models.CharField(max_length=100, blank=True)
+    sku = models.CharField(max_length=100, blank=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    weight = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    dimensions = models.CharField(max_length=200, blank=True)
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['part_id']
+        verbose_name = "Product Data"
+        verbose_name_plural = "Product Data"
+    
+    def __str__(self):
+        return f"{self.part_id} - {self.description[:50]}"
+
+
 class FileValidationLog(models.Model):
     """Model to track file validation results"""
     session = models.ForeignKey(

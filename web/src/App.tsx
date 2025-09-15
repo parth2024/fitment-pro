@@ -23,6 +23,9 @@ import {
   IconDatabase,
   IconBrain,
   IconFileText,
+  IconChartBar,
+  IconBulb,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 import { useState, useEffect } from "react";
 import Analytics from "./pages/Analytics";
@@ -48,8 +51,7 @@ const navigationItems = [
     icon: IconDashboard,
     color: "blue",
   },
-  { label: "Apply Fitments", value: "apply", icon: IconCar, color: "green" },
-  { label: "Fitments", value: "fitments", icon: IconTable, color: "teal" },
+
   // { label: "Bulk Upload", value: "bulk", icon: IconUpload, color: "orange" },
   // {
   //   label: "Upload & Map",
@@ -63,36 +65,44 @@ const navigationItems = [
     icon: IconDatabase,
     color: "cyan",
   },
-  {
-    label: "Manual Fitment",
-    value: "manual-fitment",
-    icon: IconFileText,
-    color: "indigo",
-  },
-  {
-    label: "AI Fitment",
-    value: "ai-fitment",
-    icon: IconBrain,
-    color: "violet",
-  },
+  { label: "Apply Fitments", value: "apply", icon: IconCar, color: "green" },
+  { label: "Fitments", value: "fitments", icon: IconTable, color: "teal" },
+  // {
+  //   label: "Manual Fitment",
+  //   value: "manual-fitment",
+  //   icon: IconFileText,
+  //   color: "indigo",
+  // },
+  // {
+  //   label: "AI Fitment",
+  //   value: "ai-fitment",
+  //   icon: IconBrain,
+  //   color: "violet",
+  // },
   // {
   //   label: "Review & Publish",
   //   value: "review-publish",
   //   icon: IconTable,
   //   color: "pink",
   // },
-  // {
-  //   label: "Coverage Analytics",
-  //   value: "coverage",
-  //   icon: IconChartBar,
-  //   color: "cyan",
-  // },
-  // {
-  //   label: "Potential Fitments",
-  //   value: "potential",
-  //   icon: IconBulb,
-  //   color: "yellow",
-  // },
+  {
+    label: "Mistmatches",
+    value: "mistmatches",
+    icon: IconAlertTriangle,
+    color: "red",
+  },
+  {
+    label: "Coverage",
+    value: "coverage",
+    icon: IconChartBar,
+    color: "cyan",
+  },
+  {
+    label: "Potential Fitments",
+    value: "potential",
+    icon: IconBulb,
+    color: "yellow",
+  },
   // { label: "Admin Panel", value: "admin", icon: IconSettings, color: "red" },
 ];
 
