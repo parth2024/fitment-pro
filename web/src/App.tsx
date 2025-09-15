@@ -33,6 +33,7 @@ import EditFitment from "./pages/EditFitment";
 import BulkUpload from "./pages/BulkUpload";
 import Coverage from "./pages/Coverage";
 import PotentialFitments from "./pages/PotentialFitments";
+import Mismatches from "./pages/Mismatches";
 import Admin from "./pages/Admin";
 import UploadMap from "./pages/UploadMap";
 import ReviewPublish from "./pages/ReviewPublish";
@@ -85,8 +86,8 @@ const navigationItems = [
   //   color: "pink",
   // },
   {
-    label: "Mistmatches",
-    value: "mistmatches",
+    label: "Mismatches(Beta)",
+    value: "mismatches",
     icon: IconAlertTriangle,
     color: "red",
   },
@@ -181,6 +182,8 @@ function App() {
         return <PotentialFitments />;
       case "admin":
         return <Admin />;
+      case "mismatches":
+        return <Mismatches />;
       default:
         return <Analytics />;
     }
