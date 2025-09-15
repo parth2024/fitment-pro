@@ -50,3 +50,8 @@ python-dotenv
 python-multipart
 sqlalchemy
 uvicorn[standard]
+scikit-learn 
+numpy
+# AI/ML dependencies for Potential Fitments
+scikit-learn>=1.0
+numpy>=1.21

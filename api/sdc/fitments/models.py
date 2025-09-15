@@ -141,3 +141,39 @@ class FitmentValidationResult(models.Model):
         
     def __str__(self):
         return f"Row {self.row_number} - {self.column_name} - {'Valid' if self.is_valid else 'Invalid'}"
+
+
+class PotentialVehicleConfiguration(models.Model):
+    """Model to store potential vehicle configurations for AI recommendations"""
+    METHOD_CHOICES = [
+        ('similarity', 'Similarity Analysis'),
+        ('base-vehicle', 'Base Vehicle Analysis'),
+    ]
+    
+    id = models.CharField(max_length=100, primary_key=True)
+    vehicle_id = models.CharField(max_length=100)
+    base_vehicle_id = models.CharField(max_length=64)
+    body_style_config = models.CharField(max_length=100)
+    year = models.IntegerField()
+    make = models.CharField(max_length=64)
+    model = models.CharField(max_length=64)
+    submodel = models.CharField(max_length=64)
+    drive_type = models.CharField(max_length=32)
+    fuel_type = models.CharField(max_length=32)
+    num_doors = models.IntegerField()
+    body_type = models.CharField(max_length=64)
+    relevance = models.IntegerField(default=0)  # AI confidence score (0-100)
+    recommendation_method = models.CharField(max_length=20, choices=METHOD_CHOICES, default='similarity')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'potential_vehicle_configurations'
+        indexes = [
+            models.Index(fields=['make', 'model', 'year']),
+            models.Index(fields=['base_vehicle_id']),
+            models.Index(fields=['relevance']),
+            models.Index(fields=['recommendation_method']),
+        ]
+        
+    def __str__(self):
+        return f"{self.year} {self.make} {self.model} {self.submodel} - {self.relevance}%"

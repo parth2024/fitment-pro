@@ -9,7 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
-from .models import Fitment, FitmentUploadSession, FitmentValidationResult
+from .models import Fitment, FitmentUploadSession, FitmentValidationResult, PotentialVehicleConfiguration
 from .validators import validate_fitment_row
 import os
 import csv
@@ -21,6 +21,9 @@ import uuid
 from datetime import datetime
 import logging
 import pandas as pd
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 logger = logging.getLogger(__name__)
 
@@ -197,14 +200,7 @@ def fitments_root(request):
 
 @api_view(["GET"]) 
 def coverage(request):
-    # Sample VCDB configurations (as total universe) - reuse same as vcdb.views
-    sample_configs = [
-        {"year": 2025, "make": "Acura", "model": "ADX"},
-        {"year": 2024, "make": "Acura", "model": "ADX"},
-        {"year": 2024, "make": "Toyota", "model": "RAV4"},
-        {"year": 2023, "make": "Ford", "model": "F-150"},
-        {"year": 2023, "make": "Honda", "model": "Civic"},
-    ]
+    """Enhanced coverage analysis with real VCDB data"""
     qp = request.query_params
     try:
         yf = int(qp.get("yearFrom", 2010))
@@ -214,25 +210,33 @@ def coverage(request):
         yt = int(qp.get("yearTo", 2030))
     except ValueError:
         yt = 2030
-
-    # Filter VCDB universe by year range
-    universe = [c for c in sample_configs if yf <= c["year"] <= yt]
-    # Compute total configs per make and models list
+    
+    # Get all unique vehicle configurations from fitments (this represents our VCDB universe)
+    # We'll use the fitments table as our source of truth for available configurations
+    all_configs = Fitment.objects.filter(
+        year__gte=yf, 
+        year__lte=yt
+    ).values('year', 'makeName', 'modelName', 'subModelName').distinct()
+    
+    # Build universe of all configurations
+    universe_set = set()
     make_to_total = {}
     make_to_models = {}
-    for c in universe:
-        make_to_total[c["make"]] = make_to_total.get(c["make"], 0) + 1
-        make_to_models.setdefault(c["make"], set()).add(c["model"])
+    
+    for config in all_configs:
+        key = (config['year'], config['makeName'], config['modelName'])
+        universe_set.add(key)
+        make_to_total[config['makeName']] = make_to_total.get(config['makeName'], 0) + 1
+        make_to_models.setdefault(config['makeName'], set()).add(config['modelName'])
 
-    # Fitted configs from Fitments intersecting the universe (distinct year/make/model)
+    # Get fitted configurations (those with actual fitments)
     fitted_qs = Fitment.objects.filter(year__gte=yf, year__lte=yt)
     fitted_set = set()
     for f in fitted_qs.values("year", "makeName", "modelName"):
         key = (f["year"], f["makeName"], f["modelName"])
         fitted_set.add(key)
 
-    # Count fitted per make only if present in universe
-    universe_set = set((c["year"], c["make"], c["model"]) for c in universe)
+    # Count fitted per make
     make_to_fitted = {}
     for (y, mk, md) in fitted_set:
         if (y, mk, md) in universe_set:
@@ -260,6 +264,169 @@ def coverage(request):
     rows.sort(key=sort_key, reverse=(sort_order == "desc"))
 
     return Response({"items": rows, "totalCount": len(rows)})
+
+
+@api_view(["GET"])
+def detailed_coverage(request):
+    """Get detailed coverage by model within a make"""
+    make = request.GET.get('make')
+    year_from = request.GET.get('yearFrom', 2010)
+    year_to = request.GET.get('yearTo', 2030)
+    
+    if not make:
+        return Response({"error": "Make parameter is required"}, status=400)
+    
+    try:
+        year_from = int(year_from)
+        year_to = int(year_to)
+    except ValueError:
+        return Response({"error": "Invalid year parameters"}, status=400)
+    
+    # Get all configurations for this make
+    all_configs = Fitment.objects.filter(
+        makeName=make,
+        year__gte=year_from,
+        year__lte=year_to
+    ).values('year', 'modelName', 'subModelName').distinct()
+    
+    # Count total configurations by model
+    model_totals = {}
+    for config in all_configs:
+        model = config['modelName']
+        model_totals[model] = model_totals.get(model, 0) + 1
+    
+    # Count fitted configurations by model
+    fitted_configs = Fitment.objects.filter(
+        makeName=make,
+        year__gte=year_from,
+        year__lte=year_to
+    ).values('year', 'modelName').distinct()
+    
+    model_fitted = {}
+    for config in fitted_configs:
+        model = config['modelName']
+        model_fitted[model] = model_fitted.get(model, 0) + 1
+    
+    # Build detailed coverage data
+    coverage_data = []
+    for model, total in model_totals.items():
+        fitted = model_fitted.get(model, 0)
+        coverage_percent = round((fitted / total) * 100, 2) if total > 0 else 0
+        
+        coverage_data.append({
+            'model': model,
+            'totalConfigurations': total,
+            'fittedConfigurations': fitted,
+            'coveragePercent': coverage_percent
+        })
+    
+    # Sort by total configurations descending
+    coverage_data.sort(key=lambda x: x['totalConfigurations'], reverse=True)
+    
+    return Response(coverage_data)
+
+
+@api_view(["GET"])
+def coverage_trends(request):
+    """Get coverage trends by year for a specific make"""
+    make = request.GET.get('make')
+    
+    if not make:
+        return Response({"error": "Make parameter is required"}, status=400)
+    
+    # Get all configurations by year for this make
+    yearly_configs = Fitment.objects.filter(
+        makeName=make
+    ).values('year').annotate(
+        total=Count('id', distinct=True)
+    ).order_by('year')
+    
+    # Get fitted configurations by year
+    yearly_fitted = Fitment.objects.filter(
+        makeName=make
+    ).values('year').annotate(
+        fitted=Count('id', distinct=True)
+    ).order_by('year')
+    
+    # Combine data
+    trends = []
+    configs_dict = {item['year']: item['total'] for item in yearly_configs}
+    fitted_dict = {item['year']: item['fitted'] for item in yearly_fitted}
+    
+    for year in sorted(set(configs_dict.keys()) | set(fitted_dict.keys())):
+        total = configs_dict.get(year, 0)
+        fitted = fitted_dict.get(year, 0)
+        coverage_percent = round((fitted / total) * 100, 2) if total > 0 else 0
+        
+        trends.append({
+            'year': year,
+            'totalConfigurations': total,
+            'fittedConfigurations': fitted,
+            'coveragePercent': coverage_percent
+        })
+    
+    return Response(trends)
+
+
+@api_view(["GET"])
+def coverage_gaps(request):
+    """Find models with low coverage that need attention"""
+    make = request.GET.get('make')
+    year_from = request.GET.get('yearFrom', 2010)
+    year_to = request.GET.get('yearTo', 2030)
+    min_vehicles = int(request.GET.get('minVehicles', 10))
+    max_coverage = float(request.GET.get('maxCoverage', 50.0))
+    
+    if not make:
+        return Response({"error": "Make parameter is required"}, status=400)
+    
+    try:
+        year_from = int(year_from)
+        year_to = int(year_to)
+    except ValueError:
+        return Response({"error": "Invalid year parameters"}, status=400)
+    
+    # Get all configurations by model
+    model_configs = Fitment.objects.filter(
+        makeName=make,
+        year__gte=year_from,
+        year__lte=year_to
+    ).values('modelName').annotate(
+        total=Count('id', distinct=True)
+    ).filter(total__gte=min_vehicles)
+    
+    # Get fitted configurations by model
+    model_fitted = Fitment.objects.filter(
+        makeName=make,
+        year__gte=year_from,
+        year__lte=year_to
+    ).values('modelName').annotate(
+        fitted=Count('id', distinct=True)
+    )
+    
+    # Find low coverage models
+    low_coverage = []
+    fitted_dict = {item['modelName']: item['fitted'] for item in model_fitted}
+    
+    for config in model_configs:
+        model = config['modelName']
+        total = config['total']
+        fitted = fitted_dict.get(model, 0)
+        coverage_percent = (fitted / total * 100) if total > 0 else 0
+        
+        if coverage_percent < max_coverage:
+            low_coverage.append({
+                'model': model,
+                'totalConfigurations': total,
+                'fittedConfigurations': fitted,
+                'coveragePercent': round(coverage_percent, 2),
+                'gap': total - fitted
+            })
+    
+    # Sort by gap size (largest gaps first)
+    low_coverage.sort(key=lambda x: x['gap'], reverse=True)
+    
+    return Response(low_coverage)
 
 
 @api_view(["GET"]) 
@@ -414,9 +581,69 @@ def export_csv(request):
 
 @api_view(["GET"]) 
 def coverage_export(request):
-    # Reuse coverage rows
-    data = coverage(request).data
-    rows = data.get("items", [])
+    # Get coverage data directly instead of calling the view function
+    qp = request.query_params
+    try:
+        yf = int(qp.get("yearFrom", 2010))
+    except ValueError:
+        yf = 2010
+    try:
+        yt = int(qp.get("yearTo", 2030))
+    except ValueError:
+        yt = 2030
+    
+    # Get all unique vehicle configurations from fitments
+    all_configs = Fitment.objects.filter(
+        year__gte=yf, 
+        year__lte=yt
+    ).values('year', 'makeName', 'modelName', 'subModelName').distinct()
+    
+    # Build universe of all configurations
+    universe_set = set()
+    make_to_total = {}
+    make_to_models = {}
+    
+    for config in all_configs:
+        key = (config['year'], config['makeName'], config['modelName'])
+        universe_set.add(key)
+        make_to_total[config['makeName']] = make_to_total.get(config['makeName'], 0) + 1
+        make_to_models.setdefault(config['makeName'], set()).add(config['modelName'])
+
+    # Get fitted configurations
+    fitted_qs = Fitment.objects.filter(year__gte=yf, year__lte=yt)
+    fitted_set = set()
+    for f in fitted_qs.values("year", "makeName", "modelName"):
+        key = (f["year"], f["makeName"], f["modelName"])
+        fitted_set.add(key)
+
+    # Count fitted per make
+    make_to_fitted = {}
+    for (y, mk, md) in fitted_set:
+        if (y, mk, md) in universe_set:
+            make_to_fitted[mk] = make_to_fitted.get(mk, 0) + 1
+
+    # Build rows
+    rows = []
+    for make, total in make_to_total.items():
+        fitted = make_to_fitted.get(make, 0)
+        coverage_percent = int(round((fitted / total) * 100)) if total else 0
+        models = sorted(list(make_to_models.get(make, set())))
+        rows.append({
+            "make": make,
+            "configsCount": total,
+            "fittedConfigsCount": fitted,
+            "coveragePercent": coverage_percent,
+            "models": models,
+        })
+
+    # Sorting
+    sort_by = qp.get("sortBy", "make")
+    sort_order = qp.get("sortOrder", "asc")
+    def sort_key(r):
+        return r.get(sort_by) if sort_by != "models" else len(r.get("models", []))
+    rows.sort(key=sort_key, reverse=(sort_order == "desc"))
+    
+    # Create CSV response
     pseudo_buffer = Echo()
     writer = csv.writer(pseudo_buffer)
     headers = ["make", "configsCount", "fittedConfigsCount", "coveragePercent", "models"]
@@ -1158,3 +1385,384 @@ def get_validation_results(request, session_id):
         
     except FitmentUploadSession.DoesNotExist:
         return JsonResponse({'error': 'Session not found'}, status=404)
+# =============================================================================
+# POTENTIAL FITMENTS API (MFT V1)
+# =============================================================================
+
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
+from django.db.models import Q
+from .models import Fitment, PotentialVehicleConfiguration
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+@api_view(['GET'])
+def get_potential_fitments(request, part_id):
+    """
+    GET /api/fitments/potential/{part_id}/?method=similarity|base-vehicle
+    
+    Returns potential vehicle configurations for a given part using AI recommendations.
+    """
+    method = request.GET.get('method', 'similarity')
+    
+    if method not in ['similarity', 'base-vehicle']:
+        return Response(
+            {'error': 'Invalid method. Use similarity or base-vehicle'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        if method == 'similarity':
+            recommendations = get_similarity_recommendations(part_id)
+        else:
+            recommendations = get_base_vehicle_recommendations(part_id)
+        
+        return Response(recommendations)
+    
+    except Exception as e:
+        logger.error(f"Error in get_potential_fitments: {str(e)}")
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+def get_similarity_recommendations(part_id):
+    """
+    AI-based similarity recommendations using machine learning
+    """
+    try:
+        # Get existing fitments for this part
+        existing_fitments = Fitment.objects.filter(partId=part_id, isDeleted=False)
+        
+        if not existing_fitments.exists():
+            return []
+        
+        # Get all unique vehicle configurations from existing fitments
+        existing_configs = existing_fitments.values(
+            'baseVehicleId', 'year', 'makeName', 'modelName', 'subModelName',
+            'driveTypeName', 'fuelTypeName', 'bodyNumDoors', 'bodyTypeName'
+        ).distinct()
+        
+        if not existing_configs:
+            return []
+        
+        # Get all vehicle configurations from VCDB (we'll use fitments as proxy)
+        all_configs = Fitment.objects.values(
+            'baseVehicleId', 'year', 'makeName', 'modelName', 'subModelName',
+            'driveTypeName', 'fuelTypeName', 'bodyNumDoors', 'bodyTypeName'
+        ).distinct()
+        
+        # Build feature vectors for similarity comparison
+        existing_features = []
+        all_features = []
+        all_configs_list = list(all_configs)
+        
+        for config in existing_configs:
+            feature_vector = [
+                config['year'],
+                hash(config['makeName']) % 1000,  # Simple encoding
+                hash(config['modelName']) % 1000,
+                hash(config['subModelName']) % 1000,
+                hash(config['driveTypeName']) % 100,
+                hash(config['fuelTypeName']) % 100,
+                config['bodyNumDoors'],
+                hash(config['bodyTypeName']) % 100
+            ]
+            existing_features.append(feature_vector)
+        
+        for config in all_configs_list:
+            feature_vector = [
+                config['year'],
+                hash(config['makeName']) % 1000,
+                hash(config['modelName']) % 1000,
+                hash(config['subModelName']) % 1000,
+                hash(config['driveTypeName']) % 100,
+                hash(config['fuelTypeName']) % 100,
+                config['bodyNumDoors'],
+                hash(config['bodyTypeName']) % 100
+            ]
+            all_features.append(feature_vector)
+        
+        existing_features = np.array(existing_features)
+        all_features = np.array(all_features)
+        
+        # Calculate similarity using cosine similarity
+        similarity_matrix = cosine_similarity(all_features, existing_features)
+        
+        # Calculate average similarity scores for each configuration
+        similarity_scores = {}
+        existing_config_keys = set()
+        
+        for config in existing_configs:
+            key = f"{config['year']}_{config['makeName']}_{config['modelName']}_{config['subModelName']}"
+            existing_config_keys.add(key)
+        
+        for i, config in enumerate(all_configs_list):
+            config_key = f"{config['year']}_{config['makeName']}_{config['modelName']}_{config['subModelName']}"
+            
+            if config_key not in existing_config_keys:  # Don't recommend existing ones
+                avg_similarity = np.mean(similarity_matrix[i])
+                similarity_scores[config_key] = {
+                    'score': avg_similarity,
+                    'config': config
+                }
+        
+        # Get top recommendations
+        top_configs = sorted(similarity_scores.items(), key=lambda x: x[1]['score'], reverse=True)[:50]
+        
+        # Build response
+        recommendations = []
+        for config_key, data in top_configs:
+            config = data['config']
+            score = data['score']
+            
+            recommendations.append({
+                'id': config_key,
+                'vehicleId': f"{config['year']}_{config['makeName']}_{config['modelName']}",
+                'baseVehicleId': config['baseVehicleId'],
+                'year': config['year'],
+                'make': config['makeName'],
+                'model': config['modelName'],
+                'submodel': config['subModelName'],
+                'driveType': config['driveTypeName'],
+                'fuelType': config['fuelTypeName'],
+                'numDoors': config['bodyNumDoors'],
+                'bodyType': config['bodyTypeName'],
+                'relevance': max(0, min(100, int(score * 100))),  # Convert to percentage and clamp
+                'method': 'similarity'
+            })
+        
+        return recommendations
+        
+    except Exception as e:
+        logger.error(f"Error in get_similarity_recommendations: {str(e)}")
+        return []
+
+
+def get_base_vehicle_recommendations(part_id):
+    """
+    Base vehicle relationship recommendations
+    """
+    try:
+        # Get existing fitments
+        existing_fitments = Fitment.objects.filter(partId=part_id, isDeleted=False)
+        
+        if not existing_fitments.exists():
+            return []
+        
+        # Get base vehicle IDs from existing fitments
+        existing_base_vehicle_ids = existing_fitments.values_list('baseVehicleId', flat=True).distinct()
+        
+        # Find configurations with same base vehicle but different submodels
+        recommendations = []
+        for base_vehicle_id in existing_base_vehicle_ids:
+            # Get all fitments with this base vehicle ID
+            related_fitments = Fitment.objects.filter(
+                baseVehicleId=base_vehicle_id,
+                isDeleted=False
+            ).exclude(
+                partId=part_id  # Exclude current part
+            ).values(
+                'baseVehicleId', 'year', 'makeName', 'modelName', 'subModelName',
+                'driveTypeName', 'fuelTypeName', 'bodyNumDoors', 'bodyTypeName'
+            ).distinct()
+            
+            for config in related_fitments:
+                config_key = f"{config['year']}_{config['makeName']}_{config['modelName']}_{config['subModelName']}"
+                
+                recommendations.append({
+                    'id': config_key,
+                    'vehicleId': f"{config['year']}_{config['makeName']}_{config['modelName']}",
+                    'baseVehicleId': config['baseVehicleId'],
+                    'year': config['year'],
+                    'make': config['makeName'],
+                    'model': config['modelName'],
+                    'submodel': config['subModelName'],
+                    'driveType': config['driveTypeName'],
+                    'fuelType': config['fuelTypeName'],
+                    'numDoors': config['bodyNumDoors'],
+                    'bodyType': config['bodyTypeName'],
+                    'relevance': 85,  # High confidence for base vehicle method
+                    'method': 'base-vehicle'
+                })
+        
+        # Remove duplicates and sort by relevance
+        unique_recommendations = {}
+        for rec in recommendations:
+            if rec['id'] not in unique_recommendations:
+                unique_recommendations[rec['id']] = rec
+        
+        return sorted(unique_recommendations.values(), key=lambda x: x['relevance'], reverse=True)[:50]
+        
+    except Exception as e:
+        logger.error(f"Error in get_base_vehicle_recommendations: {str(e)}")
+        return []
+
+
+@api_view(['GET'])
+def get_parts_with_fitments(request):
+    """
+    GET /api/fitments/parts-with-fitments/
+    
+    Returns list of parts that have existing fitments.
+    """
+    try:
+        # Get parts that have at least one fitment
+        parts_with_fitments = Fitment.objects.filter(isDeleted=False).values(
+            'partId'
+        ).distinct()
+        
+        parts_data = []
+        for part_info in parts_with_fitments:
+            part_id = part_info['partId']
+            
+            # Get fitment count for this part
+            fitment_count = Fitment.objects.filter(partId=part_id, isDeleted=False).count()
+            
+            # Get first fitment to get part details
+            first_fitment = Fitment.objects.filter(partId=part_id, isDeleted=False).first()
+            
+            if first_fitment:
+                parts_data.append({
+                    'id': part_id,
+                    'description': f"Part {part_id}",  # Could be enhanced with actual part descriptions
+                    'unitOfMeasure': first_fitment.uom,
+                    'itemStatus': 'Active' if first_fitment.itemStatusCode == 0 else 'Inactive',
+                    'fitmentCount': fitment_count
+                })
+        
+        return Response(parts_data)
+        
+    except Exception as e:
+        logger.error(f"Error in get_parts_with_fitments: {str(e)}")
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+def apply_potential_fitments(request):
+    """
+    POST /api/fitments/apply-potential-fitments/
+    
+    Creates fitments for selected potential configurations.
+    """
+    try:
+        data = request.data
+        part_id = data.get('partId')
+        configuration_ids = data.get('configurationIds', [])
+        title = data.get('title', 'AI Recommended Fitment')
+        description = data.get('description', 'Recommended based on AI analysis')
+        quantity = data.get('quantity', 1)
+        
+        if not part_id or not configuration_ids:
+            return Response(
+                {'error': 'partId and configurationIds are required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        created_fitments = []
+        
+        for config_id in configuration_ids:
+            # Parse configuration ID to get vehicle details
+            # Format: year_make_model_submodel
+            try:
+                parts = config_id.split('_')
+                if len(parts) >= 4:
+                    year = int(parts[0])
+                    make = parts[1]
+                    model = parts[2]
+                    submodel = parts[3]
+                    
+                    # Find a matching fitment to get base vehicle ID and other details
+                    matching_fitment = Fitment.objects.filter(
+                        year=year,
+                        makeName=make,
+                        modelName=model,
+                        subModelName=submodel,
+                        isDeleted=False
+                    ).first()
+                    
+                    if matching_fitment:
+                        # Create new fitment
+                        new_fitment = Fitment.objects.create(
+                            partId=part_id,
+                            itemStatus='Active',
+                            itemStatusCode=0,
+                            baseVehicleId=matching_fitment.baseVehicleId,
+                            year=year,
+                            makeName=make,
+                            modelName=model,
+                            subModelName=submodel,
+                            driveTypeName=matching_fitment.driveTypeName,
+                            fuelTypeName=matching_fitment.fuelTypeName,
+                            bodyNumDoors=matching_fitment.bodyNumDoors,
+                            bodyTypeName=matching_fitment.bodyTypeName,
+                            ptid=matching_fitment.ptid,
+                            partTypeDescriptor=matching_fitment.partTypeDescriptor,
+                            uom=matching_fitment.uom,
+                            quantity=quantity,
+                            fitmentTitle=title,
+                            fitmentDescription=description,
+                            fitmentNotes=f"Created from potential fitment recommendation for {config_id}",
+                            position=matching_fitment.position,
+                            positionId=matching_fitment.positionId,
+                            liftHeight=matching_fitment.liftHeight,
+                            wheelType=matching_fitment.wheelType,
+                            fitmentType='potential_fitment',
+                            createdBy='ai_system',
+                            updatedBy='ai_system'
+                        )
+                        
+                        created_fitments.append({
+                            'id': new_fitment.hash,
+                            'configId': config_id,
+                            'status': 'created'
+                        })
+                    else:
+                        created_fitments.append({
+                            'id': None,
+                            'configId': config_id,
+                            'status': 'failed',
+                            'error': 'No matching vehicle configuration found'
+                        })
+                else:
+                    created_fitments.append({
+                        'id': None,
+                        'configId': config_id,
+                        'status': 'failed',
+                        'error': 'Invalid configuration ID format'
+                    })
+                    
+            except Exception as e:
+                created_fitments.append({
+                    'id': None,
+                    'configId': config_id,
+                    'status': 'failed',
+                    'error': str(e)
+                })
+        
+        success_count = len([f for f in created_fitments if f['status'] == 'created'])
+        failed_count = len([f for f in created_fitments if f['status'] == 'failed'])
+        
+        return Response({
+            'message': f'Successfully created {success_count} fitments. {failed_count} failed.',
+            'created': success_count,
+            'failed': failed_count,
+            'details': created_fitments
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in apply_potential_fitments: {str(e)}")
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

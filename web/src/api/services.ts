@@ -23,6 +23,35 @@ export interface Part {
   itemStatus: number;
 }
 
+// Potential Fitments Types (MFT V1)
+export interface PotentialFitmentsMethod {
+  method: "similarity" | "base-vehicle";
+}
+
+export interface PotentiallyMissingConfiguration {
+  id: string;
+  vehicleId: string;
+  baseVehicleId: string;
+  year: number;
+  make: string;
+  model: string;
+  submodel: string;
+  driveType: string;
+  fuelType: string;
+  numDoors: number;
+  bodyType: string;
+  relevance: number;
+  method?: string;
+}
+
+export interface PartWithFitments {
+  id: string;
+  description: string;
+  unitOfMeasure: string;
+  itemStatus: string;
+  fitmentCount: number;
+}
+
 export interface PartType {
   id: string;
   description: string;
@@ -109,6 +138,17 @@ export const fitmentsService = {
     apiClient.delete("/api/fitments", { params }),
   getCoverage: (params?: any) =>
     apiClient.get("/api/fitments/coverage", { params }),
+  getDetailedCoverage: (params?: any) =>
+    apiClient.get("/api/fitments/coverage/detailed", { params }),
+  getCoverageTrends: (params?: any) =>
+    apiClient.get("/api/fitments/coverage/trends", { params }),
+  getCoverageGaps: (params?: any) =>
+    apiClient.get("/api/fitments/coverage/gaps", { params }),
+  exportCoverage: (params?: any) =>
+    apiClient.get("/api/fitments/coverage/export", {
+      params,
+      responseType: "blob",
+    }),
   getProperty: (property: string, params?: any) =>
     apiClient.get(`/api/fitments/property/${property}`, { params }),
   validateCSV: (file: File) => {
@@ -310,9 +350,8 @@ export const fitmentUploadService = {
 // Enhanced fitments service with export
 export const enhancedFitmentsService = {
   ...fitmentsService,
-  exportFitments: (format: "csv" | "xlsx" | "json", params?: any) =>
+  exportFitments: (format: "csv" | "xlsx" | "json") =>
     apiClient.get(`/api/export/?format=${format}`, {
-      params,
       responseType: "blob",
     }),
 };
@@ -322,12 +361,12 @@ export const djangoFitmentsService = {
   getAppliedFitments: (params?: any) =>
     apiClient.get("/api/export/", { params: { ...params, format: "json" } }),
   exportFitments: (format: "csv" | "xlsx" | "json", sessionId?: string) => {
-    const params = new URLSearchParams();
-    params.append("format", format);
+    const urlParams = new URLSearchParams();
+    urlParams.append("format", format);
     if (sessionId) {
-      params.append("session_id", sessionId);
+      urlParams.append("session_id", sessionId);
     }
-    return apiClient.get(`/api/export/?${params.toString()}`, {
+    return apiClient.get(`/api/export/?${urlParams.toString()}`, {
       responseType: "blob",
     });
   },
@@ -394,4 +433,27 @@ export const dataUploadService = {
   // Fitment management
   createFitment: (fitmentData: any) =>
     apiClient.post("/api/apply/apply-fitments", { fitments: fitmentData }),
+
+  // =============================================================================
+  // POTENTIAL FITMENTS API (MFT V1)
+  // =============================================================================
+
+  // Get potential fitments for a part using AI recommendations
+  getPotentialFitments: (
+    partId: string,
+    method: "similarity" | "base-vehicle" = "similarity"
+  ) => apiClient.get(`/api/fitments/potential/${partId}/?method=${method}`),
+
+  // Get parts that have existing fitments
+  getPartsWithFitments: () =>
+    apiClient.get("/api/fitments/parts-with-fitments/"),
+
+  // Apply potential fitments (create new fitments from recommendations)
+  applyPotentialFitments: (data: {
+    partId: string;
+    configurationIds: string[];
+    title?: string;
+    description?: string;
+    quantity?: number;
+  }) => apiClient.post("/api/fitments/apply-potential-fitments/", data),
 };
