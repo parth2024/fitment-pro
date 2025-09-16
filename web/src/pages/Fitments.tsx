@@ -38,7 +38,7 @@ import {
   IconFileSpreadsheet,
   IconFileText,
 } from "@tabler/icons-react";
-import SortableHeader from "../components/SortableHeader";
+import FilterableSortableHeader from "../components/FilterableSortableHeader";
 import { useApi } from "../hooks/useApi";
 import {
   fitmentsService,
@@ -86,12 +86,26 @@ interface AdvancedFilters {
   updatedAtTo: string;
 }
 
+interface ColumnFilters {
+  partId: string;
+  itemStatus: string;
+  makeName: string;
+  modelName: string;
+  partTypeDescriptor: string;
+  position: string;
+  fitmentTitle: string;
+  quantity: number | null;
+  liftHeight: string;
+  wheelType: string;
+  updatedAt: string;
+}
+
 export default function Fitments() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFitments, setSelectedFitments] = useState<string[]>([]);
   const [expandedView, setExpandedView] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 50;
+  const pageSize = 20;
   const [sortBy, setSortBy] = useState("updatedAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -126,16 +140,31 @@ export default function Fitments() {
     updatedAtTo: "",
   });
 
+  // Column-specific filters state
+  const [columnFilters, setColumnFilters] = useState<ColumnFilters>({
+    partId: "",
+    itemStatus: "",
+    makeName: "",
+    modelName: "",
+    partTypeDescriptor: "",
+    position: "",
+    fitmentTitle: "",
+    quantity: null,
+    liftHeight: "",
+    wheelType: "",
+    updatedAt: "",
+  });
+
   // Export state
   const [exportLoading, setExportLoading] = useState(false);
-  // Build API parameters including advanced filters
+  // Build API parameters including advanced filters and column filters
   const buildApiParams = useCallback(() => {
     const params: any = {
       search: searchTerm || undefined,
       sortBy,
       sortOrder,
       page: currentPage,
-      pageSize: 50,
+      pageSize: 20,
     };
 
     // Add advanced filters
@@ -145,8 +174,22 @@ export default function Fitments() {
       }
     });
 
+    // Add column filters
+    Object.entries(columnFilters).forEach(([key, value]) => {
+      if (value !== "" && value !== null && value !== undefined) {
+        params[`column_${key}`] = value;
+      }
+    });
+
     return params;
-  }, [searchTerm, sortBy, sortOrder, currentPage, advancedFilters]);
+  }, [
+    searchTerm,
+    sortBy,
+    sortOrder,
+    currentPage,
+    advancedFilters,
+    columnFilters,
+  ]);
 
   const { data, loading, error, refetch } = useApi<{
     fitments: FlattenedAppliedFitment[];
@@ -214,6 +257,22 @@ export default function Fitments() {
     setCurrentPage(1); // Reset to first page when filters change
   };
 
+  const handleColumnFilterChange = (field: string, value: any) => {
+    setColumnFilters((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+    setCurrentPage(1); // Reset to first page when filters change
+  };
+
+  const handleColumnFilterClear = (field: string) => {
+    setColumnFilters((prev) => ({
+      ...prev,
+      [field]: field === "quantity" ? null : "",
+    }));
+    setCurrentPage(1); // Reset to first page when filters change
+  };
+
   const clearAdvancedFilters = () => {
     // Clear search term
     setSearchTerm("");
@@ -240,6 +299,21 @@ export default function Fitments() {
       createdAtTo: "",
       updatedAtFrom: "",
       updatedAtTo: "",
+    });
+
+    // Clear column filters
+    setColumnFilters({
+      partId: "",
+      itemStatus: "",
+      makeName: "",
+      modelName: "",
+      partTypeDescriptor: "",
+      position: "",
+      fitmentTitle: "",
+      quantity: null,
+      liftHeight: "",
+      wheelType: "",
+      updatedAt: "",
     });
 
     // Reset sorting to default
@@ -1353,6 +1427,93 @@ export default function Fitments() {
             </div>
           )}
 
+          {/* Active Column Filters Summary */}
+          {Object.values(columnFilters).some(
+            (value) => value !== "" && value !== null && value !== undefined
+          ) && (
+            <div
+              style={{
+                background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
+                borderRadius: "12px",
+                border: "1px solid #f59e0b",
+                padding: "16px 20px",
+                boxShadow: "0 2px 4px rgba(245, 158, 11, 0.1)",
+              }}
+            >
+              <Group justify="space-between" align="center">
+                <Group gap="sm">
+                  <div
+                    style={{
+                      width: "8px",
+                      height: "8px",
+                      borderRadius: "50%",
+                      backgroundColor: "#f59e0b",
+                    }}
+                  />
+                  <Text size="sm" fw={600} c="#92400e">
+                    Column filters active
+                  </Text>
+                  <Group gap="xs">
+                    {Object.entries(columnFilters)
+                      .filter(
+                        ([_, value]) =>
+                          value !== "" && value !== null && value !== undefined
+                      )
+                      .map(([key, value]) => (
+                        <Badge
+                          key={key}
+                          size="xs"
+                          color="orange"
+                          variant="light"
+                          style={{ textTransform: "capitalize" }}
+                        >
+                          {key}: {value}
+                        </Badge>
+                      ))}
+                  </Group>
+                </Group>
+                <Button
+                  size="sm"
+                  variant="light"
+                  onClick={() => {
+                    setColumnFilters({
+                      partId: "",
+                      itemStatus: "",
+                      makeName: "",
+                      modelName: "",
+                      partTypeDescriptor: "",
+                      position: "",
+                      fitmentTitle: "",
+                      quantity: null,
+                      liftHeight: "",
+                      wheelType: "",
+                      updatedAt: "",
+                    });
+                  }}
+                  styles={{
+                    root: {
+                      borderRadius: "8px",
+                      fontWeight: 600,
+                      fontSize: "12px",
+                      height: "32px",
+                      padding: "0 16px",
+                      border: "1px solid #f59e0b",
+                      color: "#92400e",
+                      backgroundColor: "rgba(255, 255, 255, 0.7)",
+                      transition: "all 0.2s ease",
+                      "&:hover": {
+                        backgroundColor: "rgba(255, 255, 255, 0.9)",
+                        transform: "translateY(-1px)",
+                      },
+                    },
+                  }}
+                >
+                  Clear Column Filters
+                </Button>
+              </Group>
+            </div>
+          )}
+
           {/* AI Generated Fitments Section */}
 
           {/* Table */}
@@ -1375,96 +1536,184 @@ export default function Fitments() {
                     />
                   </Table.Th>
                   <Table.Th>
-                    <SortableHeader
+                    <FilterableSortableHeader
                       label="Part ID"
                       field="partId"
                       currentSortBy={sortBy}
                       currentSortOrder={sortOrder}
                       onSort={handleSort}
+                      filterType="text"
+                      filterValue={columnFilters.partId}
+                      onFilterChange={handleColumnFilterChange}
+                      onFilterClear={handleColumnFilterClear}
+                      placeholder="Filter by Part ID"
                     />
                   </Table.Th>
                   <Table.Th>
-                    <SortableHeader
+                    <FilterableSortableHeader
                       label="Status"
                       field="itemStatus"
                       currentSortBy={sortBy}
                       currentSortOrder={sortOrder}
                       onSort={handleSort}
+                      filterType="select"
+                      filterOptions={
+                        filterOptions?.itemStatus.map((status) => ({
+                          value: status,
+                          label: status,
+                        })) || []
+                      }
+                      filterValue={columnFilters.itemStatus}
+                      onFilterChange={handleColumnFilterChange}
+                      onFilterClear={handleColumnFilterClear}
+                      placeholder="Select status"
                     />
                   </Table.Th>
                   <Table.Th>
-                    <SortableHeader
+                    <FilterableSortableHeader
                       label="Vehicle"
                       field="makeName"
                       currentSortBy={sortBy}
                       currentSortOrder={sortOrder}
                       onSort={handleSort}
+                      filterType="select"
+                      filterOptions={
+                        filterOptions?.makeName.map((make) => ({
+                          value: make,
+                          label: make,
+                        })) || []
+                      }
+                      filterValue={columnFilters.makeName}
+                      onFilterChange={handleColumnFilterChange}
+                      onFilterClear={handleColumnFilterClear}
+                      placeholder="Select make"
                     />
                   </Table.Th>
                   <Table.Th>
-                    <SortableHeader
+                    <FilterableSortableHeader
                       label="Part Type"
                       field="partTypeDescriptor"
                       currentSortBy={sortBy}
                       currentSortOrder={sortOrder}
                       onSort={handleSort}
+                      filterType="select"
+                      filterOptions={
+                        filterOptions?.partTypeDescriptor.map((part) => ({
+                          value: part,
+                          label: part,
+                        })) || []
+                      }
+                      filterValue={columnFilters.partTypeDescriptor}
+                      onFilterChange={handleColumnFilterChange}
+                      onFilterClear={handleColumnFilterClear}
+                      placeholder="Select part type"
                     />
                   </Table.Th>
                   <Table.Th>
-                    <SortableHeader
+                    <FilterableSortableHeader
                       label="Position"
                       field="position"
                       currentSortBy={sortBy}
                       currentSortOrder={sortOrder}
                       onSort={handleSort}
+                      filterType="select"
+                      filterOptions={
+                        filterOptions?.position.map((pos) => ({
+                          value: pos,
+                          label: pos,
+                        })) || []
+                      }
+                      filterValue={columnFilters.position}
+                      onFilterChange={handleColumnFilterChange}
+                      onFilterClear={handleColumnFilterClear}
+                      placeholder="Select position"
                     />
                   </Table.Th>
                   <Table.Th>
-                    <SortableHeader
+                    <FilterableSortableHeader
                       label="Title"
                       field="fitmentTitle"
                       currentSortBy={sortBy}
                       currentSortOrder={sortOrder}
                       onSort={handleSort}
+                      filterType="text"
+                      filterValue={columnFilters.fitmentTitle}
+                      onFilterChange={handleColumnFilterChange}
+                      onFilterClear={handleColumnFilterClear}
+                      placeholder="Filter by title"
                     />
                   </Table.Th>
                   {expandedView && (
                     <>
                       <Table.Th>Description</Table.Th>
                       <Table.Th>
-                        <SortableHeader
+                        <FilterableSortableHeader
                           label="Quantity"
                           field="quantity"
                           currentSortBy={sortBy}
                           currentSortOrder={sortOrder}
                           onSort={handleSort}
+                          filterType="number"
+                          filterValue={columnFilters.quantity}
+                          onFilterChange={handleColumnFilterChange}
+                          onFilterClear={handleColumnFilterClear}
+                          placeholder="Filter by quantity"
+                          min={1}
+                          max={100}
                         />
                       </Table.Th>
                       <Table.Th>
-                        <SortableHeader
+                        <FilterableSortableHeader
                           label="Lift Height"
                           field="liftHeight"
                           currentSortBy={sortBy}
                           currentSortOrder={sortOrder}
                           onSort={handleSort}
+                          filterType="select"
+                          filterOptions={
+                            filterOptions?.liftHeight.map((lift) => ({
+                              value: lift,
+                              label: lift,
+                            })) || []
+                          }
+                          filterValue={columnFilters.liftHeight}
+                          onFilterChange={handleColumnFilterChange}
+                          onFilterClear={handleColumnFilterClear}
+                          placeholder="Select lift height"
                         />
                       </Table.Th>
                       <Table.Th>
-                        <SortableHeader
+                        <FilterableSortableHeader
                           label="Wheel Type"
                           field="wheelType"
                           currentSortBy={sortBy}
                           currentSortOrder={sortOrder}
                           onSort={handleSort}
+                          filterType="select"
+                          filterOptions={
+                            filterOptions?.wheelType.map((wheel) => ({
+                              value: wheel,
+                              label: wheel,
+                            })) || []
+                          }
+                          filterValue={columnFilters.wheelType}
+                          onFilterChange={handleColumnFilterChange}
+                          onFilterClear={handleColumnFilterClear}
+                          placeholder="Select wheel type"
                         />
                       </Table.Th>
                       <Table.Th>
-                        <SortableHeader
+                        <FilterableSortableHeader
                           label="Updated"
                           field="updatedAt"
                           currentSortBy={sortBy}
                           currentSortOrder={sortOrder}
                           onSort={handleSort}
+                          filterType="date"
+                          filterValue={columnFilters.updatedAt}
+                          onFilterChange={handleColumnFilterChange}
+                          onFilterClear={handleColumnFilterClear}
+                          placeholder="Filter by date"
                         />
                       </Table.Th>
                     </>

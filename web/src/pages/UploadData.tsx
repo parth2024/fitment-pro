@@ -60,6 +60,7 @@ export default function UploadData() {
   >(null);
   const [dataStatus, setDataStatus] = useState<any>(null);
   const [isReadyForFitment, setIsReadyForFitment] = useState(false);
+  const [validationResults, setValidationResults] = useState<any>(null);
 
   // Drag and drop states
   const [isDragOver, setIsDragOver] = useState(false);
@@ -157,7 +158,80 @@ export default function UploadData() {
     };
   };
 
-  const handleFileSelect = (file: File | null, type: "vcdb" | "products") => {
+  const validateFileWithDynamicFields = async (
+    file: File,
+    type: "vcdb" | "products"
+  ) => {
+    try {
+      // Read file content
+      const text = await file.text();
+      let fileData: any[] = [];
+
+      if (file.name.endsWith(".csv")) {
+        // Parse CSV
+        const lines = text.split("\n");
+        const headers = lines[0].split(",").map((h) => h.trim());
+        fileData = lines
+          .slice(1)
+          .map((line) => {
+            const values = line.split(",").map((v) => v.trim());
+            const obj: any = {};
+            headers.forEach((header, index) => {
+              obj[header] = values[index] || "";
+            });
+            return obj;
+          })
+          .filter((obj) => Object.values(obj).some((v) => v !== ""));
+      } else if (file.name.endsWith(".json")) {
+        // Parse JSON
+        fileData = JSON.parse(text);
+      }
+
+      if (fileData.length === 0) {
+        showError("File appears to be empty or invalid format");
+        return false;
+      }
+
+      // Validate with dynamic fields
+      const response = await dataUploadService.validateFileWithDynamicFields(
+        type,
+        fileData
+      );
+
+      if (response.data) {
+        setValidationResults({
+          fileType: type,
+          fileName: file.name,
+          ...response.data,
+        });
+
+        if (!response.data.is_valid) {
+          showError(
+            `Validation failed: ${response.data.errors.slice(0, 3).join("; ")}`
+          );
+          return false;
+        } else {
+          showSuccess(
+            `File validation passed! Found ${response.data.total_records} records.`
+          );
+          return true;
+        }
+      }
+
+      return true;
+    } catch (error: any) {
+      console.error("Validation error:", error);
+      showError(
+        "Failed to validate file: " + (error.message || "Unknown error")
+      );
+      return false;
+    }
+  };
+
+  const handleFileSelect = async (
+    file: File | null,
+    type: "vcdb" | "products"
+  ) => {
     if (!file) return;
 
     // Check if file type is correct
@@ -209,6 +283,12 @@ export default function UploadData() {
     ) {
       setReplaceFileType(type);
       setShowReplaceModal(true);
+      return;
+    }
+
+    // Validate file with dynamic fields
+    const isValid = await validateFileWithDynamicFields(file, type);
+    if (!isValid) {
       return;
     }
 
@@ -653,6 +733,91 @@ export default function UploadData() {
                   </Center>
                 </Paper>
               </Group>
+
+              {/* Validation Results */}
+              {validationResults && (
+                <Paper
+                  withBorder
+                  radius="lg"
+                  p="lg"
+                  style={{
+                    backgroundColor: validationResults.is_valid
+                      ? "#f0fdf4"
+                      : "#fef2f2",
+                    border: `1px solid ${
+                      validationResults.is_valid ? "#22c55e" : "#ef4444"
+                    }`,
+                  }}
+                >
+                  <Stack gap="md">
+                    <Group justify="space-between" align="center">
+                      <Group gap="sm">
+                        <ThemeIcon
+                          size="sm"
+                          variant="light"
+                          color={validationResults.is_valid ? "green" : "red"}
+                        >
+                          {validationResults.is_valid ? (
+                            <IconCheck size={16} />
+                          ) : (
+                            <IconX size={16} />
+                          )}
+                        </ThemeIcon>
+                        <Text size="sm" fw={600} c="dark">
+                          Validation Results for {validationResults.fileName}
+                        </Text>
+                      </Group>
+                      <Badge
+                        color={validationResults.is_valid ? "green" : "red"}
+                        variant="light"
+                        size="sm"
+                      >
+                        {validationResults.is_valid ? "Valid" : "Invalid"}
+                      </Badge>
+                    </Group>
+
+                    {validationResults.validation_summary && (
+                      <Group gap="lg">
+                        <Text size="xs" c="dimmed">
+                          Records: {validationResults.total_records}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          Required Fields:{" "}
+                          {validationResults.validation_summary.field_status
+                            ?.required_present || 0}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          Optional Fields:{" "}
+                          {validationResults.validation_summary.field_status
+                            ?.optional_present || 0}
+                        </Text>
+                      </Group>
+                    )}
+
+                    {!validationResults.is_valid &&
+                      validationResults.errors && (
+                        <Stack gap="xs">
+                          <Text size="xs" fw={600} c="red">
+                            Validation Errors:
+                          </Text>
+                          {validationResults.errors
+                            .slice(0, 5)
+                            .map((error: string, index: number) => (
+                              <Text key={index} size="xs" c="red">
+                                • {error}
+                              </Text>
+                            ))}
+                          {validationResults.errors.length > 5 && (
+                            <Text size="xs" c="dimmed">
+                              ... and {validationResults.errors.length - 5} more
+                              errors
+                            </Text>
+                          )}
+                        </Stack>
+                      )}
+                  </Stack>
+                </Paper>
+              )}
 
               {/* Upload Progress */}
               {uploading && (

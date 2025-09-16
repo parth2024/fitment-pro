@@ -25,6 +25,7 @@ import {
   IconRobot,
   IconChevronRight,
   IconAlertTriangle,
+  IconSettings,
 } from "@tabler/icons-react";
 import api from "../api/client";
 
@@ -107,13 +108,13 @@ const Analytics: React.FC = () => {
       color: "teal",
       value: "coverage",
     },
-    // {
-    //   title: "Admin Panel",
-    //   description: "System administration",
-    //   icon: IconSettings,
-    //   color: "red",
-    //   value: "admin",
-    // },
+    {
+      title: "Settings",
+      description: "Configure field mappings and validation rules",
+      icon: IconSettings,
+      color: "gray",
+      value: "settings",
+    },
   ];
 
   const fetchAnalyticsData = async () => {
@@ -664,7 +665,7 @@ const Analytics: React.FC = () => {
                 )}
               </div>
               <Badge variant="light" color="blue" size="lg">
-                8 Modules
+                9 Modules
               </Badge>
             </Group>
 

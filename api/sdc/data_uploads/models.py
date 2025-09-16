@@ -233,6 +233,7 @@ class AIFitmentResult(models.Model):
     position = models.CharField(max_length=100, default='Front', blank=True, null=True)
     quantity = models.IntegerField(default=1)
     confidence = models.FloatField(default=0.0)
+    confidence_explanation = models.TextField(blank=True, null=True)
     ai_reasoning = models.TextField()
     is_selected = models.BooleanField(default=False)
     is_applied = models.BooleanField(default=False)

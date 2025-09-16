@@ -42,6 +42,7 @@ export interface PotentiallyMissingConfiguration {
   bodyType: string;
   relevance: number;
   method?: string;
+  explanation?: string;
 }
 
 export interface PartWithFitments {
@@ -308,7 +309,7 @@ export const fieldConfigService = {
     referenceType: "vcdb" | "product"
   ): Promise<FieldConfiguration[]> => {
     const response = await apiClient.get(
-      `/api/field-config/form-fields/?reference_type=${referenceType}`
+      `/api/field-config/fields/form_fields/?reference_type=${referenceType}`
     );
     return response.data;
   },
@@ -318,7 +319,7 @@ export const fieldConfigService = {
     referenceType: "vcdb" | "product"
   ): Promise<FieldConfiguration[]> => {
     const response = await apiClient.get(
-      `/api/field-config/filter-fields/?reference_type=${referenceType}`
+      `/api/field-config/fields/filter_fields/?reference_type=${referenceType}`
     );
     return response.data;
   },
@@ -328,10 +329,13 @@ export const fieldConfigService = {
     referenceType: "vcdb" | "product",
     data: Record<string, any>
   ): Promise<ValidationResult> => {
-    const response = await apiClient.post("/api/field-config/validate-data/", {
-      reference_type: referenceType,
-      data,
-    });
+    const response = await apiClient.post(
+      "/api/field-config/fields/validate_data/",
+      {
+        reference_type: referenceType,
+        data,
+      }
+    );
     return response.data;
   },
 
@@ -340,7 +344,7 @@ export const fieldConfigService = {
     referenceType: "vcdb" | "product"
   ): Promise<Record<string, any>> => {
     const response = await apiClient.get(
-      `/api/field-config/validation-rules/?reference_type=${referenceType}`
+      `/api/field-config/fields/validation_rules/?reference_type=${referenceType}`
     );
     return response.data;
   },
@@ -375,6 +379,10 @@ export const fitmentUploadService = {
       { session_id: sessionId },
       { timeout: 180000 }
     ),
+
+  // New direct AI fitment processing (no session required)
+  processDirectAiFitment: () =>
+    apiClient.post("/api/data-uploads/ai-fitment/", {}, { timeout: 180000 }),
   applyAiFitments: (sessionId: string, fitmentIds: string[]) =>
     apiClient.post("/api/apply-ai-fitments/", {
       session_id: sessionId,
@@ -385,6 +393,13 @@ export const fitmentUploadService = {
       session_id: sessionId,
       fitment_ids: fitmentIds,
     }),
+
+  // New direct AI fitment application (no session required)
+  applyDirectAiFitments: (fitmentIds: string[]) =>
+    apiClient.post("/api/data-uploads/apply-ai-fitments-direct/", {
+      fitment_ids: fitmentIds,
+    }),
+
   getSessionStatus: (sessionId: string) =>
     apiClient.get(`/api/session/${sessionId}/status/`),
   getAiFitments: (sessionId: string) =>
@@ -508,7 +523,7 @@ export const dataUploadService = {
     apiClient.delete(`/api/data-uploads/sessions/${sessionId}/`),
 
   // Get current data status
-  getDataStatus: () => apiClient.get("/api/data-uploads/status/"),
+  getDataStatus: () => apiClient.get("/api/data-uploads/data-status/"),
 
   // Replace file
   replaceFile: (fileType: "vcdb" | "products", file: File) => {
@@ -541,6 +556,18 @@ export const dataUploadService = {
 
   // Lookup data for fitment filters
   getLookupData: () => apiClient.get("/api/data-uploads/lookup-data/"),
+
+  // Field configuration and validation
+  getFieldConfiguration: (referenceType?: string) =>
+    apiClient.get(`/api/data-uploads/field-configuration/`, {
+      params: referenceType ? { reference_type: referenceType } : {},
+    }),
+
+  validateFileWithDynamicFields: (fileType: string, fileData: any[]) =>
+    apiClient.post("/api/data-uploads/validate-dynamic-fields/", {
+      file_type: fileType,
+      file_data: fileData,
+    }),
 
   // Fitment management
   createFitment: (fitmentData: any) =>

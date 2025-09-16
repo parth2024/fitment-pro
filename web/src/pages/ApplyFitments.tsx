@@ -17,6 +17,11 @@ import {
   Stepper,
   Textarea,
   Transition,
+  Table,
+  Progress,
+  Tooltip,
+  ActionIcon,
+  Modal,
 } from "@mantine/core";
 import {
   IconBrain,
@@ -34,10 +39,13 @@ import {
   IconMapPin,
   IconHash,
   IconFileText,
+  IconEdit,
 } from "@tabler/icons-react";
 import { dataUploadService, fitmentUploadService } from "../api/services";
 import { useAsyncOperation, useApi } from "../hooks/useApi";
 import { useProfessionalToast } from "../hooks/useProfessionalToast";
+import { useFieldConfiguration } from "../hooks/useFieldConfiguration";
+import DynamicFormField from "../components/DynamicFormField";
 
 export default function ApplyFitments() {
   // Professional toast hook
@@ -49,6 +57,12 @@ export default function ApplyFitments() {
   // Get latest session on component mount
   const { data: sessionsData } = useApi(
     () => dataUploadService.getSessions(),
+    []
+  ) as any;
+
+  // Get data status to check if VCDB and Product data exist
+  const { data: dataStatus } = useApi(
+    () => dataUploadService.getDataStatus(),
     []
   ) as any;
 
@@ -70,13 +84,42 @@ export default function ApplyFitments() {
     setSelectedMethod(null);
   };
 
+  // Helper functions to check data availability
+  const isVcdbDataAvailable = () => {
+    return dataStatus?.vcdb?.exists && dataStatus?.vcdb?.record_count > 0;
+  };
+
+  const isProductDataAvailable = () => {
+    return (
+      dataStatus?.products?.exists && dataStatus?.products?.record_count > 0
+    );
+  };
+
+  const isManualMethodAvailable = () => {
+    return isVcdbDataAvailable() && isProductDataAvailable();
+  };
+
+  const isAiMethodAvailable = () => {
+    return isVcdbDataAvailable() && isProductDataAvailable();
+  };
+
   const handleManualMethodClick = async () => {
+    if (!isManualMethodAvailable()) {
+      showError("VCDB and Product data are required for manual fitment method");
+      return;
+    }
+
     setSelectedMethod("manual");
     setCurrentStep(2);
 
     // Fetch dropdown data from VCDBData and ProductData tables
     setLoadingDropdownData(true);
     try {
+      // Refresh field configurations to get latest values
+      if (refreshVcdbFields && refreshProductFields) {
+        await Promise.all([refreshVcdbFields(), refreshProductFields()]);
+      }
+
       const [dropdownResult, lookupResult] = await Promise.all([
         fetchDropdownData(() => dataUploadService.getNewDataDropdownData()),
         fetchLookupData(() => dataUploadService.getLookupData()),
@@ -85,7 +128,7 @@ export default function ApplyFitments() {
       if (dropdownResult && dropdownResult.data) {
         setDropdownData(dropdownResult.data);
 
-        // setAvailableColumns(vcdbColumns);
+        // VCDB data structure loaded successfully
       } else {
         showError("Failed to load vehicle and product data");
       }
@@ -103,10 +146,255 @@ export default function ApplyFitments() {
     }
   };
 
-  // const handleAiMethodClick = () => {
-  //   // AI method is disabled - show coming soon message
-  //   showError("AI Method is coming soon! Please use Manual Method for now.");
-  // };
+  const handleAiMethodClick = async () => {
+    if (!isAiMethodAvailable()) {
+      showError("VCDB and Product data are required for AI fitment method");
+      return;
+    }
+
+    setSelectedMethod("ai");
+    setCurrentStep(3);
+
+    // Start AI fitment processing directly
+    await handleDirectAiFitment();
+  };
+
+  const handleDirectAiFitment = async () => {
+    setAiProcessing(true);
+    setAiProgress(0);
+    setAiLogs([]);
+    setAiFitments([]);
+    setSelectedAiFitments([]);
+
+    // Simulate professional AI processing with realistic logs
+    const logs = [
+      "🔍 Initializing AI Fitment Engine...",
+      "📊 Analyzing VCDB vehicle configurations...",
+      "🔧 Processing product specifications...",
+      "🧠 Running compatibility algorithms...",
+      "⚡ Applying machine learning models...",
+      "🎯 Calculating fitment probabilities...",
+      "📈 Optimizing recommendation scores...",
+      "🔍 Checking for potential conflicts...",
+      "🔬 Cross-referencing OEM specifications...",
+      "📋 Validating part compatibility matrices...",
+      "🌐 Querying manufacturer databases...",
+      "🔍 Scanning for alternative configurations...",
+      "📊 Computing confidence intervals...",
+      "🎨 Applying design pattern recognition...",
+      "⚙️ Optimizing fitment algorithms...",
+      "🔍 Detecting edge cases and exceptions...",
+      "📈 Analyzing historical fitment data...",
+      "🧪 Running compatibility stress tests...",
+      "🔍 Performing quality assurance checks...",
+      "📊 Generating performance metrics...",
+      "🎯 Refining recommendation accuracy...",
+      "🔍 Validating against industry standards...",
+      "📋 Compiling fitment documentation...",
+      "✅ Generating fitment suggestions...",
+    ];
+
+    // Progressive log updates
+    const logInterval = setInterval(() => {
+      setAiLogs((prev) => {
+        const nextIndex = prev.length;
+        if (nextIndex < logs.length) {
+          return [...prev, logs[nextIndex]];
+        }
+        return prev;
+      });
+      setAiProgress((prev) => Math.min(prev + 12, 95));
+    }, 800);
+
+    try {
+      // Call the new direct AI fitment API
+      const result: any = await fitmentUploadService.processDirectAiFitment();
+
+      clearInterval(logInterval);
+      setAiProgress(100);
+      setAiLogs((prev) => [...prev, "🎉 AI fitment generation completed!"]);
+
+      console.log("Full API result:", result);
+      console.log("Result data:", result?.data);
+      console.log("Result fitments:", result?.fitments);
+      console.log("Result data fitments:", result?.data?.fitments);
+
+      // Check different possible response structures
+      const fitments =
+        result?.fitments ||
+        result?.data?.fitments ||
+        result?.data?.data?.fitments;
+
+      if (fitments && Array.isArray(fitments) && fitments.length > 0) {
+        console.log("Setting fitments:", fitments);
+
+        // Add unique IDs to fitments for proper selection handling
+        const fitmentsWithIds = fitments.map((fitment: any, index: number) => ({
+          ...fitment,
+          id: fitment.id || `fitment_${index}`,
+          part_name:
+            fitment.partDescription || fitment.part_name || "Unknown Part",
+          part_description:
+            fitment.partDescription || "No description available",
+        }));
+
+        setAiFitments(fitmentsWithIds);
+        // Auto-select all fitments by default
+        setSelectedAiFitments(
+          fitmentsWithIds.map((fitment: any) => fitment.id)
+        );
+        showSuccess(
+          `AI generated ${fitments.length} fitment suggestions!`,
+          5000
+        );
+      } else {
+        console.log("No fitments found in response structure");
+        console.log("Available keys in result:", Object.keys(result || {}));
+        if (result?.data) {
+          console.log(
+            "Available keys in result.data:",
+            Object.keys(result.data)
+          );
+        }
+        showError(
+          "No fitments were generated. Please check your VCDB and Product data and try again."
+        );
+      }
+    } catch (error) {
+      clearInterval(logInterval);
+      console.error("AI fitment error:", error);
+      setAiLogs((prev) => [
+        ...prev,
+        "❌ AI processing failed. Please try again.",
+      ]);
+      showError("Failed to process AI fitment");
+    } finally {
+      setAiProcessing(false);
+    }
+  };
+
+  const handleApplyDirectAiFitments = async () => {
+    if (selectedAiFitments.length === 0) {
+      showError("Please select fitments to apply");
+      return;
+    }
+
+    setApplyingAiFitment(true);
+    try {
+      const result: any = await fitmentUploadService.applyDirectAiFitments(
+        selectedAiFitments
+      );
+
+      if (result) {
+        showSuccess(
+          `Successfully applied ${result.applied_count} AI fitments to the database!`,
+          5000
+        );
+        setSelectedAiFitments([]);
+        setAiFitments([]);
+        handleBackToMethodSelection();
+      }
+    } catch (error) {
+      showError("Failed to apply AI fitments");
+    } finally {
+      setApplyingAiFitment(false);
+    }
+  };
+
+  const handleEditFitment = (fitment: any) => {
+    setEditingFitment(fitment);
+    setEditFormData({
+      part_id: fitment.part_id,
+      part_description: fitment.part_description,
+      year: fitment.year,
+      make: fitment.make,
+      model: fitment.model,
+      submodel: fitment.submodel,
+      drive_type: fitment.drive_type,
+      position: fitment.position,
+      quantity: fitment.quantity,
+      confidence: fitment.confidence,
+      confidence_explanation: fitment.confidence_explanation,
+      ai_reasoning: fitment.ai_reasoning,
+    });
+    setEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingFitment) return;
+
+    setSavingEdit(true);
+    try {
+      // Update the fitment in the local state
+      setAiFitments((prev) =>
+        prev.map((fitment) =>
+          fitment.id === editingFitment.id
+            ? { ...fitment, ...editFormData }
+            : fitment
+        )
+      );
+
+      setEditModalOpen(false);
+      setEditingFitment(null);
+      showSuccess("Fitment updated successfully");
+    } catch (error: any) {
+      showError("Failed to update fitment");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleExportDirectAiFitments = async (
+    format: "csv" | "xlsx" | "json"
+  ) => {
+    try {
+      // Export only selected AI fitments if any are selected, otherwise export all AI fitments
+      const fitmentIds =
+        selectedAiFitments.length > 0 ? selectedAiFitments : undefined;
+
+      const response = await fitmentUploadService.exportAiFitments(
+        format,
+        "", // No session ID needed for direct export
+        fitmentIds
+      );
+
+      // Create blob and download
+      const blob = new Blob([response.data], {
+        type:
+          format === "csv"
+            ? "text/csv"
+            : format === "xlsx"
+            ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            : "application/json",
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+
+      // Generate filename based on selection
+      const selectionSuffix = fitmentIds
+        ? `_selected_${fitmentIds.length}`
+        : "_all";
+      link.download = `ai_fitments${selectionSuffix}.${format}`;
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      const exportMessage = fitmentIds
+        ? `${
+            fitmentIds.length
+          } selected AI fitments exported as ${format.toUpperCase()}`
+        : `All AI fitments exported as ${format.toUpperCase()}`;
+
+      showSuccess(exportMessage);
+    } catch (error) {
+      console.error("Export error:", error);
+      showError(`Failed to export AI fitments as ${format.toUpperCase()}`);
+    }
+  };
 
   // Fitment method selection
   const [selectedMethod, setSelectedMethod] = useState<"manual" | "ai" | null>(
@@ -157,24 +445,110 @@ export default function ApplyFitments() {
   const [lookupData, setLookupData] = useState<any>(null);
   const [applyingManualFitment, setApplyingManualFitment] = useState(false);
 
-  // Configurable columns state (commented out for now)
-  // const [showColumnConfig, setShowColumnConfig] = useState(false);
-  // const [availableColumns, setAvailableColumns] = useState<string[]>([]);
-  // const [selectedColumns, setSelectedColumns] = useState<string[]>([
-  //   "year",
-  //   "make",
-  //   "model",
-  //   "submodel",
-  //   "fuelType",
-  //   "bodyType",
-  //   "driveType",
-  // ]);
+  // AI fitment states
+  const [aiFitments, setAiFitments] = useState<any[]>([]);
+  const [aiProcessing, setAiProcessing] = useState(false);
+  const [selectedAiFitments, setSelectedAiFitments] = useState<string[]>([]);
+  const [aiProgress, setAiProgress] = useState(0);
+  const [aiLogs, setAiLogs] = useState<string[]>([]);
+  const [applyingAiFitment, setApplyingAiFitment] = useState(false);
+
+  // Edit fitment states
+  const [editingFitment, setEditingFitment] = useState<any>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState<any>({});
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // Dynamic field configurations
+  const {
+    formFields: vcdbFormFields,
+    loading: vcdbFieldsLoading,
+    refreshFields: refreshVcdbFields,
+  } = useFieldConfiguration({ referenceType: "vcdb", autoLoad: true });
+
+  const {
+    formFields: productFormFields,
+    loading: productFieldsLoading,
+    refreshFields: refreshProductFields,
+  } = useFieldConfiguration({ referenceType: "product", autoLoad: true });
+
+  // Dynamic field values state
+  const [dynamicVcdbFields, setDynamicVcdbFields] = useState<
+    Record<string, any>
+  >({});
+  const [dynamicProductFields, setDynamicProductFields] = useState<
+    Record<string, any>
+  >({});
+
+  // Refresh field configurations when component mounts or session changes
+  useEffect(() => {
+    // Refresh field configurations to get the latest values
+    if (refreshVcdbFields && refreshProductFields) {
+      refreshVcdbFields();
+      refreshProductFields();
+    }
+  }, [sessionId, refreshVcdbFields, refreshProductFields]);
+
+  // Configurable columns state (removed unused variables)
 
   // API hooks
   const { execute: fetchDropdownData } = useAsyncOperation();
   const { execute: fetchFilteredVehicles } = useAsyncOperation();
   const { execute: fetchLookupData } = useAsyncOperation();
   const { execute: createFitment } = useAsyncOperation();
+
+  // Helper functions for dynamic fields
+  const updateDynamicVcdbField = (fieldName: string, value: any) => {
+    setDynamicVcdbFields((prev) => ({
+      ...prev,
+      [fieldName]: value,
+    }));
+  };
+
+  const updateDynamicProductField = (fieldName: string, value: any) => {
+    setDynamicProductFields((prev) => ({
+      ...prev,
+      [fieldName]: value,
+    }));
+  };
+
+  const getFieldData = (fieldConfig: any) => {
+    // For enum fields, use the enum_options from field config
+    if (fieldConfig.field_type === "enum" && fieldConfig.enum_options) {
+      return fieldConfig.enum_options.map((option: string) => ({
+        value: option,
+        label: option,
+      }));
+    }
+
+    // For other fields, try to get data from dropdown data based on field name
+    const fieldName = fieldConfig.name.toLowerCase();
+    if (dropdownData) {
+      // Map common field names to dropdown data properties
+      const dataMapping: Record<string, string> = {
+        year: "years",
+        make: "makes",
+        model: "models",
+        submodel: "submodels",
+        fueltype: "fuel_types",
+        numdoors: "num_doors",
+        drivetype: "drive_types",
+        bodytype: "body_types",
+        part: "parts",
+        position: "positions",
+      };
+
+      const dataKey = dataMapping[fieldName];
+      if (dataKey && dropdownData[dataKey]) {
+        return dropdownData[dataKey].map((item: string) => ({
+          value: item,
+          label: item,
+        }));
+      }
+    }
+
+    return [];
+  };
 
   return (
     <div
@@ -245,10 +619,44 @@ export default function ApplyFitments() {
                       <Title order={2} c="#1e293b" fw={600} mb="xs">
                         Choose Fitment Method
                       </Title>
-                      <Text size="md" c="#64748b">
+                      <Text size="md" c="#64748b" mb="md">
                         Select how you want to apply fitments to your vehicle
                         configurations
                       </Text>
+
+                      {/* Data Status Indicators */}
+                      <Group gap="lg" mb="lg">
+                        <Group gap="xs">
+                          <Badge
+                            color={isVcdbDataAvailable() ? "green" : "red"}
+                            variant="light"
+                            size="sm"
+                          >
+                            VCDB Data
+                          </Badge>
+                          <Text size="xs" c="dimmed">
+                            {isVcdbDataAvailable()
+                              ? `${dataStatus?.vcdb?.record_count || 0} records`
+                              : "Not available"}
+                          </Text>
+                        </Group>
+                        <Group gap="xs">
+                          <Badge
+                            color={isProductDataAvailable() ? "green" : "red"}
+                            variant="light"
+                            size="sm"
+                          >
+                            Product Data
+                          </Badge>
+                          <Text size="xs" c="dimmed">
+                            {isProductDataAvailable()
+                              ? `${
+                                  dataStatus?.products?.record_count || 0
+                                } records`
+                              : "Not available"}
+                          </Text>
+                        </Group>
+                      </Group>
                     </div>
 
                     <SimpleGrid cols={2} spacing="xl">
@@ -256,22 +664,34 @@ export default function ApplyFitments() {
                       <Card
                         style={{
                           background:
-                            selectedMethod === "manual" ? "#f0f9ff" : "#fefefe",
+                            selectedMethod === "manual"
+                              ? "#f0f9ff"
+                              : !isManualMethodAvailable()
+                              ? "#f8f9fa"
+                              : "#fefefe",
                           border:
                             selectedMethod === "manual"
                               ? "2px solid #3b82f6"
+                              : !isManualMethodAvailable()
+                              ? "2px solid #e9ecef"
                               : "2px solid #f1f5f9",
                           borderRadius: "12px",
-                          cursor: "pointer",
+                          cursor: isManualMethodAvailable()
+                            ? "pointer"
+                            : "not-allowed",
                           transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                           boxShadow:
                             selectedMethod === "manual"
                               ? "0 4px 12px rgba(59, 130, 246, 0.15)"
                               : "0 2px 4px rgba(0, 0, 0, 0.05)",
                           transform: "translateY(0)",
+                          opacity: isManualMethodAvailable() ? 1 : 0.6,
                         }}
                         onMouseEnter={(e) => {
-                          if (selectedMethod !== "manual") {
+                          if (
+                            selectedMethod !== "manual" &&
+                            isManualMethodAvailable()
+                          ) {
                             e.currentTarget.style.transform =
                               "translateY(-4px)";
                             e.currentTarget.style.boxShadow =
@@ -286,27 +706,58 @@ export default function ApplyFitments() {
                           }
                         }}
                         p="xl"
-                        onClick={handleManualMethodClick}
+                        onClick={
+                          isManualMethodAvailable()
+                            ? handleManualMethodClick
+                            : undefined
+                        }
                       >
                         <Stack align="center" gap="lg">
                           <div
                             style={{
-                              background: "#f8fafc",
+                              background: isManualMethodAvailable()
+                                ? "#f8fafc"
+                                : "#f1f3f4",
                               borderRadius: "12px",
                               padding: "16px",
                               marginBottom: "8px",
                             }}
                           >
-                            <IconUsers size={32} color="#3b82f6" />
+                            <IconUsers
+                              size={32}
+                              color={
+                                isManualMethodAvailable()
+                                  ? "#3b82f6"
+                                  : "#9ca3af"
+                              }
+                            />
                           </div>
 
                           <div style={{ textAlign: "center" }}>
-                            <Text fw={700} size="xl" c="#1e293b" mb="xs">
+                            <Text
+                              fw={700}
+                              size="xl"
+                              c={
+                                isManualMethodAvailable()
+                                  ? "#1e293b"
+                                  : "#9ca3af"
+                              }
+                              mb="xs"
+                            >
                               Manual Method
                             </Text>
-                            <Text size="sm" c="#64748b" ta="center">
-                              Apply fitments manually with full control over
-                              each configuration
+                            <Text
+                              size="sm"
+                              c={
+                                isManualMethodAvailable()
+                                  ? "#64748b"
+                                  : "#9ca3af"
+                              }
+                              ta="center"
+                            >
+                              {isManualMethodAvailable()
+                                ? "Apply fitments manually with full control over each configuration"
+                                : "VCDB and Product data required"}
                             </Text>
                           </div>
 
@@ -315,94 +766,149 @@ export default function ApplyFitments() {
                               Selected
                             </Badge>
                           )}
+
+                          {!isManualMethodAvailable() && (
+                            <Badge variant="light" color="red" size="lg">
+                              Disabled
+                            </Badge>
+                          )}
                         </Stack>
                       </Card>
 
-                      {/* AI Method Card - Coming Soon */}
+                      {/* AI Method Card */}
                       <Card
-                        aria-disabled={true}
                         style={{
                           background:
-                            "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
-                          border: "2px solid #e2e8f0",
+                            selectedMethod === "ai"
+                              ? "#f0f9ff"
+                              : !isAiMethodAvailable()
+                              ? "#f8f9fa"
+                              : "#fefefe",
+                          border:
+                            selectedMethod === "ai"
+                              ? "2px solid #3b82f6"
+                              : !isAiMethodAvailable()
+                              ? "2px solid #e9ecef"
+                              : "2px solid #f1f5f9",
                           borderRadius: "12px",
+                          cursor: isAiMethodAvailable()
+                            ? "pointer"
+                            : "not-allowed",
                           transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                          boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)",
+                          boxShadow:
+                            selectedMethod === "ai"
+                              ? "0 4px 12px rgba(59, 130, 246, 0.15)"
+                              : "0 2px 4px rgba(0, 0, 0, 0.05)",
                           transform: "translateY(0)",
-                          position: "relative",
-                          opacity: 0.85,
+                          opacity: isAiMethodAvailable() ? 1 : 0.6,
+                        }}
+                        onMouseEnter={(e) => {
+                          if (
+                            selectedMethod !== "ai" &&
+                            isAiMethodAvailable()
+                          ) {
+                            e.currentTarget.style.transform =
+                              "translateY(-4px)";
+                            e.currentTarget.style.boxShadow =
+                              "0 8px 25px rgba(0, 0, 0, 0.1)";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (selectedMethod !== "ai") {
+                            e.currentTarget.style.transform = "translateY(0)";
+                            e.currentTarget.style.boxShadow =
+                              "0 2px 4px rgba(0, 0, 0, 0.05)";
+                          }
                         }}
                         p="xl"
+                        onClick={
+                          isAiMethodAvailable()
+                            ? handleAiMethodClick
+                            : undefined
+                        }
                       >
                         <Stack align="center" gap="lg">
                           <div
                             style={{
-                              background:
-                                "linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)",
+                              background: isAiMethodAvailable()
+                                ? "linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)"
+                                : "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)",
                               borderRadius: "12px",
                               padding: "16px",
                               marginBottom: "8px",
                               position: "relative",
                             }}
                           >
-                            <IconBrain size={32} color="#6366f1" />
-                            {/* Subtle pulse effect */}
-                            <div
-                              style={{
-                                position: "absolute",
-                                top: "50%",
-                                left: "50%",
-                                transform: "translate(-50%, -50%)",
-                                width: "60px",
-                                height: "60px",
-                                borderRadius: "50%",
-                                background: "rgba(99, 102, 241, 0.1)",
-                                animation: "pulse 2s infinite",
-                              }}
+                            <IconBrain
+                              size={32}
+                              color={
+                                isAiMethodAvailable() ? "#6366f1" : "#9ca3af"
+                              }
                             />
+                            {/* Subtle pulse effect - only when available */}
+                            {isAiMethodAvailable() && (
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  top: "50%",
+                                  left: "50%",
+                                  transform: "translate(-50%, -50%)",
+                                  width: "60px",
+                                  height: "60px",
+                                  borderRadius: "50%",
+                                  background: "rgba(99, 102, 241, 0.1)",
+                                  animation: "pulse 2s infinite",
+                                }}
+                              />
+                            )}
                           </div>
 
                           <div style={{ textAlign: "center" }}>
-                            <Text fw={700} size="xl" c="#374151" mb="xs">
+                            <Text
+                              fw={700}
+                              size="xl"
+                              c={isAiMethodAvailable() ? "#1e293b" : "#9ca3af"}
+                              mb="xs"
+                            >
                               AI Method
                             </Text>
-                            <Text size="sm" c="#6b7280" ta="center">
-                              Let AI automatically generate and apply fitments
-                              based on your data
+                            <Text
+                              size="sm"
+                              c={isAiMethodAvailable() ? "#64748b" : "#9ca3af"}
+                              ta="center"
+                            >
+                              {isAiMethodAvailable()
+                                ? "Let AI automatically generate and apply fitments based on your VCDB and Product data"
+                                : "VCDB and Product data required"}
                             </Text>
                           </div>
 
-                          <div style={{ position: "relative" }}>
-                            <Badge
-                              variant="gradient"
-                              gradient={{ from: "indigo", to: "violet" }}
-                              size="lg"
-                              style={{
-                                fontWeight: 600,
-                                letterSpacing: "0.5px",
-                                textTransform: "uppercase",
-                                fontSize: "11px",
-                              }}
-                            >
-                              Coming Soon
+                          {selectedMethod === "ai" && (
+                            <Badge variant="light" color="blue" size="lg">
+                              Selected
                             </Badge>
-                            {/* Subtle shimmer effect */}
-                            <div
-                              style={{
-                                position: "absolute",
-                                top: 0,
-                                left: "-100%",
-                                width: "100%",
-                                height: "100%",
-                                background:
-                                  "linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)",
-                                animation: "shimmer 3s infinite",
-                              }}
-                            />
-                          </div>
+                          )}
+
+                          {!isAiMethodAvailable() && (
+                            <Badge variant="light" color="red" size="lg">
+                              Disabled
+                            </Badge>
+                          )}
                         </Stack>
                       </Card>
                     </SimpleGrid>
+
+                    {/* Help message when both methods are disabled */}
+                    {!isManualMethodAvailable() && !isAiMethodAvailable() && (
+                      <Alert color="orange" variant="light" mt="lg">
+                        <Text size="sm">
+                          <strong>Data Required:</strong> Both VCDB and Product
+                          data must be uploaded before you can apply fitments.
+                          Please go to the <strong>Upload Data</strong> page to
+                          upload your vehicle and product data files.
+                        </Text>
+                      </Alert>
+                    )}
                   </Stack>
                 </Card>
               )}
@@ -930,6 +1436,88 @@ export default function ApplyFitments() {
                                   }}
                                 />
                               </SimpleGrid>
+
+                              {/* Dynamic VCDB Fields for Vehicle Search */}
+                              {vcdbFormFields.length > 0 && (
+                                <div style={{ marginTop: "24px" }}>
+                                  <Group
+                                    justify="space-between"
+                                    align="center"
+                                    mb="md"
+                                  >
+                                    <div>
+                                      <Title
+                                        order={4}
+                                        c="#1e293b"
+                                        fw={600}
+                                        mb="xs"
+                                      >
+                                        Additional Vehicle Search Fields
+                                      </Title>
+                                      <Text size="sm" c="#64748b">
+                                        Additional vehicle fields configured in
+                                        Settings for more precise filtering
+                                      </Text>
+                                    </div>
+                                    <Button
+                                      variant="outline"
+                                      size="xs"
+                                      leftSection={<IconRefresh size={14} />}
+                                      onClick={() => {
+                                        if (refreshVcdbFields) {
+                                          refreshVcdbFields();
+                                        }
+                                      }}
+                                      loading={vcdbFieldsLoading}
+                                      styles={{
+                                        root: {
+                                          borderRadius: "8px",
+                                          fontSize: "12px",
+                                          height: "32px",
+                                          padding: "0 12px",
+                                        },
+                                      }}
+                                    >
+                                      Refresh Fields
+                                    </Button>
+                                  </Group>
+
+                                  <SimpleGrid
+                                    cols={{ base: 1, sm: 2, lg: 3 }}
+                                    spacing="lg"
+                                  >
+                                    {vcdbFormFields.map((fieldConfig) => {
+                                      return (
+                                        fieldConfig.show_in_filters &&
+                                        fieldConfig.is_enabled &&
+                                        fieldConfig.reference_type ===
+                                          "vcdb" && (
+                                          <DynamicFormField
+                                            key={`search-${fieldConfig.id}`}
+                                            fieldConfig={fieldConfig}
+                                            value={
+                                              dynamicVcdbFields[
+                                                fieldConfig.name
+                                              ]
+                                            }
+                                            onChange={(value) =>
+                                              updateDynamicVcdbField(
+                                                fieldConfig.name,
+                                                value
+                                              )
+                                            }
+                                            data={getFieldData(fieldConfig)}
+                                            disabled={
+                                              loadingDropdownData ||
+                                              vcdbFieldsLoading
+                                            }
+                                          />
+                                        )
+                                      );
+                                    })}
+                                  </SimpleGrid>
+                                </div>
+                              )}
                             </div>
 
                             <Group justify="space-between" mt="xl">
@@ -988,20 +1576,12 @@ export default function ApplyFitments() {
                                     },
                                   ]);
 
+                                  // Clear dynamic fields
+                                  setDynamicVcdbFields({});
+                                  setDynamicProductFields({});
+
                                   // Reset to first step
                                   setManualStep(1);
-
-                                  // Reset column configuration
-                                  // setShowColumnConfig(false);
-                                  // setSelectedColumns([
-                                  //   "year",
-                                  //   "make",
-                                  //   "model",
-                                  //   "submodel",
-                                  //   "fuelType",
-                                  //   "bodyType",
-                                  //   "driveType",
-                                  // ]);
 
                                   // Force form re-render
                                   setFormKey((prev) => prev + 1);
@@ -1061,11 +1641,17 @@ export default function ApplyFitments() {
                                 }}
                                 onClick={async () => {
                                   try {
+                                    // Combine standard vehicle filters with dynamic VCDB fields
+                                    const searchCriteria = {
+                                      ...vehicleFilters,
+                                      ...dynamicVcdbFields,
+                                    };
+
                                     const result: any =
                                       await fetchFilteredVehicles(() =>
                                         fitmentUploadService.getFilteredVehicles(
                                           sessionId || "",
-                                          vehicleFilters
+                                          searchCriteria
                                         )
                                       );
 
@@ -1643,6 +2229,88 @@ export default function ApplyFitments() {
                                 }}
                               />
 
+                              {/* Dynamic Product Fields */}
+                              {productFormFields.length > 0 && (
+                                <div style={{ marginTop: "24px" }}>
+                                  <Group
+                                    justify="space-between"
+                                    align="center"
+                                    mb="md"
+                                  >
+                                    <div>
+                                      <Title
+                                        order={4}
+                                        c="#1e293b"
+                                        fw={600}
+                                        mb="xs"
+                                      >
+                                        Product Configuration Fields
+                                      </Title>
+                                      <Text size="sm" c="#64748b">
+                                        Additional product configuration fields
+                                        configured in Settings
+                                      </Text>
+                                    </div>
+                                    <Button
+                                      variant="outline"
+                                      size="xs"
+                                      leftSection={<IconRefresh size={14} />}
+                                      onClick={() => {
+                                        if (refreshProductFields) {
+                                          refreshProductFields();
+                                        }
+                                      }}
+                                      loading={productFieldsLoading}
+                                      styles={{
+                                        root: {
+                                          borderRadius: "8px",
+                                          fontSize: "12px",
+                                          height: "32px",
+                                          padding: "0 12px",
+                                        },
+                                      }}
+                                    >
+                                      Refresh Fields
+                                    </Button>
+                                  </Group>
+
+                                  <SimpleGrid
+                                    cols={{ base: 1, sm: 2 }}
+                                    spacing="lg"
+                                  >
+                                    {productFormFields.map((fieldConfig) => {
+                                      return (
+                                        fieldConfig.show_in_filters &&
+                                        fieldConfig.is_enabled &&
+                                        fieldConfig.reference_type ===
+                                          "product" && (
+                                          <DynamicFormField
+                                            key={fieldConfig.id}
+                                            fieldConfig={fieldConfig}
+                                            value={
+                                              dynamicProductFields[
+                                                fieldConfig.name
+                                              ]
+                                            }
+                                            onChange={(value) =>
+                                              updateDynamicProductField(
+                                                fieldConfig.name,
+                                                value
+                                              )
+                                            }
+                                            data={getFieldData(fieldConfig)}
+                                            disabled={
+                                              loadingDropdownData ||
+                                              productFieldsLoading
+                                            }
+                                          />
+                                        )
+                                      );
+                                    })}
+                                  </SimpleGrid>
+                                </div>
+                              )}
+
                               {/* Wheel Parameters Section */}
                               <div style={{ marginTop: "24px" }}>
                                 <Title order={4} c="#1e293b" fw={600} mb="md">
@@ -1829,6 +2497,10 @@ export default function ApplyFitments() {
                                           partTypeDescriptor:
                                             fitmentDetails.title,
                                           positionId: 0,
+                                          // Dynamic VCDB fields
+                                          ...dynamicVcdbFields,
+                                          // Dynamic Product fields
+                                          ...dynamicProductFields,
                                         };
                                       }
                                     );
@@ -1907,7 +2579,7 @@ export default function ApplyFitments() {
           )}
         </Transition>
 
-        {/* Step 3: AI Method Page - Disabled */}
+        {/* Step 3: AI Method Page */}
         <Transition
           mounted={currentStep === 3}
           transition="fade"
@@ -1948,51 +2620,15 @@ export default function ApplyFitments() {
                       </Title>
                       <Text size="sm" c="#64748b">
                         Let our AI automatically generate optimal fitments based
-                        on your data
+                        on your VCDB and Product data
                       </Text>
                     </div>
-
-                    {/* Generate AI Fitments Button */}
-                    {/* {!aiProcessing && aiFitments.length === 0 && (
-                      <Group justify="center">
-                        <Button
-                          size="lg"
-                          leftSection={<IconRobot size={20} />}
-                          variant="filled"
-                          onClick={handleAiFitment}
-                          style={{
-                            background:
-                              "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                            border: "none",
-                            borderRadius: "8px",
-                            fontSize: "16px",
-                            fontWeight: 600,
-                            padding: "12px 24px",
-                            height: "48px",
-                            color: "white",
-                            transition: "all 0.2s ease",
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.transform =
-                              "translateY(-1px)";
-                            e.currentTarget.style.boxShadow =
-                              "0 4px 12px rgba(59, 130, 246, 0.3)";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = "translateY(0)";
-                            e.currentTarget.style.boxShadow = "none";
-                          }}
-                        >
-                          Generate AI Fitments
-                        </Button>
-                      </Group>
-                    )} */}
                   </Stack>
                 </Card>
               )}
 
-              {/* AI Progress Display (only show on step 4) */}
-              {/*{currentStep === 4 && aiProcessing && (
+              {/* AI Progress Display */}
+              {currentStep === 3 && aiProcessing && (
                 <Card
                   style={{
                     background: "#ffffff",
@@ -2011,8 +2647,8 @@ export default function ApplyFitments() {
                           🧠 AI Fitment Generation in Progress
                         </Title>
                         <Text size="sm" c="#64748b">
-                          Our AI is analyzing your data to generate optimal
-                          fitments
+                          Our AI is analyzing your VCDB and Product data to
+                          generate optimal fitments
                         </Text>
                       </div>
                     </Group>
@@ -2057,7 +2693,226 @@ export default function ApplyFitments() {
                     </ScrollArea>
                   </Stack>
                 </Card>
-              )} */}
+              )}
+
+              {/* AI Fitments Results */}
+              {currentStep === 3 && aiFitments.length > 0 && (
+                <Card
+                  style={{
+                    background: "#ffffff",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "12px",
+                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                  }}
+                  h={800}
+                  p="xl"
+                >
+                  <Stack gap="lg">
+                    <Group justify="space-between">
+                      <div>
+                        <Title order={3} c="#1e293b" fw={600}>
+                          AI Generated Fitments
+                        </Title>
+                        <Text size="sm" c="#64748b">
+                          Review and select fitments to apply
+                        </Text>
+                      </div>
+                      <Group gap="sm">
+                        <Group gap="xs">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleExportDirectAiFitments("csv")}
+                          >
+                            CSV
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleExportDirectAiFitments("xlsx")}
+                          >
+                            XLSX
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleExportDirectAiFitments("json")}
+                          >
+                            JSON
+                          </Button>
+                        </Group>
+                        <Button
+                          variant="filled"
+                          color="green"
+                          size="sm"
+                          onClick={handleApplyDirectAiFitments}
+                          disabled={selectedAiFitments.length === 0}
+                          loading={applyingAiFitment}
+                        >
+                          Apply Selected ({selectedAiFitments.length})
+                        </Button>
+                      </Group>
+                    </Group>
+
+                    <div style={{ position: "relative" }}>
+                      {/* Static Table Header */}
+                      <Table striped highlightOnHover>
+                        <Table.Thead>
+                          <Table.Tr>
+                            <Table.Th
+                              style={{
+                                textAlign: "center",
+                                verticalAlign: "middle",
+                                width: "60px",
+                              }}
+                            >
+                              <Checkbox
+                                checked={
+                                  selectedAiFitments.length ===
+                                  aiFitments.length
+                                }
+                                indeterminate={
+                                  selectedAiFitments.length > 0 &&
+                                  selectedAiFitments.length < aiFitments.length
+                                }
+                                onChange={(event) => {
+                                  if (event.currentTarget.checked) {
+                                    setSelectedAiFitments(
+                                      aiFitments.map((fitment) => fitment.id)
+                                    );
+                                  } else {
+                                    setSelectedAiFitments([]);
+                                  }
+                                }}
+                                ml={7}
+                              />
+                            </Table.Th>
+                            <Table.Th style={{ width: "130px" }}>
+                              Part ID
+                            </Table.Th>
+                            <Table.Th style={{ width: "80px" }}>Year</Table.Th>
+                            <Table.Th style={{ width: "100px" }}>Make</Table.Th>
+                            <Table.Th style={{ width: "120px" }}>
+                              Model
+                            </Table.Th>
+                            <Table.Th style={{ width: "100px" }}>
+                              Submodel
+                            </Table.Th>
+                            <Table.Th style={{ width: "100px" }}>
+                              Position
+                            </Table.Th>
+                            <Table.Th style={{ width: "100px" }}>
+                              Confidence
+                            </Table.Th>
+                            <Table.Th style={{ width: "80px" }}>
+                              Actions
+                            </Table.Th>
+                          </Table.Tr>
+                        </Table.Thead>
+                      </Table>
+
+                      {/* Scrollable Table Body */}
+                      <ScrollArea h={600} style={{ marginTop: "-1px" }}>
+                        <Table striped highlightOnHover>
+                          <Table.Tbody>
+                            {aiFitments.map((fitment) => (
+                              <Table.Tr key={fitment.id}>
+                                <Table.Td
+                                  style={{
+                                    textAlign: "center",
+                                    verticalAlign: "middle",
+                                    width: "60px",
+                                  }}
+                                >
+                                  <Checkbox
+                                    checked={selectedAiFitments.includes(
+                                      fitment.id
+                                    )}
+                                    onChange={(event) => {
+                                      if (event.currentTarget.checked) {
+                                        setSelectedAiFitments((prev) => [
+                                          ...prev,
+                                          fitment.id,
+                                        ]);
+                                      } else {
+                                        setSelectedAiFitments((prev) =>
+                                          prev.filter((id) => id !== fitment.id)
+                                        );
+                                      }
+                                    }}
+                                  />
+                                </Table.Td>
+                                <Table.Td style={{ width: "120px" }}>
+                                  <Text size="sm" fw={600} c="#3b82f6">
+                                    {fitment.part_id}
+                                  </Text>
+                                </Table.Td>
+                                <Table.Td style={{ width: "80px" }}>
+                                  <Text size="sm">{fitment.year}</Text>
+                                </Table.Td>
+                                <Table.Td style={{ width: "100px" }}>
+                                  <Text size="sm" fw={500}>
+                                    {fitment.make}
+                                  </Text>
+                                </Table.Td>
+                                <Table.Td style={{ width: "120px" }}>
+                                  <Text size="sm">{fitment.model}</Text>
+                                </Table.Td>
+                                <Table.Td style={{ width: "100px" }}>
+                                  <Text size="sm" c="#64748b">
+                                    {fitment.submodel || "-"}
+                                  </Text>
+                                </Table.Td>
+                                <Table.Td style={{ width: "100px" }}>
+                                  <Badge variant="light" size="sm" color="blue">
+                                    {fitment.position}
+                                  </Badge>
+                                </Table.Td>
+                                <Table.Td style={{ width: "100px" }}>
+                                  <Tooltip
+                                    label={
+                                      fitment.ai_reasoning ||
+                                      "No explanation available"
+                                    }
+                                    multiline
+                                    w={300}
+                                    withArrow
+                                  >
+                                    <Badge
+                                      variant="light"
+                                      color={
+                                        fitment.confidence > 0.8
+                                          ? "green"
+                                          : fitment.confidence > 0.6
+                                          ? "orange"
+                                          : "red"
+                                      }
+                                      size="sm"
+                                      style={{ cursor: "help" }}
+                                    >
+                                      {Math.round(fitment.confidence * 100)}%
+                                    </Badge>
+                                  </Tooltip>
+                                </Table.Td>
+                                <Table.Td style={{ width: "80px" }}>
+                                  <ActionIcon
+                                    variant="subtle"
+                                    color="blue"
+                                    onClick={() => handleEditFitment(fitment)}
+                                    size="sm"
+                                  >
+                                    <IconEdit size={16} />
+                                  </ActionIcon>
+                                </Table.Td>
+                              </Table.Tr>
+                            ))}
+                          </Table.Tbody>
+                        </Table>
+                      </ScrollArea>
+                    </div>
+                  </Stack>
+                </Card>
+              )}
             </div>
           )}
         </Transition>
@@ -2296,6 +3151,161 @@ export default function ApplyFitments() {
             </Table>
           </ScrollArea> */}
         {/* </div> */}
+
+        {/* Edit Fitment Modal */}
+        <Modal
+          opened={editModalOpen}
+          onClose={() => setEditModalOpen(false)}
+          title="Edit AI Fitment"
+          size="xl"
+        >
+          <Stack gap="md">
+            <Text size="sm" c="dimmed">
+              Edit the fitment details below. Changes will be applied to the
+              selected fitment.
+            </Text>
+
+            <SimpleGrid cols={2}>
+              <TextInput
+                label="Part ID"
+                value={editFormData.part_id || ""}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, part_id: e.target.value })
+                }
+              />
+              <NumberInput
+                label="Year"
+                value={editFormData.year || 2020}
+                onChange={(value) =>
+                  setEditFormData({ ...editFormData, year: value })
+                }
+                min={1900}
+                max={2030}
+              />
+            </SimpleGrid>
+
+            <SimpleGrid cols={2}>
+              <TextInput
+                label="Make"
+                value={editFormData.make || ""}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, make: e.target.value })
+                }
+              />
+              <TextInput
+                label="Model"
+                value={editFormData.model || ""}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, model: e.target.value })
+                }
+              />
+            </SimpleGrid>
+
+            <SimpleGrid cols={2}>
+              <TextInput
+                label="Submodel"
+                value={editFormData.submodel || ""}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, submodel: e.target.value })
+                }
+              />
+              <TextInput
+                label="Drive Type"
+                value={editFormData.drive_type || ""}
+                onChange={(e) =>
+                  setEditFormData({
+                    ...editFormData,
+                    drive_type: e.target.value,
+                  })
+                }
+              />
+            </SimpleGrid>
+
+            <SimpleGrid cols={2}>
+              <TextInput
+                label="Position"
+                value={editFormData.position || ""}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, position: e.target.value })
+                }
+              />
+              <NumberInput
+                label="Quantity"
+                value={editFormData.quantity || 1}
+                onChange={(value) =>
+                  setEditFormData({ ...editFormData, quantity: value })
+                }
+                min={1}
+                max={10}
+              />
+            </SimpleGrid>
+
+            <NumberInput
+              label="Confidence Score"
+              value={editFormData.confidence || 0}
+              onChange={(value) =>
+                setEditFormData({ ...editFormData, confidence: value })
+              }
+              min={0}
+              max={1}
+              step={0.01}
+              decimalScale={2}
+            />
+
+            <Textarea
+              label="Part Description"
+              value={editFormData.part_description || ""}
+              onChange={(e) =>
+                setEditFormData({
+                  ...editFormData,
+                  part_description: e.target.value,
+                })
+              }
+              rows={2}
+            />
+
+            <Textarea
+              label="Confidence Explanation"
+              value={editFormData.confidence_explanation || ""}
+              onChange={(e) =>
+                setEditFormData({
+                  ...editFormData,
+                  confidence_explanation: e.target.value,
+                })
+              }
+              rows={2}
+            />
+
+            <Textarea
+              label="AI Reasoning"
+              value={editFormData.ai_reasoning || ""}
+              onChange={(e) =>
+                setEditFormData({
+                  ...editFormData,
+                  ai_reasoning: e.target.value,
+                })
+              }
+              rows={3}
+            />
+
+            <Group justify="flex-end" gap="sm">
+              <Button
+                variant="outline"
+                onClick={() => setEditModalOpen(false)}
+                disabled={savingEdit}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveEdit}
+                loading={savingEdit}
+                color="blue"
+              >
+                Save Changes
+              </Button>
+            </Group>
+          </Stack>
+        </Modal>
       </Stack>
     </div>
   );

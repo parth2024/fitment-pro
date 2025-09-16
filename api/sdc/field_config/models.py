@@ -247,9 +247,13 @@ class FieldConfigurationHistory(models.Model):
     
     field_config = models.ForeignKey(
         FieldConfiguration,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name='history'
     )
+    # Store field name for deleted records
+    field_name = models.CharField(max_length=100, blank=True)
     action = models.CharField(max_length=10, choices=ACTION_TYPES)
     changed_by = models.CharField(max_length=100)
     changed_at = models.DateTimeField(auto_now_add=True)
@@ -263,4 +267,5 @@ class FieldConfigurationHistory(models.Model):
         verbose_name_plural = "Field Configuration Histories"
     
     def __str__(self):
-        return f"{self.field_config.name} - {self.action} by {self.changed_by}"
+        field_name = self.field_name or (self.field_config.name if self.field_config else 'Unknown')
+        return f"{field_name} - {self.action} by {self.changed_by}"

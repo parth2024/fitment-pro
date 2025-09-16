@@ -106,32 +106,52 @@ class FieldConfigurationViewSet(viewsets.ModelViewSet):
             )
     
     def destroy(self, request, *args, **kwargs):
-        """Soft delete field configuration"""
+        """Hard delete field configuration"""
         instance = self.get_object()
         
+        # Store field configuration data for history before deletion
+        field_data = {
+            'display_name': instance.display_name,
+            'description': instance.description,
+            'field_type': instance.field_type,
+            'requirement_level': instance.requirement_level,
+            'reference_type': instance.reference_type,
+            'name': instance.name,
+            'is_enabled': instance.is_enabled,
+            'is_unique': instance.is_unique,
+            'show_in_filters': instance.show_in_filters,
+            'show_in_forms': instance.show_in_forms,
+            'display_order': instance.display_order,
+            'min_length': instance.min_length,
+            'max_length': instance.max_length,
+            'min_value': float(instance.min_value) if instance.min_value else None,
+            'max_value': float(instance.max_value) if instance.max_value else None,
+            'enum_options': instance.enum_options,
+            'default_value': instance.default_value,
+            'created_at': instance.created_at.isoformat() if instance.created_at else None,
+            'updated_at': instance.updated_at.isoformat() if instance.updated_at else None,
+            'created_by': instance.created_by,
+            'updated_by': instance.updated_by,
+        }
+        
         # Create history record before deletion
-        FieldConfigurationHistory.objects.create(
+        history_record = FieldConfigurationHistory.objects.create(
             field_config=instance,
+            field_name=instance.name,  # Store field name for deleted records
             action='deleted',
             changed_by=request.user.username if hasattr(request, 'user') else 'system',
-            old_values={
-                'display_name': instance.display_name,
-                'description': instance.description,
-                'field_type': instance.field_type,
-                'requirement_level': instance.requirement_level,
-            },
+            old_values=field_data,
             new_values={},
             reason=request.data.get('reason', '')
         )
         
-        # Soft delete by disabling the field
-        instance.is_enabled = False
-        instance.requirement_level = 'disabled'
-        instance.save(update_fields=['is_enabled', 'requirement_level'])
+        # Hard delete - completely remove from database
+        # The history record will remain with field_config set to NULL
+        instance.delete()
         
         return Response(
-            {'message': 'Field configuration disabled successfully'},
-            status=status.HTTP_200_OK
+            {'message': 'Field configuration deleted successfully'},
+            status=status.HTTP_204_NO_CONTENT
         )
     
     @action(detail=True, methods=['post'])

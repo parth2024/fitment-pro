@@ -24,6 +24,7 @@ urlpatterns = [
     
     # AI fitment application
     path('apply-ai-fitments/', views.apply_ai_fitments, name='apply_ai_fitments'),
+    path('apply-ai-fitments-direct/', views.apply_ai_fitments_direct, name='apply_ai_fitments_direct'),
     
     # Dropdown data from new tables
     path('dropdown-data/', views.get_dropdown_data, name='get_dropdown_data'),
@@ -33,4 +34,8 @@ urlpatterns = [
     
     # Lookup data for fitment filters
     path('lookup-data/', views.get_lookup_data, name='get_lookup_data'),
+    
+    # Field configuration
+    path('field-configuration/', views.get_field_configuration, name='get_field_configuration'),
+    path('validate-dynamic-fields/', views.validate_file_with_dynamic_fields, name='validate_file_with_dynamic_fields'),
 ]

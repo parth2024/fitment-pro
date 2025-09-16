@@ -33,6 +33,7 @@ from .models import (
     WheelDiameter,
     Backspacing,
 )
+from fitments.models import Fitment
 from .serializers import (
     DataUploadSessionSerializer, 
     DataUploadSessionListSerializer,
@@ -43,6 +44,7 @@ from .serializers import (
     ApplyFitmentsRequestSerializer
 )
 from .utils import FileParser, VCDBValidator, ProductValidator, DataProcessor
+from .dynamic_field_validator import DynamicFieldValidator
 import logging
 
 logger = logging.getLogger(__name__)
@@ -135,10 +137,47 @@ class DataUploadSessionView(APIView):
                     # Normalize VCDB data
                     normalized_df = VCDBValidator.normalize_dataframe(df)
                     is_valid, validation_errors = VCDBValidator.validate_data(normalized_df)
+                    
+                    # Add dynamic field validation for VCDB
+                    try:
+                        dynamic_validator = DynamicFieldValidator('vcdb')
+                        dynamic_is_valid, dynamic_errors = dynamic_validator.validate_dataframe(normalized_df)
+                        
+                        if not dynamic_is_valid:
+                            is_valid = False
+                            validation_errors.extend(dynamic_errors)
+                            
+                        # Log dynamic validation summary
+                        validation_summary = dynamic_validator.get_validation_summary(normalized_df)
+                        logger.info(f"VCDB Dynamic validation summary: {validation_summary}")
+                        
+                    except Exception as e:
+                        logger.error(f"Dynamic field validation error for VCDB: {str(e)}")
+                        validation_errors.append(f"Dynamic field validation failed: {str(e)}")
+                        is_valid = False
+                        
                 elif file_type == 'products':
                     # Normalize Product data
                     normalized_df = ProductValidator.normalize_dataframe(df)
                     is_valid, validation_errors = ProductValidator.validate_data(normalized_df)
+                    
+                    # Add dynamic field validation for Products
+                    try:
+                        dynamic_validator = DynamicFieldValidator('product')
+                        dynamic_is_valid, dynamic_errors = dynamic_validator.validate_dataframe(normalized_df)
+                        
+                        if not dynamic_is_valid:
+                            is_valid = False
+                            validation_errors.extend(dynamic_errors)
+                            
+                        # Log dynamic validation summary
+                        validation_summary = dynamic_validator.get_validation_summary(normalized_df)
+                        logger.info(f"Product Dynamic validation summary: {validation_summary}")
+                        
+                    except Exception as e:
+                        logger.error(f"Dynamic field validation error for Products: {str(e)}")
+                        validation_errors.append(f"Dynamic field validation failed: {str(e)}")
+                        is_valid = False
                 else:
                     is_valid = True
                     validation_errors = []
@@ -419,125 +458,82 @@ def get_file_data(request, session_id, file_type):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def process_ai_fitment(request):
-    """Process AI fitment using uploaded session data"""
+    """Process AI fitment using VCDB and Product data tables directly"""
     try:
         logger.info(f"AI fitment processing request: {request.data}")
-        session_id = request.data.get('session_id')
-        if not session_id:
+        
+        # Get data directly from VCDB and Product data tables
+        vcdb_queryset = VCDBData.objects.all()
+        products_queryset = ProductData.objects.all()
+        
+        # Check if we have data
+        if not vcdb_queryset.exists():
             return Response(
-                {"error": "session_id is required"}, 
+                {"error": "No VCDB data available. Please upload VCDB data first."}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Get the session
-        try:
-            session = DataUploadSession.objects.get(id=session_id)
-        except DataUploadSession.DoesNotExist:
+        if not products_queryset.exists():
             return Response(
-                {"error": "Session not found"}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
-        
-        # Check if both files are available and valid
-        if not session.vcdb_file or not session.products_file:
-            return Response(
-                {"error": "Both VCDB and Products files are required"}, 
+                {"error": "No Product data available. Please upload Product data first."}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        if not session.vcdb_valid or not session.products_valid:
-            return Response(
-                {"error": "Files must be valid before processing"}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        # Convert querysets to dictionaries for AI processing
+        vcdb_data = []
+        for vcdb in vcdb_queryset:
+            vcdb_data.append({
+                'id': vcdb.id,
+                'year': vcdb.year,
+                'make': vcdb.make,
+                'model': vcdb.model,
+                'submodel': vcdb.submodel,
+                'driveType': vcdb.drive_type,
+                'fuelType': vcdb.fuel_type,
+                'numDoors': vcdb.num_doors,
+                'bodyType': vcdb.body_type,
+                'engineType': vcdb.engine_type,
+                'transmission': vcdb.transmission,
+                'trimLevel': vcdb.trim_level,
+            })
         
-        # Read the uploaded files
-        # Construct full file paths
-        vcdb_file_path = os.path.join(settings.MEDIA_ROOT, session.vcdb_file.name) if hasattr(session.vcdb_file, 'name') else session.vcdb_file
-        products_file_path = os.path.join(settings.MEDIA_ROOT, session.products_file.name) if hasattr(session.products_file, 'name') else session.products_file
+        products_data = []
+        for product in products_queryset:
+            products_data.append({
+                'id': product.part_id,
+                'partId': product.part_id,
+                'description': product.description,
+                'category': product.category,
+                'partType': product.part_type,
+                'compatibility': product.compatibility,
+                'brand': product.brand,
+                'sku': product.sku,
+                'price': float(product.price) if product.price else None,
+                'weight': float(product.weight) if product.weight else None,
+                'dimensions': product.dimensions,
+                'specifications': product.specifications,
+            })
         
-        # Read the files with robust error handling
-        def read_file_robustly(file_path, filename):
-            """Read file with multiple fallback strategies"""
-            try:
-                if filename.lower().endswith('.csv'):
-                    # Try different CSV reading approaches
-                    try:
-                        return pd.read_csv(file_path)
-                    except pd.errors.ParserError:
-                        try:
-                            return pd.read_csv(file_path, sep=';')
-                        except pd.errors.ParserError:
-                            try:
-                                return pd.read_csv(file_path, sep='\t')
-                            except pd.errors.ParserError:
-                                try:
-                                    return pd.read_csv(file_path, error_bad_lines=False, warn_bad_lines=True)
-                                except:
-                                    return pd.read_csv(file_path, low_memory=False)
-                elif filename.lower().endswith('.json'):
-                    import json
-                    with open(file_path, 'r') as f:
-                        data = json.load(f)
-                    if isinstance(data, list):
-                        return pd.DataFrame(data)
-                    elif isinstance(data, dict):
-                        return pd.DataFrame([data])
-                    else:
-                        return pd.DataFrame()
-                elif filename.lower().endswith('.xlsx'):
-                    return pd.read_excel(file_path, engine='openpyxl')
-                elif filename.lower().endswith('.xls'):
-                    return pd.read_excel(file_path, engine='xlrd')
-                else:
-                    # Default to CSV with error handling
-                    return pd.read_csv(file_path, error_bad_lines=False, warn_bad_lines=True)
-            except Exception as e:
-                logger.error(f"Failed to read file {filename}: {str(e)}")
-                raise e
-
-        # Read VCDB file
-        try:
-            vcdb_df = read_file_robustly(vcdb_file_path, session.vcdb_filename)
-        except Exception as e:
-            logger.error(f"Failed to read VCDB file: {str(e)}")
-            return Response(
-                {"error": f"Failed to read VCDB file: {str(e)}"}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-            
-        # Read Products file
-        try:
-            products_df = read_file_robustly(products_file_path, session.products_filename)
-        except Exception as e:
-            logger.error(f"Failed to read Products file: {str(e)}")
-            return Response(
-                {"error": f"Failed to read Products file: {str(e)}"}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        logger.info(f"Processing AI fitment with {len(vcdb_data)} vehicles and {len(products_data)} products")
         
-        # Convert to temporary files for AI processing
-        temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp')
-        os.makedirs(temp_dir, exist_ok=True)
-        
-        vcdb_temp_path = os.path.join(temp_dir, f"vcdb_{uuid.uuid4().hex}.csv")
-        products_temp_path = os.path.join(temp_dir, f"products_{uuid.uuid4().hex}.csv")
-        
-        # Save as CSV for AI processing
-        vcdb_df.to_csv(vcdb_temp_path, index=False)
-        products_df.to_csv(products_temp_path, index=False)
-
-         # Process with AI
-        # Convert DataFrames to lists of dictionaries for AI processing
-        vcdb_data = vcdb_df.to_dict('records')
-        products_data = products_df.to_dict('records')
+        # Process with AI
         ai_fitments = azure_ai_service.generate_fitments(vcdb_data, products_data)
+        
+        # Create a temporary session for tracking AI results (optional)
+        # This allows us to maintain the existing data structure
+        temp_session = DataUploadSession.objects.create(
+            status='completed',
+            vcdb_valid=True,
+            products_valid=True,
+            vcdb_records=len(vcdb_data),
+            products_records=len(products_data)
+        )
         
         # Save AI results
         ai_results = []
         for fitment_data in ai_fitments:
             ai_result = AIFitmentResult.objects.create(
-                session=session,
+                session=temp_session,
                 part_id=fitment_data['partId'],
                 part_description=fitment_data['partDescription'],
                 year=fitment_data['year'],
@@ -548,35 +544,27 @@ def process_ai_fitment(request):
                 position=fitment_data['position'],
                 quantity=fitment_data['quantity'],
                 confidence=fitment_data['confidence'],
+                confidence_explanation=fitment_data.get('confidence_explanation', ''),
                 ai_reasoning=fitment_data['ai_reasoning']
             )
             ai_results.append(ai_result)
         
-        # Update session status
-        session.status = 'completed'
-        session.save()
-        
-        # Serialize results
-        results_serializer = AIFitmentResultSerializer(ai_results, many=True)
-        try:
-            os.remove(vcdb_temp_path)
-            os.remove(products_temp_path)
-        except:
-            pass
-        
         # Log the processing
         DataProcessingLog.objects.create(
-            session=session,
-            step='ai_fitment',
+            session=temp_session,
+            step='ai_fitment_direct',
             status='completed',
             message=f"Generated {len(ai_fitments)} AI fitments",
             details={'records_processed': len(ai_fitments)}
         )
         
+        # Serialize results
+        results_serializer = AIFitmentResultSerializer(ai_results, many=True)
+        
         return Response({
-             'message': 'AI fitment processing completed',
+            'message': 'AI fitment processing completed',
             'fitments': results_serializer.data,
-            'session_id': str(session.id),
+            'session_id': str(temp_session.id),
             'total_count': len(ai_fitments)
         })
         
@@ -718,6 +706,7 @@ def apply_manual_fitment(request):
                     positionId=1,
                     liftHeight='Stock',
                     wheelType='Alloy',
+                    fitmentType='manual_fitment',  # Set as manual fitment type
                     createdBy='manual_user',
                     updatedBy='manual_user'
                 )
@@ -846,6 +835,7 @@ def apply_ai_fitments(request):
                 positionId=1,  # Default position ID
                 liftHeight='Stock',  # Default value
                 wheelType='Alloy',  # Default value
+                fitmentType='ai_fitment',  # Set as AI fitment type
                 createdBy='ai_system',
                 updatedBy='ai_system'
             )
@@ -872,6 +862,113 @@ def apply_ai_fitments(request):
             'message': f'Successfully applied {applied_count} fitments',
             'applied_count': applied_count,
             'session_id': str(session_id)
+        })
+        
+    except Exception as e:
+        logger.error(f"Failed to apply fitments: {str(e)}", exc_info=True)
+        return Response(
+            {'error': f'Failed to apply fitments: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def apply_ai_fitments_direct(request):
+    """Apply selected AI fitments directly without session requirement"""
+    try:
+        fitment_ids = request.data.get('fitment_ids', [])
+        
+        if not fitment_ids:
+            return Response(
+                {'error': 'fitment_ids is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get selected AI results from the most recent session
+        latest_session = DataUploadSession.objects.filter(
+            status='completed'
+        ).order_by('-created_at').first()
+        
+        if not latest_session:
+            return Response(
+                {'error': 'No completed AI fitment session found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Get selected AI results
+        ai_results = AIFitmentResult.objects.filter(
+            session=latest_session,
+            id__in=fitment_ids
+        )
+        
+        if not ai_results.exists():
+            return Response(
+                {'error': 'No valid fitments found'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Apply fitments
+        applied_count = 0
+        for ai_result in ai_results:
+            # Create AppliedFitment record
+            applied_fitment = AppliedFitment.objects.create(
+                session=latest_session,
+                ai_result=ai_result,
+                part_id=ai_result.part_id,
+                part_description=ai_result.part_description,
+                year=ai_result.year,
+                make=ai_result.make,
+                model=ai_result.model,
+                submodel=ai_result.submodel,
+                drive_type=ai_result.drive_type,
+                position=ai_result.position or 'Universal',  # Provide default if null
+                quantity=ai_result.quantity,
+                title=f"AI Generated Fitment",
+                description=ai_result.ai_reasoning
+            )
+            
+            # Create Fitment record
+            fitment = Fitment.objects.create(
+                hash=uuid.uuid4().hex,
+                partId=ai_result.part_id,
+                itemStatus='Active',
+                itemStatusCode=0,
+                baseVehicleId=str(ai_result.id),  # Using AI result ID as base vehicle ID
+                year=ai_result.year,
+                makeName=ai_result.make,
+                modelName=ai_result.model,
+                subModelName=ai_result.submodel,
+                driveTypeName=ai_result.drive_type,
+                fuelTypeName='Gas',  # Default value
+                bodyNumDoors=4,  # Default value
+                bodyTypeName='Sedan',  # Default value
+                ptid='PT-22',  # Default part type ID
+                partTypeDescriptor=ai_result.part_description,
+                uom='EA',  # Each
+                quantity=ai_result.quantity,
+                fitmentTitle=f"AI Generated Fitment - {ai_result.part_id}",
+                fitmentDescription=ai_result.ai_reasoning,
+                fitmentNotes=f"Generated from AI fitment result ID: {ai_result.id}",
+                position=ai_result.position or 'Front',
+                positionId=1,  # Default position ID
+                liftHeight='Stock',  # Default value
+                wheelType='Alloy',  # Default value
+                fitmentType='ai_fitment',  # Set as AI fitment type
+                createdBy='ai_system',
+                updatedBy='ai_system'
+            )
+            
+            # Mark AI result as applied
+            ai_result.is_applied = True
+            ai_result.save()
+            
+            applied_count += 1
+        
+        return Response({
+            'message': f'Successfully applied {applied_count} fitments',
+            'applied_count': applied_count,
+            'session_id': str(latest_session.id)
         })
         
     except Exception as e:
@@ -1213,6 +1310,115 @@ def get_lookup_data(request):
         logger.error(f"Error getting lookup data: {str(e)}")
         return Response(
             {"error": "Failed to get lookup data"}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_field_configuration(request):
+    """Get field configuration for validation purposes"""
+    try:
+        from field_config.models import FieldConfiguration
+        
+        reference_type = request.GET.get('reference_type', 'both')
+        
+        # Get field configurations
+        if reference_type == 'both':
+            field_configs = FieldConfiguration.objects.filter(is_enabled=True)
+        else:
+            field_configs = FieldConfiguration.objects.filter(
+                is_enabled=True
+            ).filter(
+                Q(reference_type=reference_type) | Q(reference_type='both')
+            )
+        
+        # Serialize field configurations
+        configs = []
+        for config in field_configs.order_by('display_order'):
+            configs.append({
+                'name': config.name,
+                'display_name': config.display_name,
+                'description': config.description,
+                'field_type': config.field_type,
+                'reference_type': config.reference_type,
+                'requirement_level': config.requirement_level,
+                'is_enabled': config.is_enabled,
+                'is_unique': config.is_unique,
+                'min_length': config.min_length,
+                'max_length': config.max_length,
+                'min_value': float(config.min_value) if config.min_value else None,
+                'max_value': float(config.max_value) if config.max_value else None,
+                'enum_options': config.enum_options,
+                'default_value': config.default_value,
+                'display_order': config.display_order,
+                'show_in_filters': config.show_in_filters,
+                'show_in_forms': config.show_in_forms,
+            })
+        
+        return Response({
+            'field_configurations': configs,
+            'reference_type': reference_type,
+            'total_count': len(configs)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting field configuration: {str(e)}")
+        return Response(
+            {"error": "Failed to get field configuration"}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def validate_file_with_dynamic_fields(request):
+    """Validate file data against dynamic field configurations"""
+    try:
+        file_type = request.data.get('file_type')  # 'vcdb' or 'products'
+        file_data = request.data.get('file_data')  # Array of objects
+        
+        if not file_type or not file_data:
+            return Response(
+                {"error": "file_type and file_data are required"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if file_type not in ['vcdb', 'products']:
+            return Response(
+                {"error": "file_type must be 'vcdb' or 'products'"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Convert file data to DataFrame
+        df = pd.DataFrame(file_data)
+        
+        if df.empty:
+            return Response({
+                'is_valid': False,
+                'errors': ['File is empty'],
+                'validation_summary': {}
+            })
+        
+        # Create dynamic validator
+        dynamic_validator = DynamicFieldValidator(file_type)
+        
+        # Validate the data
+        is_valid, errors = dynamic_validator.validate_dataframe(df)
+        validation_summary = dynamic_validator.get_validation_summary(df)
+        
+        return Response({
+            'is_valid': is_valid,
+            'errors': errors,
+            'validation_summary': validation_summary,
+            'file_type': file_type,
+            'total_records': len(df)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error validating file with dynamic fields: {str(e)}")
+        return Response(
+            {"error": f"Validation failed: {str(e)}"}, 
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 

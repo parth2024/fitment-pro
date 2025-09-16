@@ -74,7 +74,7 @@ class AIFitmentResultSerializer(serializers.ModelSerializer):
         model = AIFitmentResult
         fields = [
             'id', 'part_id', 'part_description', 'year', 'make', 'model', 'submodel',
-            'drive_type', 'position', 'quantity', 'confidence', 'ai_reasoning',
+            'drive_type', 'position', 'quantity', 'confidence', 'confidence_explanation', 'ai_reasoning',
             'is_selected', 'is_applied', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']

@@ -135,7 +135,8 @@ Generate 15-20 fitments. Return ONLY JSON array:
     "position": "Front",
     "quantity": 4,
     "confidence": 0.85,
-    "ai_reasoning": "Compatible wheel for this vehicle"
+    "ai_reasoning": "Compatible wheel for this vehicle",
+    "confidence_explanation": "High confidence due to exact vehicle match and standard wheel specifications"
   }}
 ]"""
         
@@ -241,19 +242,30 @@ Generate 15-20 fitments. Return ONLY JSON array:
             for j, vehicle in enumerate(vcdb_data[:8]):  # Limit for demo
                 # Calculate confidence based on various factors
                 base_confidence = 0.6
+                confidence_factors = []
                 
                 # Increase confidence for common makes/models
                 make = vehicle.get("make", "").lower()
                 if make in ["toyota", "honda", "ford", "chevrolet", "nissan"]:
                     base_confidence += 0.1
+                    confidence_factors.append("Popular vehicle make with extensive compatibility data")
                 
                 # Increase confidence for recent years
                 year = vehicle.get("year", 2020)
                 if year >= 2015:
                     base_confidence += 0.1
+                    confidence_factors.append("Recent model year with updated specifications")
                 
                 # Add some randomness but keep it realistic
                 confidence = min(0.95, base_confidence + (i * j * 0.005) % 0.2)
+                
+                # Generate confidence explanation
+                if confidence >= 0.8:
+                    confidence_explanation = "High confidence: " + "; ".join(confidence_factors) if confidence_factors else "Strong compatibility match based on standard specifications"
+                elif confidence >= 0.6:
+                    confidence_explanation = "Medium confidence: " + "; ".join(confidence_factors) if confidence_factors else "Moderate compatibility based on general specifications"
+                else:
+                    confidence_explanation = "Lower confidence: Limited compatibility data available"
                 
                 fitment = {
                     "partId": product_id,
@@ -266,7 +278,8 @@ Generate 15-20 fitments. Return ONLY JSON array:
                     "position": position,
                     "quantity": quantity,
                     "confidence": confidence,
-                    "ai_reasoning": f"Rule-based compatibility: {product.get('description', 'product')} is compatible with {year} {vehicle.get('make', 'Unknown')} {vehicle.get('model', 'Unknown')} based on automotive standards and part specifications."
+                    "ai_reasoning": f"Rule-based compatibility: {product.get('description', 'product')} is compatible with {year} {vehicle.get('make', 'Unknown')} {vehicle.get('model', 'Unknown')} based on automotive standards and part specifications.",
+                    "confidence_explanation": confidence_explanation
                 }
                 fitments.append(fitment)
         
