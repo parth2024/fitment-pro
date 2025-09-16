@@ -94,7 +94,7 @@ DATABASES = {
         'NAME': "fitmentpro_db",
         'USER': "fitmentpro_user",
         'PASSWORD': "fitmentpro_pass",
-        'HOST': "localhost",
+        'HOST': "ec2-65-0-133-50.ap-south-1.compute.amazonaws.com",
         'PORT': "5432",
     }
 }
