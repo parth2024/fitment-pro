@@ -47,7 +47,6 @@ INSTALLED_APPS = [
     'tenants',
     'workflow',
     'vcdb',
-    'parts',
     'fitments',
     'fitment_uploads',
     'data_uploads',
@@ -95,7 +94,7 @@ DATABASES = {
         'NAME': "fitmentpro_db",
         'USER': "fitmentpro_user",
         'PASSWORD': "fitmentpro_pass",
-        'HOST': "ec2-65-0-133-50.ap-south-1.compute.amazonaws.com",
+        'HOST': "localhost",
         'PORT': "5432",
     }
 }
