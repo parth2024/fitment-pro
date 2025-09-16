@@ -240,6 +240,118 @@ export const presetsService = {
   ) => apiClient.patch(`/api/presets/${id}`, body),
 };
 
+// Field Configuration Types
+export interface FieldConfiguration {
+  id: number;
+  name: string;
+  display_name: string;
+  description: string;
+  field_type: string;
+  reference_type: "vcdb" | "product" | "both";
+  requirement_level: "required" | "optional" | "disabled";
+  is_enabled: boolean;
+  is_unique: boolean;
+  min_length?: number;
+  max_length?: number;
+  min_value?: number;
+  max_value?: number;
+  enum_options: string[];
+  default_value: string;
+  display_order: number;
+  show_in_filters: boolean;
+  show_in_forms: boolean;
+  validation_rules: any;
+  created_at: string;
+  updated_at: string;
+  created_by?: string;
+  updated_by?: string;
+}
+
+export interface ValidationResult {
+  is_valid: boolean;
+  errors: Record<string, string[]>;
+}
+
+// Field Configuration Service
+export const fieldConfigService = {
+  // Get all field configurations with optional filtering
+  getFields: (params?: {
+    reference_type?: "vcdb" | "product" | "both";
+    requirement_level?: "required" | "optional" | "disabled";
+    is_enabled?: boolean;
+    field_type?: string;
+    search?: string;
+    ordering?: string;
+  }) => apiClient.get("/api/field-config/fields/", { params }),
+
+  // Get specific field configuration
+  getField: (id: number) => apiClient.get(`/api/field-config/fields/${id}/`),
+
+  // Create new field configuration
+  createField: (fieldData: any) =>
+    apiClient.post("/api/field-config/fields/", fieldData),
+
+  // Update field configuration
+  updateField: (id: number, fieldData: any) =>
+    apiClient.put(`/api/field-config/fields/${id}/`, fieldData),
+
+  // Delete field configuration
+  deleteField: (id: number) =>
+    apiClient.delete(`/api/field-config/fields/${id}/`),
+
+  // Toggle field enabled status
+  toggleField: (id: number) =>
+    apiClient.post(`/api/field-config/fields/${id}/toggle_enabled/`),
+
+  // Get form fields for specific reference type
+  getFormFields: async (
+    referenceType: "vcdb" | "product"
+  ): Promise<FieldConfiguration[]> => {
+    const response = await apiClient.get(
+      `/api/field-config/form-fields/?reference_type=${referenceType}`
+    );
+    return response.data;
+  },
+
+  // Get filter fields for specific reference type
+  getFilterFields: async (
+    referenceType: "vcdb" | "product"
+  ): Promise<FieldConfiguration[]> => {
+    const response = await apiClient.get(
+      `/api/field-config/filter-fields/?reference_type=${referenceType}`
+    );
+    return response.data;
+  },
+
+  // Validate field data
+  validateFieldData: async (
+    referenceType: "vcdb" | "product",
+    data: Record<string, any>
+  ): Promise<ValidationResult> => {
+    const response = await apiClient.post("/api/field-config/validate-data/", {
+      reference_type: referenceType,
+      data,
+    });
+    return response.data;
+  },
+
+  // Get validation rules
+  getValidationRules: async (
+    referenceType: "vcdb" | "product"
+  ): Promise<Record<string, any>> => {
+    const response = await apiClient.get(
+      `/api/field-config/validation-rules/?reference_type=${referenceType}`
+    );
+    return response.data;
+  },
+
+  // Get field configuration history
+  getFieldHistory: (fieldConfigId?: number) => {
+    const params = fieldConfigId ? { field_config_id: fieldConfigId } : {};
+    return apiClient.get("/api/field-config/history/", { params });
+  },
+};
+
 // New fitment upload services (Django endpoints)
 export const fitmentUploadService = {
   uploadFiles: (vcdbFile: File, productsFile: File) => {
@@ -456,4 +568,22 @@ export const dataUploadService = {
     description?: string;
     quantity?: number;
   }) => apiClient.post("/api/fitments/apply-potential-fitments/", data),
+};
+
+// Export all services as a single object
+export const services = {
+  diagnostics: diagnosticsService,
+  vcdb: vcdbService,
+  parts: partsService,
+  fitment: fitmentsService,
+  potential: potentialService,
+  admin: adminService,
+  uploads: uploadsService,
+  review: reviewService,
+  presets: presetsService,
+  fieldConfig: fieldConfigService,
+  fitmentUpload: fitmentUploadService,
+  enhancedFitments: enhancedFitmentsService,
+  djangoFitments: djangoFitmentsService,
+  dataUpload: dataUploadService,
 };

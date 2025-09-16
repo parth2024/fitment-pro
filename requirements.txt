@@ -64,3 +64,4 @@ python-dotenv
 whitenoise
 azure-storage-blob
 chardet
+django_filters

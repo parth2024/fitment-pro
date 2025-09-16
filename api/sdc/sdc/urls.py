@@ -78,4 +78,6 @@ urlpatterns = [
     # path('api/', include('fitment_uploads.urls')),
     # Data Uploads
     path('api/data-uploads/', include('data_uploads.urls')),
+    # Field Configuration
+    path('api/field-config/', include('field_config.urls')),
 ]

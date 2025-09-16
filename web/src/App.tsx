@@ -24,6 +24,7 @@ import {
   IconBulb,
   IconAlertTriangle,
   IconUpload,
+  IconSettings,
 } from "@tabler/icons-react";
 import { useState, useEffect } from "react";
 import Analytics from "./pages/Analytics";
@@ -40,6 +41,7 @@ import ReviewPublish from "./pages/ReviewPublish";
 import UploadData from "./pages/UploadData";
 import ManualFitment from "./pages/ManualFitment";
 import AIFitment from "./pages/AIFitment";
+import Settings from "./pages/Settings";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./contexts/AuthContext";
 import { useProfessionalToast } from "./hooks/useProfessionalToast";
@@ -102,6 +104,12 @@ const navigationItems = [
     value: "potential",
     icon: IconBulb,
     color: "yellow",
+  },
+  {
+    label: "Settings",
+    value: "settings",
+    icon: IconSettings,
+    color: "gray",
   },
   // { label: "Admin Panel", value: "admin", icon: IconSettings, color: "red" },
 ];
@@ -184,6 +192,8 @@ function App() {
         return <Admin />;
       case "mismatches":
         return <Mismatches />;
+      case "settings":
+        return <Settings />;
       default:
         return <Analytics />;
     }

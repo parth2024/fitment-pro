@@ -85,21 +85,7 @@ export default function ApplyFitments() {
       if (dropdownResult && dropdownResult.data) {
         setDropdownData(dropdownResult.data);
 
-        // Set available columns based on VCDB data structure
-        const vcdbColumns = [
-          "year",
-          "make",
-          "model",
-          "submodel",
-          "fuelType",
-          "bodyType",
-          "driveType",
-          "numDoors",
-          "engineType",
-          "transmission",
-          "trimLevel",
-        ];
-        setAvailableColumns(vcdbColumns);
+        // setAvailableColumns(vcdbColumns);
       } else {
         showError("Failed to load vehicle and product data");
       }
@@ -171,18 +157,18 @@ export default function ApplyFitments() {
   const [lookupData, setLookupData] = useState<any>(null);
   const [applyingManualFitment, setApplyingManualFitment] = useState(false);
 
-  // Configurable columns state
-  const [showColumnConfig, setShowColumnConfig] = useState(false);
-  const [availableColumns, setAvailableColumns] = useState<string[]>([]);
-  const [selectedColumns, setSelectedColumns] = useState<string[]>([
-    "year",
-    "make",
-    "model",
-    "submodel",
-    "fuelType",
-    "bodyType",
-    "driveType",
-  ]);
+  // Configurable columns state (commented out for now)
+  // const [showColumnConfig, setShowColumnConfig] = useState(false);
+  // const [availableColumns, setAvailableColumns] = useState<string[]>([]);
+  // const [selectedColumns, setSelectedColumns] = useState<string[]>([
+  //   "year",
+  //   "make",
+  //   "model",
+  //   "submodel",
+  //   "fuelType",
+  //   "bodyType",
+  //   "driveType",
+  // ]);
 
   // API hooks
   const { execute: fetchDropdownData } = useAsyncOperation();
@@ -1006,16 +992,16 @@ export default function ApplyFitments() {
                                   setManualStep(1);
 
                                   // Reset column configuration
-                                  setShowColumnConfig(false);
-                                  setSelectedColumns([
-                                    "year",
-                                    "make",
-                                    "model",
-                                    "submodel",
-                                    "fuelType",
-                                    "bodyType",
-                                    "driveType",
-                                  ]);
+                                  // setShowColumnConfig(false);
+                                  // setSelectedColumns([
+                                  //   "year",
+                                  //   "make",
+                                  //   "model",
+                                  //   "submodel",
+                                  //   "fuelType",
+                                  //   "bodyType",
+                                  //   "driveType",
+                                  // ]);
 
                                   // Force form re-render
                                   setFormKey((prev) => prev + 1);
@@ -1759,81 +1745,6 @@ export default function ApplyFitments() {
                                   ))}
                                 </SimpleGrid>
                               </div>
-                            </div>
-
-                            {/* Configurable Columns Section */}
-                            <div>
-                              <Group
-                                justify="space-between"
-                                align="center"
-                                mb="md"
-                              >
-                                <div>
-                                  <Title order={4} c="#1e293b" fw={600} mb="xs">
-                                    Configurable Columns
-                                  </Title>
-                                  <Text size="sm" c="#64748b">
-                                    Select which vehicle attributes to include
-                                    in the fitment
-                                  </Text>
-                                </div>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() =>
-                                    setShowColumnConfig(!showColumnConfig)
-                                  }
-                                  leftSection={<IconSettings size={16} />}
-                                >
-                                  {showColumnConfig ? "Hide" : "Configure"}
-                                </Button>
-                              </Group>
-
-                              {showColumnConfig && (
-                                <Card
-                                  withBorder
-                                  p="md"
-                                  style={{
-                                    backgroundColor: "#f8fafc",
-                                    border: "1px solid #e2e8f0",
-                                  }}
-                                >
-                                  <Stack gap="sm">
-                                    <Text size="sm" fw={500} c="#374151">
-                                      Select columns to display:
-                                    </Text>
-                                    <SimpleGrid cols={4} spacing="sm">
-                                      {availableColumns.map((column) => (
-                                        <Checkbox
-                                          key={column}
-                                          label={
-                                            column.charAt(0).toUpperCase() +
-                                            column.slice(1)
-                                          }
-                                          checked={selectedColumns.includes(
-                                            column
-                                          )}
-                                          onChange={(event) => {
-                                            if (event.currentTarget.checked) {
-                                              setSelectedColumns((prev) => [
-                                                ...prev,
-                                                column,
-                                              ]);
-                                            } else {
-                                              setSelectedColumns((prev) =>
-                                                prev.filter(
-                                                  (col) => col !== column
-                                                )
-                                              );
-                                            }
-                                          }}
-                                          size="sm"
-                                        />
-                                      ))}
-                                    </SimpleGrid>
-                                  </Stack>
-                                </Card>
-                              )}
                             </div>
 
                             <Group justify="space-between" mt="xl">

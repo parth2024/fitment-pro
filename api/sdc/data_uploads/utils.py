@@ -3,6 +3,7 @@ import json
 import logging
 from typing import List, Dict, Any, Tuple
 from django.core.exceptions import ValidationError
+from field_config.utils import FieldValidator, validate_vcdb_data, validate_product_data
 
 logger = logging.getLogger(__name__)
 
@@ -93,15 +94,16 @@ class FileParser:
 
 
 class VCDBValidator:
-    """Validator for VCDB data"""
+    """Validator for VCDB data with dynamic field configuration"""
     
-    REQUIRED_FIELDS = ['year', 'make', 'model']
-    OPTIONAL_FIELDS = ['submodel', 'driveType', 'fuelType', 'numDoors', 'bodyType']
+    # Default required fields (fallback if no field configuration)
+    DEFAULT_REQUIRED_FIELDS = ['year', 'make', 'model']
+    DEFAULT_OPTIONAL_FIELDS = ['submodel', 'driveType', 'fuelType', 'numDoors', 'bodyType']
     
     @classmethod
     def validate_data(cls, df: pd.DataFrame) -> Tuple[bool, List[str]]:
         """
-        Validate VCDB data structure
+        Validate VCDB data structure using field configuration
         
         Args:
             df: DataFrame containing VCDB data
@@ -116,11 +118,76 @@ class VCDBValidator:
             errors.append("VCDB data is empty")
             return False, errors
         
+        try:
+            # Use field configuration for validation
+            validator = FieldValidator('vcdb')
+            required_fields = validator.get_required_fields()
+            
+            # Fallback to default if no field configuration
+            if not required_fields:
+                required_fields = cls.DEFAULT_REQUIRED_FIELDS
+            
+            # Check required columns (case-insensitive)
+            df_columns_lower = [col.lower() for col in df.columns]
+            missing_required = []
+            
+            for field in required_fields:
+                if field.lower() not in df_columns_lower:
+                    missing_required.append(field)
+            
+            if missing_required:
+                errors.append(f"Missing required columns: {', '.join(missing_required)}")
+            
+            # Validate each row using field configuration
+            for index, row in df.iterrows():
+                row_data = row.to_dict()
+                is_valid, field_errors = validator.validate_data(row_data)
+                
+                if not is_valid:
+                    for field_name, field_error_list in field_errors.items():
+                        for error in field_error_list:
+                            errors.append(f"Row {index + 1}: {error}")
+                
+                # Additional basic validations for core fields
+                cls._validate_core_fields(row, index + 1, errors)
+            
+        except Exception as e:
+            logger.error(f"Error in field configuration validation: {str(e)}")
+            # Fallback to basic validation
+            errors.append("Field configuration validation failed, using basic validation")
+            return cls._basic_validation(df)
+        
+        return len(errors) == 0, errors
+    
+    @classmethod
+    def _validate_core_fields(cls, row: pd.Series, row_num: int, errors: List[str]) -> None:
+        """Validate core VCDB fields with basic rules"""
+        # Check year
+        if 'year' in row.index:
+            try:
+                year_val = row['year']
+                if pd.isna(year_val) or not isinstance(year_val, (int, float)) or year_val < 1900 or year_val > 2030:
+                    errors.append(f"Row {row_num}: Invalid year value: {year_val}")
+            except:
+                errors.append(f"Row {row_num}: Invalid year value: {row.get('year')}")
+        
+        # Check make and model
+        for field in ['make', 'model']:
+            if field in row.index:
+                val = row.get(field)
+                if pd.isna(val) or not isinstance(val, str) or len(str(val).strip()) == 0:
+                    errors.append(f"Row {row_num}: Invalid {field} value: {val}")
+    
+    @classmethod
+    def _basic_validation(cls, df: pd.DataFrame) -> Tuple[bool, List[str]]:
+        """Basic validation fallback when field configuration is not available"""
+        errors = []
+        
         # Check required columns (case-insensitive)
         df_columns_lower = [col.lower() for col in df.columns]
         missing_required = []
         
-        for field in cls.REQUIRED_FIELDS:
+        for field in cls.DEFAULT_REQUIRED_FIELDS:
             if field.lower() not in df_columns_lower:
                 missing_required.append(field)
         
@@ -129,21 +196,7 @@ class VCDBValidator:
         
         # Validate data types and values
         for _, row in df.iterrows():
-            # Check year
-            if 'year' in df.columns:
-                try:
-                    year_val = row['year']
-                    if pd.isna(year_val) or not isinstance(year_val, (int, float)) or year_val < 1900 or year_val > 2030:
-                        errors.append(f"Invalid year value: {year_val}")
-                except:
-                    errors.append(f"Invalid year value: {row.get('year')}")
-            
-            # Check make and model
-            for field in ['make', 'model']:
-                if field in df.columns:
-                    val = row.get(field)
-                    if pd.isna(val) or not isinstance(val, str) or len(str(val).strip()) == 0:
-                        errors.append(f"Invalid {field} value: {val}")
+            cls._validate_core_fields(row, 0, errors)  # Row number not critical for basic validation
         
         return len(errors) == 0, errors
     
@@ -204,15 +257,16 @@ class VCDBValidator:
 
 
 class ProductValidator:
-    """Validator for Product data"""
+    """Validator for Product data with dynamic field configuration"""
     
-    REQUIRED_FIELDS = ['id', 'description']
-    OPTIONAL_FIELDS = ['category', 'partType', 'compatibility', 'specifications']
+    # Default required fields (fallback if no field configuration)
+    DEFAULT_REQUIRED_FIELDS = ['id', 'description']
+    DEFAULT_OPTIONAL_FIELDS = ['category', 'partType', 'compatibility', 'specifications']
     
     @classmethod
     def validate_data(cls, df: pd.DataFrame) -> Tuple[bool, List[str]]:
         """
-        Validate Product data structure
+        Validate Product data structure using field configuration
         
         Args:
             df: DataFrame containing Product data
@@ -227,11 +281,72 @@ class ProductValidator:
             errors.append("Product data is empty")
             return False, errors
         
+        try:
+            # Use field configuration for validation
+            validator = FieldValidator('product')
+            required_fields = validator.get_required_fields()
+            
+            # Fallback to default if no field configuration
+            if not required_fields:
+                required_fields = cls.DEFAULT_REQUIRED_FIELDS
+            
+            # Check required columns (case-insensitive)
+            df_columns_lower = [col.lower() for col in df.columns]
+            missing_required = []
+            
+            for field in required_fields:
+                if field.lower() not in df_columns_lower:
+                    missing_required.append(field)
+            
+            if missing_required:
+                errors.append(f"Missing required columns: {', '.join(missing_required)}")
+            
+            # Validate each row using field configuration
+            for index, row in df.iterrows():
+                row_data = row.to_dict()
+                is_valid, field_errors = validator.validate_data(row_data)
+                
+                if not is_valid:
+                    for field_name, field_error_list in field_errors.items():
+                        for error in field_error_list:
+                            errors.append(f"Row {index + 1}: {error}")
+                
+                # Additional basic validations for core fields
+                cls._validate_core_fields(row, index + 1, errors)
+            
+        except Exception as e:
+            logger.error(f"Error in field configuration validation: {str(e)}")
+            # Fallback to basic validation
+            errors.append("Field configuration validation failed, using basic validation")
+            return cls._basic_validation(df)
+        
+        return len(errors) == 0, errors
+    
+    @classmethod
+    def _validate_core_fields(cls, row: pd.Series, row_num: int, errors: List[str]) -> None:
+        """Validate core Product fields with basic rules"""
+        # Check id
+        if 'id' in row.index:
+            val = row.get('id')
+            if pd.isna(val) or not isinstance(val, str) or len(str(val).strip()) == 0:
+                errors.append(f"Row {row_num}: Invalid id value: {val}")
+        
+        # Check description
+        if 'description' in row.index:
+            val = row.get('description')
+            if pd.isna(val) or not isinstance(val, str) or len(str(val).strip()) == 0:
+                errors.append(f"Row {row_num}: Invalid description value: {val}")
+    
+    @classmethod
+    def _basic_validation(cls, df: pd.DataFrame) -> Tuple[bool, List[str]]:
+        """Basic validation fallback when field configuration is not available"""
+        errors = []
+        
         # Check required columns (case-insensitive)
         df_columns_lower = [col.lower() for col in df.columns]
         missing_required = []
         
-        for field in cls.REQUIRED_FIELDS:
+        for field in cls.DEFAULT_REQUIRED_FIELDS:
             if field.lower() not in df_columns_lower:
                 missing_required.append(field)
         
@@ -240,17 +355,7 @@ class ProductValidator:
         
         # Validate data types and values
         for _, row in df.iterrows():
-            # Check id
-            if 'id' in df.columns:
-                val = row.get('id')
-                if pd.isna(val) or not isinstance(val, str) or len(str(val).strip()) == 0:
-                    errors.append(f"Invalid id value: {val}")
-            
-            # Check description
-            if 'description' in df.columns:
-                val = row.get('description')
-                if pd.isna(val) or not isinstance(val, str) or len(str(val).strip()) == 0:
-                    errors.append(f"Invalid description value: {val}")
+            cls._validate_core_fields(row, 0, errors)  # Row number not critical for basic validation
         
         return len(errors) == 0, errors
     
