@@ -55,3 +55,12 @@ numpy
 # AI/ML dependencies for Potential Fitments
 scikit-learn>=1.0
 numpy>=1.21
+dj-database-url
+django
+django-cors-headers
+djangorestframework
+psycopg2-binary
+python-dotenv
+whitenoise
+azure-storage-blob
+chardet

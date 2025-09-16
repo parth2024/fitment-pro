@@ -18,7 +18,6 @@ from django.contrib import admin
 from django.urls import path, include
 from tenants.views import TenantListCreateView
 from vcdb.views import version, year_range, configurations
-from parts.views import list_parts, list_part_types
 from fitments.views import export_fitments_advanced_csv, export_fitments_advanced_xlsx, fitments_root, coverage, property_values, validate, submit, export_csv, coverage_export, export_ai_fitments, ai_fitments_list, applied_fitments_list, fitment_filter_options, fitment_detail, update_fitment, delete_fitment, validate_fitments_csv, submit_validated_fitments, get_validation_results, detailed_coverage, coverage_trends, coverage_gaps, get_potential_fitments, get_parts_with_fitments, apply_potential_fitments, analytics_dashboard
 from workflow.views import uploads as wf_uploads, ai_map, vcdb_validate, review_queue, review_actions, publish, presets as wf_presets, preset_detail, ai_fitments, apply_fitments_batch
 
@@ -30,8 +29,6 @@ urlpatterns = [
     path('api/vcdb/version', version),
     path('api/vcdb/year-range', year_range),
     path('api/vcdb/configurations', configurations),
-    path('api/parts', list_parts),
-    path('api/parts/types', list_part_types),
     # Potential fitments endpoints (MFT V1)
     path('api/fitments/potential/<str:part_id>/', get_potential_fitments),
     path('api/fitments/parts-with-fitments/', get_parts_with_fitments),
