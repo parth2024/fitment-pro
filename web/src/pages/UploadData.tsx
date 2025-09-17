@@ -25,6 +25,7 @@ import {
   IconArrowRight,
   IconSettings,
 } from "@tabler/icons-react";
+import { useNavigate } from "react-router-dom";
 import { useProfessionalToast } from "../hooks/useProfessionalToast";
 import { dataUploadService } from "../api/services";
 import { useApi, useAsyncOperation } from "../hooks/useApi";
@@ -70,6 +71,7 @@ export default function UploadData() {
   const [dragCounter, setDragCounter] = useState(0);
 
   const { showSuccess, showError, showInfo } = useProfessionalToast();
+  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const vcdbDropRef = useRef<HTMLDivElement>(null);
   const productsDropRef = useRef<HTMLDivElement>(null);
@@ -88,10 +90,8 @@ export default function UploadData() {
   const { execute: uploadFiles } = useAsyncOperation();
 
   // Navigation helper function
-  const navigateToTab = (tabName: string) => {
-    window.dispatchEvent(
-      new CustomEvent("changeTab", { detail: { tab: tabName } })
-    );
+  const navigateToTab = (path: string) => {
+    navigate(path);
   };
 
   // Convert API sessions data to UploadedFile format
@@ -959,7 +959,7 @@ export default function UploadData() {
                   <Button
                     size="lg"
                     rightSection={<IconArrowRight size={20} />}
-                    onClick={() => navigateToTab("apply")}
+                    onClick={() => navigateToTab("/apply-fitments")}
                     disabled={!isReadyForFitment}
                     variant={isReadyForFitment ? "filled" : "light"}
                     color={isReadyForFitment ? "blue" : "gray"}

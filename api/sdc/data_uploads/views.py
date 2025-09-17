@@ -1361,7 +1361,7 @@ def get_field_configuration(request):
 def validate_file_with_dynamic_fields(request):
     """Validate file data against dynamic field configurations"""
     try:
-        file_type = request.data.get('file_type')  # 'vcdb' or 'products'
+        file_type = request.data.get('file_type')  # 'vcdb' or 'product'
         file_data = request.data.get('file_data')  # Array of objects
         
         if not file_type or not file_data:
@@ -1370,9 +1370,9 @@ def validate_file_with_dynamic_fields(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        if file_type not in ['vcdb', 'products']:
+        if file_type not in ['vcdb', 'product']:
             return Response(
-                {"error": "file_type must be 'vcdb' or 'products'"}, 
+                {"error": "file_type must be 'vcdb' or 'product'"}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         

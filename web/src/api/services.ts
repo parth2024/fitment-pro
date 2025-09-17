@@ -566,7 +566,7 @@ export const dataUploadService = {
 
   validateFileWithDynamicFields: (fileType: string, fileData: any[]) =>
     apiClient.post("/api/data-uploads/validate-dynamic-fields/", {
-      file_type: fileType,
+      file_type: fileType === "vcdb" ? "vcdb" : "product",
       file_data: fileData,
     }),
 

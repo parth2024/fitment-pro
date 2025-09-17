@@ -27,6 +27,7 @@ import {
   IconAlertTriangle,
   IconSettings,
 } from "@tabler/icons-react";
+import { useNavigate } from "react-router-dom";
 import api from "../api/client";
 
 interface AnalyticsData {
@@ -57,6 +58,7 @@ interface NavigationShortcut {
 const Analytics: React.FC = () => {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   const navigationShortcuts: NavigationShortcut[] = [
     {
@@ -64,56 +66,56 @@ const Analytics: React.FC = () => {
       description: "Upload and apply new fitments",
       icon: IconCar,
       color: "blue",
-      value: "apply",
+      value: "/apply-fitments",
     },
     {
       title: "Manage Fitments",
       description: "View and edit existing fitments",
       icon: IconTable,
       color: "green",
-      value: "fitments",
+      value: "/fitments",
     },
     {
       title: "Bulk Upload",
       description: "Upload multiple fitments at once",
       icon: IconUpload,
       color: "orange",
-      value: "bulk",
+      value: "/bulk-upload",
     },
     {
       title: "Upload & Map",
       description: "Map uploaded data to vehicles",
       icon: IconUpload,
       color: "purple",
-      value: "upload-data",
+      value: "/upload-data",
     },
     {
       title: "Mistmatches",
       description: "Find mistmatches between fitments and vehicles",
       icon: IconAlertTriangle,
       color: "red",
-      value: "mistmatches",
+      value: "/mismatches",
     },
     {
       title: "Potential Fitments",
       description: "AI-suggested fitment opportunities",
       icon: IconBulb,
       color: "yellow",
-      value: "potential",
+      value: "/potential-fitments",
     },
     {
       title: "Coverage Analytics",
       description: "Vehicle coverage analysis",
       icon: IconChartBar,
       color: "teal",
-      value: "coverage",
+      value: "/coverage",
     },
     {
       title: "Settings",
       description: "Configure field mappings and validation rules",
       icon: IconSettings,
       color: "gray",
-      value: "settings",
+      value: "/settings",
     },
   ];
 
@@ -153,11 +155,9 @@ const Analytics: React.FC = () => {
     fetchAnalyticsData();
   }, []);
 
-  const handleNavigationClick = (value: string) => {
-    // Emit custom event to change tab in parent App component
-    window.dispatchEvent(
-      new CustomEvent("changeTab", { detail: { tab: value } })
-    );
+  const handleNavigationClick = (path: string) => {
+    // Navigate to the specified route
+    navigate(path);
   };
 
   if (loading) {

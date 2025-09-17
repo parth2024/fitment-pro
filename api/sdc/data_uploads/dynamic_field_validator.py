@@ -27,12 +27,10 @@ class DynamicFieldValidator:
         """Load field configurations for the reference type"""
         configs = {}
         
-        # Get configurations for this reference type or 'both'
+        # Get configurations for this reference type only
         field_configs = FieldConfiguration.objects.filter(
-            is_enabled=True
-        ).filter(
-            models.Q(reference_type=self.reference_type) | 
-            models.Q(reference_type='both')
+            is_enabled=True,
+            reference_type=self.reference_type
         ).order_by('display_order')
         
         for config in field_configs:
