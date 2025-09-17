@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Card,
   Title,
@@ -101,6 +102,7 @@ interface ColumnFilters {
 }
 
 export default function Fitments() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFitments, setSelectedFitments] = useState<string[]>([]);
   const [expandedView, setExpandedView] = useState(false);
@@ -328,10 +330,7 @@ export default function Fitments() {
   };
 
   const handleEditFitment = (fitment: FlattenedAppliedFitment) => {
-    const event = new CustomEvent("editFitment", {
-      detail: { fitmentHash: fitment.hash },
-    });
-    window.dispatchEvent(event);
+    navigate(`/edit-fitment/${fitment.hash}`);
   };
 
   const handleDeleteFitment = (fitmentHash: string) => {

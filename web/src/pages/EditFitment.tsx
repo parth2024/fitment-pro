@@ -230,8 +230,6 @@ export default function EditFitment({ fitmentHash, onBack }: EditFitmentProps) {
 
   // Render dynamic field based on field configuration
   const renderDynamicField = (fieldConfig: FieldConfiguration) => {
-    const fieldName = fieldConfig.name;
-
     // Find the dynamic field data for this field config
     const dynamicFieldData = Object.values(formData.dynamicFields).find(
       (fieldData: any) => fieldData.field_config_id === fieldConfig.id

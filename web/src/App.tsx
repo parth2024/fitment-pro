@@ -26,7 +26,14 @@ import {
   IconUpload,
   IconSettings,
 } from "@tabler/icons-react";
-import { useState, useEffect } from "react";
+import {
+  Routes,
+  Route,
+  useLocation,
+  useNavigate,
+  useParams,
+  Link,
+} from "react-router-dom";
 import Analytics from "./pages/Analytics";
 import ApplyFitments from "./pages/ApplyFitments";
 import Fitments from "./pages/Fitments";
@@ -50,104 +57,96 @@ const navigationItems = [
   {
     label: "Analytics",
     value: "analytics",
+    path: "/",
     icon: IconDashboard,
     color: "blue",
   },
-
   {
     label: "Upload Data",
     value: "upload-data",
+    path: "/upload-data",
     icon: IconDatabase,
     color: "cyan",
   },
-  { label: "Apply Fitments", value: "apply", icon: IconCar, color: "green" },
-  { label: "Fitments", value: "fitments", icon: IconTable, color: "teal" },
-  { label: "Bulk Upload", value: "bulk", icon: IconUpload, color: "orange" },
-  // {
-  //   label: "Upload & Map",
-  //   value: "upload-map",
-  //   icon: IconUpload,
-  //   color: "purple",
-  // },
-  // {
-  //   label: "Manual Fitment",
-  //   value: "manual-fitment",
-  //   icon: IconFileText,
-  //   color: "indigo",
-  // },
-  // {
-  //   label: "AI Fitment",
-  //   value: "ai-fitment",
-  //   icon: IconBrain,
-  //   color: "violet",
-  // },
-  // {
-  //   label: "Review & Publish",
-  //   value: "review-publish",
-  //   icon: IconTable,
-  //   color: "pink",
-  // },
+  {
+    label: "Apply Fitments",
+    value: "apply",
+    path: "/apply-fitments",
+    icon: IconCar,
+    color: "green",
+  },
+  {
+    label: "Fitments",
+    value: "fitments",
+    path: "/fitments",
+    icon: IconTable,
+    color: "teal",
+  },
+  {
+    label: "Bulk Upload",
+    value: "bulk",
+    path: "/bulk-upload",
+    icon: IconUpload,
+    color: "orange",
+  },
   {
     label: "Mismatches(Beta)",
     value: "mismatches",
+    path: "/mismatches",
     icon: IconAlertTriangle,
     color: "red",
   },
   {
     label: "Coverage",
     value: "coverage",
+    path: "/coverage",
     icon: IconChartBar,
     color: "cyan",
   },
   {
     label: "Potential Fitments",
     value: "potential",
+    path: "/potential-fitments",
     icon: IconBulb,
     color: "yellow",
   },
   {
     label: "Settings",
     value: "settings",
+    path: "/settings",
     icon: IconSettings,
     color: "gray",
   },
-  // { label: "Admin Panel", value: "admin", icon: IconSettings, color: "red" },
 ];
 
 function App() {
-  const [activeTab, setActiveTab] = useState("analytics");
-  const [editFitmentHash, setEditFitmentHash] = useState<string | null>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { showSuccess } = useProfessionalToast();
 
-  // Get current page name for header
+  // Get current page name for header based on current route
   const getCurrentPageName = () => {
-    const currentNav = navigationItems.find((item) => item.value === activeTab);
-    return currentNav ? currentNav.label : "Dashboard";
+    const currentNav = navigationItems.find(
+      (item) => item.path === location.pathname
+    );
+    if (currentNav) return currentNav.label;
+
+    // Handle edit fitment route
+    if (location.pathname.startsWith("/edit-fitment/")) {
+      return "Edit Fitment";
+    }
+
+    return "Dashboard";
   };
 
-  // Add event listener for navigation changes from components
-  useEffect(() => {
-    const handleTabChange = (event: CustomEvent) => {
-      setActiveTab(event.detail.tab);
-    };
-
-    const handleEditFitment = (event: CustomEvent) => {
-      setEditFitmentHash(event.detail.fitmentHash);
-      setActiveTab("edit-fitment");
-    };
-
-    window.addEventListener("changeTab", handleTabChange as EventListener);
-    window.addEventListener("editFitment", handleEditFitment as EventListener);
-
-    return () => {
-      window.removeEventListener("changeTab", handleTabChange as EventListener);
-      window.removeEventListener(
-        "editFitment",
-        handleEditFitment as EventListener
-      );
-    };
-  }, []);
+  // Get current active tab based on route
+  const getCurrentActiveTab = () => {
+    const currentNav = navigationItems.find(
+      (item) => item.path === location.pathname
+    );
+    return currentNav ? currentNav.value : "analytics";
+  };
 
   // Handle sign out
   const handleSignOut = () => {
@@ -156,47 +155,40 @@ function App() {
   };
 
   const renderContent = () => {
-    switch (activeTab) {
-      case "analytics":
-        return <Analytics />;
-      case "apply":
-        return <ApplyFitments />;
-      case "fitments":
-        return <Fitments />;
-      case "edit-fitment":
-        return editFitmentHash ? (
-          <EditFitment
-            fitmentHash={editFitmentHash}
-            onBack={() => setActiveTab("fitments")}
-          />
-        ) : (
-          <Fitments />
-        );
-      case "bulk":
-        return <BulkUpload />;
-      case "upload-map":
-        return <UploadMap />;
-      case "upload-data":
-        return <UploadData />;
-      case "manual-fitment":
-        return <ManualFitment />;
-      case "ai-fitment":
-        return <AIFitment />;
-      case "review-publish":
-        return <ReviewPublish />;
-      case "coverage":
-        return <Coverage />;
-      case "potential":
-        return <PotentialFitments />;
-      case "admin":
-        return <Admin />;
-      case "mismatches":
-        return <Mismatches />;
-      case "settings":
-        return <Settings />;
-      default:
-        return <Analytics />;
-    }
+    return (
+      <Routes>
+        <Route path="/" element={<Analytics />} />
+        <Route path="/upload-data" element={<UploadData />} />
+        <Route path="/apply-fitments" element={<ApplyFitments />} />
+        <Route path="/fitments" element={<Fitments />} />
+        <Route
+          path="/edit-fitment/:fitmentHash"
+          element={<EditFitmentWrapper />}
+        />
+        <Route path="/bulk-upload" element={<BulkUpload />} />
+        <Route path="/upload-map" element={<UploadMap />} />
+        <Route path="/manual-fitment" element={<ManualFitment />} />
+        <Route path="/ai-fitment" element={<AIFitment />} />
+        <Route path="/review-publish" element={<ReviewPublish />} />
+        <Route path="/coverage" element={<Coverage />} />
+        <Route path="/potential-fitments" element={<PotentialFitments />} />
+        <Route path="/admin" element={<Admin />} />
+        <Route path="/mismatches" element={<Mismatches />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="*" element={<Analytics />} />
+      </Routes>
+    );
+  };
+
+  // Wrapper component for EditFitment to handle navigation
+  const EditFitmentWrapper = () => {
+    const { fitmentHash } = useParams<{ fitmentHash: string }>();
+    return (
+      <EditFitment
+        fitmentHash={fitmentHash || ""}
+        onBack={() => navigate("/fitments")}
+      />
+    );
   };
 
   return (
@@ -365,11 +357,13 @@ function App() {
           <Stack gap={0} style={{ padding: "16px" }}>
             {navigationItems.map((item) => {
               const Icon = item.icon;
-              const isActive = activeTab === item.value;
+              const isActive = getCurrentActiveTab() === item.value;
 
               return (
                 <NavLink
                   key={item.value}
+                  component={Link}
+                  to={item.path}
                   active={isActive}
                   label={item.label}
                   leftSection={
@@ -399,7 +393,6 @@ function App() {
                       </ThemeIcon>
                     ) : null
                   }
-                  onClick={() => setActiveTab(item.value)}
                   style={{
                     borderRadius: "12px",
                     marginBottom: "4px",
