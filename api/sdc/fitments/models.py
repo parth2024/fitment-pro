@@ -55,6 +55,13 @@ class Fitment(models.Model):
     updatedAt = models.DateTimeField(auto_now=True)
     updatedBy = models.CharField(max_length=64, default='system')
     
+    # Dynamic fields storage with field configuration references
+    dynamicFields = models.JSONField(
+        default=dict, 
+        blank=True, 
+        help_text="Dynamic fields with field configuration references: {field_config_id: {value: '...', field_name: '...', field_config_id: 123}}"
+    )
+    
     # Soft delete fields
     isDeleted = models.BooleanField(default=False)
     deletedAt = models.DateTimeField(null=True, blank=True)

@@ -359,6 +359,44 @@ def apply_fitments_batch(request):
     created = 0
     for it in items:
         try:
+            # Extract dynamic fields and map them to field configurations
+            from field_config.models import FieldConfiguration
+            
+            standard_fields = {
+                'partId', 'baseVehicleId', 'year', 'make', 'makeName', 'model', 'modelName', 
+                'submodel', 'subModelName', 'driveType', 'driveTypeName', 'fuelType', 'fuelTypeName',
+                'numDoors', 'bodyNumDoors', 'bodyType', 'bodyTypeName', 'partTypeId', 'ptid',
+                'partTypeDescriptor', 'quantity', 'title', 'description', 'notes', 'position',
+                'positionId', 'liftHeight', 'wheelType', 'fitmentType'
+            }
+            
+            # Store dynamic fields with field configuration references
+            dynamic_fields = {}
+            for key, value in it.items():
+                if key not in standard_fields and value is not None:
+                    # Try to find the field configuration for this field
+                    try:
+                        field_config = FieldConfiguration.objects.get(
+                            name=key,
+                            is_enabled=True
+                        )
+                        dynamic_fields[str(field_config.id)] = {
+                            'value': value,
+                            'field_name': key,
+                            'field_config_id': field_config.id,
+                            'field_config_name': field_config.name,
+                            'field_config_display_name': field_config.display_name
+                        }
+                    except FieldConfiguration.DoesNotExist:
+                        # If no field config found, store with field name as key (fallback)
+                        dynamic_fields[key] = {
+                            'value': value,
+                            'field_name': key,
+                            'field_config_id': None,
+                            'field_config_name': key,
+                            'field_config_display_name': key.replace('_', ' ').title()
+                        }
+            
             Fitment.objects.create(
                 hash=uuid.uuid4().hex,
                 partId=it.get('partId', ''),
@@ -385,6 +423,7 @@ def apply_fitments_batch(request):
                 liftHeight=it.get('liftHeight', ''),
                 wheelType=it.get('wheelType', ''),
                 fitmentType=it.get('fitmentType', 'manual_fitment'),
+                dynamicFields=dynamic_fields,  # Store dynamic fields
                 createdBy='api', updatedBy='api'
             )
             created += 1

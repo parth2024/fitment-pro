@@ -13,10 +13,21 @@ import {
   Grid,
   Divider,
   LoadingOverlay,
+  Tooltip,
+  Switch,
 } from "@mantine/core";
-import { IconArrowLeft, IconDeviceFloppy } from "@tabler/icons-react";
+import {
+  IconArrowLeft,
+  IconDeviceFloppy,
+  IconInfoCircle,
+} from "@tabler/icons-react";
 import { useApi } from "../hooks/useApi";
-import { fitmentsService, type FlattenedAppliedFitment } from "../api/services";
+import {
+  fitmentsService,
+  fieldConfigService,
+  type FlattenedAppliedFitment,
+  type FieldConfiguration,
+} from "../api/services";
 import { notifications } from "@mantine/notifications";
 
 interface FilterOptions {
@@ -56,6 +67,17 @@ export default function EditFitment({ fitmentHash, onBack }: EditFitmentProps) {
     []
   );
 
+  // Fetch field configurations for VCDB and Product
+  const { data: vcdbFieldConfigs } = useApi<FieldConfiguration[]>(
+    () => fieldConfigService.getFormFields("vcdb"),
+    []
+  );
+
+  const { data: productFieldConfigs } = useApi<FieldConfiguration[]>(
+    () => fieldConfigService.getFormFields("product"),
+    []
+  );
+
   const [formData, setFormData] = useState({
     partId: "",
     itemStatus: "",
@@ -77,6 +99,7 @@ export default function EditFitment({ fitmentHash, onBack }: EditFitmentProps) {
     bodyNumDoors: 4,
     positionId: 1,
     uom: "Set",
+    dynamicFields: {} as Record<string, any>,
   });
 
   // Update form data when fitment data is loaded
@@ -103,6 +126,7 @@ export default function EditFitment({ fitmentHash, onBack }: EditFitmentProps) {
         bodyNumDoors: fitmentData.bodyNumDoors || 4,
         positionId: fitmentData.positionId || 1,
         uom: fitmentData.uom || "Set",
+        dynamicFields: fitmentData.dynamicFields || {},
       });
     }
   }, [fitmentData]);
@@ -112,6 +136,233 @@ export default function EditFitment({ fitmentHash, onBack }: EditFitmentProps) {
       ...prev,
       [field]: value,
     }));
+  };
+
+  const handleDynamicFieldChange = (
+    fieldConfig: FieldConfiguration,
+    value: any
+  ) => {
+    setFormData((prev) => {
+      const newDynamicFields = { ...prev.dynamicFields };
+
+      // Find existing field data or create new
+      const existingKey = Object.keys(newDynamicFields).find((key) => {
+        const fieldData = newDynamicFields[key];
+        return fieldData.field_config_id === fieldConfig.id;
+      });
+
+      if (existingKey) {
+        // Update existing field
+        newDynamicFields[existingKey] = {
+          ...newDynamicFields[existingKey],
+          value: value,
+        };
+      } else {
+        // Create new field entry
+        newDynamicFields[String(fieldConfig.id)] = {
+          value: value,
+          field_name: fieldConfig.name,
+          field_config_id: fieldConfig.id,
+          field_config_name: fieldConfig.name,
+          field_config_display_name: fieldConfig.display_name,
+        };
+      }
+
+      return {
+        ...prev,
+        dynamicFields: newDynamicFields,
+      };
+    });
+  };
+
+  // Combine all field configurations
+  const allFieldConfigs = [
+    ...(vcdbFieldConfigs || []),
+    ...(productFieldConfigs || []),
+  ];
+
+  // Filter field configs that have values in dynamicFields (new structure with field config references)
+  const dynamicFieldConfigs = allFieldConfigs.filter((config) => {
+    // Check if this field config ID exists in dynamicFields
+    return Object.values(formData.dynamicFields).some(
+      (fieldData: any) => fieldData.field_config_id === config.id
+    );
+  });
+
+  // Debug logging
+  console.log("Debug - formData.dynamicFields:", formData.dynamicFields);
+  console.log("Debug - allFieldConfigs:", allFieldConfigs);
+  console.log("Debug - dynamicFieldConfigs:", dynamicFieldConfigs);
+
+  // Fallback: Create field configs for dynamic fields that don't have matching field configurations
+  const fallbackFieldConfigs = Object.values(formData.dynamicFields)
+    .filter((fieldData: any) => {
+      // Check if this field data doesn't have a matching field config
+      return !allFieldConfigs.some(
+        (config) => config.id === fieldData.field_config_id
+      );
+    })
+    .map((fieldData: any) => ({
+      id: fieldData.field_config_id,
+      name: fieldData.field_config_name,
+      display_name: fieldData.field_config_display_name,
+      description: "",
+      field_type: "string" as const,
+      reference_type: "both" as const,
+      requirement_level: "optional" as const,
+      is_enabled: true,
+      is_unique: false,
+      enum_options: [],
+      default_value: "",
+      display_order: 0,
+      show_in_filters: true,
+      show_in_forms: true,
+      validation_rules: {},
+      created_at: "",
+      updated_at: "",
+    }));
+
+  // Combine field configs with fallback configs
+  const allDynamicFieldConfigs = [
+    ...dynamicFieldConfigs,
+    ...fallbackFieldConfigs,
+  ];
+
+  // Render dynamic field based on field configuration
+  const renderDynamicField = (fieldConfig: FieldConfiguration) => {
+    const fieldName = fieldConfig.name;
+
+    // Find the dynamic field data for this field config
+    const dynamicFieldData = Object.values(formData.dynamicFields).find(
+      (fieldData: any) => fieldData.field_config_id === fieldConfig.id
+    ) as any;
+
+    const fieldValue =
+      dynamicFieldData?.value || fieldConfig.default_value || "";
+    const isRequired = fieldConfig.requirement_level === "required";
+    const isDisabled =
+      fieldConfig.requirement_level === "disabled" || !fieldConfig.is_enabled;
+
+    const commonProps = {
+      label: fieldConfig.display_name,
+      placeholder: `Enter ${fieldConfig.display_name.toLowerCase()}`,
+      value: fieldValue,
+      required: isRequired,
+      disabled: isDisabled,
+      description: fieldConfig.description,
+      styles: {
+        label: {
+          fontWeight: 600,
+          fontSize: "13px",
+          color: "#374151",
+          marginBottom: "6px",
+        },
+        input: {
+          borderRadius: "8px",
+          border: "1px solid #d1d5db",
+          fontSize: "14px",
+          height: "40px",
+          transition: "all 0.2s ease",
+          "&:focus": {
+            borderColor: "#3b82f6",
+            boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)",
+          },
+        },
+      },
+    };
+
+    const fieldElement = (() => {
+      switch (fieldConfig.field_type) {
+        case "string":
+        case "text":
+          return (
+            <TextInput
+              {...commonProps}
+              onChange={(event) =>
+                handleDynamicFieldChange(fieldConfig, event.currentTarget.value)
+              }
+              minLength={fieldConfig.min_length}
+              maxLength={fieldConfig.max_length}
+            />
+          );
+
+        case "number":
+        case "decimal":
+        case "integer":
+          return (
+            <NumberInput
+              {...commonProps}
+              onChange={(value) => handleDynamicFieldChange(fieldConfig, value)}
+              min={fieldConfig.min_value}
+              max={fieldConfig.max_value}
+              decimalScale={fieldConfig.field_type === "decimal" ? 2 : 0}
+            />
+          );
+
+        case "boolean":
+          return (
+            <Switch
+              label={fieldConfig.display_name}
+              checked={Boolean(fieldValue)}
+              onChange={(event) =>
+                handleDynamicFieldChange(
+                  fieldConfig,
+                  event.currentTarget.checked
+                )
+              }
+              disabled={isDisabled}
+              description={fieldConfig.description}
+            />
+          );
+
+        case "enum":
+          return (
+            <Select
+              {...commonProps}
+              onChange={(value) =>
+                handleDynamicFieldChange(fieldConfig, value || "")
+              }
+              data={fieldConfig.enum_options.map((option) => ({
+                value: option,
+                label: option,
+              }))}
+              searchable
+            />
+          );
+
+        case "date":
+          return (
+            <TextInput
+              {...commonProps}
+              type="date"
+              onChange={(event) =>
+                handleDynamicFieldChange(fieldConfig, event.currentTarget.value)
+              }
+            />
+          );
+
+        default:
+          return (
+            <TextInput
+              {...commonProps}
+              onChange={(event) =>
+                handleDynamicFieldChange(fieldConfig, event.currentTarget.value)
+              }
+            />
+          );
+      }
+    })();
+
+    // Wrap with tooltip if description exists
+    if (fieldConfig.description) {
+      return (
+        <Tooltip label={fieldConfig.description} position="top-start" multiline>
+          <div>{fieldElement}</div>
+        </Tooltip>
+      );
+    }
+
+    return fieldElement;
   };
 
   const handleSave = async () => {
@@ -945,6 +1196,28 @@ export default function EditFitment({ fitmentHash, onBack }: EditFitmentProps) {
                 }}
               />
             </Grid.Col>
+
+            {/* Dynamic Fields Section */}
+            {allDynamicFieldConfigs.length > 0 && (
+              <>
+                <Grid.Col span={12} mt="lg">
+                  <Group gap="sm" mb="md">
+                    <Text fw={600} size="lg">
+                      Dynamic Fields
+                    </Text>
+                    <Tooltip label="Fields configured based on VCDB and Product field configurations">
+                      <IconInfoCircle size={16} color="gray" />
+                    </Tooltip>
+                  </Group>
+                </Grid.Col>
+
+                {allDynamicFieldConfigs.map((fieldConfig) => (
+                  <Grid.Col key={fieldConfig.id} span={6}>
+                    {renderDynamicField(fieldConfig)}
+                  </Grid.Col>
+                ))}
+              </>
+            )}
           </Grid>
 
           <Divider />

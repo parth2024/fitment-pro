@@ -933,6 +933,7 @@ def fitment_detail(request, fitment_hash):
             'liftHeight': fitment.liftHeight,
             'wheelType': fitment.wheelType,
             'fitmentType': fitment.fitmentType,
+            'dynamicFields': fitment.dynamicFields or {},  # Include dynamic fields with field config references
             'createdAt': fitment.createdAt.isoformat(),
             'createdBy': fitment.createdBy,
             'updatedAt': fitment.updatedAt.isoformat(),
@@ -968,7 +969,7 @@ def update_fitment(request, fitment_hash):
             'subModelName', 'driveTypeName', 'fuelTypeName', 'bodyNumDoors', 
             'bodyTypeName', 'ptid', 'partTypeDescriptor', 'uom', 'quantity',
             'fitmentTitle', 'fitmentDescription', 'fitmentNotes', 'position',
-            'positionId', 'liftHeight', 'wheelType', 'fitmentType'
+            'positionId', 'liftHeight', 'wheelType', 'fitmentType', 'dynamicFields'
         ]
         
         for field in allowed_fields:
@@ -1024,7 +1025,8 @@ def fitment_filter_options(request):
             'yearRange': {
                 'min': Fitment.objects.aggregate(min_year=Min('year'))['min_year'] or 2000,
                 'max': Fitment.objects.aggregate(max_year=Max('year'))['max_year'] or 2030
-            }
+            },
+            'dynamicFields': list(Fitment.objects.values_list('dynamicFields').distinct().order_by('dynamicFields'))
         }
         
         return Response(options)

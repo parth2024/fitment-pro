@@ -93,6 +93,7 @@ export interface FlattenedAppliedFitment {
   backSpacing1?: string;
   backSpacing2?: string;
   backSpacing3?: string;
+  dynamicFields?: Record<string, any>;
   createdAt: string;
   createdBy: string;
   updatedAt: string;
@@ -395,9 +396,9 @@ export const fitmentUploadService = {
     }),
 
   // New direct AI fitment application (no session required)
-  applyDirectAiFitments: (fitmentIds: string[]) =>
+  applyDirectAiFitments: (fitmentsData: any[]) =>
     apiClient.post("/api/data-uploads/apply-ai-fitments-direct/", {
-      fitment_ids: fitmentIds,
+      fitments: fitmentsData,
     }),
 
   getSessionStatus: (sessionId: string) =>

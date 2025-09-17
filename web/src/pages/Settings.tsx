@@ -337,17 +337,64 @@ const Settings = () => {
         </Alert>
 
         {/* Main Configuration Interface */}
-        <Paper withBorder radius="md" p="lg">
+        <Paper withBorder radius="lg" p="md">
           <Tabs
             value={activeTab}
             onChange={(value) => setActiveTab(value || "vcdb")}
+            styles={{
+              list: {
+                borderBottom: "none",
+                gap: "var(--mantine-spacing-xs)",
+                marginBottom: "var(--mantine-spacing-xl)",
+              },
+              tab: {
+                border: "2px solid transparent",
+                borderRadius: "var(--mantine-radius-md)",
+                padding: "var(--mantine-spacing-md) var(--mantine-spacing-lg)",
+                fontWeight: 500,
+                fontSize: "var(--mantine-font-size-sm)",
+                transition: "all 0.2s ease",
+                "&[data-active]": {
+                  borderColor: "var(--mantine-color-blue-4)",
+                  backgroundColor: "var(--mantine-color-blue-0)",
+                  color: "var(--mantine-color-blue-7)",
+                  boxShadow: "0 2px 8px rgba(34, 139, 34, 0.1)",
+                },
+                "&:hover": {
+                  backgroundColor: "var(--mantine-color-gray-0)",
+                  borderColor: "var(--mantine-color-gray-3)",
+                },
+                "&[data-active]:hover": {
+                  backgroundColor: "var(--mantine-color-blue-1)",
+                  borderColor: "var(--mantine-color-blue-5)",
+                },
+              },
+              panel: {
+                paddingTop: 0,
+              },
+            }}
           >
             <Tabs.List>
               <Tabs.Tab
                 value="vcdb"
-                leftSection={<IconDatabase size={16} />}
+                leftSection={<IconDatabase size={18} />}
                 rightSection={
-                  <Badge size="xs" color="blue" variant="light">
+                  <Badge
+                    size="sm"
+                    color="blue"
+                    variant="light"
+                    radius="xl"
+                    styles={{
+                      root: {
+                        fontWeight: 600,
+                        minWidth: 24,
+                        height: 24,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      },
+                    }}
+                  >
                     {fieldCounts.vcdb.total}
                   </Badge>
                 }
@@ -356,9 +403,24 @@ const Settings = () => {
               </Tabs.Tab>
               <Tabs.Tab
                 value="product"
-                leftSection={<IconCar size={16} />}
+                leftSection={<IconCar size={18} />}
                 rightSection={
-                  <Badge size="xs" color="green" variant="light">
+                  <Badge
+                    size="sm"
+                    color="green"
+                    variant="light"
+                    radius="xl"
+                    styles={{
+                      root: {
+                        fontWeight: 600,
+                        minWidth: 24,
+                        height: 24,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      },
+                    }}
+                  >
                     {fieldCounts.product.total}
                   </Badge>
                 }

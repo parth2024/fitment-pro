@@ -877,11 +877,11 @@ def apply_ai_fitments(request):
 def apply_ai_fitments_direct(request):
     """Apply selected AI fitments directly without session requirement"""
     try:
-        fitment_ids = request.data.get('fitment_ids', [])
+        fitments_data = request.data.get('fitments', [])
         
-        if not fitment_ids:
+        if not fitments_data:
             return Response(
-                {'error': 'fitment_ids is required'}, 
+                {'error': 'fitments data is required'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -896,72 +896,58 @@ def apply_ai_fitments_direct(request):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # Get selected AI results
-        ai_results = AIFitmentResult.objects.filter(
-            session=latest_session,
-            id__in=fitment_ids
-        )
-        
-        if not ai_results.exists():
-            return Response(
-                {'error': 'No valid fitments found'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
         # Apply fitments
         applied_count = 0
-        for ai_result in ai_results:
+        for fitment_data in fitments_data:
             # Create AppliedFitment record
             applied_fitment = AppliedFitment.objects.create(
                 session=latest_session,
-                ai_result=ai_result,
-                part_id=ai_result.part_id,
-                part_description=ai_result.part_description,
-                year=ai_result.year,
-                make=ai_result.make,
-                model=ai_result.model,
-                submodel=ai_result.submodel,
-                drive_type=ai_result.drive_type,
-                position=ai_result.position or 'Universal',  # Provide default if null
-                quantity=ai_result.quantity,
+                ai_result=None,  # No AI result reference for direct application
+                part_id=fitment_data.get('part_id'),
+                part_description=fitment_data.get('part_description'),
+                year=fitment_data.get('year'),
+                make=fitment_data.get('make'),
+                model=fitment_data.get('model'),
+                submodel=fitment_data.get('submodel'),
+                drive_type=fitment_data.get('drive_type'),
+                position=fitment_data.get('position', 'Universal'),  # Provide default if null
+                quantity=fitment_data.get('quantity', 1),
                 title=f"AI Generated Fitment",
-                description=ai_result.ai_reasoning
+                description=fitment_data.get('ai_reasoning', '')
             )
             
             # Create Fitment record
             fitment = Fitment.objects.create(
                 hash=uuid.uuid4().hex,
-                partId=ai_result.part_id,
+                partId=fitment_data.get('part_id'),
                 itemStatus='Active',
                 itemStatusCode=0,
-                baseVehicleId=str(ai_result.id),  # Using AI result ID as base vehicle ID
-                year=ai_result.year,
-                makeName=ai_result.make,
-                modelName=ai_result.model,
-                subModelName=ai_result.submodel,
-                driveTypeName=ai_result.drive_type,
+                baseVehicleId=str(fitment_data.get('id', uuid.uuid4().hex)),  # Using fitment ID
+                year=fitment_data.get('year'),
+                makeName=fitment_data.get('make'),
+                modelName=fitment_data.get('model'),
+                subModelName=fitment_data.get('submodel'),
+                driveTypeName=fitment_data.get('drive_type'),
                 fuelTypeName='Gas',  # Default value
                 bodyNumDoors=4,  # Default value
                 bodyTypeName='Sedan',  # Default value
                 ptid='PT-22',  # Default part type ID
-                partTypeDescriptor=ai_result.part_description,
+                partTypeDescriptor=fitment_data.get('part_description'),
                 uom='EA',  # Each
-                quantity=ai_result.quantity,
-                fitmentTitle=f"AI Generated Fitment - {ai_result.part_id}",
-                fitmentDescription=ai_result.ai_reasoning,
-                fitmentNotes=f"Generated from AI fitment result ID: {ai_result.id}",
-                position=ai_result.position or 'Front',
+                quantity=fitment_data.get('quantity', 1),
+                fitmentTitle=f"AI Generated Fitment - {fitment_data.get('part_id')}",
+                fitmentDescription=fitment_data.get('ai_reasoning', ''),
+                fitmentNotes=f"Generated from AI fitment ID: {fitment_data.get('id')}",
+                position=fitment_data.get('position', 'Front'),
                 positionId=1,  # Default position ID
                 liftHeight='Stock',  # Default value
                 wheelType='Alloy',  # Default value
                 fitmentType='ai_fitment',  # Set as AI fitment type
                 createdBy='ai_system',
-                updatedBy='ai_system'
+                updatedBy='ai_system',
+                # Include dynamic fields
+                dynamicFields=fitment_data.get('dynamicFields', {})
             )
-            
-            # Mark AI result as applied
-            ai_result.is_applied = True
-            ai_result.save()
             
             applied_count += 1
         
