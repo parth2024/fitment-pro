@@ -32,6 +32,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
                   "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
               },
               duration: 4000,
+              // Enable close button
               // Prevent duplicate toasts
               id: undefined, // Let individual toasts handle their own IDs
               // Disable accessibility features that create extra divs

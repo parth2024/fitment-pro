@@ -62,17 +62,24 @@ const Analytics: React.FC = () => {
 
   const navigationShortcuts: NavigationShortcut[] = [
     {
+      title: "Upload Data",
+      description: "Map uploaded data to vehicles",
+      icon: IconDatabase,
+      color: "cyan",
+      value: "/upload-data",
+    },
+    {
       title: "Apply Fitments",
       description: "Upload and apply new fitments",
       icon: IconCar,
-      color: "blue",
+      color: "green",
       value: "/apply-fitments",
     },
     {
       title: "Manage Fitments",
       description: "View and edit existing fitments",
       icon: IconTable,
-      color: "green",
+      color: "teal",
       value: "/fitments",
     },
     {
@@ -82,13 +89,7 @@ const Analytics: React.FC = () => {
       color: "orange",
       value: "/bulk-upload",
     },
-    {
-      title: "Upload & Map",
-      description: "Map uploaded data to vehicles",
-      icon: IconUpload,
-      color: "purple",
-      value: "/upload-data",
-    },
+
     {
       title: "Mistmatches",
       description: "Find mistmatches between fitments and vehicles",
@@ -97,19 +98,20 @@ const Analytics: React.FC = () => {
       value: "/mismatches",
     },
     {
+      title: "Coverage Analytics",
+      description: "Vehicle coverage analysis",
+      icon: IconChartBar,
+      color: "cyan",
+      value: "/coverage",
+    },
+    {
       title: "Potential Fitments",
       description: "AI-suggested fitment opportunities",
       icon: IconBulb,
       color: "yellow",
       value: "/potential-fitments",
     },
-    {
-      title: "Coverage Analytics",
-      description: "Vehicle coverage analysis",
-      icon: IconChartBar,
-      color: "teal",
-      value: "/coverage",
-    },
+
     {
       title: "Settings",
       description: "Configure field mappings and validation rules",
@@ -158,6 +160,8 @@ const Analytics: React.FC = () => {
   const handleNavigationClick = (path: string) => {
     // Navigate to the specified route
     navigate(path);
+    // Scroll to top after navigation
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
   };
 
   if (loading) {
@@ -665,7 +669,7 @@ const Analytics: React.FC = () => {
                 )}
               </div>
               <Badge variant="light" color="blue" size="lg">
-                9 Modules
+                8 Modules
               </Badge>
             </Group>
 

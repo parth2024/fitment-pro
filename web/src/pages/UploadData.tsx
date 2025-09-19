@@ -135,6 +135,8 @@ export default function UploadData() {
     }
   }, [newDataStatus]);
 
+  // Clear validation results when component mounts
+
   // Check for existing files from API data
   const checkExistingFiles = () => {
     const sessions = sessionsData?.sessions || [];
@@ -228,50 +230,173 @@ export default function UploadData() {
     }
   };
 
+  const validateFileContent = async (file: File, type: "vcdb" | "products") => {
+    try {
+      const text = await file.text();
+      let fileData: any[] = [];
+
+      if (file.name.endsWith(".csv")) {
+        // Parse CSV
+        const lines = text.split("\n");
+        const headers = lines[0].split(",").map((h) => h.trim());
+        fileData = lines
+          .slice(1)
+          .map((line) => {
+            const values = line.split(",").map((v) => v.trim());
+            const obj: any = {};
+            headers.forEach((header, index) => {
+              obj[header] = values[index] || "";
+            });
+            return obj;
+          })
+          .filter((obj) => Object.values(obj).some((v) => v !== ""));
+      } else if (file.name.endsWith(".json")) {
+        // Parse JSON
+        fileData = JSON.parse(text);
+      }
+
+      if (fileData.length === 0) {
+        return {
+          isValid: false,
+          error: "File appears to be empty or invalid format",
+        };
+      }
+
+      // Check content structure based on type
+      const sampleRecord = fileData[0];
+      const keys = Object.keys(sampleRecord).map((k) => k.toLowerCase());
+
+      if (type === "vcdb") {
+        // VCDB should contain vehicle-related fields
+        const vcdbFields = [
+          "year",
+          "make",
+          "model",
+          "submodel",
+          "drivetype",
+          "fueltype",
+          "numdoors",
+          "bodytype",
+          "vehicle",
+          "car",
+          "auto",
+        ];
+        const hasVcdbFields = vcdbFields.some((field) =>
+          keys.some((key) => key.includes(field))
+        );
+
+        // Products should contain part-related fields
+        const productFields = [
+          "id",
+          "description",
+          "category",
+          "parttype",
+          "compatibility",
+          "specifications",
+          "part",
+          "product",
+        ];
+        const hasProductFields = productFields.some((field) =>
+          keys.some((key) => key.includes(field))
+        );
+
+        // For VCDB section: must have VCDB fields and should not have product fields
+        if (!hasVcdbFields) {
+          return {
+            isValid: false,
+            error:
+              "This file does not appear to contain vehicle data. VCDB files should contain fields like year, make, model, etc.",
+          };
+        }
+
+        if (hasProductFields && !hasVcdbFields) {
+          return {
+            isValid: false,
+            error:
+              "This appears to be a Products/Parts file. Please upload it to the Products Data section instead.",
+          };
+        }
+      } else if (type === "products") {
+        // Products should contain part-related fields
+        const productFields = [
+          "id",
+          "description",
+          "category",
+          "parttype",
+          "compatibility",
+          "specifications",
+          "part",
+          "product",
+        ];
+        const hasProductFields = productFields.some((field) =>
+          keys.some((key) => key.includes(field))
+        );
+
+        // VCDB should contain vehicle-related fields
+        const vcdbFields = [
+          "year",
+          "make",
+          "model",
+          "submodel",
+          "drivetype",
+          "fueltype",
+          "numdoors",
+          "bodytype",
+          "vehicle",
+          "car",
+          "auto",
+        ];
+        const hasVcdbFields = vcdbFields.some((field) =>
+          keys.some((key) => key.includes(field))
+        );
+
+        // For Products section: must have product fields and should not have VCDB fields
+        if (hasVcdbFields) {
+          return {
+            isValid: false,
+            error:
+              "This appears to be a VCDB/Vehicle file. Please upload it to the VCDB Data section instead.",
+          };
+        }
+
+        if (!hasProductFields) {
+          return {
+            isValid: false,
+            error:
+              "This file does not appear to contain product/parts data. Products files should contain fields like id, description, category, etc.",
+          };
+        }
+      }
+
+      return { isValid: true };
+    } catch (error) {
+      return { isValid: false, error: "Failed to read file content" };
+    }
+  };
+
   const handleFileSelect = async (
     file: File | null,
     type: "vcdb" | "products"
   ) => {
     if (!file) return;
 
-    // Check if file type is correct
-    const isVcdbFile =
-      file.name.toLowerCase().includes("vcdb") ||
-      file.name.toLowerCase().includes("vehicle") ||
-      file.type === "text/csv" ||
-      file.type === "application/json" ||
-      file.type === "application/vnd.ms-excel" ||
-      file.type ===
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
-      file.name.endsWith(".csv") ||
-      file.name.endsWith(".json") ||
-      file.name.endsWith(".xlsx") ||
-      file.name.endsWith(".xls");
+    // Check file extension first
+    const validExtensions = [".csv", ".json", ".xlsx", ".xls"];
+    const hasValidExtension = validExtensions.some((ext) =>
+      file.name.toLowerCase().endsWith(ext)
+    );
 
-    const isProductsFile =
-      file.name.toLowerCase().includes("product") ||
-      file.name.toLowerCase().includes("part") ||
-      file.type === "text/csv" ||
-      file.type === "application/json" ||
-      file.type === "application/vnd.ms-excel" ||
-      file.type ===
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
-      file.name.endsWith(".csv") ||
-      file.name.endsWith(".json") ||
-      file.name.endsWith(".xlsx") ||
-      file.name.endsWith(".xls");
-
-    if (type === "vcdb" && !isVcdbFile) {
+    if (!hasValidExtension) {
       showError(
-        "Please select a VCDB/Vehicle data file (CSV, XLSX, XLS, or JSON format)"
+        "Please select a file with a valid format (CSV, XLSX, XLS, or JSON)"
       );
       return;
     }
 
-    if (type === "products" && !isProductsFile) {
-      showError(
-        "Please select a Products/Parts data file (CSV, XLSX, XLS, or JSON format)"
-      );
+    // Validate file content structure
+    const contentValidation = await validateFileContent(file, type);
+    if (!contentValidation.isValid) {
+      showError(contentValidation.error || "Invalid file content");
       return;
     }
 
@@ -308,6 +433,7 @@ export default function UploadData() {
   };
 
   const handleUpload = async () => {
+    setValidationResults(null);
     if (!vcdbFile && !productsFile) {
       showError(
         "Please select at least one file (VCDB or Products) before uploading"
@@ -441,7 +567,7 @@ export default function UploadData() {
         <Stack gap="xl">
           {/* Header */}
           <div>
-            <Title order={2} style={{ marginBottom: "8px" }}>
+            <Title order={2} style={{ marginBottom: "4px" }}>
               Upload Data Files
             </Title>
             <Text c="dimmed" size="sm">
@@ -959,7 +1085,10 @@ export default function UploadData() {
                   <Button
                     size="lg"
                     rightSection={<IconArrowRight size={20} />}
-                    onClick={() => navigateToTab("/apply-fitments")}
+                    onClick={() => {
+                      navigateToTab("/apply-fitments");
+                      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+                    }}
                     disabled={!isReadyForFitment}
                     variant={isReadyForFitment ? "filled" : "light"}
                     color={isReadyForFitment ? "blue" : "gray"}
