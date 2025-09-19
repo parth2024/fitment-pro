@@ -409,7 +409,11 @@ export default function ApplyFitments() {
                                 <NumberInput
                                   label="Year To"
                                   placeholder="2025"
-                                  min={2010}
+                                  min={
+                                    vehicleFilters.yearFrom
+                                      ? parseInt(vehicleFilters.yearFrom) + 1
+                                      : 2010
+                                  }
                                   max={2025}
                                   value={vehicleFilters.yearTo}
                                   onChange={(value) =>
@@ -862,6 +866,32 @@ export default function ApplyFitments() {
                                     "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)";
                                 }}
                                 onClick={() => {
+                                  // Validate required fields
+                                  if (
+                                    !vehicleFilters.yearFrom ||
+                                    !vehicleFilters.yearTo
+                                  ) {
+                                    showError(
+                                      "Please select both 'Year From' and 'Year To' before searching for vehicles."
+                                    );
+                                    return;
+                                  }
+
+                                  // Validate year range
+                                  const yearFrom = parseInt(
+                                    vehicleFilters.yearFrom
+                                  );
+                                  const yearTo = parseInt(
+                                    vehicleFilters.yearTo
+                                  );
+
+                                  if (yearFrom >= yearTo) {
+                                    showError(
+                                      "Year To must be greater than Year From. Please select a valid year range."
+                                    );
+                                    return;
+                                  }
+
                                   // Search using uploaded vehicles instead of VCDB service
                                   if (
                                     !selectedSession ||
@@ -934,6 +964,13 @@ export default function ApplyFitments() {
                                       );
                                     }
                                   );
+
+                                  if (filtered.length === 0) {
+                                    showError(
+                                      "No vehicles found matching your criteria. Please adjust your search filters and try again."
+                                    );
+                                    return;
+                                  }
 
                                   setFilteredVehicles(filtered);
                                   setManualStep(2);

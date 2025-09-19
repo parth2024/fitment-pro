@@ -1292,12 +1292,26 @@ export default function ApplyFitments() {
                                   placeholder="Select year from"
                                   data={dropdownData?.years || []}
                                   value={vehicleFilters.yearFrom}
-                                  onChange={(value) =>
-                                    setVehicleFilters((prev) => ({
-                                      ...prev,
-                                      yearFrom: value || "",
-                                    }))
-                                  }
+                                  onChange={(value) => {
+                                    setVehicleFilters((prev) => {
+                                      const newYearFrom = value || "";
+                                      // Clear yearTo if it's not greater than the new yearFrom
+                                      let newYearTo = prev.yearTo;
+                                      if (
+                                        newYearFrom &&
+                                        prev.yearTo &&
+                                        parseInt(prev.yearTo) <=
+                                          parseInt(newYearFrom)
+                                      ) {
+                                        newYearTo = "";
+                                      }
+                                      return {
+                                        ...prev,
+                                        yearFrom: newYearFrom,
+                                        yearTo: newYearTo,
+                                      };
+                                    });
+                                  }}
                                   searchable
                                   disabled={loadingDropdownData}
                                   leftSection={
@@ -1337,7 +1351,20 @@ export default function ApplyFitments() {
                                 <Select
                                   label="Year To"
                                   placeholder="Select year to"
-                                  data={dropdownData?.years || []}
+                                  data={
+                                    dropdownData?.years
+                                      ? dropdownData.years.filter(
+                                          (year: string) => {
+                                            if (!vehicleFilters.yearFrom)
+                                              return true;
+                                            return (
+                                              parseInt(year) >
+                                              parseInt(vehicleFilters.yearFrom)
+                                            );
+                                          }
+                                        )
+                                      : []
+                                  }
                                   value={vehicleFilters.yearTo}
                                   onChange={(value) =>
                                     setVehicleFilters((prev) => ({
@@ -1917,6 +1944,32 @@ export default function ApplyFitments() {
                                     "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)";
                                 }}
                                 onClick={async () => {
+                                  // Validate required fields
+                                  if (
+                                    !vehicleFilters.yearFrom ||
+                                    !vehicleFilters.yearTo
+                                  ) {
+                                    showError(
+                                      "Please select both 'Year From' and 'Year To' before searching for vehicles."
+                                    );
+                                    return;
+                                  }
+
+                                  // Validate year range
+                                  const yearFrom = parseInt(
+                                    vehicleFilters.yearFrom
+                                  );
+                                  const yearTo = parseInt(
+                                    vehicleFilters.yearTo
+                                  );
+
+                                  if (yearFrom >= yearTo) {
+                                    showError(
+                                      "Year To must be greater than Year From. Please select a valid year range."
+                                    );
+                                    return;
+                                  }
+
                                   try {
                                     // Combine standard vehicle filters with dynamic VCDB fields
                                     const searchCriteria = {
@@ -1937,6 +1990,13 @@ export default function ApplyFitments() {
                                       result.data &&
                                       result.data.vehicles
                                     ) {
+                                      if (result.data.vehicles.length === 0) {
+                                        showError(
+                                          "No vehicles found matching your criteria. Please adjust your search filters and try again."
+                                        );
+                                        return;
+                                      }
+
                                       setFilteredVehicles(result.data.vehicles);
                                       setManualStep(2);
                                       showSuccess(
