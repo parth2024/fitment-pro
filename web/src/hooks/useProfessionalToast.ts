@@ -1,108 +1,117 @@
-import toast from "react-hot-toast";
-
-// Helper function to create unique toast IDs
-const createToastId = (type: string, message: string): string => {
-  return `${type}-${message
-    .replace(/\s+/g, "-")
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, "")}`;
-};
+import { toast } from "react-toastify";
 
 export const useProfessionalToast = () => {
   const showSuccess = (message: string, duration?: number) => {
-    const toastId = createToastId("success", message);
-
-    // Dismiss any existing toast with the same ID
-    toast.dismiss(toastId);
-
     return toast.success(message, {
-      id: toastId,
-      duration: duration || 4000,
+      position: "top-right",
+      autoClose: duration || 4000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+      theme: "light",
       style: {
-        boxShadow: "none",
-        padding: 20,
-        fontSize: 16,
         backgroundColor: "#12B76A",
         color: "#FFFFFF",
-        margin: 0,
+        fontSize: "16px",
+        fontWeight: "500",
+        borderRadius: "12px",
+        boxShadow:
+          "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
       },
     });
   };
 
   const showError = (message: string, duration?: number) => {
-    const toastId = createToastId("error", message);
-
-    // Dismiss any existing toast with the same ID
-    toast.dismiss(toastId);
-
     return toast.error(message, {
-      id: toastId,
-      duration: duration || 5000,
+      position: "top-right",
+      autoClose: duration || 4000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+      theme: "light",
       style: {
-        boxShadow: "none",
-        padding: 20,
-        fontSize: 16,
         backgroundColor: "#F04438",
         color: "#FFFFFF",
-        margin: 0,
+        fontSize: "16px",
+        fontWeight: "500",
+        borderRadius: "12px",
+        boxShadow:
+          "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
       },
     });
   };
 
   const showInfo = (message: string, duration?: number) => {
-    const toastId = createToastId("info", message);
-
-    // Dismiss any existing toast with the same ID
-    toast.dismiss(toastId);
-
-    return toast(message, {
-      id: toastId,
-      duration: duration || 4000,
+    return toast.info(message, {
+      position: "top-right",
+      autoClose: duration || 4000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+      theme: "light",
       style: {
-        boxShadow: "none",
-        padding: 20,
-        fontSize: 16,
-        backgroundColor: "#12B76A",
+        backgroundColor: "#3B82F6",
         color: "#FFFFFF",
-        margin: 0,
+        fontSize: "16px",
+        fontWeight: "500",
+        borderRadius: "12px",
+        boxShadow:
+          "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
       },
-      icon: "ℹ️",
     });
   };
 
   const showWarning = (message: string, duration?: number) => {
-    const toastId = createToastId("warning", message);
-
-    // Dismiss any existing toast with the same ID
-    toast.dismiss(toastId);
-
-    return toast(message, {
-      id: toastId,
-      duration: duration || 4000,
+    return toast.warning(message, {
+      position: "top-right",
+      autoClose: duration || 4000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+      theme: "light",
       style: {
-        boxShadow: "none",
-        padding: 20,
-        fontSize: 16,
         backgroundColor: "#F79009",
         color: "#FFFFFF",
-        margin: 0,
+        fontSize: "16px",
+        fontWeight: "500",
+        borderRadius: "12px",
+        boxShadow:
+          "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
       },
-      icon: "⚠️",
     });
   };
 
   const showLoading = (message: string) => {
     return toast.loading(message, {
+      position: "top-right",
+      autoClose: false,
+      hideProgressBar: false,
+      closeOnClick: false,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+      theme: "light",
       style: {
-        background: "transparent",
-        boxShadow: "none",
-        padding: 0,
-        margin: 0,
+        backgroundColor: "#6B7280",
+        color: "#FFFFFF",
+        fontSize: "16px",
+        fontWeight: "500",
+        borderRadius: "12px",
+        boxShadow:
+          "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
       },
     });
   };
 
-  const dismiss = (toastId?: string) => {
+  const dismiss = (toastId?: string | number) => {
     if (toastId) {
       toast.dismiss(toastId);
     } else {
