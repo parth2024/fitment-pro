@@ -39,86 +39,90 @@ def _apply_filters(queryset, params):
         q = Q(partId__icontains=search) | Q(makeName__icontains=search) | Q(modelName__icontains=search) | Q(fitmentTitle__icontains=search) | Q(fitmentDescription__icontains=search)
         queryset = queryset.filter(q)
     
-    # Column-wise filtering
-    if params.get("partId"):
-        queryset = queryset.filter(partId__icontains=params.get("partId"))
+    # Column-wise filtering - support both direct and column_ prefixed parameters
+    def get_param_value(param_name):
+        """Get parameter value, checking both direct and column_ prefixed versions"""
+        return params.get(param_name) or params.get(f"column_{param_name}")
     
-    if params.get("itemStatus"):
-        queryset = queryset.filter(itemStatus__icontains=params.get("itemStatus"))
+    if get_param_value("partId"):
+        queryset = queryset.filter(partId__icontains=get_param_value("partId"))
     
-    if params.get("yearFrom"):
+    if get_param_value("itemStatus"):
+        queryset = queryset.filter(itemStatus__icontains=get_param_value("itemStatus"))
+    
+    if get_param_value("yearFrom"):
         try:
-            queryset = queryset.filter(year__gte=int(params.get("yearFrom")))
+            queryset = queryset.filter(year__gte=int(get_param_value("yearFrom")))
         except ValueError:
             pass
     
-    if params.get("yearTo"):
+    if get_param_value("yearTo"):
         try:
-            queryset = queryset.filter(year__lte=int(params.get("yearTo")))
+            queryset = queryset.filter(year__lte=int(get_param_value("yearTo")))
         except ValueError:
             pass
     
-    if params.get("makeName"):
-        queryset = queryset.filter(makeName__icontains=params.get("makeName"))
+    if get_param_value("makeName"):
+        queryset = queryset.filter(makeName__icontains=get_param_value("makeName"))
     
-    if params.get("modelName"):
-        queryset = queryset.filter(modelName__icontains=params.get("modelName"))
+    if get_param_value("modelName"):
+        queryset = queryset.filter(modelName__icontains=get_param_value("modelName"))
     
-    if params.get("subModelName"):
-        queryset = queryset.filter(subModelName__icontains=params.get("subModelName"))
+    if get_param_value("subModelName"):
+        queryset = queryset.filter(subModelName__icontains=get_param_value("subModelName"))
     
-    if params.get("driveTypeName"):
-        queryset = queryset.filter(driveTypeName__icontains=params.get("driveTypeName"))
+    if get_param_value("driveTypeName"):
+        queryset = queryset.filter(driveTypeName__icontains=get_param_value("driveTypeName"))
     
-    if params.get("fuelTypeName"):
-        queryset = queryset.filter(fuelTypeName__icontains=params.get("fuelTypeName"))
+    if get_param_value("fuelTypeName"):
+        queryset = queryset.filter(fuelTypeName__icontains=get_param_value("fuelTypeName"))
     
-    if params.get("bodyTypeName"):
-        queryset = queryset.filter(bodyTypeName__icontains=params.get("bodyTypeName"))
+    if get_param_value("bodyTypeName"):
+        queryset = queryset.filter(bodyTypeName__icontains=get_param_value("bodyTypeName"))
     
-    if params.get("partTypeDescriptor"):
-        queryset = queryset.filter(partTypeDescriptor__icontains=params.get("partTypeDescriptor"))
+    if get_param_value("partTypeDescriptor"):
+        queryset = queryset.filter(partTypeDescriptor__icontains=get_param_value("partTypeDescriptor"))
     
-    if params.get("position"):
-        queryset = queryset.filter(position__icontains=params.get("position"))
+    if get_param_value("position"):
+        queryset = queryset.filter(position__icontains=get_param_value("position"))
     
-    if params.get("liftHeight"):
-        queryset = queryset.filter(liftHeight__icontains=params.get("liftHeight"))
+    if get_param_value("liftHeight"):
+        queryset = queryset.filter(liftHeight__icontains=get_param_value("liftHeight"))
     
-    if params.get("wheelType"):
-        queryset = queryset.filter(wheelType__icontains=params.get("wheelType"))
+    if get_param_value("wheelType"):
+        queryset = queryset.filter(wheelType__icontains=get_param_value("wheelType"))
     
-    if params.get("fitmentType"):
-        queryset = queryset.filter(fitmentType=params.get("fitmentType"))
+    if get_param_value("fitmentType"):
+        queryset = queryset.filter(fitmentType=get_param_value("fitmentType"))
     
-    if params.get("createdBy"):
-        queryset = queryset.filter(createdBy__icontains=params.get("createdBy"))
+    if get_param_value("createdBy"):
+        queryset = queryset.filter(createdBy__icontains=get_param_value("createdBy"))
     
     # Date range filtering
-    if params.get("createdAtFrom"):
+    if get_param_value("createdAtFrom"):
         try:
-            date_from = datetime.fromisoformat(params.get("createdAtFrom").replace('Z', '+00:00'))
+            date_from = datetime.fromisoformat(get_param_value("createdAtFrom").replace('Z', '+00:00'))
             queryset = queryset.filter(createdAt__gte=date_from)
         except ValueError:
             pass
     
-    if params.get("createdAtTo"):
+    if get_param_value("createdAtTo"):
         try:
-            date_to = datetime.fromisoformat(params.get("createdAtTo").replace('Z', '+00:00'))
+            date_to = datetime.fromisoformat(get_param_value("createdAtTo").replace('Z', '+00:00'))
             queryset = queryset.filter(createdAt__lte=date_to)
         except ValueError:
             pass
     
-    if params.get("updatedAtFrom"):
+    if get_param_value("updatedAtFrom"):
         try:
-            date_from = datetime.fromisoformat(params.get("updatedAtFrom").replace('Z', '+00:00'))
+            date_from = datetime.fromisoformat(get_param_value("updatedAtFrom").replace('Z', '+00:00'))
             queryset = queryset.filter(updatedAt__gte=date_from)
         except ValueError:
             pass
     
-    if params.get("updatedAtTo"):
+    if get_param_value("updatedAtTo"):
         try:
-            date_to = datetime.fromisoformat(params.get("updatedAtTo").replace('Z', '+00:00'))
+            date_to = datetime.fromisoformat(get_param_value("updatedAtTo").replace('Z', '+00:00'))
             queryset = queryset.filter(updatedAt__lte=date_to)
         except ValueError:
             pass

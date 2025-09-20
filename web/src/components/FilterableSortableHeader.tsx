@@ -112,12 +112,22 @@ export default function FilterableSortableHeader({
             clearable
             searchable
             onKeyDown={handleKeyPress}
+            // withinPortal={false}
+            // dropdownComponent="div"
             styles={{
               input: {
                 fontSize: "13px",
                 height: "36px",
               },
             }}
+            // onDropdownOpen={(event: any) => {
+            //   // Prevent popover from closing when dropdown opens
+            //   event?.stopPropagation();
+            // }}
+            // onDropdownClose={(event) => {
+            //   // Prevent popover from closing when dropdown closes
+            //   event?.stopPropagation();
+            // }}
           />
         );
       case "number":
@@ -210,6 +220,9 @@ export default function FilterableSortableHeader({
         shadow="md"
         radius="md"
         width={280}
+        closeOnClickOutside={true}
+        closeOnEscape={true}
+        withinPortal={false}
       >
         <Popover.Target>
           <ActionIcon
