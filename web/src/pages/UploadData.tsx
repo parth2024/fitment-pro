@@ -44,6 +44,7 @@ import {
 import { useProfessionalToast } from "../hooks/useProfessionalToast";
 import { dataUploadService, fitmentUploadService } from "../api/services";
 import { useApi, useAsyncOperation } from "../hooks/useApi";
+import useEntity from "../hooks/useEntity";
 
 interface UploadedFile {
   id: string;
@@ -124,6 +125,7 @@ export default function UploadData() {
   ) as any;
 
   const { execute: uploadFiles } = useAsyncOperation();
+  const { currentEntity } = useEntity();
 
   // Convert API sessions data to UploadedFile format
   useEffect(() => {
@@ -679,6 +681,7 @@ export default function UploadData() {
           confidence_explanation: fitment.confidence_explanation,
           ai_reasoning: fitment.ai_reasoning,
           dynamicFields: fitment.dynamicFields || {},
+          tenant_id: currentEntity?.id || null, // Add tenant ID for multi-tenant support
         }));
 
       const result: any = await fitmentUploadService.applyDirectAiFitments(
@@ -807,8 +810,6 @@ export default function UploadData() {
     },
     []
   );
-
-  console.log("uploadedFiles", uploadedFiles);
 
   return (
     <div style={{ minHeight: "100vh" }}>
