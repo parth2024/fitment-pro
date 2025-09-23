@@ -99,3 +99,4 @@ class ApplyFitmentsRequestSerializer(serializers.Serializer):
         child=serializers.IntegerField(),
         allow_empty=False
     )
+    tenant_id = serializers.UUIDField(required=False, allow_null=True)

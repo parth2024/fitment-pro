@@ -622,6 +622,7 @@ def apply_manual_fitment(request):
         description = request.data.get('description', '')
         notes = request.data.get('notes', '')
         selected_columns = request.data.get('selectedColumns', [])
+        tenant_id = request.data.get('tenantId')
         
         # Validate required fields
         if not session_id:
@@ -667,6 +668,18 @@ def apply_manual_fitment(request):
                 status=status.HTTP_404_NOT_FOUND
             )
         
+        # Get tenant if provided
+        tenant = None
+        if tenant_id:
+            from tenants.models import Tenant
+            try:
+                tenant = Tenant.objects.get(id=tenant_id)
+            except Tenant.DoesNotExist:
+                return Response(
+                    {'error': f'Tenant with ID {tenant_id} not found'}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        
         # Create fitments for each selected vehicle
         applied_fitments = []
         
@@ -683,6 +696,7 @@ def apply_manual_fitment(request):
                 # Create Fitment record
                 fitment = Fitment.objects.create(
                     hash=uuid.uuid4().hex,
+                    tenant=tenant,  # Associate with tenant
                     partId=part_id,
                     itemStatus='Active',
                     itemStatusCode=0,
@@ -768,6 +782,19 @@ def apply_ai_fitments(request):
         
         session_id = serializer.validated_data['session_id']
         fitment_ids = serializer.validated_data['fitment_ids']
+        tenant_id = serializer.validated_data.get('tenant_id')
+        
+        # Get tenant if provided
+        tenant = None
+        if tenant_id:
+            from tenants.models import Tenant
+            try:
+                tenant = Tenant.objects.get(id=tenant_id)
+            except Tenant.DoesNotExist:
+                return Response(
+                    {'error': f'Tenant with ID {tenant_id} not found'}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
         
         try:
             session = DataUploadSession.objects.get(id=session_id)
@@ -812,6 +839,7 @@ def apply_ai_fitments(request):
             # Create Fitment record
             fitment = Fitment.objects.create(
                 hash=uuid.uuid4().hex,
+                tenant=tenant,  # Associate with tenant
                 partId=ai_result.part_id,
                 itemStatus='Active',
                 itemStatusCode=0,
@@ -885,6 +913,20 @@ def apply_ai_fitments_direct(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Get tenant from first fitment item
+        tenant_id = fitments_data[0].get('tenant_id') if fitments_data else None
+        tenant = None
+        if tenant_id:
+            from tenants.models import Tenant
+            try:
+                tenant = Tenant.objects.get(id=tenant_id)
+            except Tenant.DoesNotExist:
+                return Response(
+                    {'error': f'Tenant with ID {tenant_id} not found'}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        print("tenant", tenant)
+        
         # Get selected AI results from the most recent session
         latest_session = DataUploadSession.objects.filter(
             status='completed'
@@ -919,6 +961,7 @@ def apply_ai_fitments_direct(request):
             # Create Fitment record
             fitment = Fitment.objects.create(
                 hash=uuid.uuid4().hex,
+                tenant=tenant,  # Associate with tenant
                 partId=fitment_data.get('part_id'),
                 itemStatus='Active',
                 itemStatusCode=0,

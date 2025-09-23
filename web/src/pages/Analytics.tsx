@@ -26,9 +26,11 @@ import {
   IconChevronRight,
   IconAlertTriangle,
   IconSettings,
+  IconBuilding,
 } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/client";
+import { useEntity } from "../hooks/useEntity";
 
 interface AnalyticsData {
   totalFitments: number;
@@ -44,6 +46,11 @@ interface AnalyticsData {
   topMakes: Array<{ makeName: string; count: number }>;
   yearlyStats: Array<{ year: number; count: number }>;
   lastUpdated: string;
+  tenant?: {
+    id: string;
+    name: string;
+    slug: string;
+  };
 }
 
 interface NavigationShortcut {
@@ -59,6 +66,7 @@ const Analytics: React.FC = () => {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { currentEntity } = useEntity();
 
   const navigationShortcuts: NavigationShortcut[] = [
     {
@@ -155,7 +163,7 @@ const Analytics: React.FC = () => {
 
   useEffect(() => {
     fetchAnalyticsData();
-  }, []);
+  }, [currentEntity]); // Refresh when entity changes
 
   const handleNavigationClick = (path: string) => {
     // Navigate to the specified route
@@ -317,8 +325,37 @@ const Analytics: React.FC = () => {
       }}
     >
       <Stack gap="xl">
+        {/* Entity Context Banner */}
+        {data?.tenant && (
+          <Card
+            style={{
+              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              border: "none",
+              color: "white",
+            }}
+            p="md"
+          >
+            <Group justify="space-between" align="center">
+              <Group gap="md">
+                <IconBuilding size={24} />
+                <div>
+                  <Text size="lg" fw={600} c="white">
+                    Analytics for {data.tenant.name}
+                  </Text>
+                  <Text size="sm" c="rgba(255, 255, 255, 0.8)">
+                    Data filtered by selected entity
+                  </Text>
+                </div>
+              </Group>
+              <Badge variant="white" color="blue" size="lg">
+                {data.totalFitments} fitments
+              </Badge>
+            </Group>
+          </Card>
+        )}
+
         {/* Key Metrics Cards */}
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="lg">
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
           <Card
             style={{
               background: "#ffffff",
@@ -391,7 +428,7 @@ const Analytics: React.FC = () => {
             </Group>
           </Card>
 
-          <Card
+          {/* <Card
             style={{
               background: "#ffffff",
               border: "1px solid #e2e8f0",
@@ -413,7 +450,7 @@ const Analytics: React.FC = () => {
                 <IconTrendingUp size={20} />
               </ThemeIcon>
             </Group>
-          </Card>
+          </Card> */}
         </SimpleGrid>
 
         {/* Fitments Breakdown */}

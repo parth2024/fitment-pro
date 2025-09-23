@@ -51,10 +51,14 @@ import { useAsyncOperation, useApi } from "../hooks/useApi";
 import { useProfessionalToast } from "../hooks/useProfessionalToast";
 import { useFieldConfiguration } from "../hooks/useFieldConfiguration";
 import DynamicFormField from "../components/DynamicFormField";
+import { useEntity } from "../hooks/useEntity";
 
 export default function ApplyFitments() {
   // Professional toast hook
   const { showSuccess, showError } = useProfessionalToast();
+
+  // Entity context for tenant ID
+  const { currentEntity } = useEntity();
 
   // Session state
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -308,6 +312,7 @@ export default function ApplyFitments() {
           confidence_explanation: fitment.confidence_explanation,
           ai_reasoning: fitment.ai_reasoning,
           dynamicFields: fitment.dynamicFields || {}, // Include dynamic fields
+          tenant_id: currentEntity?.id || null, // Add tenant ID for multi-tenant support
         }));
 
       const result: any = await fitmentUploadService.applyDirectAiFitments(
@@ -2897,6 +2902,8 @@ export default function ApplyFitments() {
                                           liftHeight: fitmentDetails.liftHeight,
                                           wheelType: fitmentDetails.wheelType,
                                           fitmentType: "manual_fitment",
+                                          // Tenant ID for multi-tenant support
+                                          tenantId: currentEntity?.id || null,
                                           // Vehicle data
                                           year: vehicle?.year || 0,
                                           make: vehicle?.make || "",

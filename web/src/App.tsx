@@ -25,6 +25,7 @@ import {
   IconAlertTriangle,
   IconUpload,
   IconSettings,
+  IconBuilding,
 } from "@tabler/icons-react";
 import {
   Routes,
@@ -49,8 +50,11 @@ import UploadData from "./pages/UploadData";
 import ManualFitment from "./pages/ManualFitment";
 import AIFitment from "./pages/AIFitment";
 import Settings from "./pages/Settings";
+import EntityManagement from "./pages/EntityManagement";
 import ProtectedRoute from "./components/ProtectedRoute";
+import EntitySelector from "./components/EntitySelector";
 import { useAuth } from "./contexts/AuthContext";
+import { useEntity } from "./hooks/useEntity";
 import { useProfessionalToast } from "./hooks/useProfessionalToast";
 
 const navigationItems = [
@@ -117,6 +121,13 @@ const navigationItems = [
     icon: IconSettings,
     color: "gray",
   },
+  {
+    label: "Entity Management",
+    value: "entities",
+    path: "/entities",
+    icon: IconBuilding,
+    color: "violet",
+  },
 ];
 
 function App() {
@@ -175,6 +186,7 @@ function App() {
         <Route path="/admin" element={<Admin />} />
         <Route path="/mismatches" element={<Mismatches />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/entities" element={<EntityManagement />} />
         <Route path="*" element={<Analytics />} />
       </Routes>
     );
@@ -237,6 +249,7 @@ function App() {
             </div>
 
             <Group gap="md">
+              <EntitySelector compact />
               <Menu width={200} position="bottom-end" withArrow>
                 <Menu.Target>
                   <Button

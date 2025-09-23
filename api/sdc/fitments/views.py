@@ -11,6 +11,7 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from .models import Fitment, FitmentUploadSession, FitmentValidationResult, PotentialVehicleConfiguration
 from .validators import validate_fitment_row
+from tenants.utils import get_tenant_from_request, filter_queryset_by_tenant, get_tenant_id_from_request
 import os
 import csv
 import json
@@ -144,11 +145,19 @@ def _apply_sort(queryset, sort_by: str | None, sort_order: str | None):
     return queryset.order_by(field)
 
 
-@api_view(["GET", "POST", "DELETE"]) 
+@api_view(["GET", "POST", "DELETE"])
 def fitments_root(request):
     if request.method == "GET":
         params = request.query_params
-        qs = Fitment.objects.all()
+        
+        # Handle tenant filtering - use default tenant if no authenticated user
+        try:
+            qs = filter_queryset_by_tenant(Fitment.objects.all(), request)
+        except:
+            # If no authenticated user, get all fitments (for testing)
+            # In production, this should be restricted
+            qs = Fitment.objects.all()
+        
         qs = _apply_filters(qs, params)
         qs = _apply_sort(qs, params.get("sortBy"), params.get("sortOrder"))
         # pagination
@@ -158,15 +167,39 @@ def fitments_root(request):
         end = start + page_size
         total = qs.count()
         items = list(qs[start:end].values())
-        return Response({"fitments": items, "totalCount": total})
+        return Response({
+            "fitments": items, 
+            "totalCount": total,
+            "tenant_id": get_tenant_id_from_request(request) if request.user.is_authenticated else None
+        })
 
     if request.method == "POST":
         payload = request.data or {}
         part_ids = payload.get("partIDs") or []
         confs = payload.get("configurationIDs") or []
         part_id = part_ids[0] if part_ids else ""
+        
+        # Get current tenant - handle case where user is not authenticated
+        try:
+            tenant = get_tenant_from_request(request)
+        except:
+            # If no authenticated user, try to get default tenant
+            try:
+                from tenants.models import Tenant
+                tenant = Tenant.objects.filter(is_default=True).first()
+                if not tenant:
+                    tenant = Tenant.objects.first()
+            except:
+                tenant = None
+        
+        if not tenant:
+            return Response({
+                "error": "No tenant available. Please create a tenant first."
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
         # Minimal create: insert a placeholder fitment
         fitment = Fitment(
+            tenant=tenant,
             partId=part_id, itemStatus="Active", itemStatusCode=0,
             baseVehicleId=str(confs[0]) if confs else "",
             year=payload.get("year", 2025), makeName=payload.get("make", "Acura"),
@@ -184,6 +217,7 @@ def fitments_root(request):
         return Response({
             "message": "Fitment created successfully",
             "hash": fitment.hash,
+            "tenant_id": str(tenant.id)
         })
 
     # DELETE (bulk by hashes param) - Soft delete
@@ -191,15 +225,36 @@ def fitments_root(request):
     deleted_by = request.data.get('deletedBy', 'api_user')
     deleted_count = 0
     
+    # Get current tenant - handle case where user is not authenticated
+    try:
+        tenant = get_tenant_from_request(request)
+    except:
+        # If no authenticated user, try to get default tenant
+        try:
+            from tenants.models import Tenant
+            tenant = Tenant.objects.filter(is_default=True).first()
+            if not tenant:
+                tenant = Tenant.objects.first()
+        except:
+            tenant = None
+    
+    if not tenant:
+        return Response({
+            "error": "No tenant available. Please create a tenant first."
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
     for fitment_hash in hashes:
         try:
-            fitment = Fitment.all_objects.get(hash=fitment_hash)
+            fitment = Fitment.all_objects.get(hash=fitment_hash, tenant=tenant)
             fitment.soft_delete(deleted_by=deleted_by)
             deleted_count += 1
         except Fitment.DoesNotExist:
             continue
     
-    return Response({"message": f"Deleted {deleted_count} fitments"})
+    return Response({
+        "message": f"Deleted {deleted_count} fitments",
+        "tenant_id": str(tenant.id)
+    })
 
 
 @api_view(["GET"]) 
@@ -1788,44 +1843,72 @@ def analytics_dashboard(request):
     """
     GET /api/analytics/dashboard/
     
-    Returns aggregated analytics data for the dashboard.
+    Returns aggregated analytics data for the dashboard filtered by current tenant.
     """
     try:
         from datetime import timedelta
         from django.db.models import Count, Q
         from django.utils import timezone
+        from tenants.utils import filter_queryset_by_tenant, get_tenant_from_request
         
-        # Get total fitments count
-        total_fitments = Fitment.objects.count()
+        # Get tenant-filtered fitments queryset
+        try:
+            tenant = get_tenant_from_request(request)
+            tenant_fitments = filter_queryset_by_tenant(Fitment.objects.all(), request)
+            print(f"DEBUG: Tenant found: {tenant.name} (ID: {tenant.id})")
+            print(f"DEBUG: X-Tenant-ID header: {request.headers.get('X-Tenant-ID')}")
+        except Exception as e:
+            # Fallback to all fitments if no tenant found (for testing)
+            tenant_fitments = Fitment.objects.all()
+            tenant = None
+            print(f"DEBUG: No tenant found, using all fitments. Error: {str(e)}")
+            print(f"DEBUG: X-Tenant-ID header: {request.headers.get('X-Tenant-ID')}")
+        
+        print(f"DEBUG: Total fitments before filtering: {Fitment.objects.count()}")
+        print(f"DEBUG: Tenant-filtered fitments: {tenant_fitments.count()}")
+        
+        # Debug: Check fitments with and without tenant
+        if tenant:
+            fitments_with_tenant = Fitment.objects.filter(tenant_id=tenant.id).count()
+            fitments_without_tenant = Fitment.objects.filter(tenant_id__isnull=True).count()
+            print(f"DEBUG: Fitments with tenant {tenant.id}: {fitments_with_tenant}")
+            print(f"DEBUG: Fitments without tenant (NULL): {fitments_without_tenant}")
+            
+            # Debug: Show first few fitments and their tenant IDs
+            sample_fitments = Fitment.objects.all()[:5]
+            for fitment in sample_fitments:
+                print(f"DEBUG: Fitment {fitment.hash}: tenant_id = {fitment.tenant_id}")
+        # Get total fitments count (tenant-filtered)
+        total_fitments = tenant_fitments.count()
         
         # Get manual fitments count (fitmentType = 'manual_fitment')
-        manual_fitments = Fitment.objects.filter(fitmentType='manual_fitment').count()
+        manual_fitments = tenant_fitments.filter(fitmentType='manual_fitment').count()
         
         # Get AI fitments count (fitmentType = 'ai_fitment' or 'potential_fitment')
-        ai_fitments = Fitment.objects.filter(
+        ai_fitments = tenant_fitments.filter(
             Q(fitmentType='ai_fitment') | Q(fitmentType='potential_fitment')
         ).count()
         
         # Get total parts count (unique partIds)
-        total_parts = Fitment.objects.values('partId').distinct().count()
+        total_parts = tenant_fitments.values('partId').distinct().count()
         
         # Get total VCDB configurations count (unique vehicle configurations)
-        total_vcdb_configs = Fitment.objects.values(
+        total_vcdb_configs = tenant_fitments.values(
             'year', 'makeName', 'modelName', 'subModelName'
         ).distinct().count()
         
         # Get recent activity (fitments created in last 30 days)
         thirty_days_ago = timezone.now() - timedelta(days=30)
-        recent_activity = Fitment.objects.filter(
+        recent_activity = tenant_fitments.filter(
             createdAt__gte=thirty_days_ago
         ).count()
         
         # Get fitments by status
-        active_fitments = Fitment.objects.filter(itemStatus='Active').count()
-        inactive_fitments = Fitment.objects.filter(itemStatus='Inactive').count()
+        active_fitments = tenant_fitments.filter(itemStatus='Active').count()
+        inactive_fitments = tenant_fitments.filter(itemStatus='Inactive').count()
         
         # Get fitments by make (top 5)
-        top_makes = Fitment.objects.values('makeName').annotate(
+        top_makes = tenant_fitments.values('makeName').annotate(
             count=Count('hash')
         ).order_by('-count')[:5]
         
@@ -1833,7 +1916,7 @@ def analytics_dashboard(request):
         current_year = timezone.now().year
         yearly_stats = []
         for year in range(current_year - 4, current_year + 1):
-            year_count = Fitment.objects.filter(year=year).count()
+            year_count = tenant_fitments.filter(year=year).count()
             yearly_stats.append({
                 'year': year,
                 'count': year_count
@@ -1859,7 +1942,12 @@ def analytics_dashboard(request):
             'coveragePercentage': coverage_percentage,
             'topMakes': list(top_makes),
             'yearlyStats': yearly_stats,
-            'lastUpdated': timezone.now().isoformat()
+            'lastUpdated': timezone.now().isoformat(),
+            'tenant': {
+                'id': str(tenant.id) if tenant else None,
+                'name': tenant.name if tenant else 'All Entities',
+                'slug': tenant.slug if tenant else None
+            } if tenant else None
         }
         
         return Response(analytics_data)

@@ -12,6 +12,31 @@ const apiClient = axios.create({
 // Request interceptor
 apiClient.interceptors.request.use(
   (config) => {
+    // Add authentication token if available
+    const token = localStorage.getItem("auth_token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    // Add tenant context if available
+    const currentEntity = localStorage.getItem("current_entity");
+    if (currentEntity) {
+      try {
+        const entity = JSON.parse(currentEntity);
+        config.headers["X-Tenant-ID"] = entity.id;
+        console.log(
+          "DEBUG: Adding X-Tenant-ID header:",
+          entity.id,
+          "for entity:",
+          entity.name
+        );
+      } catch (err) {
+        console.warn("Invalid entity data in localStorage");
+      }
+    } else {
+      console.log("DEBUG: No current_entity found in localStorage");
+    }
+
     return config;
   },
   (error) => {

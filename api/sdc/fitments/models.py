@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
+from tenants.models import Tenant
 import uuid
 
 # Create your models here.
@@ -26,6 +27,7 @@ class Fitment(models.Model):
     ]
     
     hash = models.CharField(max_length=64, primary_key=True, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='fitments', null=True, blank=True)
     partId = models.CharField(max_length=64)
     itemStatus = models.CharField(max_length=32, default='Active')
     itemStatusCode = models.IntegerField(default=0)
@@ -128,6 +130,7 @@ class FitmentUploadSession(models.Model):
         ('failed', 'Failed'),
     ]
     
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='fitment_upload_sessions', null=True, blank=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     session_id = models.UUIDField(unique=True, default=uuid.uuid4)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -171,6 +174,7 @@ class PotentialVehicleConfiguration(models.Model):
     ]
     
     id = models.CharField(max_length=100, primary_key=True)
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='potential_vehicle_configurations', null=True, blank=True)
     vehicle_id = models.CharField(max_length=100)
     base_vehicle_id = models.CharField(max_length=64)
     body_style_config = models.CharField(max_length=100)

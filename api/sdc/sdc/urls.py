@@ -16,7 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from tenants.views import TenantListCreateView
+from tenants.views import TenantListCreateView, TenantDetailView, get_current_tenant, switch_tenant, tenant_stats
 from vcdb.views import version, year_range, configurations
 from fitments.views import export_fitments_advanced_csv, export_fitments_advanced_xlsx, fitments_root, coverage, property_values, validate, submit, export_csv, coverage_export, export_ai_fitments, ai_fitments_list, applied_fitments_list, fitment_filter_options, fitment_detail, update_fitment, delete_fitment, validate_fitments_csv, submit_validated_fitments, get_validation_results, detailed_coverage, coverage_trends, coverage_gaps, get_potential_fitments, get_parts_with_fitments, apply_potential_fitments, analytics_dashboard
 from workflow.views import uploads as wf_uploads, ai_map, vcdb_validate, review_queue, review_actions, publish, presets as wf_presets, preset_detail, ai_fitments, apply_fitments_batch
@@ -26,6 +26,10 @@ from workflow.views import uploads as wf_uploads, ai_map, vcdb_validate, review_
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/tenants/', TenantListCreateView.as_view()),
+    path('api/tenants/<uuid:id>/', TenantDetailView.as_view()),
+    path('api/tenants/<uuid:tenant_id>/stats/', tenant_stats),
+    path('api/tenants/current/', get_current_tenant),
+    path('api/tenants/switch/<uuid:tenant_id>/', switch_tenant),
     path('api/vcdb/version', version),
     path('api/vcdb/year-range', year_range),
     path('api/vcdb/configurations', configurations),

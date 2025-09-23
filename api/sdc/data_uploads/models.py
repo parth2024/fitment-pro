@@ -1,4 +1,5 @@
 from django.db import models
+from tenants.models import Tenant
 import uuid
 import os
 from django.core.files.storage import FileSystemStorage
@@ -7,6 +8,7 @@ from django.core.files.storage import FileSystemStorage
 class DataUploadSession(models.Model):
     """Model to track data upload sessions for VCDB and Products files"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='data_upload_sessions', null=True, blank=True)
     
     # File fields with custom storage paths
     vcdb_file = models.FileField(
@@ -101,6 +103,7 @@ class DataUploadSession(models.Model):
 class VCDBData(models.Model):
     """Model to store VCDB (Vehicle Configuration Database) data"""
     id = models.AutoField(primary_key=True)
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='vcdb_data', null=True, blank=True)
     year = models.IntegerField()
     make = models.CharField(max_length=100)
     model = models.CharField(max_length=100)
@@ -132,6 +135,7 @@ class VCDBData(models.Model):
 class ProductData(models.Model):
     """Model to store Product/Parts data"""
     id = models.AutoField(primary_key=True)
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='product_data', null=True, blank=True)
     part_id = models.CharField(max_length=100, unique=True)
     description = models.TextField()
     category = models.CharField(max_length=100, blank=True)
@@ -222,6 +226,7 @@ class DataProcessingLog(models.Model):
 
 class AIFitmentResult(models.Model):
     """Model to store AI-generated fitment results for data upload sessions"""
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='ai_fitment_results', null=True, blank=True)
     session = models.ForeignKey(DataUploadSession, on_delete=models.CASCADE, related_name='ai_results')
     part_id = models.CharField(max_length=100)
     part_description = models.TextField()
@@ -250,6 +255,7 @@ class AIFitmentResult(models.Model):
 
 class AppliedFitment(models.Model):
     """Model to track applied fitments for data upload sessions"""
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='applied_fitments', null=True, blank=True)
     session = models.ForeignKey(DataUploadSession, on_delete=models.CASCADE, related_name='applied_fitments')
     ai_result = models.ForeignKey(AIFitmentResult, on_delete=models.CASCADE, null=True, blank=True)
     part_id = models.CharField(max_length=100)

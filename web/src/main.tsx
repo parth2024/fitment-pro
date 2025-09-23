@@ -7,6 +7,7 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { theme } from "./theme";
 import { AuthProvider } from "./contexts/AuthContext";
+import { EntityProvider } from "./contexts/EntityContext";
 import { BrowserRouter } from "react-router-dom";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -14,24 +15,25 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <MantineProvider theme={theme}>
       <BrowserRouter>
         <AuthProvider>
-          <App />
-          <ToastContainer
-            position="top-right"
-            autoClose={4000}
-            hideProgressBar={false}
-            newestOnTop={false}
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-            theme="light"
-            style={{
-              top: "20px",
-              right: "20px",
-            }}
-          />
-          <style>{`
+          <EntityProvider>
+            <App />
+            <ToastContainer
+              position="top-right"
+              autoClose={4000}
+              hideProgressBar={false}
+              newestOnTop={false}
+              closeOnClick
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+              theme="light"
+              style={{
+                top: "20px",
+                right: "20px",
+              }}
+            />
+            <style>{`
             .Toastify__toast {
               display: flex !important;
               align-items: center !important;
@@ -79,6 +81,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               transform: scale(0.95) translateY(0) !important;
             }
           `}</style>
+          </EntityProvider>
         </AuthProvider>
       </BrowserRouter>
     </MantineProvider>

@@ -15,6 +15,7 @@ from .utils import preflight, compute_checksum
 
 from .models import Upload, Job, NormalizationResult, Lineage, Preset
 from tenants.models import Tenant
+from tenants.utils import get_tenant_from_request, filter_queryset_by_tenant, get_tenant_id_from_request
 from fitments.models import Fitment
 from django.core.exceptions import ValidationError
 
@@ -28,12 +29,13 @@ def _storage_dir() -> str:
 @api_view(["GET", "POST"]) 
 def uploads(request):
     if request.method == "GET":
-        tenant_id = request.query_params.get("tenantId")
-        qs = Upload.objects.all()
-        if tenant_id:
-            qs = qs.filter(tenant_id=tenant_id)
+        qs = filter_queryset_by_tenant(Upload.objects.all(), request)
         items = list(qs.order_by("-created_at").values())
-        return Response({"items": items, "totalCount": len(items)})
+        return Response({
+            "items": items, 
+            "totalCount": len(items),
+            "tenant_id": get_tenant_id_from_request(request)
+        })
 
     # POST multipart upload
     file_obj = request.FILES.get("file")
@@ -356,6 +358,17 @@ def apply_fitments_batch(request):
     items = body.get('fitments') or []
     if not isinstance(items, list) or not items:
         return Response({"message": "fitments array required"}, status=400)
+    
+    # Get tenant from request or from first fitment item
+    tenant_id = body.get('tenantId') or (items[0].get('tenantId') if items else None)
+    tenant = None
+    if tenant_id:
+        from tenants.models import Tenant
+        try:
+            tenant = Tenant.objects.get(id=tenant_id)
+        except Tenant.DoesNotExist:
+            return Response({"message": f"Tenant with ID {tenant_id} not found"}, status=400)
+    
     created = 0
     for it in items:
         try:
@@ -399,6 +412,7 @@ def apply_fitments_batch(request):
             
             Fitment.objects.create(
                 hash=uuid.uuid4().hex,
+                tenant=tenant,  # Associate with tenant
                 partId=it.get('partId', ''),
                 itemStatus='Active',
                 itemStatusCode=0,

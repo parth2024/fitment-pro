@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
+from tenants.models import Tenant
 
 
 class FieldConfiguration(models.Model):
@@ -15,6 +16,8 @@ class FieldConfiguration(models.Model):
         ('decimal', 'Decimal'),
         ('integer', 'Integer'),
     ]
+    
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='field_configurations', null=True, blank=True)
     
     REFERENCE_TYPES = [
         ('vcdb', 'VCDB'),
@@ -139,7 +142,7 @@ class FieldConfiguration(models.Model):
         ordering = ['reference_type', 'display_order', 'name']
         verbose_name = "Field Configuration"
         verbose_name_plural = "Field Configurations"
-        unique_together = ['name', 'reference_type']
+        unique_together = ['tenant', 'name', 'reference_type']
     
     def __str__(self):
         return f"{self.display_name} ({self.reference_type})"
@@ -245,6 +248,7 @@ class FieldConfigurationHistory(models.Model):
         ('disabled', 'Disabled'),
     ]
     
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='field_configuration_history', null=True, blank=True)
     field_config = models.ForeignKey(
         FieldConfiguration,
         on_delete=models.SET_NULL,
