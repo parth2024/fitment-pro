@@ -83,7 +83,7 @@ const Analytics: React.FC = () => {
       value: "/fitments",
     },
     {
-      title: "Bulk Upload",
+      title: "Bulk Fitments Upload",
       description: "Upload multiple fitments at once",
       icon: IconUpload,
       color: "orange",

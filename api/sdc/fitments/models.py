@@ -50,6 +50,19 @@ class Fitment(models.Model):
     liftHeight = models.CharField(max_length=32)
     wheelType = models.CharField(max_length=64)
     fitmentType = models.CharField(max_length=50, choices=FITMENT_TYPE_CHOICES, default='manual_fitment')
+    
+    # AI-related fields for ai_fitment and potential_fitment types
+    aiDescription = models.TextField(
+        blank=True, 
+        null=True, 
+        help_text="AI-generated description explaining the fitment reasoning and analysis"
+    )
+    confidenceScore = models.FloatField(
+        blank=True, 
+        null=True, 
+        help_text="AI confidence score (0.0 to 1.0) indicating the reliability of the fitment"
+    )
+    
     createdAt = models.DateTimeField(auto_now_add=True)
     createdBy = models.CharField(max_length=64, default='system')
     updatedAt = models.DateTimeField(auto_now=True)
