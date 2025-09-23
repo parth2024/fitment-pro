@@ -165,6 +165,22 @@ const Analytics: React.FC = () => {
     fetchAnalyticsData();
   }, [currentEntity]); // Refresh when entity changes
 
+  // Listen for entity change events from EntitySelector
+  useEffect(() => {
+    const handleEntityChange = () => {
+      console.log("Entity changed, refreshing Analytics data...");
+      fetchAnalyticsData();
+    };
+
+    // Listen for custom entity change events
+    window.addEventListener("entityChanged", handleEntityChange);
+
+    // Cleanup listener on unmount
+    return () => {
+      window.removeEventListener("entityChanged", handleEntityChange);
+    };
+  }, []);
+
   const handleNavigationClick = (path: string) => {
     // Navigate to the specified route
     navigate(path);

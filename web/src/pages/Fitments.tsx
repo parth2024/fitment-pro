@@ -203,6 +203,22 @@ export default function Fitments() {
     totalCount: number;
   }>(() => fitmentsService.getFitments(buildApiParams()), [buildApiParams]);
 
+  // Listen for entity change events from EntitySelector
+  useEffect(() => {
+    const handleEntityChange = async () => {
+      console.log("Entity changed, refreshing Fitments...");
+      await refetch();
+    };
+
+    // Listen for custom entity change events
+    window.addEventListener("entityChanged", handleEntityChange);
+
+    // Cleanup listener on unmount
+    return () => {
+      window.removeEventListener("entityChanged", handleEntityChange);
+    };
+  }, [refetch]);
+
   // Fetch AI-generated fitments from Django backend
   const { refetch: refetchAi } = useApi<{
     fitments: any[];

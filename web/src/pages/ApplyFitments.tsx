@@ -64,13 +64,13 @@ export default function ApplyFitments() {
   const [sessionId, setSessionId] = useState<string | null>(null);
 
   // Get latest session on component mount
-  const { data: sessionsData } = useApi(
+  const { data: sessionsData, refetch: refetchSessions } = useApi(
     () => dataUploadService.getSessions(),
     []
   ) as any;
 
   // Get data status to check if VCDB and Product data exist
-  const { data: dataStatus } = useApi(
+  const { data: dataStatus, refetch: refetchDataStatus } = useApi(
     () => dataUploadService.getDataStatus(),
     []
   ) as any;
@@ -83,6 +83,22 @@ export default function ApplyFitments() {
       setSessionId(latestSession.id);
     }
   }, [sessionsData]);
+
+  // Listen for entity change events from EntitySelector
+  useEffect(() => {
+    const handleEntityChange = async () => {
+      console.log("Entity changed, refreshing ApplyFitments...");
+      await Promise.all([refetchSessions(), refetchDataStatus()]);
+    };
+
+    // Listen for custom entity change events
+    window.addEventListener("entityChanged", handleEntityChange);
+
+    // Cleanup listener on unmount
+    return () => {
+      window.removeEventListener("entityChanged", handleEntityChange);
+    };
+  }, [refetchSessions, refetchDataStatus]);
 
   // Step management for UI flow
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1); // 1 = Choose Method, 2 = Manual Method, 3 = AI Method (disabled)

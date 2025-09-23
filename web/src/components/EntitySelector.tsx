@@ -138,10 +138,15 @@ export const EntitySelector: React.FC<EntitySelectorProps> = ({
         onEntityChange(entity);
       }
 
+      // Dispatch custom event to notify all components about entity change
+      const entityChangeEvent = new CustomEvent("entityChanged", {
+        detail: { entity, entityId },
+      });
+      window.dispatchEvent(entityChangeEvent);
+
       console.log("Entity switched to:", entity.name, "ID:", entity.id);
     } catch (err) {
       console.error("Failed to switch entity:", err);
-      setError("Failed to switch entity");
     } finally {
       setSwitching(false);
     }
