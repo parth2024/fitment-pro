@@ -83,7 +83,7 @@ const navigationItems = [
     color: "teal",
   },
   {
-    label: "Bulk Upload",
+    label: "Bulk Fitments Upload",
     value: "bulk",
     path: "/bulk-upload",
     icon: IconUpload,

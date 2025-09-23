@@ -38,6 +38,9 @@ import {
   IconX,
   IconFileSpreadsheet,
   IconFileText,
+  IconBrain,
+  IconUsers,
+  IconShield,
 } from "@tabler/icons-react";
 import FilterableSortableHeader from "../components/FilterableSortableHeader";
 import { useApi } from "../hooks/useApi";
@@ -99,6 +102,7 @@ interface ColumnFilters {
   liftHeight: string;
   wheelType: string;
   updatedAt: string;
+  fitmentType: string;
 }
 
 export default function Fitments() {
@@ -155,6 +159,7 @@ export default function Fitments() {
     liftHeight: "",
     wheelType: "",
     updatedAt: "",
+    fitmentType: "",
   });
 
   // Export state
@@ -208,7 +213,55 @@ export default function Fitments() {
   const { data: filterOptionsData, refetch: refetchFilterOptions } =
     useApi<FilterOptions>(() => fitmentsService.getFilterOptions(), []);
 
-  const fitments = data?.fitments ?? [];
+  // Mock fitment types for demonstration
+  const mockFitments = (fitments: FlattenedAppliedFitment[]) => {
+    return fitments.map((fitment, index) => {
+      // Ensure fitmentType is set, defaulting to manual_fitment if not present
+      let fitmentType = fitment.fitmentType || "manual_fitment";
+      let aiDescription: string | undefined;
+      let confidenceScore: number | undefined;
+
+      // Simulate different fitment types for demonstration
+      if (!fitment.fitmentType) {
+        const typeIndex = index % 4;
+        if (typeIndex === 0) {
+          fitmentType = "ai_fitment";
+          confidenceScore = Math.random() * 0.3 + 0.7; // 70-100% confidence
+          aiDescription = `AI analyzed ${fitment.partTypeDescriptor} compatibility with ${fitment.year} ${fitment.makeName} ${fitment.modelName}. Based on vehicle specifications including ${fitment.driveTypeName} drive system, ${fitment.bodyTypeName} body type, and ${fitment.fuelTypeName} fuel type, this fitment shows high compatibility. The AI model considered part positioning, dimensional constraints, and manufacturer specifications to determine optimal fitment.`;
+        } else if (typeIndex === 1) {
+          fitmentType = "potential_fitment";
+          confidenceScore = Math.random() * 0.4 + 0.5; // 50-90% confidence
+          aiDescription = `Potential fitment identified for ${fitment.partTypeDescriptor} on ${fitment.year} ${fitment.makeName} ${fitment.modelName}. This fitment shows moderate compatibility but requires manual verification due to limited data availability or conflicting specifications. The AI detected similar vehicle configurations with successful fitments, but recommends review before approval.`;
+        } else {
+          fitmentType = "manual_fitment";
+        }
+      } else {
+        // Add AI data for existing AI and potential fitments
+        if (fitment.fitmentType === "ai_fitment") {
+          confidenceScore =
+            fitment.confidenceScore || Math.random() * 0.3 + 0.7;
+          aiDescription =
+            fitment.aiDescription ||
+            `AI-generated fitment for ${fitment.partTypeDescriptor} on ${fitment.year} ${fitment.makeName} ${fitment.modelName}. Advanced machine learning algorithms analyzed vehicle specifications, part dimensions, and compatibility matrices to generate this high-confidence fitment recommendation.`;
+        } else if (fitment.fitmentType === "potential_fitment") {
+          confidenceScore =
+            fitment.confidenceScore || Math.random() * 0.4 + 0.5;
+          aiDescription =
+            fitment.aiDescription ||
+            `Potential fitment candidate for ${fitment.partTypeDescriptor} identified through similarity analysis. While the match appears promising based on vehicle characteristics and part specifications, manual review is recommended due to moderate confidence levels or incomplete data.`;
+        }
+      }
+
+      return {
+        ...fitment,
+        fitmentType,
+        aiDescription,
+        confidenceScore,
+      };
+    });
+  };
+
+  const fitments = mockFitments(data?.fitments ?? []);
 
   // Update filter options when data is loaded
   useEffect(() => {
@@ -316,6 +369,7 @@ export default function Fitments() {
       liftHeight: "",
       wheelType: "",
       updatedAt: "",
+      fitmentType: "",
     });
 
     // Reset sorting to default
@@ -425,6 +479,117 @@ export default function Fitments() {
       default:
         return "gray";
     }
+  };
+
+  // Fitment type helper functions
+  const getFitmentTypeIcon = (fitmentType: string) => {
+    switch (fitmentType) {
+      case "ai_fitment":
+        return <IconBrain size={16} />;
+      case "potential_fitment":
+        return <IconShield size={16} />;
+      case "manual_fitment":
+        return <IconUsers size={16} />;
+      default:
+        return <IconUsers size={16} />;
+    }
+  };
+
+  const getFitmentTypeColor = (fitmentType: string) => {
+    switch (fitmentType) {
+      case "ai_fitment":
+        return "blue";
+      case "potential_fitment":
+        return "orange";
+      case "manual_fitment":
+        return "green";
+      default:
+        return "gray";
+    }
+  };
+
+  const getFitmentTypeLabel = (fitmentType: string) => {
+    switch (fitmentType) {
+      case "ai_fitment":
+        return "AI Fitment";
+      case "potential_fitment":
+        return "Potential Fitment";
+      case "manual_fitment":
+        return "Manual Fitment";
+      default:
+        return "Unknown";
+    }
+  };
+
+  const getFitmentTypeDescription = (fitmentType: string) => {
+    switch (fitmentType) {
+      case "ai_fitment":
+        return "This fitment was generated using artificial intelligence algorithms based on vehicle specifications and part compatibility analysis.";
+      case "potential_fitment":
+        return "This is a potential fitment that has been identified as a possible match but may require further validation or review.";
+      case "manual_fitment":
+        return "This fitment was created manually by a user or administrator through direct input and verification.";
+      default:
+        return "Unknown fitment type.";
+    }
+  };
+
+  const isPotentialFitment = (fitmentType: string) => {
+    return fitmentType === "potential_fitment";
+  };
+
+  // AI confidence helper functions
+  const getConfidenceColor = (confidence?: number) => {
+    if (!confidence) return "gray";
+    if (confidence >= 0.8) return "green";
+    if (confidence >= 0.6) return "yellow";
+    return "red";
+  };
+
+  const getConfidenceLabel = (confidence?: number) => {
+    if (!confidence) return "Unknown";
+    if (confidence >= 0.9) return "Very High";
+    if (confidence >= 0.8) return "High";
+    if (confidence >= 0.7) return "Good";
+    if (confidence >= 0.6) return "Fair";
+    return "Low";
+  };
+
+  const formatConfidenceScore = (confidence?: number) => {
+    if (!confidence) return "N/A";
+    return `${Math.round(confidence * 100)}%`;
+  };
+
+  const getEnhancedFitmentTypeDescription = (
+    fitment: FlattenedAppliedFitment
+  ) => {
+    const baseDescription = getFitmentTypeDescription(fitment.fitmentType);
+
+    if (
+      fitment.fitmentType === "ai_fitment" &&
+      fitment.aiDescription &&
+      fitment.confidenceScore
+    ) {
+      return `${baseDescription}\n\nConfidence Score: ${formatConfidenceScore(
+        fitment.confidenceScore
+      )} (${getConfidenceLabel(fitment.confidenceScore)})\n\nAI Analysis:\n${
+        fitment.aiDescription
+      }`;
+    }
+
+    if (
+      fitment.fitmentType === "potential_fitment" &&
+      fitment.aiDescription &&
+      fitment.confidenceScore
+    ) {
+      return `${baseDescription}\n\nConfidence Score: ${formatConfidenceScore(
+        fitment.confidenceScore
+      )} (${getConfidenceLabel(
+        fitment.confidenceScore
+      )})\n\nPotential Analysis:\n${fitment.aiDescription}`;
+    }
+
+    return baseDescription;
   };
 
   return (
@@ -1487,6 +1652,7 @@ export default function Fitments() {
                       liftHeight: "",
                       wheelType: "",
                       updatedAt: "",
+                      fitmentType: "",
                     });
                   }}
                   styles={{
@@ -1642,6 +1808,28 @@ export default function Fitments() {
                       placeholder="Filter by title"
                     />
                   </Table.Th>
+                  <Table.Th>
+                    <FilterableSortableHeader
+                      label="Fitment Type"
+                      field="fitmentType"
+                      currentSortBy={sortBy}
+                      currentSortOrder={sortOrder}
+                      onSort={handleSort}
+                      filterType="select"
+                      filterOptions={[
+                        { value: "ai_fitment", label: "AI Fitment" },
+                        {
+                          value: "potential_fitment",
+                          label: "Potential Fitment",
+                        },
+                        { value: "manual_fitment", label: "Manual Fitment" },
+                      ]}
+                      filterValue={columnFilters.fitmentType || ""}
+                      onFilterChange={handleColumnFilterChange}
+                      onFilterClear={handleColumnFilterClear}
+                      placeholder="Select method"
+                    />
+                  </Table.Th>
                   {expandedView && (
                     <>
                       <Table.Th>Description</Table.Th>
@@ -1749,6 +1937,9 @@ export default function Fitments() {
                       <Table.Td>
                         <Skeleton height={16} width={120} />
                       </Table.Td>
+                      <Table.Td>
+                        <Skeleton height={20} width={80} radius="sm" />
+                      </Table.Td>
                       {expandedView && (
                         <>
                           <Table.Td>
@@ -1775,7 +1966,7 @@ export default function Fitments() {
                   ))
                 ) : fitments.length === 0 ? (
                   <Table.Tr>
-                    <Table.Td colSpan={expandedView ? 12 : 8}>
+                    <Table.Td colSpan={expandedView ? 13 : 9}>
                       <Center py="xl">
                         <Stack align="center" gap="md">
                           <Text size="lg" c="dimmed">
@@ -1835,6 +2026,63 @@ export default function Fitments() {
                         <Text size="sm" fw={500}>
                           {fitment.fitmentTitle}
                         </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        {fitment.fitmentType === "manual_fitment" ? (
+                          <Group gap="xs">
+                            {getFitmentTypeIcon(fitment.fitmentType)}
+                            <Badge
+                              variant="light"
+                              color={getFitmentTypeColor(fitment.fitmentType)}
+                              size="sm"
+                            >
+                              {getFitmentTypeLabel(fitment.fitmentType)}
+                            </Badge>
+                          </Group>
+                        ) : (
+                          <Tooltip
+                            label={getEnhancedFitmentTypeDescription(fitment)}
+                            multiline
+                            w={400}
+                            withArrow
+                          >
+                            <Group gap="xs" style={{ cursor: "help" }}>
+                              {getFitmentTypeIcon(fitment.fitmentType)}
+                              <Badge
+                                variant="light"
+                                color={getFitmentTypeColor(fitment.fitmentType)}
+                                size="sm"
+                              >
+                                {getFitmentTypeLabel(fitment.fitmentType)}
+                              </Badge>
+                              {(fitment.fitmentType === "ai_fitment" ||
+                                fitment.fitmentType === "potential_fitment") &&
+                                fitment.confidenceScore && (
+                                  <Badge
+                                    variant="filled"
+                                    color={getConfidenceColor(
+                                      fitment.confidenceScore
+                                    )}
+                                    size="xs"
+                                    leftSection={<IconShield size={12} />}
+                                  >
+                                    {formatConfidenceScore(
+                                      fitment.confidenceScore
+                                    )}
+                                  </Badge>
+                                )}
+                              {isPotentialFitment(fitment.fitmentType) && (
+                                <Badge
+                                  variant="outline"
+                                  color="orange"
+                                  size="xs"
+                                >
+                                  Needs Review
+                                </Badge>
+                              )}
+                            </Group>
+                          </Tooltip>
+                        )}
                       </Table.Td>
                       {expandedView && (
                         <>

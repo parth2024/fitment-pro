@@ -281,7 +281,7 @@ export default function BulkUpload() {
           {/* Header */}
           <Group justify="space-between">
             <div>
-              <Title order={2}>Fitments Bulk Upload</Title>
+              <Title order={2}>Bulk Fitments Upload</Title>
               <Text c="dimmed">
                 Upload CSV files to import fitments in bulk with validation
               </Text>

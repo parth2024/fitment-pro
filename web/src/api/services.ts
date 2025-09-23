@@ -98,6 +98,9 @@ export interface FlattenedAppliedFitment {
   createdBy: string;
   updatedAt: string;
   updatedBy: string;
+  fitmentType: "manual_fitment" | "potential_fitment" | "ai_fitment";
+  aiDescription?: string;
+  confidenceScore?: number;
 }
 
 export interface Coverage {
