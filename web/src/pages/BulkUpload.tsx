@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Card,
   Title,
@@ -29,6 +29,7 @@ import {
 } from "@tabler/icons-react";
 import { fitmentsService } from "../api/services";
 import { notifications } from "@mantine/notifications";
+import { useEntity } from "../hooks/useEntity";
 
 interface ValidationResult {
   session_id: string;
@@ -50,6 +51,7 @@ interface SubmissionResult {
 }
 
 export default function BulkUpload() {
+  const { currentEntity, refreshCurrentEntity } = useEntity();
   const [currentStep, setCurrentStep] = useState(0);
   const [file, setFile] = useState<File | null>(null);
   const [validating, setValidating] = useState(false);
@@ -60,6 +62,49 @@ export default function BulkUpload() {
   const [sessionId, setSessionId] = useState<string>("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Create a stable reset function that can be used in event handlers
+  const resetUploadState = useCallback(() => {
+    setCurrentStep(0);
+    setFile(null);
+    setValidation(null);
+    setSubmissionResult(null);
+    setSessionId("");
+    setUploadProgress(0);
+    setValidating(false);
+    setSubmitting(false);
+  }, []);
+
+  // Listen for entity change events from EntitySelector
+  useEffect(() => {
+    const handleEntityChange = async (event: Event) => {
+      const customEvent = event as CustomEvent;
+      console.log(
+        "Entity changed event received, refreshing entity context and resetting BulkUpload state...",
+        customEvent.detail
+      );
+      // Refresh the current entity context to get the updated entity
+      await refreshCurrentEntity();
+      // Reset upload state when entity changes to prevent cross-entity data contamination
+      resetUploadState();
+      console.log("BulkUpload state reset completed");
+    };
+
+    // Listen for custom entity change events
+    window.addEventListener("entityChanged", handleEntityChange);
+
+    // Cleanup listener on unmount
+    return () => {
+      window.removeEventListener("entityChanged", handleEntityChange);
+    };
+  }, [refreshCurrentEntity, resetUploadState]);
+
+  // Effect to handle currentEntity changes from useEntity hook
+  useEffect(() => {
+    if (currentEntity) {
+      console.log("Current entity updated:", currentEntity.name);
+    }
+  }, [currentEntity]);
 
   const steps = [
     { label: "Upload CSV", description: "Select and upload your fitment data" },
@@ -121,6 +166,15 @@ export default function BulkUpload() {
   const validateFile = async () => {
     if (!file) return;
 
+    if (!currentEntity) {
+      notifications.show({
+        title: "No Entity Selected",
+        message: "Please select an entity before uploading fitments",
+        color: "red",
+      });
+      return;
+    }
+
     try {
       setValidating(true);
       setUploadProgress(0);
@@ -136,6 +190,12 @@ export default function BulkUpload() {
         });
       }, 200);
 
+      console.log(
+        "Validating fitments for entity:",
+        currentEntity.name,
+        "ID:",
+        currentEntity.id
+      );
       const response = await fitmentsService.validateFitmentsCSV(file);
       const result = response.data;
 
@@ -148,7 +208,7 @@ export default function BulkUpload() {
 
       notifications.show({
         title: "Validation Complete",
-        message: `Found ${result.validRows} valid rows and ${result.invalidRowsCount} invalid rows`,
+        message: `Found ${result.validRows} valid rows and ${result.invalidRowsCount} invalid rows for ${currentEntity.name}`,
         color: result.invalidRowsCount === 0 ? "green" : "yellow",
       });
     } catch (error: any) {
@@ -167,8 +227,23 @@ export default function BulkUpload() {
   const submitFitments = async () => {
     if (!sessionId) return;
 
+    if (!currentEntity) {
+      notifications.show({
+        title: "No Entity Selected",
+        message: "Please select an entity before submitting fitments",
+        color: "red",
+      });
+      return;
+    }
+
     try {
       setSubmitting(true);
+      console.log(
+        "Submitting fitments for entity:",
+        currentEntity.name,
+        "ID:",
+        currentEntity.id
+      );
       const response = await fitmentsService.submitValidatedFitments(sessionId);
       const result = response.data;
 
@@ -177,7 +252,7 @@ export default function BulkUpload() {
 
       notifications.show({
         title: "Upload Complete",
-        message: result.message,
+        message: `${result.message} for ${currentEntity.name}`,
         color: "green",
       });
     } catch (error: any) {
@@ -264,14 +339,7 @@ export default function BulkUpload() {
   };
 
   const resetUpload = () => {
-    setCurrentStep(0);
-    setFile(null);
-    setValidation(null);
-    setSubmissionResult(null);
-    setSessionId("");
-    setUploadProgress(0);
-    setValidating(false);
-    setSubmitting(false);
+    resetUploadState();
   };
 
   return (

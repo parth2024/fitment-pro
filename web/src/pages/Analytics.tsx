@@ -127,6 +127,13 @@ const Analytics: React.FC = () => {
       color: "gray",
       value: "/settings",
     },
+    {
+      title: "Entity Management",
+      description: "Manage entities and their settings",
+      icon: IconBuilding,
+      color: "gray",
+      value: "/entities",
+    },
   ];
 
   const fetchAnalyticsData = async () => {

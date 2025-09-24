@@ -1260,10 +1260,21 @@ def validate_fitments_csv(request):
         if csv_file.size > 10 * 1024 * 1024:
             return JsonResponse({'error': 'File size must be less than 10MB'}, status=400)
         
+        # Handle tenant filtering
+        try:
+            tenant = get_tenant_from_request(request)
+            print(f"DEBUG: Bulk Upload Validation - Using tenant: {tenant.name} (ID: {tenant.id})")
+            print(f"DEBUG: Bulk Upload Validation - X-Tenant-ID header: {request.headers.get('X-Tenant-ID')}")
+        except Exception as e:
+            tenant = None
+            print(f"DEBUG: Bulk Upload Validation - No tenant found. Error: {str(e)}")
+            print(f"DEBUG: Bulk Upload Validation - X-Tenant-ID header: {request.headers.get('X-Tenant-ID')}")
+        
         # Create session
         session_id = uuid.uuid4()
         session = FitmentUploadSession.objects.create(
             user=request.user if hasattr(request, 'user') and request.user.is_authenticated else None,
+            tenant=tenant,  # Add tenant to session
             session_id=session_id,
             status='validating',
             file_name=csv_file.name
@@ -1347,7 +1358,9 @@ def validate_fitments_csv(request):
             'ignoredColumns': ignored_columns,
             'totalRows': session.total_rows,
             'validRows': valid_rows,
-            'invalidRowsCount': len(invalid_rows)
+            'invalidRowsCount': len(invalid_rows),
+            'tenant_id': str(tenant.id) if tenant else None,
+            'tenant_name': tenant.name if tenant else None
         })
         
     except Exception as e:
@@ -1360,6 +1373,16 @@ def validate_fitments_csv(request):
 def submit_validated_fitments(request, session_id):
     """Submit validated fitments to database"""
     try:
+        # Handle tenant filtering
+        try:
+            tenant = get_tenant_from_request(request)
+            print(f"DEBUG: Bulk Upload Submit - Using tenant: {tenant.name} (ID: {tenant.id})")
+            print(f"DEBUG: Bulk Upload Submit - X-Tenant-ID header: {request.headers.get('X-Tenant-ID')}")
+        except Exception as e:
+            tenant = None
+            print(f"DEBUG: Bulk Upload Submit - No tenant found. Error: {str(e)}")
+            print(f"DEBUG: Bulk Upload Submit - X-Tenant-ID header: {request.headers.get('X-Tenant-ID')}")
+        
         session = FitmentUploadSession.objects.get(
             session_id=session_id,
             user=request.user if hasattr(request, 'user') and request.user.is_authenticated else None,
@@ -1401,7 +1424,7 @@ def submit_validated_fitments(request, session_id):
                     if not row_data.get(field):
                         raise ValueError(f'Missing required field: {field}')
                 
-                # Check for existing fitment with same key data
+                # Check for existing fitment with same key data (filtered by tenant)
                 existing_fitment = Fitment.objects.filter(
                     partId=row_data['PartID'],
                     year=int(row_data['YearID']),
@@ -1409,7 +1432,13 @@ def submit_validated_fitments(request, session_id):
                     modelName=row_data['ModelName'],
                     ptid=row_data['PTID'],
                     isDeleted=False
-                ).first()
+                )
+                
+                # Apply tenant filtering if tenant exists
+                if tenant:
+                    existing_fitment = existing_fitment.filter(tenant=tenant)
+                
+                existing_fitment = existing_fitment.first()
                 
                 if existing_fitment:
                     skipped_count += 1
@@ -1426,6 +1455,7 @@ def submit_validated_fitments(request, session_id):
                     fuelTypeName=row_data.get('FuelTypeName', ''),
                     bodyNumDoors=int(row_data.get('BodyNumDoors', 4)),
                     bodyTypeName=row_data.get('BodyTypeName', ''),
+                    tenant=tenant,  # Add tenant to fitment
                     ptid=row_data['PTID'],
                     partTypeDescriptor=row_data.get('PTID', ''),  # Using PTID as descriptor
                     quantity=int(row_data.get('Quantity', 1)),
@@ -1457,7 +1487,9 @@ def submit_validated_fitments(request, session_id):
             'skipped_count': skipped_count,
             'total_rows': len(rows_data),
             'errors': errors,
-            'message': f'Successfully created {created_count} fitments' + (f', skipped {skipped_count} duplicates' if skipped_count > 0 else '')
+            'tenant_id': str(tenant.id) if tenant else None,
+            'tenant_name': tenant.name if tenant else None,
+            'message': f'Successfully created {created_count} fitments for {tenant.name if tenant else "default tenant"}' + (f', skipped {skipped_count} duplicates' if skipped_count > 0 else '')
         })
         
     except FitmentUploadSession.DoesNotExist:
