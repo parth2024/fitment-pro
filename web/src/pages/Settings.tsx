@@ -113,6 +113,36 @@ const Settings = () => {
     loadFields();
   }, []);
 
+  // Listen for entity changes and refresh fields
+  useEffect(() => {
+    const handleEntityChange = (event: CustomEvent) => {
+      console.log(
+        "Entity changed, refreshing field configurations...",
+        event.detail
+      );
+      // Set loading state and clear current fields
+      setLoading(true);
+      setVcdbFields([]);
+      setProductFields([]);
+      // Reload fields for the new entity
+      loadFields();
+    };
+
+    // Listen for custom entity change events
+    window.addEventListener(
+      "entityChanged",
+      handleEntityChange as EventListener
+    );
+
+    // Cleanup listener on unmount
+    return () => {
+      window.removeEventListener(
+        "entityChanged",
+        handleEntityChange as EventListener
+      );
+    };
+  }, []);
+
   // Handle field creation/update
   const handleSaveField = async (fieldData: Partial<FieldConfiguration>) => {
     try {

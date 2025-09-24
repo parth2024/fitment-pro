@@ -317,7 +317,7 @@ const EntityManagement: React.FC = () => {
 
           <Grid.Col span={4}>
             <Stack gap="md">
-              <Paper shadow="sm" radius="md" withBorder>
+              <Paper shadow="sm" radius="md" withBorder p="md">
                 <Group gap="md" mb="sm">
                   <IconSettings size={20} />
                   <Text fw={500}>Quick Stats</Text>
@@ -461,7 +461,7 @@ const EntityManagement: React.FC = () => {
           title="Edit Entity"
           size="lg"
         >
-          <Stack gap="md">
+          <Stack gap="md" p="10px">
             <TextInput
               label="Name"
               placeholder="Enter entity name"

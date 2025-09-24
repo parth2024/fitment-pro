@@ -24,20 +24,28 @@ class FieldConfigurationViewSet(viewsets.ModelViewSet):
     ordering_fields = ['name', 'display_name', 'display_order', 'created_at', 'updated_at']
     ordering = ['reference_type', 'display_order', 'name']
     
-    def get_serializer_class(self):
-        """Return appropriate serializer based on action"""
-        if self.action == 'create':
-            return FieldConfigurationCreateSerializer
-        elif self.action == 'update' or self.action == 'partial_update':
-            return FieldConfigurationUpdateSerializer
-        elif self.action == 'list':
-            return FieldConfigurationListSerializer
-        return FieldConfigurationSerializer
+    def get_tenant(self):
+        """Get tenant from request headers"""
+        tenant_id = self.request.headers.get('X-Tenant-ID')
+        if tenant_id:
+            try:
+                from tenants.models import Tenant
+                return Tenant.objects.get(id=tenant_id)
+            except Tenant.DoesNotExist:
+                return None
+        return None
     
     def get_queryset(self):
-        """Filter queryset based on query parameters"""
-        params = self.request.query_params
+        """Filter queryset based on tenant and query parameters"""
         queryset = super().get_queryset()
+        
+        # Filter by tenant if provided
+        tenant = self.get_tenant()
+        if tenant:
+            queryset = queryset.filter(tenant=tenant)
+        
+        # Apply existing filters
+        params = self.request.query_params
         
         # Filter by reference type
         reference_type = params.get('reference_type')
@@ -61,9 +69,24 @@ class FieldConfigurationViewSet(viewsets.ModelViewSet):
         
         return queryset
     
+    def get_serializer_class(self):
+        """Return appropriate serializer based on action"""
+        if self.action == 'create':
+            return FieldConfigurationCreateSerializer
+        elif self.action == 'update' or self.action == 'partial_update':
+            return FieldConfigurationUpdateSerializer
+        elif self.action == 'list':
+            return FieldConfigurationListSerializer
+        return FieldConfigurationSerializer
+    
+    
     def perform_create(self, serializer):
         """Create a new field configuration"""
-        serializer.save(created_by=self.request.user.username if hasattr(self.request, 'user') else 'system')
+        tenant = self.get_tenant()
+        serializer.save(
+            created_by=self.request.user.username if hasattr(self.request, 'user') else 'system',
+            tenant=tenant
+        )
     
     def perform_update(self, serializer):
         """Update field configuration and create history record"""
@@ -79,8 +102,10 @@ class FieldConfigurationViewSet(viewsets.ModelViewSet):
         }
         
         # Save the updated instance
+        tenant = self.get_tenant()
         updated_instance = serializer.save(
-            updated_by=self.request.user.username if hasattr(self.request, 'user') else 'system'
+            updated_by=self.request.user.username if hasattr(self.request, 'user') else 'system',
+            tenant=tenant
         )
         
         # Create history record
@@ -98,6 +123,7 @@ class FieldConfigurationViewSet(viewsets.ModelViewSet):
         if old_values != new_values:
             FieldConfigurationHistory.objects.create(
                 field_config=updated_instance,
+                tenant=tenant,
                 action='updated',
                 changed_by=self.request.user.username if hasattr(self.request, 'user') else 'system',
                 old_values=old_values,
@@ -135,8 +161,10 @@ class FieldConfigurationViewSet(viewsets.ModelViewSet):
         }
         
         # Create history record before deletion
+        tenant = self.get_tenant()
         history_record = FieldConfigurationHistory.objects.create(
             field_config=instance,
+            tenant=tenant,
             field_name=instance.name,  # Store field name for deleted records
             action='deleted',
             changed_by=request.user.username if hasattr(request, 'user') else 'system',
@@ -163,8 +191,10 @@ class FieldConfigurationViewSet(viewsets.ModelViewSet):
         field_config.save(update_fields=['is_enabled'])
         
         # Create history record
+        tenant = self.get_tenant()
         FieldConfigurationHistory.objects.create(
             field_config=field_config,
+            tenant=tenant,
             action='enabled' if field_config.is_enabled else 'disabled',
             changed_by=request.user.username if hasattr(request, 'user') else 'system',
             old_values={'is_enabled': old_enabled},
@@ -310,11 +340,28 @@ class FieldConfigurationHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     
     serializer_class = FieldConfigurationHistorySerializer
     
+    def get_tenant(self):
+        """Get tenant from request headers"""
+        tenant_id = self.request.headers.get('X-Tenant-ID')
+        if tenant_id:
+            try:
+                from tenants.models import Tenant
+                return Tenant.objects.get(id=tenant_id)
+            except Tenant.DoesNotExist:
+                return None
+        return None
+    
     def get_queryset(self):
         """Get history for a specific field configuration"""
+        queryset = FieldConfigurationHistory.objects.all()
+        
+        # Filter by tenant if provided
+        tenant = self.get_tenant()
+        if tenant:
+            queryset = queryset.filter(tenant=tenant)
+        
         field_config_id = self.request.query_params.get('field_config_id')
         if field_config_id:
-            return FieldConfigurationHistory.objects.filter(
-                field_config_id=field_config_id
-            )
-        return FieldConfigurationHistory.objects.all()
+            queryset = queryset.filter(field_config_id=field_config_id)
+        
+        return queryset

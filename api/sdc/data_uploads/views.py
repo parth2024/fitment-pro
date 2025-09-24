@@ -55,16 +55,47 @@ class DataUploadSessionView(APIView):
     
     def get(self, request):
         """Get all data upload sessions"""
+        # Get tenant ID from header
+        tenant_id = request.headers.get('X-Tenant-ID')
+        
+        # Build base queryset
         sessions = DataUploadSession.objects.all()
+        
+        # Filter by tenant if provided
+        if tenant_id:
+            try:
+                from tenants.models import Tenant
+                tenant = Tenant.objects.get(id=tenant_id)
+                sessions = sessions.filter(tenant=tenant)
+            except Tenant.DoesNotExist:
+                return Response(
+                    {"error": "Invalid tenant ID"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
         serializer = DataUploadSessionListSerializer(sessions, many=True)
         return Response(serializer.data)
     
     def post(self, request):
         """Create a new data upload session"""
+        # Get tenant ID from header
+        tenant_id = request.headers.get('X-Tenant-ID')
+        tenant = None
+        
+        if tenant_id:
+            try:
+                from tenants.models import Tenant
+                tenant = Tenant.objects.get(id=tenant_id)
+            except Tenant.DoesNotExist:
+                return Response(
+                    {"error": "Invalid tenant ID"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
         serializer = FileUploadSerializer(data=request.data)
         if serializer.is_valid():
-            # Create new session
-            session = DataUploadSession.objects.create()
+            # Create new session with tenant
+            session = DataUploadSession.objects.create(tenant=tenant)
             
             # Handle file uploads
             vcdb_file = request.FILES.get('vcdb_file')
@@ -91,21 +122,21 @@ class DataUploadSessionView(APIView):
             session.save()
             
             # Validate files
-            self._validate_files(session)
+            self._validate_files(session, tenant)
             
             response_serializer = DataUploadSessionSerializer(session)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    def _validate_files(self, session):
+    def _validate_files(self, session, tenant=None):
         """Validate uploaded files"""
         if session.vcdb_file:
-            self._validate_file(session, 'vcdb')
+            self._validate_file(session, 'vcdb', tenant)
         if session.products_file:
-            self._validate_file(session, 'products')
+            self._validate_file(session, 'products', tenant)
     
-    def _validate_file(self, session, file_type):
+    def _validate_file(self, session, file_type, tenant=None):
         """Validate a specific file"""
         try:
             file_field = getattr(session, f'{file_type}_file')
@@ -189,9 +220,9 @@ class DataUploadSessionView(APIView):
                 
                 # Process and store the data
                 if file_type == 'vcdb':
-                    created_count, processing_errors = DataProcessor.process_vcdb_data(normalized_df, str(session.id))
+                    created_count, processing_errors = DataProcessor.process_vcdb_data(normalized_df, str(session.id), tenant)
                 elif file_type == 'products':
-                    created_count, processing_errors = DataProcessor.process_product_data(normalized_df, str(session.id))
+                    created_count, processing_errors = DataProcessor.process_product_data(normalized_df, str(session.id), tenant)
                 else:
                     created_count = len(df)
                     processing_errors = []

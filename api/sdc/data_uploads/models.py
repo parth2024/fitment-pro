@@ -126,7 +126,7 @@ class VCDBData(models.Model):
         ordering = ['year', 'make', 'model']
         verbose_name = "VCDB Data"
         verbose_name_plural = "VCDB Data"
-        unique_together = ['year', 'make', 'model', 'submodel', 'drive_type']
+        unique_together = ['year', 'make', 'model', 'submodel', 'drive_type', 'tenant']
     
     def __str__(self):
         return f"{self.year} {self.make} {self.model} {self.submodel}"
@@ -136,7 +136,7 @@ class ProductData(models.Model):
     """Model to store Product/Parts data"""
     id = models.AutoField(primary_key=True)
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='product_data', null=True, blank=True)
-    part_id = models.CharField(max_length=100, unique=True)
+    part_id = models.CharField(max_length=100)
     description = models.TextField()
     category = models.CharField(max_length=100, blank=True)
     part_type = models.CharField(max_length=100, blank=True)
@@ -160,6 +160,7 @@ class ProductData(models.Model):
         ordering = ['part_id']
         verbose_name = "Product Data"
         verbose_name_plural = "Product Data"
+        unique_together = ['part_id', 'tenant']
     
     def __str__(self):
         return f"{self.part_id} - {self.description[:50]}"

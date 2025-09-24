@@ -432,13 +432,14 @@ class DataProcessor:
     """Process and store parsed data into database models"""
     
     @staticmethod
-    def process_vcdb_data(df: pd.DataFrame, session_id: str) -> Tuple[int, List[str]]:
+    def process_vcdb_data(df: pd.DataFrame, session_id: str, tenant=None) -> Tuple[int, List[str]]:
         """
         Process VCDB data and store in database
         
         Args:
             df: Normalized VCDB DataFrame
             session_id: Session ID for tracking
+            tenant: Tenant instance for multi-tenant support
             
         Returns:
             Tuple of (records_created, error_messages)
@@ -454,22 +455,44 @@ class DataProcessor:
             
             for _, row in df.iterrows():
                 try:
-                    # Create or update VCDB record
-                    vcdb_record, created = VCDBData.objects.update_or_create(
+                    # Create or update VCDB record with tenant-aware duplicate detection
+                    # Check if record exists for this specific tenant
+                    existing_record = VCDBData.objects.filter(
                         year=row.get('year'),
                         make=row.get('make'),
                         model=row.get('model'),
                         submodel=row.get('submodel', ''),
                         drive_type=row.get('drivetype', ''),
-                        defaults={
-                            'fuel_type': row.get('fueltype', ''),
-                            'num_doors': row.get('numdoors'),
-                            'body_type': row.get('bodytype', ''),
-                            'engine_type': row.get('engine_type', ''),
-                            'transmission': row.get('transmission', ''),
-                            'trim_level': row.get('trim_level', ''),
-                        }
-                    )
+                        tenant=tenant  # Only check within same tenant
+                    ).first()
+                    
+                    if existing_record:
+                        # Update existing record for this tenant
+                        existing_record.fuel_type = row.get('fueltype', '')
+                        existing_record.num_doors = row.get('numdoors')
+                        existing_record.body_type = row.get('bodytype', '')
+                        existing_record.engine_type = row.get('engine_type', '')
+                        existing_record.transmission = row.get('transmission', '')
+                        existing_record.trim_level = row.get('trim_level', '')
+                        existing_record.save()
+                        # Not counting as created since it's an update
+                    else:
+                        # Create new record for this tenant
+                        vcdb_record = VCDBData.objects.create(
+                            year=row.get('year'),
+                            make=row.get('make'),
+                            model=row.get('model'),
+                            submodel=row.get('submodel', ''),
+                            drive_type=row.get('drivetype', ''),
+                            fuel_type=row.get('fueltype', ''),
+                            num_doors=row.get('numdoors'),
+                            body_type=row.get('bodytype', ''),
+                            engine_type=row.get('engine_type', ''),
+                            transmission=row.get('transmission', ''),
+                            trim_level=row.get('trim_level', ''),
+                            tenant=tenant
+                        )
+                        created = True
                     
                     if created:
                         created_count += 1
@@ -489,13 +512,14 @@ class DataProcessor:
         return created_count, errors
     
     @staticmethod
-    def process_product_data(df: pd.DataFrame, session_id: str) -> Tuple[int, List[str]]:
+    def process_product_data(df: pd.DataFrame, session_id: str, tenant=None) -> Tuple[int, List[str]]:
         """
         Process Product data and store in database
         
         Args:
             df: Normalized Product DataFrame
             session_id: Session ID for tracking
+            tenant: Tenant instance for multi-tenant support
             
         Returns:
             Tuple of (records_created, error_messages)
@@ -511,22 +535,44 @@ class DataProcessor:
             
             for _, row in df.iterrows():
                 try:
-                    # Create or update Product record
-                    product_record, created = ProductData.objects.update_or_create(
+                    # Create or update Product record with tenant-aware duplicate detection
+                    # Check if record exists for this specific tenant
+                    existing_record = ProductData.objects.filter(
                         part_id=row.get('id'),
-                        defaults={
-                            'description': row.get('description'),
-                            'category': row.get('category', ''),
-                            'part_type': row.get('parttype', ''),
-                            'compatibility': row.get('compatibility', ''),
-                            'specifications': row.get('specifications', {}),
-                            'brand': row.get('brand', ''),
-                            'sku': row.get('sku', ''),
-                            'price': row.get('price'),
-                            'weight': row.get('weight'),
-                            'dimensions': row.get('dimensions', ''),
-                        }
-                    )
+                        tenant=tenant  # Only check within same tenant
+                    ).first()
+                    
+                    if existing_record:
+                        # Update existing record for this tenant
+                        existing_record.description = row.get('description')
+                        existing_record.category = row.get('category', '')
+                        existing_record.part_type = row.get('parttype', '')
+                        existing_record.compatibility = row.get('compatibility', '')
+                        existing_record.specifications = row.get('specifications', {})
+                        existing_record.brand = row.get('brand', '')
+                        existing_record.sku = row.get('sku', '')
+                        existing_record.price = row.get('price')
+                        existing_record.weight = row.get('weight')
+                        existing_record.dimensions = row.get('dimensions', '')
+                        existing_record.save()
+                        # Not counting as created since it's an update
+                    else:
+                        # Create new record for this tenant
+                        product_record = ProductData.objects.create(
+                            part_id=row.get('id'),
+                            description=row.get('description'),
+                            category=row.get('category', ''),
+                            part_type=row.get('parttype', ''),
+                            compatibility=row.get('compatibility', ''),
+                            specifications=row.get('specifications', {}),
+                            brand=row.get('brand', ''),
+                            sku=row.get('sku', ''),
+                            price=row.get('price'),
+                            weight=row.get('weight'),
+                            dimensions=row.get('dimensions', ''),
+                            tenant=tenant
+                        )
+                        created = True
                     
                     if created:
                         created_count += 1

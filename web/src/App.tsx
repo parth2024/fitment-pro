@@ -54,7 +54,6 @@ import EntityManagement from "./pages/EntityManagement";
 import ProtectedRoute from "./components/ProtectedRoute";
 import EntitySelector from "./components/EntitySelector";
 import { useAuth } from "./contexts/AuthContext";
-import { useEntity } from "./hooks/useEntity";
 import { useProfessionalToast } from "./hooks/useProfessionalToast";
 
 const navigationItems = [
