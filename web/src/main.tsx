@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "@mantine/core/styles.css";
+import "bootstrap/dist/css/bootstrap.min.css";
 import { MantineProvider } from "@mantine/core";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";

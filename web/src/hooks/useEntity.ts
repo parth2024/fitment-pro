@@ -1,5 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import apiClient from "../api/client";
+
+// Global cache to prevent duplicate API calls
+let entitiesCache: Entity[] | null = null;
+let currentEntityCache: Entity | null = null;
+let lastFetchTime = 0;
+const CACHE_DURATION = 30000; // 30 seconds
 
 interface Entity {
   id: string;
@@ -30,10 +36,13 @@ interface UseEntityReturn {
 const ENTITY_STORAGE_KEY = "current_entity";
 
 export const useEntity = (): UseEntityReturn => {
-  const [currentEntity, setCurrentEntity] = useState<Entity | null>(null);
-  const [entities, setEntities] = useState<Entity[]>([]);
+  const [currentEntity, setCurrentEntity] = useState<Entity | null>(
+    currentEntityCache
+  );
+  const [entities, setEntities] = useState<Entity[]>(entitiesCache || []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isInitialized = useRef(false);
 
   // Load entity from localStorage on mount
   useEffect(() => {
@@ -52,10 +61,20 @@ export const useEntity = (): UseEntityReturn => {
   // Note: Entity is only saved to localStorage when explicitly switched via selector
 
   const fetchEntities = useCallback(async () => {
+    // Check cache first
+    const now = Date.now();
+    if (entitiesCache && now - lastFetchTime < CACHE_DURATION) {
+      setEntities(entitiesCache);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
       const response = await apiClient.get("/api/tenants/");
+      entitiesCache = response.data;
+      lastFetchTime = now;
       setEntities(response.data);
     } catch (err) {
       console.error("Failed to fetch entities:", err);
@@ -66,11 +85,18 @@ export const useEntity = (): UseEntityReturn => {
   }, []);
 
   const fetchCurrentEntity = useCallback(async () => {
+    // Check cache first
+    if (currentEntityCache) {
+      setCurrentEntity(currentEntityCache);
+      return currentEntityCache;
+    }
+
     try {
       setError(null);
       const response = await apiClient.get("/api/tenants/current/");
       const entity = response.data;
       setCurrentEntity(entity);
+      currentEntityCache = entity;
       return entity;
     } catch (err) {
       console.error("Failed to fetch current entity:", err);
@@ -112,9 +138,14 @@ export const useEntity = (): UseEntityReturn => {
     await fetchCurrentEntity();
   }, [fetchCurrentEntity]);
 
-  // Initialize on mount
+  // Initialize on mount - only once
   useEffect(() => {
+    if (isInitialized.current) {
+      return;
+    }
+
     const initialize = async () => {
+      isInitialized.current = true;
       await fetchEntities();
 
       // If no current entity, try to fetch it

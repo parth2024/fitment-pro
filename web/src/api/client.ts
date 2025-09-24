@@ -1,5 +1,8 @@
 import axios from "axios";
 
+// Global request deduplication to prevent duplicate API calls
+const pendingRequests = new Map<string, Promise<any>>();
+
 // Create axios instance with base configuration
 const apiClient = axios.create({
   baseURL: (import.meta as any).env.VITE_BACKEND_URL,
@@ -64,4 +67,87 @@ apiClient.interceptors.response.use(
   }
 );
 
-export default apiClient;
+// Wrapper function to prevent duplicate API calls
+const deduplicatedApiClient = {
+  get: (url: string, config?: any) => {
+    const requestKey = `GET_${url}_${JSON.stringify(config?.params || {})}`;
+
+    if (pendingRequests.has(requestKey)) {
+      console.log("DEBUG: Deduplicating GET request:", url);
+      return pendingRequests.get(requestKey)!;
+    }
+
+    const promise = apiClient.get(url, config).finally(() => {
+      pendingRequests.delete(requestKey);
+    });
+
+    pendingRequests.set(requestKey, promise);
+    return promise;
+  },
+
+  post: (url: string, data?: any, config?: any) => {
+    const requestKey = `POST_${url}_${JSON.stringify(data || {})}`;
+
+    if (pendingRequests.has(requestKey)) {
+      console.log("DEBUG: Deduplicating POST request:", url);
+      return pendingRequests.get(requestKey)!;
+    }
+
+    const promise = apiClient.post(url, data, config).finally(() => {
+      pendingRequests.delete(requestKey);
+    });
+
+    pendingRequests.set(requestKey, promise);
+    return promise;
+  },
+
+  put: (url: string, data?: any, config?: any) => {
+    const requestKey = `PUT_${url}_${JSON.stringify(data || {})}`;
+
+    if (pendingRequests.has(requestKey)) {
+      console.log("DEBUG: Deduplicating PUT request:", url);
+      return pendingRequests.get(requestKey)!;
+    }
+
+    const promise = apiClient.put(url, data, config).finally(() => {
+      pendingRequests.delete(requestKey);
+    });
+
+    pendingRequests.set(requestKey, promise);
+    return promise;
+  },
+
+  delete: (url: string, config?: any) => {
+    const requestKey = `DELETE_${url}_${JSON.stringify(config?.params || {})}`;
+
+    if (pendingRequests.has(requestKey)) {
+      console.log("DEBUG: Deduplicating DELETE request:", url);
+      return pendingRequests.get(requestKey)!;
+    }
+
+    const promise = apiClient.delete(url, config).finally(() => {
+      pendingRequests.delete(requestKey);
+    });
+
+    pendingRequests.set(requestKey, promise);
+    return promise;
+  },
+
+  patch: (url: string, data?: any, config?: any) => {
+    const requestKey = `PATCH_${url}_${JSON.stringify(data || {})}`;
+
+    if (pendingRequests.has(requestKey)) {
+      console.log("DEBUG: Deduplicating PATCH request:", url);
+      return pendingRequests.get(requestKey)!;
+    }
+
+    const promise = apiClient.patch(url, data, config).finally(() => {
+      pendingRequests.delete(requestKey);
+    });
+
+    pendingRequests.set(requestKey, promise);
+    return promise;
+  },
+};
+
+export default deduplicatedApiClient;

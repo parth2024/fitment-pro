@@ -22,7 +22,6 @@ import {
   IconDatabase,
   IconChartBar,
   IconBulb,
-  IconAlertTriangle,
   IconUpload,
   IconSettings,
   IconBuilding,
@@ -40,8 +39,8 @@ import ApplyFitments from "./pages/ApplyFitments";
 import Fitments from "./pages/Fitments";
 import EditFitment from "./pages/EditFitment";
 import BulkUpload from "./pages/BulkUpload";
-import Coverage from "./pages/Coverage";
-import PotentialFitments from "./pages/PotentialFitments";
+import CoverageNew from "./pages/CoverageNew/CoverageWrapper";
+import PotentialFitmentsBootstrap from "./pages/PotentialFitmentsBootstrap";
 import Mismatches from "./pages/Mismatches";
 import Admin from "./pages/Admin";
 import UploadMap from "./pages/UploadMap";
@@ -92,13 +91,13 @@ const navigationItems = [
     icon: IconUpload,
     color: "orange",
   },
-  {
-    label: "Mismatches(Beta)",
-    value: "mismatches",
-    path: "/mismatches",
-    icon: IconAlertTriangle,
-    color: "red",
-  },
+  // {
+  //   label: "Mismatches(Beta)",
+  //   value: "mismatches",
+  //   path: "/mismatches",
+  //   icon: IconAlertTriangle,
+  //   color: "red",
+  // },
   {
     label: "Coverage",
     value: "coverage",
@@ -180,8 +179,11 @@ function App() {
         <Route path="/manual-fitment" element={<ManualFitment />} />
         <Route path="/ai-fitment" element={<AIFitment />} />
         <Route path="/review-publish" element={<ReviewPublish />} />
-        <Route path="/coverage" element={<Coverage />} />
-        <Route path="/potential-fitments" element={<PotentialFitments />} />
+        <Route path="/coverage" element={<CoverageNew />} />
+        <Route
+          path="/potential-fitments"
+          element={<PotentialFitmentsBootstrap />}
+        />
         <Route path="/admin" element={<Admin />} />
         <Route path="/mismatches" element={<Mismatches />} />
         <Route path="/settings" element={<Settings />} />
@@ -378,6 +380,9 @@ function App() {
                   to={item.path}
                   active={isActive}
                   label={item.label}
+                  onClick={() =>
+                    window.scrollTo({ top: 0, left: 0, behavior: "smooth" })
+                  }
                   leftSection={
                     <ThemeIcon
                       size={28}

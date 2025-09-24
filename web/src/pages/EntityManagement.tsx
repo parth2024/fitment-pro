@@ -208,10 +208,6 @@ const EntityManagement: React.FC = () => {
     <Container size="xl" py="xl">
       <Stack gap="xl">
         <Group justify="space-between" align="center">
-          <Group gap="md">
-            <IconBuilding size={32} />
-            <Title order={1}>Entity Management</Title>
-          </Group>
           <Group>
             <Button
               leftSection={<IconRefresh size={16} />}

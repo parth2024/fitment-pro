@@ -98,13 +98,13 @@ const Analytics: React.FC = () => {
       value: "/bulk-upload",
     },
 
-    {
-      title: "Mistmatches",
-      description: "Find mistmatches between fitments and vehicles",
-      icon: IconAlertTriangle,
-      color: "red",
-      value: "/mismatches",
-    },
+    // {
+    //   title: "Mistmatches",
+    //   description: "Find mistmatches between fitments and vehicles",
+    //   icon: IconAlertTriangle,
+    //   color: "red",
+    //   value: "/mismatches",
+    // },
     {
       title: "Coverage Analytics",
       description: "Vehicle coverage analysis",
