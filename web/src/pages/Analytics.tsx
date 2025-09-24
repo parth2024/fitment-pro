@@ -76,13 +76,13 @@ const Analytics: React.FC = () => {
       color: "cyan",
       value: "/upload-data",
     },
-    {
-      title: "Apply Fitments",
-      description: "Upload and apply new fitments",
-      icon: IconCar,
-      color: "green",
-      value: "/apply-fitments",
-    },
+    // {
+    //   title: "Apply Fitments",
+    //   description: "Upload and apply new fitments",
+    //   icon: IconCar,
+    //   color: "green",
+    //   value: "/apply-fitments",
+    // },
     {
       title: "Manage Fitments",
       description: "View and edit existing fitments",

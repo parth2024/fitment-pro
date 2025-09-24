@@ -988,6 +988,8 @@ def apply_ai_fitments_direct(request):
                 fitmentType='ai_fitment',  # Set as AI fitment type
                 createdBy='ai_system',
                 updatedBy='ai_system',
+                aiDescription=fitment_data.get('ai_reasoning', ''),
+                confidenceScore=fitment_data.get('confidence', 0),
                 # Include dynamic fields
                 dynamicFields=fitment_data.get('dynamicFields', {})
             )
@@ -1013,6 +1015,9 @@ def apply_ai_fitments_direct(request):
 def get_vcdb_data(request):
     """Get all VCDB data from the database"""
     try:
+        # Get tenant ID from header
+        tenant_id = request.headers.get('X-Tenant-ID')
+        
         # Get query parameters for filtering
         year = request.GET.get('year')
         make = request.GET.get('make')
@@ -1021,6 +1026,18 @@ def get_vcdb_data(request):
         
         # Build query
         queryset = VCDBData.objects.all()
+        
+        # Filter by tenant if provided
+        if tenant_id:
+            try:
+                from tenants.models import Tenant
+                tenant = Tenant.objects.get(id=tenant_id)
+                queryset = queryset.filter(tenant=tenant)
+            except Tenant.DoesNotExist:
+                return Response(
+                    {"error": "Invalid tenant ID"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         
         if year:
             queryset = queryset.filter(year=year)
@@ -1075,6 +1092,9 @@ def get_vcdb_data(request):
 def get_product_data(request):
     """Get all Product data from the database"""
     try:
+        # Get tenant ID from header
+        tenant_id = request.headers.get('X-Tenant-ID')
+        
         # Get query parameters for filtering
         category = request.GET.get('category')
         part_type = request.GET.get('part_type')
@@ -1083,6 +1103,18 @@ def get_product_data(request):
         
         # Build query
         queryset = ProductData.objects.all()
+        
+        # Filter by tenant if provided
+        if tenant_id:
+            try:
+                from tenants.models import Tenant
+                tenant = Tenant.objects.get(id=tenant_id)
+                queryset = queryset.filter(tenant=tenant)
+            except Tenant.DoesNotExist:
+                return Response(
+                    {"error": "Invalid tenant ID"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         
         if category:
             queryset = queryset.filter(category__icontains=category)
@@ -1137,12 +1169,34 @@ def get_product_data(request):
 def get_data_status(request):
     """Get the current status of uploaded and processed data"""
     try:
+        # Get tenant ID from header
+        tenant_id = request.headers.get('X-Tenant-ID')
+        
+        # Build base querysets
+        vcdb_queryset = VCDBData.objects.all()
+        product_queryset = ProductData.objects.all()
+        session_queryset = DataUploadSession.objects.all()
+        
+        # Filter by tenant if provided
+        if tenant_id:
+            try:
+                from tenants.models import Tenant
+                tenant = Tenant.objects.get(id=tenant_id)
+                vcdb_queryset = vcdb_queryset.filter(tenant=tenant)
+                product_queryset = product_queryset.filter(tenant=tenant)
+                session_queryset = session_queryset.filter(tenant=tenant)
+            except Tenant.DoesNotExist:
+                return Response(
+                    {"error": "Invalid tenant ID"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
         # Get counts from database tables
-        vcdb_count = VCDBData.objects.count()
-        product_count = ProductData.objects.count()
+        vcdb_count = vcdb_queryset.count()
+        product_count = product_queryset.count()
         
         # Get latest session info (any session with valid files)
-        latest_session = DataUploadSession.objects.filter(
+        latest_session = session_queryset.filter(
             Q(vcdb_valid=True) | Q(products_valid=True)
         ).order_by('-created_at').first()
         
@@ -1181,24 +1235,44 @@ def get_data_status(request):
 def get_dropdown_data(request):
     """Get dropdown data from VCDBData and ProductData tables"""
     try:
+        # Get tenant ID from header
+        tenant_id = request.headers.get('X-Tenant-ID')
+        
+        # Build base querysets
+        vcdb_queryset = VCDBData.objects.all()
+        product_queryset = ProductData.objects.all()
+        
+        # Filter by tenant if provided
+        if tenant_id:
+            try:
+                from tenants.models import Tenant
+                tenant = Tenant.objects.get(id=tenant_id)
+                vcdb_queryset = vcdb_queryset.filter(tenant=tenant)
+                product_queryset = product_queryset.filter(tenant=tenant)
+            except Tenant.DoesNotExist:
+                return Response(
+                    {"error": "Invalid tenant ID"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
         # Get unique values from VCDBData
-        vcdb_years = VCDBData.objects.values_list('year', flat=True).distinct().order_by('year')
-        vcdb_makes = VCDBData.objects.values_list('make', flat=True).distinct().order_by('make')
-        vcdb_models = VCDBData.objects.values_list('model', flat=True).distinct().order_by('model')
-        vcdb_submodels = VCDBData.objects.values_list('submodel', flat=True).distinct().order_by('submodel')
-        vcdb_fuel_types = VCDBData.objects.values_list('fuel_type', flat=True).distinct().order_by('fuel_type')
-        vcdb_body_types = VCDBData.objects.values_list('body_type', flat=True).distinct().order_by('body_type')
-        vcdb_drive_types = VCDBData.objects.values_list('drive_type', flat=True).distinct().order_by('drive_type')
-        vcdb_num_doors = VCDBData.objects.values_list('num_doors', flat=True).distinct().order_by('num_doors')
-        vcdb_engine_types = VCDBData.objects.values_list('engine_type', flat=True).distinct().order_by('engine_type')
-        vcdb_transmissions = VCDBData.objects.values_list('transmission', flat=True).distinct().order_by('transmission')
-        vcdb_trim_levels = VCDBData.objects.values_list('trim_level', flat=True).distinct().order_by('trim_level')
+        vcdb_years = vcdb_queryset.values_list('year', flat=True).distinct().order_by('year')
+        vcdb_makes = vcdb_queryset.values_list('make', flat=True).distinct().order_by('make')
+        vcdb_models = vcdb_queryset.values_list('model', flat=True).distinct().order_by('model')
+        vcdb_submodels = vcdb_queryset.values_list('submodel', flat=True).distinct().order_by('submodel')
+        vcdb_fuel_types = vcdb_queryset.values_list('fuel_type', flat=True).distinct().order_by('fuel_type')
+        vcdb_body_types = vcdb_queryset.values_list('body_type', flat=True).distinct().order_by('body_type')
+        vcdb_drive_types = vcdb_queryset.values_list('drive_type', flat=True).distinct().order_by('drive_type')
+        vcdb_num_doors = vcdb_queryset.values_list('num_doors', flat=True).distinct().order_by('num_doors')
+        vcdb_engine_types = vcdb_queryset.values_list('engine_type', flat=True).distinct().order_by('engine_type')
+        vcdb_transmissions = vcdb_queryset.values_list('transmission', flat=True).distinct().order_by('transmission')
+        vcdb_trim_levels = vcdb_queryset.values_list('trim_level', flat=True).distinct().order_by('trim_level')
 
         # Get unique values from ProductData
-        product_ids = ProductData.objects.values_list('part_id', flat=True).distinct().order_by('part_id')
-        product_categories = ProductData.objects.values_list('category', flat=True).distinct().order_by('category')
-        product_brands = ProductData.objects.values_list('brand', flat=True).distinct().order_by('brand')
-        positions = ProductData.objects.values_list('compatibility', flat=True).distinct().order_by('compatibility')
+        product_ids = product_queryset.values_list('part_id', flat=True).distinct().order_by('part_id')
+        product_categories = product_queryset.values_list('category', flat=True).distinct().order_by('category')
+        product_brands = product_queryset.values_list('brand', flat=True).distinct().order_by('brand')
+        positions = product_queryset.values_list('compatibility', flat=True).distinct().order_by('compatibility')
 
         response_data = {
             'years': [str(year) for year in vcdb_years if year],
@@ -1233,11 +1307,26 @@ def get_dropdown_data(request):
 def get_filtered_vehicles(request):
     """Get filtered vehicles from VCDBData table based on provided filters"""
     try:
+        # Get tenant ID from header
+        tenant_id = request.headers.get('X-Tenant-ID')
+        
         # Extract filters from request data
         filters = request.data.get('filters', {})
         
         # Build query for VCDBData
         queryset = VCDBData.objects.all()
+        
+        # Filter by tenant if provided
+        if tenant_id:
+            try:
+                from tenants.models import Tenant
+                tenant = Tenant.objects.get(id=tenant_id)
+                queryset = queryset.filter(tenant=tenant)
+            except Tenant.DoesNotExist:
+                return Response(
+                    {"error": "Invalid tenant ID"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         
         # Apply filters
         if filters.get('yearFrom'):

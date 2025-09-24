@@ -18,14 +18,12 @@ import {
   TextInput,
   SimpleGrid,
   ScrollArea,
-  Alert,
   Table,
   Tooltip,
   ActionIcon,
   Select,
   Stepper,
   Textarea,
-  Divider,
 } from "@mantine/core";
 import {
   IconUpload,
@@ -48,7 +46,6 @@ import {
   IconList,
   IconGasStation,
   IconDoor,
-  IconRefresh,
   IconSearch,
 } from "@tabler/icons-react";
 import { useProfessionalToast } from "../hooks/useProfessionalToast";
@@ -109,7 +106,7 @@ export default function UploadData() {
   const [dropdownData, setDropdownData] = useState<any>(null);
   const [, setLookupData] = useState<any>(null);
   const [manualStep, setManualStep] = useState(1);
-  const [formKey, _setFormKey] = useState(0);
+  const [formKey, setFormKey] = useState(0);
   const [vehicleFilters, setVehicleFilters] = useState({
     yearFrom: "",
     yearTo: "",
@@ -133,7 +130,7 @@ export default function UploadData() {
     liftHeight: "",
     wheelType: "",
   });
-  const [_wheelParameters, _setWheelParameters] = useState([
+  const [wheelParameters, setWheelParameters] = useState([
     { tireDiameter: "", wheelDiameter: "", backspacing: "" },
     { tireDiameter: "", wheelDiameter: "", backspacing: "" },
     { tireDiameter: "", wheelDiameter: "", backspacing: "" },
@@ -158,6 +155,9 @@ export default function UploadData() {
   const vcdbDropRef = useRef<HTMLDivElement>(null);
   const productsDropRef = useRef<HTMLDivElement>(null);
 
+  // Session state
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
   // API hooks
   const { data: sessionsData, refetch: refetchSessions } = useApi(
     () => dataUploadService.getSessions(),
@@ -175,6 +175,8 @@ export default function UploadData() {
   // API hooks for manual fitment
   const { execute: fetchDropdownData } = useAsyncOperation();
   const { execute: fetchLookupData } = useAsyncOperation();
+  const { execute: fetchFilteredVehicles } = useAsyncOperation();
+  const { execute: createFitment } = useAsyncOperation();
 
   // Dynamic field configurations
   const { formFields: vcdbFormFields, refreshFields: refreshVcdbFields } =
@@ -221,6 +223,15 @@ export default function UploadData() {
       });
 
       setUploadedFiles(files);
+    }
+  }, [sessionsData]);
+
+  // Set the latest session ID when sessions data is available
+  useEffect(() => {
+    if (sessionsData && sessionsData.length > 0) {
+      // Get the most recent session (first in the list since they're ordered by created_at desc)
+      const latestSession = sessionsData[0];
+      setSessionId(latestSession.id);
     }
   }, [sessionsData]);
 
@@ -834,8 +845,9 @@ export default function UploadData() {
     }
 
     setSelectedFitmentMethod("manual");
-    setLoadingDropdownData(true);
 
+    // Fetch dropdown data from VCDBData and ProductData tables
+    setLoadingDropdownData(true);
     try {
       // Refresh field configurations to get latest values
       if (refreshVcdbFields && refreshProductFields) {
@@ -849,6 +861,8 @@ export default function UploadData() {
 
       if (dropdownResult && dropdownResult.data) {
         setDropdownData(dropdownResult.data);
+
+        // VCDB data structure loaded successfully
       } else {
         showError("Failed to load vehicle and product data");
       }
@@ -919,65 +933,81 @@ export default function UploadData() {
     return [];
   };
 
-  // Vehicle filtering function
+  // Vehicle filtering function - exact implementation from ApplyFitments.tsx
   const handleFilterVehicles = async () => {
-    if (!dropdownData) {
-      showError("Vehicle data not loaded yet");
+    // Validate required fields
+    if (!vehicleFilters.yearFrom || !vehicleFilters.yearTo) {
+      showError(
+        "Please select both 'Year From' and 'Year To' before searching for vehicles."
+      );
       return;
     }
 
-    setLoadingDropdownData(true);
-    try {
-      // For now, simulate vehicle filtering with dropdown data
-      // In a real implementation, this would call an API endpoint
-      const mockVehicles = [
-        {
-          id: "1",
-          year: "2020",
-          make: "Toyota",
-          model: "Camry",
-          submodel: "LE",
-          drive_type: "FWD",
-          fuel_type: "Gas",
-          num_doors: "4",
-          body_type: "Sedan",
-        },
-        {
-          id: "2",
-          year: "2021",
-          make: "Honda",
-          model: "Accord",
-          submodel: "Sport",
-          drive_type: "FWD",
-          fuel_type: "Gas",
-          num_doors: "4",
-          body_type: "Sedan",
-        },
-      ];
+    // Validate year range
+    const yearFrom = parseInt(vehicleFilters.yearFrom);
+    const yearTo = parseInt(vehicleFilters.yearTo);
 
-      setFilteredVehicles(mockVehicles);
-      setSelectedVehicles([]);
-      setManualStep(2);
-      showSuccess(
-        `Found ${mockVehicles.length} vehicles matching your criteria`
+    if (yearFrom >= yearTo) {
+      showError(
+        "Year To must be greater than Year From. Please select a valid year range."
       );
+      return;
+    }
+
+    try {
+      // Combine standard vehicle filters with dynamic VCDB fields
+      const searchCriteria = {
+        ...vehicleFilters,
+        ...dynamicVcdbFields,
+      };
+
+      const result: any = await fetchFilteredVehicles(() =>
+        fitmentUploadService.getFilteredVehicles(
+          sessionId || "",
+          searchCriteria
+        )
+      );
+
+      if (result && result.data && result.data.vehicles) {
+        if (result.data.vehicles.length === 0) {
+          showError(
+            "No vehicles found matching your criteria. Please adjust your search filters and try again."
+          );
+          return;
+        }
+
+        setFilteredVehicles(result.data.vehicles);
+        setManualStep(2);
+        showSuccess(`Found ${result.data.vehicles.length} vehicles`, 3000);
+      } else {
+        showError("Failed to search vehicles");
+      }
     } catch (error) {
-      console.error("Failed to filter vehicles:", error);
-      showError("Failed to filter vehicles");
-    } finally {
-      setLoadingDropdownData(false);
+      console.error("Vehicle search error:", error);
+      showError("Failed to search vehicles");
     }
   };
 
-  // Manual fitment application
+  // Manual fitment application - exact implementation from ApplyFitments.tsx
   const handleApplyManualFitment = async () => {
-    if (selectedVehicles.length === 0) {
-      showError("Please select at least one vehicle");
+    // Validate required fields
+    if (!fitmentDetails.partId) {
+      showError("Please select a part type");
       return;
     }
 
-    if (!fitmentDetails.partId) {
-      showError("Please enter a part ID");
+    if (!fitmentDetails.position) {
+      showError("Please select a position");
+      return;
+    }
+
+    if (!fitmentDetails.title) {
+      showError("Please enter a fitment title");
+      return;
+    }
+
+    if (selectedVehicles.length === 0) {
+      showError("Please select at least one vehicle");
       return;
     }
 
@@ -995,30 +1025,38 @@ export default function UploadData() {
           position: fitmentDetails.position,
           liftHeight: fitmentDetails.liftHeight,
           wheelType: fitmentDetails.wheelType,
-          vehicleId: vehicleId,
-          year: vehicle?.year,
-          make: vehicle?.make,
-          model: vehicle?.model,
-          submodel: vehicle?.submodel,
-          driveType: vehicle?.drive_type,
-          fuelType: vehicle?.fuel_type,
-          numDoors: vehicle?.num_doors,
-          bodyType: vehicle?.body_type,
-          dynamicVcdbFields: dynamicVcdbFields,
-          dynamicProductFields: dynamicProductFields,
-          tenantId: currentEntity?.id || null, // Add tenant ID for multi-tenant support
+          wheelParameters: wheelParameters,
+          fitmentType: "manual_fitment",
+          // Tenant ID for multi-tenant support
+          tenantId: currentEntity?.id || null,
+          // Vehicle data
+          year: vehicle?.year || 0,
+          make: vehicle?.make || "",
+          model: vehicle?.model || "",
+          submodel: vehicle?.submodel || "",
+          driveType: vehicle?.driveType || "",
+          fuelType: vehicle?.fuelType || "",
+          numDoors: vehicle?.numDoors || 0,
+          bodyType: vehicle?.bodyType || "",
+          baseVehicleId: vehicleId,
+          partTypeId: fitmentDetails.partId,
+          partTypeDescriptor: fitmentDetails.title,
+          positionId: 0,
+          // Dynamic VCDB fields
+          ...dynamicVcdbFields,
+          // Dynamic Product fields
+          ...dynamicProductFields,
         };
       });
 
-      console.log("Fitments data:", fitmentsData);
+      const result: any = await createFitment(() =>
+        dataUploadService.createFitment(fitmentsData)
+      );
 
-      // For now, simulate manual fitment application
-      // In a real implementation, this would call the applyManualFitment API
-      const result = { success: true, applied_count: selectedVehicles.length };
-
-      if (result) {
+      if (result && result.data) {
         showSuccess(
-          `Successfully applied fitments to ${selectedVehicles.length} vehicles!`
+          `Successfully created ${result.data.created} fitments!`,
+          5000
         );
         // Reset form
         setSelectedVehicles([]);
@@ -1034,11 +1072,19 @@ export default function UploadData() {
         });
         setDynamicVcdbFields({});
         setDynamicProductFields({});
+        setWheelParameters([
+          { tireDiameter: "", wheelDiameter: "", backspacing: "" },
+          { tireDiameter: "", wheelDiameter: "", backspacing: "" },
+          { tireDiameter: "", wheelDiameter: "", backspacing: "" },
+        ]);
         setManualStep(1);
+        setFormKey((prev) => prev + 1);
+      } else {
+        showError("Failed to create fitments");
       }
     } catch (error) {
-      console.error("Failed to apply manual fitment:", error);
-      showError("Failed to apply manual fitment");
+      console.error("Create fitment error:", error);
+      showError("Failed to create fitments");
     } finally {
       setApplyingManualFitment(false);
     }
@@ -2114,7 +2160,7 @@ export default function UploadData() {
                   </div>
                 )}
 
-                {/* Manual Processing Section */}
+                {/* Manual Processing Section - Exact Implementation from ApplyFitments.tsx */}
                 {selectedFitmentMethod === "manual" && (
                   <div>
                     <Card
@@ -2138,7 +2184,7 @@ export default function UploadData() {
                           </Text>
                         </div>
 
-                        {/* Manual Method Stepper */}
+                        {/* Manual Method Stepper - Exact from ApplyFitments.tsx */}
                         <Stepper
                           active={manualStep - 1}
                           onStepClick={setManualStep}
@@ -2156,49 +2202,109 @@ export default function UploadData() {
                           }}
                         >
                           <Stepper.Step
-                            label="Specify Vehicle Configurations"
-                            description="Specify vehicle criteria"
+                            label="Vehicle Search"
+                            description="Set search criteria"
                             icon={<IconCar size={18} />}
                           >
-                            <div>
-                              <Stack gap="md" mt={20}>
-                                <div style={{ marginBottom: "15px" }}>
-                                  <Title order={4} c="#1e293b" fw={700}>
-                                    Vehicle Search Criteria
-                                  </Title>
-                                  <Text size="sm" c="#64748b">
-                                    Refine your search with specific vehicle
-                                    attributes to find the perfect fitments
+                            <div
+                              style={{
+                                marginTop: "20px",
+                                boxShadow: "none",
+                              }}
+                            >
+                              <Stack gap="md">
+                                <Group justify="space-between">
+                                  <Text size="lg" fw={600} c="#1e293b">
+                                    Step 1: Vehicle Search Criteria
                                   </Text>
-                                  {loadingDropdownData && (
-                                    <Alert
-                                      icon={<IconRefresh size={16} />}
-                                      color="blue"
-                                      radius="md"
-                                      mt="md"
-                                    >
-                                      <Text size="sm">
-                                        Loading vehicle data from uploaded
-                                        files...
-                                      </Text>
-                                    </Alert>
-                                  )}
-                                </div>
+                                  <Button
+                                    variant="light"
+                                    size="sm"
+                                    onClick={() => {
+                                      // Reset all filters
+                                      setVehicleFilters({
+                                        yearFrom: "",
+                                        yearTo: "",
+                                        make: "",
+                                        model: "",
+                                        submodel: "",
+                                        fuelType: "",
+                                        numDoors: "",
+                                        driveType: "",
+                                        bodyType: "",
+                                      });
+
+                                      // Clear dynamic fields
+                                      setDynamicVcdbFields({});
+                                      setDynamicProductFields({});
+                                      setWheelParameters([
+                                        {
+                                          tireDiameter: "",
+                                          wheelDiameter: "",
+                                          backspacing: "",
+                                        },
+                                        {
+                                          tireDiameter: "",
+                                          wheelDiameter: "",
+                                          backspacing: "",
+                                        },
+                                        {
+                                          tireDiameter: "",
+                                          wheelDiameter: "",
+                                          backspacing: "",
+                                        },
+                                      ]);
+
+                                      // Reset to first step
+                                      setManualStep(1);
+
+                                      // Force form re-render
+                                      setFormKey((prev) => prev + 1);
+
+                                      console.log("Filters cleared!");
+                                    }}
+                                    styles={{
+                                      root: {
+                                        borderRadius: "10px",
+                                        fontWeight: 600,
+                                        fontSize: "12px",
+                                        height: "36px",
+                                        padding: "0 16px",
+                                        border: "2px solid #e2e8f0",
+                                        color: "#64748b",
+                                        transition:
+                                          "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                        "&:hover": {
+                                          borderColor: "#cbd5e1",
+                                          backgroundColor: "#f8fafc",
+                                          transform: "translateY(-1px)",
+                                        },
+                                      },
+                                    }}
+                                  >
+                                    Clear All
+                                  </Button>
+                                </Group>
 
                                 <div key={formKey}>
                                   <SimpleGrid
                                     cols={{ base: 1, sm: 2, lg: 3 }}
-                                    spacing="xl"
+                                    spacing="lg"
                                   >
                                     <Select
                                       label="Year From"
-                                      placeholder="Select year from"
+                                      placeholder={
+                                        loadingDropdownData
+                                          ? "Loading years..."
+                                          : "Select starting year"
+                                      }
                                       data={dropdownData?.years || []}
                                       value={vehicleFilters.yearFrom}
                                       onChange={(value) => {
                                         setVehicleFilters((prev) => {
                                           const newYearFrom = value || "";
                                           let newYearTo = prev.yearTo;
+
                                           if (
                                             newYearFrom &&
                                             prev.yearTo &&
@@ -2207,6 +2313,7 @@ export default function UploadData() {
                                           ) {
                                             newYearTo = "";
                                           }
+
                                           return {
                                             ...prev,
                                             yearFrom: newYearFrom,
@@ -2216,16 +2323,51 @@ export default function UploadData() {
                                       }}
                                       searchable
                                       disabled={loadingDropdownData}
+                                      required
                                       leftSection={
                                         <IconCalendar
                                           size={16}
                                           color="#64748b"
                                         />
                                       }
+                                      styles={{
+                                        label: {
+                                          fontWeight: 600,
+                                          fontSize: "13px",
+                                          color: "#374151",
+                                          marginBottom: "8px",
+                                          textTransform: "uppercase",
+                                          letterSpacing: "0.5px",
+                                        },
+                                        input: {
+                                          borderRadius: "10px",
+                                          border: "2px solid #e2e8f0",
+                                          fontSize: "14px",
+                                          height: "48px",
+                                          paddingLeft: "40px",
+                                          transition:
+                                            "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                          backgroundColor: "#fafafa",
+                                          "&:focus": {
+                                            borderColor: "#3b82f6",
+                                            boxShadow:
+                                              "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                            backgroundColor: "#ffffff",
+                                          },
+                                          "&:hover": {
+                                            borderColor: "#cbd5e1",
+                                            backgroundColor: "#ffffff",
+                                          },
+                                        },
+                                      }}
                                     />
                                     <Select
                                       label="Year To"
-                                      placeholder="Select year to"
+                                      placeholder={
+                                        loadingDropdownData
+                                          ? "Loading years..."
+                                          : "Select ending year"
+                                      }
                                       data={
                                         dropdownData?.years
                                           ? dropdownData.years.filter(
@@ -2250,17 +2392,55 @@ export default function UploadData() {
                                         }))
                                       }
                                       searchable
-                                      disabled={loadingDropdownData}
+                                      disabled={
+                                        loadingDropdownData ||
+                                        !vehicleFilters.yearFrom
+                                      }
+                                      required
                                       leftSection={
                                         <IconCalendar
                                           size={16}
                                           color="#64748b"
                                         />
                                       }
+                                      styles={{
+                                        label: {
+                                          fontWeight: 600,
+                                          fontSize: "13px",
+                                          color: "#374151",
+                                          marginBottom: "8px",
+                                          textTransform: "uppercase",
+                                          letterSpacing: "0.5px",
+                                        },
+                                        input: {
+                                          borderRadius: "10px",
+                                          border: "2px solid #e2e8f0",
+                                          fontSize: "14px",
+                                          height: "48px",
+                                          paddingLeft: "40px",
+                                          transition:
+                                            "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                          backgroundColor: "#fafafa",
+                                          "&:focus": {
+                                            borderColor: "#3b82f6",
+                                            boxShadow:
+                                              "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                            backgroundColor: "#ffffff",
+                                          },
+                                          "&:hover": {
+                                            borderColor: "#cbd5e1",
+                                            backgroundColor: "#ffffff",
+                                          },
+                                        },
+                                      }}
                                     />
                                     <Select
                                       label="Make"
-                                      placeholder="Select make"
+                                      placeholder={
+                                        loadingDropdownData
+                                          ? "Loading makes..."
+                                          : "Select make"
+                                      }
                                       data={dropdownData?.makes || []}
                                       value={vehicleFilters.make}
                                       onChange={(value) =>
@@ -2274,10 +2454,44 @@ export default function UploadData() {
                                       leftSection={
                                         <IconCar size={16} color="#64748b" />
                                       }
+                                      styles={{
+                                        label: {
+                                          fontWeight: 600,
+                                          fontSize: "13px",
+                                          color: "#374151",
+                                          marginBottom: "8px",
+                                          textTransform: "uppercase",
+                                          letterSpacing: "0.5px",
+                                        },
+                                        input: {
+                                          borderRadius: "10px",
+                                          border: "2px solid #e2e8f0",
+                                          fontSize: "14px",
+                                          height: "48px",
+                                          paddingLeft: "40px",
+                                          transition:
+                                            "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                          backgroundColor: "#fafafa",
+                                          "&:focus": {
+                                            borderColor: "#3b82f6",
+                                            boxShadow:
+                                              "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                            backgroundColor: "#ffffff",
+                                          },
+                                          "&:hover": {
+                                            borderColor: "#cbd5e1",
+                                            backgroundColor: "#ffffff",
+                                          },
+                                        },
+                                      }}
                                     />
                                     <Select
                                       label="Model"
-                                      placeholder="Select model"
+                                      placeholder={
+                                        loadingDropdownData
+                                          ? "Loading models..."
+                                          : "Select model"
+                                      }
                                       data={dropdownData?.models || []}
                                       value={vehicleFilters.model}
                                       onChange={(value) =>
@@ -2291,10 +2505,44 @@ export default function UploadData() {
                                       leftSection={
                                         <IconCar size={16} color="#64748b" />
                                       }
+                                      styles={{
+                                        label: {
+                                          fontWeight: 600,
+                                          fontSize: "13px",
+                                          color: "#374151",
+                                          marginBottom: "8px",
+                                          textTransform: "uppercase",
+                                          letterSpacing: "0.5px",
+                                        },
+                                        input: {
+                                          borderRadius: "10px",
+                                          border: "2px solid #e2e8f0",
+                                          fontSize: "14px",
+                                          height: "48px",
+                                          paddingLeft: "40px",
+                                          transition:
+                                            "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                          backgroundColor: "#fafafa",
+                                          "&:focus": {
+                                            borderColor: "#3b82f6",
+                                            boxShadow:
+                                              "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                            backgroundColor: "#ffffff",
+                                          },
+                                          "&:hover": {
+                                            borderColor: "#cbd5e1",
+                                            backgroundColor: "#ffffff",
+                                          },
+                                        },
+                                      }}
                                     />
                                     <Select
                                       label="Submodel"
-                                      placeholder="Select submodel"
+                                      placeholder={
+                                        loadingDropdownData
+                                          ? "Loading submodels..."
+                                          : "Select submodel"
+                                      }
                                       data={dropdownData?.submodels || []}
                                       value={vehicleFilters.submodel}
                                       onChange={(value) =>
@@ -2308,10 +2556,44 @@ export default function UploadData() {
                                       leftSection={
                                         <IconCar size={16} color="#64748b" />
                                       }
+                                      styles={{
+                                        label: {
+                                          fontWeight: 600,
+                                          fontSize: "13px",
+                                          color: "#374151",
+                                          marginBottom: "8px",
+                                          textTransform: "uppercase",
+                                          letterSpacing: "0.5px",
+                                        },
+                                        input: {
+                                          borderRadius: "10px",
+                                          border: "2px solid #e2e8f0",
+                                          fontSize: "14px",
+                                          height: "48px",
+                                          paddingLeft: "40px",
+                                          transition:
+                                            "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                          backgroundColor: "#fafafa",
+                                          "&:focus": {
+                                            borderColor: "#3b82f6",
+                                            boxShadow:
+                                              "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                            backgroundColor: "#ffffff",
+                                          },
+                                          "&:hover": {
+                                            borderColor: "#cbd5e1",
+                                            backgroundColor: "#ffffff",
+                                          },
+                                        },
+                                      }}
                                     />
                                     <Select
                                       label="Fuel Type"
-                                      placeholder="Select fuel type"
+                                      placeholder={
+                                        loadingDropdownData
+                                          ? "Loading fuel types..."
+                                          : "Select fuel type"
+                                      }
                                       data={dropdownData?.fuel_types || []}
                                       value={vehicleFilters.fuelType}
                                       onChange={(value) =>
@@ -2328,10 +2610,44 @@ export default function UploadData() {
                                           color="#64748b"
                                         />
                                       }
+                                      styles={{
+                                        label: {
+                                          fontWeight: 600,
+                                          fontSize: "13px",
+                                          color: "#374151",
+                                          marginBottom: "8px",
+                                          textTransform: "uppercase",
+                                          letterSpacing: "0.5px",
+                                        },
+                                        input: {
+                                          borderRadius: "10px",
+                                          border: "2px solid #e2e8f0",
+                                          fontSize: "14px",
+                                          height: "48px",
+                                          paddingLeft: "40px",
+                                          transition:
+                                            "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                          backgroundColor: "#fafafa",
+                                          "&:focus": {
+                                            borderColor: "#3b82f6",
+                                            boxShadow:
+                                              "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                            backgroundColor: "#ffffff",
+                                          },
+                                          "&:hover": {
+                                            borderColor: "#cbd5e1",
+                                            backgroundColor: "#ffffff",
+                                          },
+                                        },
+                                      }}
                                     />
                                     <Select
                                       label="Number of Doors"
-                                      placeholder="Select doors"
+                                      placeholder={
+                                        loadingDropdownData
+                                          ? "Loading door counts..."
+                                          : "Select door count"
+                                      }
                                       data={dropdownData?.num_doors || []}
                                       value={vehicleFilters.numDoors}
                                       onChange={(value) =>
@@ -2345,10 +2661,44 @@ export default function UploadData() {
                                       leftSection={
                                         <IconDoor size={16} color="#64748b" />
                                       }
+                                      styles={{
+                                        label: {
+                                          fontWeight: 600,
+                                          fontSize: "13px",
+                                          color: "#374151",
+                                          marginBottom: "8px",
+                                          textTransform: "uppercase",
+                                          letterSpacing: "0.5px",
+                                        },
+                                        input: {
+                                          borderRadius: "10px",
+                                          border: "2px solid #e2e8f0",
+                                          fontSize: "14px",
+                                          height: "48px",
+                                          paddingLeft: "40px",
+                                          transition:
+                                            "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                          backgroundColor: "#fafafa",
+                                          "&:focus": {
+                                            borderColor: "#3b82f6",
+                                            boxShadow:
+                                              "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                            backgroundColor: "#ffffff",
+                                          },
+                                          "&:hover": {
+                                            borderColor: "#cbd5e1",
+                                            backgroundColor: "#ffffff",
+                                          },
+                                        },
+                                      }}
                                     />
                                     <Select
                                       label="Drive Type"
-                                      placeholder="Select drive type"
+                                      placeholder={
+                                        loadingDropdownData
+                                          ? "Loading drive types..."
+                                          : "Select drive type"
+                                      }
                                       data={dropdownData?.drive_types || []}
                                       value={vehicleFilters.driveType}
                                       onChange={(value) =>
@@ -2365,10 +2715,44 @@ export default function UploadData() {
                                           color="#64748b"
                                         />
                                       }
+                                      styles={{
+                                        label: {
+                                          fontWeight: 600,
+                                          fontSize: "13px",
+                                          color: "#374151",
+                                          marginBottom: "8px",
+                                          textTransform: "uppercase",
+                                          letterSpacing: "0.5px",
+                                        },
+                                        input: {
+                                          borderRadius: "10px",
+                                          border: "2px solid #e2e8f0",
+                                          fontSize: "14px",
+                                          height: "48px",
+                                          paddingLeft: "40px",
+                                          transition:
+                                            "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                          backgroundColor: "#fafafa",
+                                          "&:focus": {
+                                            borderColor: "#3b82f6",
+                                            boxShadow:
+                                              "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                            backgroundColor: "#ffffff",
+                                          },
+                                          "&:hover": {
+                                            borderColor: "#cbd5e1",
+                                            backgroundColor: "#ffffff",
+                                          },
+                                        },
+                                      }}
                                     />
                                     <Select
                                       label="Body Type"
-                                      placeholder="Select body type"
+                                      placeholder={
+                                        loadingDropdownData
+                                          ? "Loading body types..."
+                                          : "Select body type"
+                                      }
                                       data={dropdownData?.body_types || []}
                                       value={vehicleFilters.bodyType}
                                       onChange={(value) =>
@@ -2382,29 +2766,115 @@ export default function UploadData() {
                                       leftSection={
                                         <IconCar size={16} color="#64748b" />
                                       }
+                                      styles={{
+                                        label: {
+                                          fontWeight: 600,
+                                          fontSize: "13px",
+                                          color: "#374151",
+                                          marginBottom: "8px",
+                                          textTransform: "uppercase",
+                                          letterSpacing: "0.5px",
+                                        },
+                                        input: {
+                                          borderRadius: "10px",
+                                          border: "2px solid #e2e8f0",
+                                          fontSize: "14px",
+                                          height: "48px",
+                                          paddingLeft: "40px",
+                                          transition:
+                                            "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                          backgroundColor: "#fafafa",
+                                          "&:focus": {
+                                            borderColor: "#3b82f6",
+                                            boxShadow:
+                                              "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                            backgroundColor: "#ffffff",
+                                          },
+                                          "&:hover": {
+                                            borderColor: "#cbd5e1",
+                                            backgroundColor: "#ffffff",
+                                          },
+                                        },
+                                      }}
                                     />
                                   </SimpleGrid>
+
+                                  {/* Dynamic VCDB Fields */}
+                                  {vcdbFormFields &&
+                                    vcdbFormFields.length > 0 && (
+                                      <div style={{ marginTop: "32px" }}>
+                                        <Text
+                                          fw={600}
+                                          size="md"
+                                          c="#1e293b"
+                                          mb="md"
+                                        >
+                                          Dynamic VCDB Fields
+                                        </Text>
+                                        <SimpleGrid
+                                          cols={{ base: 1, sm: 2, lg: 3 }}
+                                          spacing="lg"
+                                        >
+                                          {vcdbFormFields
+                                            .filter(
+                                              (field) =>
+                                                field.is_enabled &&
+                                                field.show_in_forms
+                                            )
+                                            .map((field) => (
+                                              <DynamicFormField
+                                                key={field.id}
+                                                fieldConfig={field}
+                                                value={
+                                                  dynamicVcdbFields[
+                                                    field.name
+                                                  ] || ""
+                                                }
+                                                onChange={(value) =>
+                                                  updateDynamicVcdbField(
+                                                    field.name,
+                                                    value
+                                                  )
+                                                }
+                                                data={getFieldData(field)}
+                                              />
+                                            ))}
+                                        </SimpleGrid>
+                                      </div>
+                                    )}
 
                                   <Group justify="center" mt="xl">
                                     <Button
                                       size="lg"
                                       leftSection={<IconSearch size={20} />}
-                                      onClick={handleFilterVehicles}
-                                      loading={loadingDropdownData}
-                                      disabled={loadingDropdownData}
                                       style={{
+                                        borderRadius: "10px",
+                                        fontWeight: 600,
+                                        fontSize: "14px",
+                                        height: "48px",
+                                        padding: "0 32px",
                                         background:
                                           "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
                                         border: "none",
-                                        borderRadius: "12px",
-                                        fontWeight: 600,
-                                        fontSize: "16px",
-                                        height: "48px",
-                                        padding: "0 32px",
+                                        transition:
+                                          "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                                         boxShadow:
-                                          "0 4px 6px -1px rgba(59, 130, 246, 0.2)",
-                                        transition: "all 0.3s ease",
+                                          "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)",
                                       }}
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.transform =
+                                          "translateY(-2px)";
+                                        e.currentTarget.style.boxShadow =
+                                          "0 8px 25px -5px rgba(59, 130, 246, 0.3), 0 4px 6px -1px rgba(59, 130, 246, 0.1)";
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform =
+                                          "translateY(0)";
+                                        e.currentTarget.style.boxShadow =
+                                          "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)";
+                                      }}
+                                      onClick={handleFilterVehicles}
+                                      loading={false}
                                     >
                                       Search Vehicles
                                     </Button>
@@ -2415,392 +2885,898 @@ export default function UploadData() {
                           </Stepper.Step>
 
                           <Stepper.Step
-                            label="Select Vehicles"
-                            description="Choose target vehicles"
+                            label="Vehicle Selection"
+                            description="Choose specific vehicles"
                             icon={<IconList size={18} />}
                           >
-                            <div>
-                              <Stack gap="md" mt={20}>
-                                <div style={{ marginBottom: "15px" }}>
-                                  <Title order={4} c="#1e293b" fw={700}>
-                                    Select Target Vehicles
-                                  </Title>
-                                  <Text size="sm" c="#64748b">
-                                    Choose the vehicles you want to apply
-                                    fitments to
+                            <div
+                              style={{
+                                marginTop: "20px",
+                                boxShadow: "none",
+                              }}
+                            >
+                              <Stack gap="md">
+                                <Group justify="space-between">
+                                  <Text size="lg" fw={600} c="#1e293b">
+                                    Step 2: Select Vehicles (
+                                    {filteredVehicles.length} found)
                                   </Text>
-                                </div>
+                                  <Group gap="sm">
+                                    <Button
+                                      variant="light"
+                                      size="sm"
+                                      onClick={() =>
+                                        setSelectedVehicles(
+                                          filteredVehicles.map((v: any) => v.id)
+                                        )
+                                      }
+                                    >
+                                      Select All
+                                    </Button>
+                                    <Button
+                                      variant="light"
+                                      size="sm"
+                                      onClick={() => setSelectedVehicles([])}
+                                    >
+                                      Clear All
+                                    </Button>
+                                  </Group>
+                                </Group>
 
-                                {filteredVehicles.length > 0 ? (
-                                  <div>
-                                    <Group justify="space-between" mb="md">
-                                      <Text size="sm" c="dimmed">
-                                        {filteredVehicles.length} vehicles found
-                                      </Text>
-                                      <Checkbox
-                                        label="Select All"
-                                        checked={
-                                          selectedVehicles.length ===
-                                          filteredVehicles.length
-                                        }
-                                        indeterminate={
-                                          selectedVehicles.length > 0 &&
-                                          selectedVehicles.length <
-                                            filteredVehicles.length
-                                        }
-                                        onChange={(event) => {
-                                          if (event.currentTarget.checked) {
-                                            setSelectedVehicles(
-                                              filteredVehicles.map(
-                                                (vehicle) => vehicle.id
-                                              )
-                                            );
-                                          } else {
-                                            setSelectedVehicles([]);
-                                          }
-                                        }}
-                                      />
-                                    </Group>
-
-                                    <ScrollArea h={300}>
-                                      <SimpleGrid
-                                        cols={{ base: 1, sm: 2 }}
-                                        spacing="md"
-                                      >
-                                        {filteredVehicles.map((vehicle) => (
-                                          <Card
-                                            key={vehicle.id}
-                                            withBorder
-                                            p="md"
-                                            style={{
-                                              cursor: "pointer",
-                                              border: selectedVehicles.includes(
-                                                vehicle.id
-                                              )
-                                                ? "2px solid #3b82f6"
-                                                : "1px solid #e2e8f0",
-                                              backgroundColor:
-                                                selectedVehicles.includes(
-                                                  vehicle.id
-                                                )
-                                                  ? "#f0f9ff"
-                                                  : "#ffffff",
-                                            }}
-                                            onClick={() => {
-                                              if (
-                                                selectedVehicles.includes(
-                                                  vehicle.id
-                                                )
-                                              ) {
-                                                setSelectedVehicles((prev) =>
-                                                  prev.filter(
-                                                    (id) => id !== vehicle.id
-                                                  )
-                                                );
-                                              } else {
-                                                setSelectedVehicles((prev) => [
-                                                  ...prev,
-                                                  vehicle.id,
-                                                ]);
-                                              }
-                                            }}
-                                          >
-                                            <Stack gap="xs">
-                                              <Group justify="space-between">
-                                                <Text fw={600} size="sm">
-                                                  {vehicle.year} {vehicle.make}{" "}
-                                                  {vehicle.model}
-                                                </Text>
-                                                <Checkbox
-                                                  checked={selectedVehicles.includes(
-                                                    vehicle.id
-                                                  )}
-                                                  onChange={() => {}}
-                                                />
-                                              </Group>
-                                              <Text size="xs" c="dimmed">
-                                                {vehicle.submodel &&
-                                                  `${vehicle.submodel} • `}
-                                                {vehicle.drive_type} •{" "}
-                                                {vehicle.fuel_type}
-                                              </Text>
-                                            </Stack>
-                                          </Card>
-                                        ))}
-                                      </SimpleGrid>
-                                    </ScrollArea>
-
-                                    <Group justify="center" mt="xl">
-                                      <Button
-                                        size="lg"
-                                        leftSection={
-                                          <IconArrowLeft size={20} />
-                                        }
-                                        variant="outline"
-                                        onClick={() => setManualStep(1)}
+                                <ScrollArea h={400}>
+                                  <Stack gap="xs">
+                                    {filteredVehicles.map((vehicle) => (
+                                      <Card
+                                        key={vehicle.id}
+                                        p="md"
                                         style={{
-                                          border: "2px solid #e2e8f0",
-                                          borderRadius: "12px",
-                                          fontWeight: 600,
-                                          fontSize: "16px",
-                                          height: "48px",
-                                          padding: "0 32px",
+                                          background: selectedVehicles.includes(
+                                            vehicle.id
+                                          )
+                                            ? "#eff6ff"
+                                            : "#ffffff",
+                                          border: selectedVehicles.includes(
+                                            vehicle.id
+                                          )
+                                            ? "2px solid #3b82f6"
+                                            : "1px solid #e2e8f0",
+                                          borderRadius: "8px",
+                                          cursor: "pointer",
+                                        }}
+                                        onClick={() => {
+                                          const vehicleId = vehicle.id;
+                                          setSelectedVehicles((prev) =>
+                                            prev.includes(vehicleId)
+                                              ? prev.filter(
+                                                  (id) => id !== vehicleId
+                                                )
+                                              : [...prev, vehicleId]
+                                          );
                                         }}
                                       >
-                                        Back to Filters
-                                      </Button>
-                                      <Button
-                                        size="lg"
-                                        leftSection={<IconPackage size={20} />}
-                                        onClick={() => setManualStep(3)}
-                                        disabled={selectedVehicles.length === 0}
-                                        style={{
-                                          background:
-                                            "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-                                          border: "none",
-                                          borderRadius: "12px",
-                                          fontWeight: 600,
-                                          fontSize: "16px",
-                                          height: "48px",
-                                          padding: "0 32px",
-                                          boxShadow:
-                                            "0 4px 6px -1px rgba(59, 130, 246, 0.2)",
-                                        }}
-                                      >
-                                        Configure Fitment (
-                                        {selectedVehicles.length})
-                                      </Button>
-                                    </Group>
-                                  </div>
-                                ) : (
-                                  <Alert color="blue" variant="light">
-                                    <Text size="sm">
-                                      No vehicles found matching your criteria.
-                                      Please adjust your filters and try again.
-                                    </Text>
-                                  </Alert>
-                                )}
+                                        <Group gap={40}>
+                                          <Checkbox
+                                            checked={selectedVehicles.includes(
+                                              vehicle.id
+                                            )}
+                                            onChange={() => {}}
+                                          />
+                                          <div>
+                                            <Text
+                                              fw={600}
+                                              size="sm"
+                                              c="#1e293b"
+                                            >
+                                              {vehicle.year} {vehicle.make}{" "}
+                                              {vehicle.model}
+                                            </Text>
+                                            <Text size="xs" c="#64748b">
+                                              {vehicle.submodel} •{" "}
+                                              {vehicle.driveType} •{" "}
+                                              {vehicle.fuelType} •{" "}
+                                              {vehicle.bodyType}
+                                            </Text>
+                                          </div>
+                                        </Group>
+                                      </Card>
+                                    ))}
+                                  </Stack>
+                                </ScrollArea>
+
+                                <Group justify="space-between" mt="lg">
+                                  <Button
+                                    variant="outline"
+                                    size="md"
+                                    leftSection={<IconArrowLeft size={16} />}
+                                    onClick={() => setManualStep(1)}
+                                    styles={{
+                                      root: {
+                                        borderRadius: "10px",
+                                        fontWeight: 600,
+                                        fontSize: "14px",
+                                        height: "48px",
+                                        padding: "0 24px",
+                                        border: "2px solid #e2e8f0",
+                                        color: "#64748b",
+                                        transition:
+                                          "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                        "&:hover": {
+                                          borderColor: "#cbd5e1",
+                                          backgroundColor: "#f8fafc",
+                                          transform: "translateY(-1px)",
+                                        },
+                                      },
+                                    }}
+                                  >
+                                    Back
+                                  </Button>
+                                  <Button
+                                    onClick={() => setManualStep(3)}
+                                    disabled={selectedVehicles.length === 0}
+                                    style={{
+                                      background:
+                                        "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                                      border: "none",
+                                    }}
+                                  >
+                                    Continue ({selectedVehicles.length}{" "}
+                                    selected)
+                                  </Button>
+                                </Group>
                               </Stack>
                             </div>
                           </Stepper.Step>
 
                           <Stepper.Step
-                            label="Configure Fitment Details"
-                            description="Set fitment parameters"
+                            label="Fitment Details"
+                            description="Configure fitment settings"
                             icon={<IconSettings size={18} />}
                           >
                             <div>
-                              <Stack gap="md" mt={20}>
-                                <div style={{ marginBottom: "15px" }}>
-                                  <Title order={4} c="#1e293b" fw={700}>
-                                    Fitment Configuration
+                              <Stack gap="xl">
+                                <div>
+                                  <Title order={3} c="#1e293b" fw={700} mb="xs">
+                                    Fitment Details
                                   </Title>
                                   <Text size="sm" c="#64748b">
-                                    Configure the fitment details for the
-                                    selected vehicles
+                                    Configure the specific details for your
+                                    fitment application
                                   </Text>
                                 </div>
 
-                                <SimpleGrid
-                                  cols={{ base: 1, sm: 2 }}
-                                  spacing="lg"
-                                >
-                                  <TextInput
-                                    label="Part ID"
-                                    placeholder="Enter part ID"
-                                    value={fitmentDetails.partId}
-                                    onChange={(e) =>
-                                      setFitmentDetails((prev) => ({
-                                        ...prev,
-                                        partId: e.target.value,
-                                      }))
-                                    }
-                                    leftSection={
-                                      <IconPackage size={16} color="#64748b" />
-                                    }
-                                    required
-                                  />
-                                  <Select
-                                    label="Position"
-                                    placeholder="Select position"
-                                    data={dropdownData?.positions || []}
-                                    value={fitmentDetails.position}
-                                    onChange={(value) =>
-                                      setFitmentDetails((prev) => ({
-                                        ...prev,
-                                        position: value || "",
-                                      }))
-                                    }
-                                    searchable
-                                    leftSection={
-                                      <IconMapPin size={16} color="#64748b" />
-                                    }
-                                  />
-                                  <NumberInput
-                                    label="Quantity"
-                                    placeholder="Enter quantity"
-                                    value={fitmentDetails.quantity}
-                                    onChange={(value) =>
-                                      setFitmentDetails((prev) => ({
-                                        ...prev,
-                                        quantity: Number(value) || 1,
-                                      }))
-                                    }
-                                    min={1}
-                                    leftSection={
-                                      <IconHash size={16} color="#64748b" />
-                                    }
-                                  />
-                                  <TextInput
-                                    label="Title"
-                                    placeholder="Enter fitment title"
-                                    value={fitmentDetails.title}
-                                    onChange={(e) =>
-                                      setFitmentDetails((prev) => ({
-                                        ...prev,
-                                        title: e.target.value,
-                                      }))
-                                    }
-                                    leftSection={
-                                      <IconFileText size={16} color="#64748b" />
-                                    }
-                                  />
-                                </SimpleGrid>
-
-                                <Textarea
-                                  label="Description"
-                                  placeholder="Enter fitment description"
-                                  value={fitmentDetails.description}
-                                  onChange={(e) =>
-                                    setFitmentDetails((prev) => ({
-                                      ...prev,
-                                      description: e.target.value,
-                                    }))
-                                  }
-                                  rows={3}
-                                />
-
-                                <Textarea
-                                  label="Notes"
-                                  placeholder="Enter additional notes"
-                                  value={fitmentDetails.notes}
-                                  onChange={(e) =>
-                                    setFitmentDetails((prev) => ({
-                                      ...prev,
-                                      notes: e.target.value,
-                                    }))
-                                  }
-                                  rows={2}
-                                />
-
-                                {/* Dynamic Fields */}
-                                {(vcdbFormFields?.length > 0 ||
-                                  productFormFields?.length > 0) && (
-                                  <div>
-                                    <Divider my="md" />
-                                    <Title
-                                      order={5}
-                                      c="#1e293b"
+                                <div>
+                                  {/* Core Fitment Fields */}
+                                  <div style={{ marginBottom: "32px" }}>
+                                    <Text
                                       fw={600}
+                                      size="md"
+                                      c="#1e293b"
                                       mb="md"
                                     >
-                                      Additional Configuration
-                                    </Title>
+                                      Core Fitment Information
+                                    </Text>
+                                    <SimpleGrid
+                                      cols={{ base: 1, sm: 2, lg: 3 }}
+                                      spacing="lg"
+                                    >
+                                      <Select
+                                        label="Part Type"
+                                        placeholder={
+                                          loadingDropdownData
+                                            ? "Loading parts..."
+                                            : "Select a part"
+                                        }
+                                        data={dropdownData?.parts || []}
+                                        value={fitmentDetails.partId}
+                                        onChange={(value) =>
+                                          setFitmentDetails((prev) => ({
+                                            ...prev,
+                                            partId: value || "",
+                                          }))
+                                        }
+                                        searchable
+                                        disabled={loadingDropdownData}
+                                        required
+                                        leftSection={
+                                          <IconPackage
+                                            size={16}
+                                            color="#64748b"
+                                          />
+                                        }
+                                        styles={{
+                                          label: {
+                                            fontWeight: 600,
+                                            fontSize: "13px",
+                                            color: "#374151",
+                                            marginBottom: "8px",
+                                            textTransform: "uppercase",
+                                            letterSpacing: "0.5px",
+                                          },
+                                          input: {
+                                            borderRadius: "10px",
+                                            border: "2px solid #e2e8f0",
+                                            fontSize: "14px",
+                                            height: "48px",
+                                            paddingLeft: "40px",
+                                            transition:
+                                              "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                            backgroundColor: "#fafafa",
+                                            "&:focus": {
+                                              borderColor: "#3b82f6",
+                                              boxShadow:
+                                                "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                              backgroundColor: "#ffffff",
+                                            },
+                                            "&:hover": {
+                                              borderColor: "#cbd5e1",
+                                              backgroundColor: "#ffffff",
+                                            },
+                                          },
+                                        }}
+                                      />
+                                      <Select
+                                        label="Position"
+                                        placeholder={
+                                          loadingDropdownData
+                                            ? "Loading positions..."
+                                            : "Select position"
+                                        }
+                                        data={dropdownData?.positions || []}
+                                        value={fitmentDetails.position}
+                                        onChange={(value) =>
+                                          setFitmentDetails((prev) => ({
+                                            ...prev,
+                                            position: value || "",
+                                          }))
+                                        }
+                                        searchable
+                                        disabled={loadingDropdownData}
+                                        required
+                                        leftSection={
+                                          <IconMapPin
+                                            size={16}
+                                            color="#64748b"
+                                          />
+                                        }
+                                        styles={{
+                                          label: {
+                                            fontWeight: 600,
+                                            fontSize: "13px",
+                                            color: "#374151",
+                                            marginBottom: "8px",
+                                            textTransform: "uppercase",
+                                            letterSpacing: "0.5px",
+                                          },
+                                          input: {
+                                            borderRadius: "10px",
+                                            border: "2px solid #e2e8f0",
+                                            fontSize: "14px",
+                                            height: "48px",
+                                            paddingLeft: "40px",
+                                            transition:
+                                              "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                            backgroundColor: "#fafafa",
+                                            "&:focus": {
+                                              borderColor: "#3b82f6",
+                                              boxShadow:
+                                                "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                              backgroundColor: "#ffffff",
+                                            },
+                                            "&:hover": {
+                                              borderColor: "#cbd5e1",
+                                              backgroundColor: "#ffffff",
+                                            },
+                                          },
+                                        }}
+                                      />
+                                      <NumberInput
+                                        label="Quantity"
+                                        placeholder="Enter quantity"
+                                        value={fitmentDetails.quantity}
+                                        onChange={(value) =>
+                                          setFitmentDetails((prev) => ({
+                                            ...prev,
+                                            quantity: Number(value) || 1,
+                                          }))
+                                        }
+                                        min={1}
+                                        max={10}
+                                        leftSection={
+                                          <IconHash size={16} color="#64748b" />
+                                        }
+                                        styles={{
+                                          label: {
+                                            fontWeight: 600,
+                                            fontSize: "13px",
+                                            color: "#374151",
+                                            marginBottom: "8px",
+                                            textTransform: "uppercase",
+                                            letterSpacing: "0.5px",
+                                          },
+                                          input: {
+                                            borderRadius: "10px",
+                                            border: "2px solid #e2e8f0",
+                                            fontSize: "14px",
+                                            height: "48px",
+                                            paddingLeft: "40px",
+                                            transition:
+                                              "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                            backgroundColor: "#fafafa",
+                                            "&:focus": {
+                                              borderColor: "#3b82f6",
+                                              boxShadow:
+                                                "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                              backgroundColor: "#ffffff",
+                                            },
+                                            "&:hover": {
+                                              borderColor: "#cbd5e1",
+                                              backgroundColor: "#ffffff",
+                                            },
+                                          },
+                                        }}
+                                      />
+                                      <TextInput
+                                        label="Fitment Title"
+                                        placeholder="Enter fitment title"
+                                        value={fitmentDetails.title}
+                                        onChange={(e) =>
+                                          setFitmentDetails((prev) => ({
+                                            ...prev,
+                                            title: e.target.value,
+                                          }))
+                                        }
+                                        required
+                                        leftSection={
+                                          <IconFileText
+                                            size={16}
+                                            color="#64748b"
+                                          />
+                                        }
+                                        styles={{
+                                          label: {
+                                            fontWeight: 600,
+                                            fontSize: "13px",
+                                            color: "#374151",
+                                            marginBottom: "8px",
+                                            textTransform: "uppercase",
+                                            letterSpacing: "0.5px",
+                                          },
+                                          input: {
+                                            borderRadius: "10px",
+                                            border: "2px solid #e2e8f0",
+                                            fontSize: "14px",
+                                            height: "48px",
+                                            paddingLeft: "40px",
+                                            transition:
+                                              "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                            backgroundColor: "#fafafa",
+                                            "&:focus": {
+                                              borderColor: "#3b82f6",
+                                              boxShadow:
+                                                "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                              backgroundColor: "#ffffff",
+                                            },
+                                            "&:hover": {
+                                              borderColor: "#cbd5e1",
+                                              backgroundColor: "#ffffff",
+                                            },
+                                          },
+                                        }}
+                                      />
+                                      <Textarea
+                                        label="Description"
+                                        placeholder="Enter fitment description"
+                                        value={fitmentDetails.description}
+                                        onChange={(e) =>
+                                          setFitmentDetails((prev) => ({
+                                            ...prev,
+                                            description: e.target.value,
+                                          }))
+                                        }
+                                        minRows={3}
+                                        maxRows={5}
+                                        autosize
+                                        styles={{
+                                          label: {
+                                            fontWeight: 600,
+                                            fontSize: "13px",
+                                            color: "#374151",
+                                            marginBottom: "8px",
+                                            textTransform: "uppercase",
+                                            letterSpacing: "0.5px",
+                                          },
+                                          input: {
+                                            borderRadius: "10px",
+                                            border: "2px solid #e2e8f0",
+                                            fontSize: "14px",
+                                            padding: "12px 16px",
+                                            transition:
+                                              "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                            backgroundColor: "#fafafa",
+                                            "&:focus": {
+                                              borderColor: "#3b82f6",
+                                              boxShadow:
+                                                "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                              backgroundColor: "#ffffff",
+                                            },
+                                            "&:hover": {
+                                              borderColor: "#cbd5e1",
+                                              backgroundColor: "#ffffff",
+                                            },
+                                          },
+                                        }}
+                                      />
+                                      <Textarea
+                                        label="Notes"
+                                        placeholder="Enter additional notes"
+                                        value={fitmentDetails.notes}
+                                        onChange={(e) =>
+                                          setFitmentDetails((prev) => ({
+                                            ...prev,
+                                            notes: e.target.value,
+                                          }))
+                                        }
+                                        minRows={3}
+                                        maxRows={5}
+                                        autosize
+                                        styles={{
+                                          label: {
+                                            fontWeight: 600,
+                                            fontSize: "13px",
+                                            color: "#374151",
+                                            marginBottom: "8px",
+                                            textTransform: "uppercase",
+                                            letterSpacing: "0.5px",
+                                          },
+                                          input: {
+                                            borderRadius: "10px",
+                                            border: "2px solid #e2e8f0",
+                                            fontSize: "14px",
+                                            padding: "12px 16px",
+                                            transition:
+                                              "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                            backgroundColor: "#fafafa",
+                                            "&:focus": {
+                                              borderColor: "#3b82f6",
+                                              boxShadow:
+                                                "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                              backgroundColor: "#ffffff",
+                                            },
+                                            "&:hover": {
+                                              borderColor: "#cbd5e1",
+                                              backgroundColor: "#ffffff",
+                                            },
+                                          },
+                                        }}
+                                      />
+                                    </SimpleGrid>
+                                  </div>
+
+                                  {/* Wheel Parameters Section */}
+                                  <div style={{ marginBottom: "32px" }}>
+                                    <Text
+                                      fw={600}
+                                      size="md"
+                                      c="#1e293b"
+                                      mb="md"
+                                    >
+                                      Wheel Parameters
+                                    </Text>
+                                    <Text size="sm" c="#64748b" mb="lg">
+                                      Configure tire diameter, wheel diameter,
+                                      and backspacing for each wheel position
+                                    </Text>
+                                    <SimpleGrid
+                                      cols={{ base: 1, sm: 2, lg: 3 }}
+                                      spacing="lg"
+                                    >
+                                      {wheelParameters.map((wheel, index) => (
+                                        <Card
+                                          key={index}
+                                          withBorder
+                                          p="md"
+                                          style={{
+                                            backgroundColor: "#f8fafc",
+                                            border: "1px solid #e2e8f0",
+                                            borderRadius: "8px",
+                                          }}
+                                        >
+                                          <Stack gap="sm">
+                                            <Text
+                                              fw={600}
+                                              size="sm"
+                                              c="#1e293b"
+                                              ta="center"
+                                            >
+                                              Wheel Position {index + 1}
+                                            </Text>
+                                            <TextInput
+                                              label="Tire Diameter"
+                                              placeholder="e.g., 33"
+                                              value={wheel.tireDiameter}
+                                              onChange={(e) => {
+                                                const newWheelParameters = [
+                                                  ...wheelParameters,
+                                                ];
+                                                newWheelParameters[index] = {
+                                                  ...newWheelParameters[index],
+                                                  tireDiameter: e.target.value,
+                                                };
+                                                setWheelParameters(
+                                                  newWheelParameters
+                                                );
+                                              }}
+                                              leftSection={
+                                                <IconHash
+                                                  size={16}
+                                                  color="#64748b"
+                                                />
+                                              }
+                                              styles={{
+                                                label: {
+                                                  fontWeight: 600,
+                                                  fontSize: "12px",
+                                                  color: "#374151",
+                                                  marginBottom: "6px",
+                                                  textTransform: "uppercase",
+                                                  letterSpacing: "0.5px",
+                                                },
+                                                input: {
+                                                  borderRadius: "8px",
+                                                  border: "1px solid #e2e8f0",
+                                                  fontSize: "13px",
+                                                  height: "40px",
+                                                  paddingLeft: "36px",
+                                                  transition:
+                                                    "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                                  backgroundColor: "#ffffff",
+                                                  "&:focus": {
+                                                    borderColor: "#3b82f6",
+                                                    boxShadow:
+                                                      "0 0 0 3px rgba(59, 130, 246, 0.1)",
+                                                  },
+                                                  "&:hover": {
+                                                    borderColor: "#cbd5e1",
+                                                  },
+                                                },
+                                              }}
+                                            />
+                                            <TextInput
+                                              label="Wheel Diameter"
+                                              placeholder="e.g., 17"
+                                              value={wheel.wheelDiameter}
+                                              onChange={(e) => {
+                                                const newWheelParameters = [
+                                                  ...wheelParameters,
+                                                ];
+                                                newWheelParameters[index] = {
+                                                  ...newWheelParameters[index],
+                                                  wheelDiameter: e.target.value,
+                                                };
+                                                setWheelParameters(
+                                                  newWheelParameters
+                                                );
+                                              }}
+                                              leftSection={
+                                                <IconHash
+                                                  size={16}
+                                                  color="#64748b"
+                                                />
+                                              }
+                                              styles={{
+                                                label: {
+                                                  fontWeight: 600,
+                                                  fontSize: "12px",
+                                                  color: "#374151",
+                                                  marginBottom: "6px",
+                                                  textTransform: "uppercase",
+                                                  letterSpacing: "0.5px",
+                                                },
+                                                input: {
+                                                  borderRadius: "8px",
+                                                  border: "1px solid #e2e8f0",
+                                                  fontSize: "13px",
+                                                  height: "40px",
+                                                  paddingLeft: "36px",
+                                                  transition:
+                                                    "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                                  backgroundColor: "#ffffff",
+                                                  "&:focus": {
+                                                    borderColor: "#3b82f6",
+                                                    boxShadow:
+                                                      "0 0 0 3px rgba(59, 130, 246, 0.1)",
+                                                  },
+                                                  "&:hover": {
+                                                    borderColor: "#cbd5e1",
+                                                  },
+                                                },
+                                              }}
+                                            />
+                                            <TextInput
+                                              label="Backspacing"
+                                              placeholder="e.g., 4.5"
+                                              value={wheel.backspacing}
+                                              onChange={(e) => {
+                                                const newWheelParameters = [
+                                                  ...wheelParameters,
+                                                ];
+                                                newWheelParameters[index] = {
+                                                  ...newWheelParameters[index],
+                                                  backspacing: e.target.value,
+                                                };
+                                                setWheelParameters(
+                                                  newWheelParameters
+                                                );
+                                              }}
+                                              leftSection={
+                                                <IconHash
+                                                  size={16}
+                                                  color="#64748b"
+                                                />
+                                              }
+                                              styles={{
+                                                label: {
+                                                  fontWeight: 600,
+                                                  fontSize: "12px",
+                                                  color: "#374151",
+                                                  marginBottom: "6px",
+                                                  textTransform: "uppercase",
+                                                  letterSpacing: "0.5px",
+                                                },
+                                                input: {
+                                                  borderRadius: "8px",
+                                                  border: "1px solid #e2e8f0",
+                                                  fontSize: "13px",
+                                                  height: "40px",
+                                                  paddingLeft: "36px",
+                                                  transition:
+                                                    "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                                  backgroundColor: "#ffffff",
+                                                  "&:focus": {
+                                                    borderColor: "#3b82f6",
+                                                    boxShadow:
+                                                      "0 0 0 3px rgba(59, 130, 246, 0.1)",
+                                                  },
+                                                  "&:hover": {
+                                                    borderColor: "#cbd5e1",
+                                                  },
+                                                },
+                                              }}
+                                            />
+                                          </Stack>
+                                        </Card>
+                                      ))}
+                                    </SimpleGrid>
+                                  </div>
+
+                                  {/* Optional Configuration Section */}
+                                  <div style={{ marginBottom: "32px" }}>
+                                    <Text
+                                      fw={600}
+                                      size="md"
+                                      c="#1e293b"
+                                      mb="md"
+                                    >
+                                      Optional Configuration
+                                    </Text>
                                     <SimpleGrid
                                       cols={{ base: 1, sm: 2 }}
                                       spacing="lg"
                                     >
-                                      {vcdbFormFields
-                                        ?.filter(
-                                          (field) =>
-                                            field.is_enabled &&
-                                            field.show_in_forms
-                                        )
-                                        .map((field) => (
-                                          <DynamicFormField
-                                            key={field.id}
-                                            fieldConfig={field}
-                                            value={
-                                              dynamicVcdbFields[field.name] ||
-                                              ""
-                                            }
-                                            onChange={(value) =>
-                                              updateDynamicVcdbField(
-                                                field.name,
-                                                value
-                                              )
-                                            }
-                                            data={getFieldData(field)}
+                                      <TextInput
+                                        label="Lift Height"
+                                        placeholder="e.g., 2.5 inches"
+                                        value={fitmentDetails.liftHeight}
+                                        onChange={(e) =>
+                                          setFitmentDetails((prev) => ({
+                                            ...prev,
+                                            liftHeight: e.target.value,
+                                          }))
+                                        }
+                                        leftSection={
+                                          <IconSettings
+                                            size={16}
+                                            color="#64748b"
                                           />
-                                        ))}
-                                      {productFormFields
-                                        ?.filter(
-                                          (field) =>
-                                            field.is_enabled &&
-                                            field.show_in_forms
-                                        )
-                                        .map((field) => (
-                                          <DynamicFormField
-                                            key={field.id}
-                                            fieldConfig={field}
-                                            value={
-                                              dynamicProductFields[
-                                                field.name
-                                              ] || ""
-                                            }
-                                            onChange={(value) =>
-                                              updateDynamicProductField(
-                                                field.name,
-                                                value
-                                              )
-                                            }
-                                            data={getFieldData(field)}
-                                          />
-                                        ))}
+                                        }
+                                        styles={{
+                                          label: {
+                                            fontWeight: 600,
+                                            fontSize: "13px",
+                                            color: "#374151",
+                                            marginBottom: "8px",
+                                            textTransform: "uppercase",
+                                            letterSpacing: "0.5px",
+                                          },
+                                          input: {
+                                            borderRadius: "10px",
+                                            border: "2px solid #e2e8f0",
+                                            fontSize: "14px",
+                                            height: "48px",
+                                            paddingLeft: "40px",
+                                            transition:
+                                              "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                            backgroundColor: "#fafafa",
+                                            "&:focus": {
+                                              borderColor: "#3b82f6",
+                                              boxShadow:
+                                                "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                              backgroundColor: "#ffffff",
+                                            },
+                                            "&:hover": {
+                                              borderColor: "#cbd5e1",
+                                              backgroundColor: "#ffffff",
+                                            },
+                                          },
+                                        }}
+                                      />
+                                      <Select
+                                        label="Wheel Type"
+                                        placeholder="Select wheel type"
+                                        data={[
+                                          { value: "steel", label: "Steel" },
+                                          { value: "alloy", label: "Alloy" },
+                                          { value: "forged", label: "Forged" },
+                                          { value: "chrome", label: "Chrome" },
+                                          { value: "black", label: "Black" },
+                                        ]}
+                                        value={fitmentDetails.wheelType}
+                                        onChange={(value) =>
+                                          setFitmentDetails((prev) => ({
+                                            ...prev,
+                                            wheelType: value || "",
+                                          }))
+                                        }
+                                        leftSection={
+                                          <IconCar size={16} color="#64748b" />
+                                        }
+                                        styles={{
+                                          label: {
+                                            fontWeight: 600,
+                                            fontSize: "13px",
+                                            color: "#374151",
+                                            marginBottom: "8px",
+                                            textTransform: "uppercase",
+                                            letterSpacing: "0.5px",
+                                          },
+                                          input: {
+                                            borderRadius: "10px",
+                                            border: "2px solid #e2e8f0",
+                                            fontSize: "14px",
+                                            height: "48px",
+                                            paddingLeft: "40px",
+                                            transition:
+                                              "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                            backgroundColor: "#fafafa",
+                                            "&:focus": {
+                                              borderColor: "#3b82f6",
+                                              boxShadow:
+                                                "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                                              backgroundColor: "#ffffff",
+                                            },
+                                            "&:hover": {
+                                              borderColor: "#cbd5e1",
+                                              backgroundColor: "#ffffff",
+                                            },
+                                          },
+                                        }}
+                                      />
                                     </SimpleGrid>
                                   </div>
-                                )}
 
-                                <Group justify="center" mt="xl">
+                                  {/* Dynamic Product Fields */}
+                                  {productFormFields &&
+                                    productFormFields.length > 0 && (
+                                      <div style={{ marginBottom: "32px" }}>
+                                        <Text
+                                          fw={600}
+                                          size="md"
+                                          c="#1e293b"
+                                          mb="md"
+                                        >
+                                          Dynamic Product Fields
+                                        </Text>
+                                        <SimpleGrid
+                                          cols={{ base: 1, sm: 2, lg: 3 }}
+                                          spacing="lg"
+                                        >
+                                          {productFormFields
+                                            .filter(
+                                              (field) =>
+                                                field.is_enabled &&
+                                                field.show_in_forms
+                                            )
+                                            .map((field) => (
+                                              <DynamicFormField
+                                                key={field.id}
+                                                fieldConfig={field}
+                                                value={
+                                                  dynamicProductFields[
+                                                    field.name
+                                                  ] || ""
+                                                }
+                                                onChange={(value) =>
+                                                  updateDynamicProductField(
+                                                    field.name,
+                                                    value
+                                                  )
+                                                }
+                                                data={getFieldData(field)}
+                                              />
+                                            ))}
+                                        </SimpleGrid>
+                                      </div>
+                                    )}
+                                </div>
+
+                                <Group justify="space-between" mt="xl">
                                   <Button
-                                    size="lg"
-                                    leftSection={<IconArrowLeft size={20} />}
                                     variant="outline"
+                                    size="md"
+                                    leftSection={<IconArrowLeft size={16} />}
                                     onClick={() => setManualStep(2)}
-                                    style={{
-                                      border: "2px solid #e2e8f0",
-                                      borderRadius: "12px",
-                                      fontWeight: 600,
-                                      fontSize: "16px",
-                                      height: "48px",
-                                      padding: "0 32px",
+                                    styles={{
+                                      root: {
+                                        borderRadius: "10px",
+                                        fontWeight: 600,
+                                        fontSize: "14px",
+                                        height: "48px",
+                                        padding: "0 24px",
+                                        border: "2px solid #e2e8f0",
+                                        color: "#64748b",
+                                        transition:
+                                          "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                        "&:hover": {
+                                          borderColor: "#cbd5e1",
+                                          backgroundColor: "#f8fafc",
+                                          transform: "translateY(-1px)",
+                                        },
+                                      },
                                     }}
                                   >
-                                    Back to Vehicles
+                                    Back
                                   </Button>
                                   <Button
-                                    size="lg"
-                                    leftSection={<IconCheck size={20} />}
+                                    size="md"
+                                    leftSection={<IconPackage size={16} />}
                                     onClick={handleApplyManualFitment}
                                     loading={applyingManualFitment}
                                     disabled={
                                       !fitmentDetails.partId ||
+                                      !fitmentDetails.position ||
+                                      !fitmentDetails.title ||
                                       selectedVehicles.length === 0
                                     }
                                     style={{
-                                      background:
-                                        "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                                      border: "none",
-                                      borderRadius: "12px",
+                                      borderRadius: "10px",
                                       fontWeight: 600,
-                                      fontSize: "16px",
+                                      fontSize: "14px",
                                       height: "48px",
                                       padding: "0 32px",
+                                      background:
+                                        "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                                      border: "none",
+                                      transition:
+                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                                       boxShadow:
-                                        "0 4px 6px -1px rgba(16, 185, 129, 0.2)",
+                                        "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)",
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      if (!e.currentTarget.disabled) {
+                                        e.currentTarget.style.transform =
+                                          "translateY(-2px)";
+                                        e.currentTarget.style.boxShadow =
+                                          "0 8px 25px -5px rgba(59, 130, 246, 0.3), 0 4px 6px -1px rgba(59, 130, 246, 0.1)";
+                                      }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.transform =
+                                        "translateY(0)";
+                                      e.currentTarget.style.boxShadow =
+                                        "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)";
                                     }}
                                   >
-                                    Apply Fitments ({selectedVehicles.length})
+                                    Create Fitments ({selectedVehicles.length})
                                   </Button>
                                 </Group>
                               </Stack>

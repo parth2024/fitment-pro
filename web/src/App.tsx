@@ -72,13 +72,13 @@ const navigationItems = [
     icon: IconDatabase,
     color: "cyan",
   },
-  {
-    label: "Apply Fitments",
-    value: "apply",
-    path: "/apply-fitments",
-    icon: IconCar,
-    color: "green",
-  },
+  // {
+  //   label: "Apply Fitments",
+  //   value: "apply",
+  //   path: "/apply-fitments",
+  //   icon: IconCar,
+  //   color: "green",
+  // },
   {
     label: "Fitments",
     value: "fitments",

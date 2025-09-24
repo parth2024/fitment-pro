@@ -259,12 +259,6 @@ export default function Fitments() {
           aiDescription =
             fitment.aiDescription ||
             `AI-generated fitment for ${fitment.partTypeDescriptor} on ${fitment.year} ${fitment.makeName} ${fitment.modelName}. Advanced machine learning algorithms analyzed vehicle specifications, part dimensions, and compatibility matrices to generate this high-confidence fitment recommendation.`;
-        } else if (fitment.fitmentType === "potential_fitment") {
-          confidenceScore =
-            fitment.confidenceScore || Math.random() * 0.4 + 0.5;
-          aiDescription =
-            fitment.aiDescription ||
-            `Potential fitment candidate for ${fitment.partTypeDescriptor} identified through similarity analysis. While the match appears promising based on vehicle characteristics and part specifications, manual review is recommended due to moderate confidence levels or incomplete data.`;
         }
       }
 
