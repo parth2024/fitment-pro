@@ -24,7 +24,6 @@ import {
   IconDatabase,
   IconRobot,
   IconChevronRight,
-  IconAlertTriangle,
   IconSettings,
   IconBuilding,
 } from "@tabler/icons-react";

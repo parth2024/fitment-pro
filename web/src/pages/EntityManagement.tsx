@@ -24,7 +24,6 @@ import {
   IconPlus,
   IconEdit,
   IconTrash,
-  IconBuilding,
   IconUsers,
   IconSettings,
   IconRefresh,

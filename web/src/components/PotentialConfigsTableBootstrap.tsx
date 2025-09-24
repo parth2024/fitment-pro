@@ -158,12 +158,6 @@ export const PotentialConfigsTableBootstrap: React.FC<
     }
   };
 
-  const getRelevanceBadge = (relevance: number) => {
-    if (relevance >= 80) return <Badge bg="success">{relevance}%</Badge>;
-    if (relevance >= 60) return <Badge bg="warning">{relevance}%</Badge>;
-    return <Badge bg="secondary">{relevance}%</Badge>;
-  };
-
   const getRelevanceLabel = (relevance: number) => {
     if (relevance >= 80) return "Excellent Match";
     if (relevance >= 60) return "Good Match";

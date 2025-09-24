@@ -91,12 +91,6 @@ export const PotentialFitmentsBootstrap: React.FC<
     setTriggerAnalysis(false); // Reset analysis when method changes
   };
 
-  const handleApplyRecommendations = useCallback(() => {
-    // This would navigate to the Apply Fitments page with pre-selected configurations
-    // Implementation depends on your routing setup
-    console.log("Apply recommendations for part:", selectedPart?.id);
-  }, [selectedPart]);
-
   // Check permissions if user object is provided
   if (
     user?.hasPermissions &&
