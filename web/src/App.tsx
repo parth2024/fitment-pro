@@ -57,6 +57,20 @@ import { useProfessionalToast } from "./hooks/useProfessionalToast";
 
 const navigationItems = [
   {
+    label: "Entity Management",
+    value: "entities",
+    path: "/entities",
+    icon: IconBuilding,
+    color: "violet",
+  },
+  {
+    label: "Fitments",
+    value: "fitments",
+    path: "/fitments",
+    icon: IconTable,
+    color: "teal",
+  },
+  {
     label: "Analytics",
     value: "analytics",
     path: "/",
@@ -77,13 +91,7 @@ const navigationItems = [
   //   icon: IconCar,
   //   color: "green",
   // },
-  {
-    label: "Fitments",
-    value: "fitments",
-    path: "/fitments",
-    icon: IconTable,
-    color: "teal",
-  },
+
   {
     label: "Bulk Fitments Upload",
     value: "bulk",
@@ -118,13 +126,6 @@ const navigationItems = [
     path: "/settings",
     icon: IconSettings,
     color: "gray",
-  },
-  {
-    label: "Entity Management",
-    value: "entities",
-    path: "/entities",
-    icon: IconBuilding,
-    color: "violet",
   },
 ];
 

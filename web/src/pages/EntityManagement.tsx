@@ -358,7 +358,7 @@ const EntityManagement: React.FC = () => {
               required
             />
             <TextInput
-              label="Slug"
+              label="URL"
               placeholder="Enter entity slug"
               value={formData.slug}
               onChange={(e) =>
