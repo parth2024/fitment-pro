@@ -26,6 +26,7 @@ import {
   Grid,
   Tooltip,
   Divider,
+  SimpleGrid,
 } from "@mantine/core";
 import {
   IconSearch,
@@ -44,6 +45,7 @@ import {
   IconSettings,
   IconInfoCircle,
   IconCheck,
+  IconTable,
 } from "@tabler/icons-react";
 import FilterableSortableHeader from "../components/FilterableSortableHeader";
 import { useApi } from "../hooks/useApi";
@@ -54,6 +56,7 @@ import {
 } from "../api/services";
 import apiClient from "../api/client";
 import { notifications } from "@mantine/notifications";
+import MultiEntitySelector from "../components/MultiEntitySelector";
 
 interface FilterOptions {
   itemStatus: string[];
@@ -113,6 +116,8 @@ export default function Fitments() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFitments, setSelectedFitments] = useState<string[]>([]);
+  const [selectedEntities, setSelectedEntities] = useState<string[]>([]);
+  const [dataFetched, setDataFetched] = useState(false);
   const [expandedView, setExpandedView] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 20;
@@ -178,6 +183,11 @@ export default function Fitments() {
       pageSize: 20,
     };
 
+    // Add entity filtering
+    if (selectedEntities.length > 0) {
+      params.entity_ids = selectedEntities.join(",");
+    }
+
     // Add advanced filters
     Object.entries(advancedFilters).forEach(([key, value]) => {
       if (value !== "" && value !== null && value !== undefined) {
@@ -198,6 +208,7 @@ export default function Fitments() {
     sortBy,
     sortOrder,
     currentPage,
+    selectedEntities,
     advancedFilters,
     columnFilters,
   ]);
@@ -207,11 +218,23 @@ export default function Fitments() {
     totalCount: number;
   }>(() => fitmentsService.getFitments(buildApiParams()), [buildApiParams]);
 
+  // Entity selection handlers
+  const handleEntitySelectionChange = (entityIds: string[]) => {
+    setSelectedEntities(entityIds);
+  };
+
+  const handleDataFetch = async (_entityIds: string[]) => {
+    setDataFetched(true);
+    await refetch();
+  };
+
   // Listen for entity change events from EntitySelector
   useEffect(() => {
     const handleEntityChange = async () => {
       console.log("Entity changed, refreshing Fitments...");
-      await refetch();
+      if (selectedEntities.length > 0) {
+        await refetch();
+      }
     };
 
     // Listen for custom entity change events
@@ -221,7 +244,7 @@ export default function Fitments() {
     return () => {
       window.removeEventListener("entityChanged", handleEntityChange);
     };
-  }, [refetch]);
+  }, [refetch, selectedEntities]);
 
   // Fetch AI-generated fitments from Django backend
   const { refetch: refetchAi } = useApi<{
@@ -763,6 +786,87 @@ export default function Fitments() {
     return baseDescription;
   };
 
+  // Show entity selection if no entities selected or data not fetched
+  if (!dataFetched || selectedEntities.length === 0) {
+    return (
+      <div style={{ minHeight: "100vh" }}>
+        <Stack gap="xl">
+          {/* Welcome Header */}
+          <Card
+            style={{
+              background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+              border: "none",
+              color: "white",
+            }}
+            p="xl"
+          >
+            <Group justify="space-between" align="center">
+              <div>
+                <Title order={1} c="white" mb="sm">
+                  Fitments Management
+                </Title>
+                <Text size="lg" c="rgba(255, 255, 255, 0.9)" mb="md">
+                  View and manage fitments across multiple entities with
+                  advanced filtering
+                </Text>
+                <Group gap="sm">
+                  <Badge variant="white" color="green" size="lg">
+                    Multi-Entity Management
+                  </Badge>
+                  <Badge variant="white" color="blue" size="lg">
+                    Advanced Filtering
+                  </Badge>
+                </Group>
+              </div>
+              <IconTable size={64} color="rgba(255, 255, 255, 0.8)" />
+            </Group>
+          </Card>
+
+          {/* Entity Selection */}
+          <MultiEntitySelector
+            selectedEntities={selectedEntities}
+            onEntitySelectionChange={handleEntitySelectionChange}
+            onDataFetch={handleDataFetch}
+            title="Select Entities for Fitments"
+            description="Choose one or more entities to view and manage their fitments. You can select multiple entities to compare their fitment data."
+            showStats={true}
+          />
+
+          {/* Instructions */}
+          <Card withBorder p="lg" radius="md">
+            <Stack gap="md">
+              <Group gap="sm">
+                <IconInfoCircle size={20} color="#10b981" />
+                <Title order={4}>Fitments Management Features</Title>
+              </Group>
+              <Text size="sm" c="#64748b">
+                Once you select entities, you'll have access to:
+              </Text>
+              <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+                <Group gap="sm">
+                  <IconCheck size={16} color="#10b981" />
+                  <Text size="sm">View and filter all fitments</Text>
+                </Group>
+                <Group gap="sm">
+                  <IconCheck size={16} color="#10b981" />
+                  <Text size="sm">AI vs Manual fitment management</Text>
+                </Group>
+                <Group gap="sm">
+                  <IconCheck size={16} color="#10b981" />
+                  <Text size="sm">Bulk operations and approvals</Text>
+                </Group>
+                <Group gap="sm">
+                  <IconCheck size={16} color="#10b981" />
+                  <Text size="sm">Advanced filtering and search</Text>
+                </Group>
+              </SimpleGrid>
+            </Stack>
+          </Card>
+        </Stack>
+      </div>
+    );
+  }
+
   return (
     <div
       style={{
@@ -789,6 +893,31 @@ export default function Fitments() {
               />
             </Group>
           </Group>
+
+          {/* Entity Selection Header */}
+          <Card withBorder p="md" radius="md">
+            <Group justify="space-between" align="center">
+              <div>
+                <Text size="sm" fw={600} c="#1e293b">
+                  Selected Entities
+                </Text>
+                <Text size="xs" c="#64748b">
+                  {selectedEntities.length} entities selected
+                </Text>
+              </div>
+              <Button
+                variant="light"
+                color="green"
+                size="sm"
+                onClick={() => {
+                  setDataFetched(false);
+                  setSelectedFitments([]);
+                }}
+              >
+                Change Selection
+              </Button>
+            </Group>
+          </Card>
 
           {/* AI Instructions Section */}
           <Card

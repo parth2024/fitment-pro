@@ -96,8 +96,8 @@ DATABASES = {
         'NAME': "fitmentpro_db",
         'USER': "fitmentpro_user",
         'PASSWORD': "fitmentpro_pass",
-        # 'HOST': "ec2-65-0-133-50.ap-south-1.compute.amazonaws.com",
-        'HOST': "localhost",
+        'HOST': "ec2-65-0-133-50.ap-south-1.compute.amazonaws.com",
+        # 'HOST': "localhost",
         'PORT': "5432",
     }
 }
@@ -191,8 +191,10 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Celery Configuration
-CELERY_BROKER_URL = 'redis://localhost:6379/0'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+# CELERY_BROKER_URL = 'redis://localhost:6379/0'
+# CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+CELERY_BROKER_URL = 'redis://:fitment123@ec2-35-154-11-183.ap-south-1.compute.amazonaws.com:6379/0'
+CELERY_RESULT_BACKEND = 'redis://:fitment123@ec2-35-154-11-183.ap-south-1.compute.amazonaws.com:6379/0'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'

@@ -11,8 +11,9 @@ import random
 
 def generate_fitment_hash(fitment_data):
     """Generate a unique hash for fitment data"""
-    # Create a string representation of the fitment data
-    hash_string = f"{fitment_data.get('partId', '')}_{fitment_data.get('year', '')}_{fitment_data.get('makeName', '')}_{fitment_data.get('modelName', '')}_{fitment_data.get('subModelName', '')}"
+    # Create a string representation of the fitment data including tenant
+    tenant_id = str(fitment_data.get('tenant', ''))
+    hash_string = f"{tenant_id}_{fitment_data.get('partId', '')}_{fitment_data.get('year', '')}_{fitment_data.get('makeName', '')}_{fitment_data.get('modelName', '')}_{fitment_data.get('subModelName', '')}"
     return hashlib.md5(hash_string.encode()).hexdigest()
 
 
@@ -21,6 +22,12 @@ def process_fitment_job(job_id):
     """Process a fitment job in the background"""
     try:
         job = FitmentJob.objects.get(id=job_id)
+        
+        # Check if job is already in progress or completed
+        if job.status in ['in_progress', 'completed', 'failed']:
+            print(f"Job {job_id} is already {job.status}, skipping...")
+            return
+        
         job.status = 'in_progress'
         job.started_at = timezone.now()
         job.save()
@@ -100,19 +107,30 @@ def process_manual_fitments(job, vcdb_categories, product_data):
                             fitment_data['hash'] = fitment_hash
                             fitment_data['fitmentType'] = 'manual_fitment'
                             
-                            # Create fitment or get existing one
-                            fitment, created = Fitment.objects.get_or_create(
-                                hash=fitment_hash,
-                                defaults=fitment_data
-                            )
-                            if created:
-                                fitments_created += 1
-                            else:
+                            # Check if fitment already exists before creating
+                            # Use a more comprehensive check that includes tenant and key fields
+                            existing_fitment = Fitment.objects.filter(
+                                tenant=job.tenant,
+                                partId=fitment_data['partId'],
+                                year=fitment_data['year'],
+                                makeName=fitment_data['makeName'],
+                                modelName=fitment_data['modelName'],
+                                subModelName=fitment_data['subModelName'],
+                                isDeleted=False
+                            ).first()
+                            
+                            if existing_fitment:
                                 # Fitment already exists, count as skipped
                                 fitments_skipped += 1
                                 duplicate_msg = f"Fitment already exists for {product.part_number} -> {vcdb_record.year} {vcdb_record.make} {vcdb_record.model}"
                                 duplicate_messages.append(duplicate_msg)
-                                print(duplicate_msg)
+                                # Only log warning if it's a significant duplicate (not just same hash)
+                                if len(duplicate_messages) <= 5:  # Limit warnings to first 5 duplicates
+                                    print(duplicate_msg)
+                            else:
+                                # Create new fitment
+                                fitment = Fitment.objects.create(**fitment_data)
+                                fitments_created += 1
                         except Exception as e:
                             fitments_failed += 1
                             print(f"Error creating fitment for {product.part_number}: {e}")
@@ -195,15 +213,25 @@ def process_ai_fitments(job, vcdb_categories, product_data):
                         fitment_data['confidenceScore'] = ai_result['confidence_score']
                         fitment_data['dynamicFields'] = ai_result.get('dynamic_fields', {})
                         
-                        # Create fitment or get existing one
-                        fitment, created = Fitment.objects.get_or_create(
-                            hash=fitment_hash,
-                            defaults=fitment_data
-                        )
-                        if created:
-                            fitments_created += 1
+                        # Check if AI fitment already exists before creating
+                        # Use a more comprehensive check that includes tenant and key fields
+                        existing_fitment = Fitment.objects.filter(
+                            tenant=job.tenant,
+                            partId=fitment_data['partId'],
+                            year=fitment_data['year'],
+                            makeName=fitment_data['makeName'],
+                            modelName=fitment_data['modelName'],
+                            subModelName=fitment_data['subModelName'],
+                            isDeleted=False
+                        ).first()
+                        
+                        if existing_fitment:
+                            # AI fitment already exists, skip silently
+                            pass
                         else:
-                            print(f"AI Fitment already exists for {product.part_number} -> {vcdb_record.year} {vcdb_record.make} {vcdb_record.model}")
+                            # Create new AI fitment
+                            fitment = Fitment.objects.create(**fitment_data)
+                            fitments_created += 1
                         
                         # Update job progress
                         job.completed_steps += 1

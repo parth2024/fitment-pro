@@ -147,6 +147,11 @@ const EditEntity: React.FC = () => {
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [historyTabLoaded, setHistoryTabLoaded] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("basic");
+  const [hasExistingFiles, setHasExistingFiles] = useState(false);
+  const [canProceedWithoutUpload, setCanProceedWithoutUpload] = useState(false);
+  const [existingUploads, setExistingUploads] = useState<any[]>([]);
+  const [checkingFiles, setCheckingFiles] = useState(false);
 
   const [formData, setFormData] = useState<EntityFormData>({
     name: "",
@@ -324,6 +329,26 @@ const EditEntity: React.FC = () => {
     }
   };
 
+  const checkExistingFiles = async () => {
+    if (!id) return;
+
+    try {
+      setCheckingFiles(true);
+      const response = await apiClient.get(
+        `/api/products/upload/check_existing_files/`
+      );
+      const data = response.data;
+
+      setHasExistingFiles(data.has_existing_files);
+      setCanProceedWithoutUpload(data.can_proceed_without_upload);
+      setExistingUploads(data.existing_uploads || []);
+    } catch (error) {
+      console.error("Error checking existing files:", error);
+    } finally {
+      setCheckingFiles(false);
+    }
+  };
+
   // Load VCDB categories when component mounts
   useEffect(() => {
     if (id) {
@@ -331,16 +356,16 @@ const EditEntity: React.FC = () => {
     }
   }, [id]);
 
-  // Poll for job status updates every 3 seconds (only when history tab is loaded)
+  // Poll for job status updates every 3 seconds (only when history tab is loaded and active)
   useEffect(() => {
-    if (!id || !historyTabLoaded) return;
+    if (!id || !historyTabLoaded || activeTab !== "history") return;
 
     const interval = setInterval(() => {
       fetchFitmentJobs();
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [id, historyTabLoaded]);
+  }, [id, historyTabLoaded, activeTab]);
 
   // Track previous job statuses to detect changes
   const [previousJobStatuses, setPreviousJobStatuses] = useState<
@@ -404,9 +429,16 @@ const EditEntity: React.FC = () => {
 
   // Function to handle tab change and load history data when needed
   const handleTabChange = (value: string | null) => {
+    if (value) {
+      setActiveTab(value);
+    }
+
     if (value === "history" && !historyTabLoaded) {
       setHistoryTabLoaded(true);
       fetchFitmentJobs();
+    }
+    if (value === "products") {
+      checkExistingFiles();
     }
   };
 
@@ -760,13 +792,60 @@ const EditEntity: React.FC = () => {
                   <Text size="sm">
                     1. Configure your product fields below
                     <br />
-                    2. Upload product files (CSV/Excel)
+                    2. Upload product files (CSV/Excel) - optional if files
+                    already exist
                     <br />
                     3. Click "Upload Files & Start Fitment Job" to process
                     <br />
                     4. Check the History tab to monitor progress
                   </Text>
                 </Alert>
+
+                {checkingFiles && (
+                  <Alert color="yellow" title="Checking for existing files...">
+                    <Text size="sm">
+                      Please wait while we check for existing product files.
+                    </Text>
+                  </Alert>
+                )}
+
+                {hasExistingFiles && (
+                  <Alert color="green" title="Existing Product Files Found">
+                    <Group justify="space-between" align="flex-start">
+                      <div>
+                        <Text size="sm">
+                          You have existing product files. You can either:
+                          <br />
+                          • Upload new files to replace existing data
+                          <br />• Use existing data to create a new fitment job
+                        </Text>
+                        {existingUploads.length > 0 && (
+                          <Text size="xs" mt="xs">
+                            Last upload: {existingUploads[0].filename} (
+                            {existingUploads[0].created_at})
+                          </Text>
+                        )}
+                      </div>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        onClick={checkExistingFiles}
+                        loading={checkingFiles}
+                      >
+                        Refresh
+                      </Button>
+                    </Group>
+                  </Alert>
+                )}
+
+                {!hasExistingFiles && !checkingFiles && (
+                  <Alert color="orange" title="No Product Files Found">
+                    <Text size="sm">
+                      No product files have been uploaded yet. Please upload
+                      product files to proceed.
+                    </Text>
+                  </Alert>
+                )}
 
                 <MultiSelect
                   label="Required Product Fields"
@@ -981,7 +1060,9 @@ const EditEntity: React.FC = () => {
                   >
                     Save Configuration
                   </Button>
-                  {formData.uploaded_files.length > 0 && (
+
+                  {/* Show different buttons based on file status */}
+                  {formData.uploaded_files.length > 0 ? (
                     <Button
                       onClick={async () => {
                         try {
@@ -1067,6 +1148,71 @@ const EditEntity: React.FC = () => {
                     >
                       Upload Files & Start Fitment Job
                     </Button>
+                  ) : canProceedWithoutUpload ? (
+                    <Button
+                      onClick={async () => {
+                        try {
+                          setSubmitting(true);
+
+                          // First save configuration
+                          const updateData = {
+                            ...formData,
+                            fitment_settings: {
+                              vcdb_categories: formData.vcdb_categories,
+                              required_vcdb_fields:
+                                formData.required_vcdb_fields,
+                              optional_vcdb_fields:
+                                formData.optional_vcdb_fields,
+                              required_product_fields:
+                                formData.required_product_fields,
+                              additional_attributes:
+                                formData.additional_attributes,
+                            },
+                          };
+                          await apiClient.put(
+                            `/api/tenants/${entity.id}/`,
+                            updateData
+                          );
+
+                          // Create fitment job using existing data
+                          const fitmentSettings = {
+                            vcdb_categories: formData.vcdb_categories,
+                            required_vcdb_fields: formData.required_vcdb_fields,
+                            optional_vcdb_fields: formData.optional_vcdb_fields,
+                          };
+
+                          await apiClient.post(
+                            "/api/products/upload/create_fitment_job_without_upload/",
+                            {
+                              fitment_settings: JSON.stringify(fitmentSettings),
+                            }
+                          );
+
+                          // Refresh fitment jobs to show the new job
+                          fetchFitmentJobs();
+
+                          notifications.show({
+                            title: "Success",
+                            message:
+                              "Fitment job started using existing product data! Check History tab for progress.",
+                            color: "green",
+                          });
+                        } catch (error) {
+                          notifications.show({
+                            title: "Error",
+                            message: "Failed to start fitment job",
+                            color: "red",
+                          });
+                        } finally {
+                          setSubmitting(false);
+                        }
+                      }}
+                      loading={submitting}
+                    >
+                      Start Fitment Job (Use Existing Data)
+                    </Button>
+                  ) : (
+                    <Button disabled>Upload Files Required</Button>
                   )}
                 </Group>
               </Stack>

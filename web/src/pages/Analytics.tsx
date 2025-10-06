@@ -13,6 +13,7 @@ import {
   Paper,
   Skeleton,
   Divider,
+  Button,
 } from "@mantine/core";
 import {
   IconChartBar,
@@ -27,11 +28,15 @@ import {
   IconChevronRight,
   IconSettings,
   IconBuilding,
+  IconRefresh,
+  IconInfoCircle,
+  IconCheck,
 } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/client";
 import { useEntity } from "../hooks/useEntity";
 import CoverageWrapper from "./CoverageNew/CoverageWrapper";
+import MultiEntitySelector from "../components/MultiEntitySelector";
 
 interface AnalyticsData {
   totalFitments: number;
@@ -66,6 +71,8 @@ interface NavigationShortcut {
 const Analytics: React.FC = () => {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedEntities, setSelectedEntities] = useState<string[]>([]);
+  const [dataFetched, setDataFetched] = useState(false);
   const navigate = useNavigate();
   const { currentEntity } = useEntity();
 
@@ -137,15 +144,21 @@ const Analytics: React.FC = () => {
     },
   ];
 
-  const fetchAnalyticsData = async () => {
+  const fetchAnalyticsData = async (entityIds?: string[]) => {
     try {
       setLoading(true);
 
-      // Fetch analytics data from the new endpoint
-      const response = await api.get("/api/analytics/dashboard/");
+      // Fetch analytics data from the new endpoint with entity filtering
+      const params =
+        entityIds && entityIds.length > 0
+          ? { entity_ids: entityIds.join(",") }
+          : {};
+
+      const response = await api.get("/api/analytics/dashboard/", { params });
       const analyticsData = response.data;
 
       setData(analyticsData);
+      setDataFetched(true);
     } catch (error) {
       console.error("Failed to fetch analytics data:", error);
       // Set fallback data
@@ -164,20 +177,35 @@ const Analytics: React.FC = () => {
         yearlyStats: [],
         lastUpdated: new Date().toISOString(),
       });
+      setDataFetched(true);
     } finally {
       setLoading(false);
     }
   };
 
+  // Entity selection handlers
+  const handleEntitySelectionChange = (entityIds: string[]) => {
+    setSelectedEntities(entityIds);
+  };
+
+  const handleDataFetch = async (entityIds: string[]) => {
+    await fetchAnalyticsData(entityIds);
+  };
+
+  // Initialize with current entity if available
   useEffect(() => {
-    fetchAnalyticsData();
-  }, [currentEntity]); // Refresh when entity changes
+    if (currentEntity && selectedEntities.length === 0) {
+      setSelectedEntities([currentEntity.id]);
+    }
+  }, [currentEntity]);
 
   // Listen for entity change events from EntitySelector
   useEffect(() => {
     const handleEntityChange = () => {
       console.log("Entity changed, refreshing Analytics data...");
-      fetchAnalyticsData();
+      if (selectedEntities.length > 0) {
+        fetchAnalyticsData(selectedEntities);
+      }
     };
 
     // Listen for custom entity change events
@@ -187,7 +215,7 @@ const Analytics: React.FC = () => {
     return () => {
       window.removeEventListener("entityChanged", handleEntityChange);
     };
-  }, []);
+  }, [selectedEntities]);
 
   const handleNavigationClick = (path: string) => {
     // Navigate to the specified route
@@ -195,6 +223,88 @@ const Analytics: React.FC = () => {
     // Scroll to top after navigation
     window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
   };
+
+  // Show entity selection if no entities selected or data not fetched
+  if (!dataFetched || selectedEntities.length === 0) {
+    return (
+      <div style={{ minHeight: "100vh" }}>
+        <Stack gap="xl">
+          {/* Welcome Header */}
+          <Card
+            style={{
+              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              border: "none",
+              color: "white",
+            }}
+            p="xl"
+          >
+            <Group justify="space-between" align="center">
+              <div>
+                <Title order={1} c="white" mb="sm">
+                  Analytics Dashboard
+                </Title>
+                <Text size="lg" c="rgba(255, 255, 255, 0.9)" mb="md">
+                  Get insights into your fitments and vehicle coverage across
+                  multiple entities
+                </Text>
+                <Group gap="sm">
+                  <Badge variant="white" color="blue" size="lg">
+                    Multi-Entity Analytics
+                  </Badge>
+                  <Badge variant="white" color="green" size="lg">
+                    Real-time Data
+                  </Badge>
+                </Group>
+              </div>
+              <IconChartBar size={64} color="rgba(255, 255, 255, 0.8)" />
+            </Group>
+          </Card>
+
+          {/* Entity Selection */}
+          <MultiEntitySelector
+            selectedEntities={selectedEntities}
+            onEntitySelectionChange={handleEntitySelectionChange}
+            onDataFetch={handleDataFetch}
+            title="Select Entities for Analytics"
+            description="Choose one or more entities to view their analytics data. You can select multiple entities to compare their performance."
+            showStats={true}
+          />
+
+          {/* Instructions */}
+          <Card withBorder p="lg" radius="md">
+            <Stack gap="md">
+              <Group gap="sm">
+                <IconInfoCircle size={20} color="#3b82f6" />
+                <Title order={4}>How to Use Analytics</Title>
+              </Group>
+              <Text size="sm" c="#64748b">
+                Select one or more entities above to view their analytics data.
+                The dashboard will show:
+              </Text>
+              <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+                <Group gap="sm">
+                  <IconCheck size={16} color="#10b981" />
+                  <Text size="sm">Total fitments and parts count</Text>
+                </Group>
+                <Group gap="sm">
+                  <IconCheck size={16} color="#10b981" />
+                  <Text size="sm">AI vs Manual fitment breakdown</Text>
+                </Group>
+                <Group gap="sm">
+                  <IconCheck size={16} color="#10b981" />
+                  <Text size="sm">Vehicle coverage analysis</Text>
+                </Group>
+                <Group gap="sm">
+                  <IconCheck size={16} color="#10b981" />
+                  <Text size="sm">Top performing makes and models</Text>
+                </Group>
+              </SimpleGrid>
+            </Stack>
+          </Card>
+        </Stack>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -349,34 +459,70 @@ const Analytics: React.FC = () => {
       }}
     >
       <Stack gap="xl">
-        {/* Entity Context Banner */}
-        {data?.tenant && (
-          <Card
-            style={{
-              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-              border: "none",
-              color: "white",
-            }}
-            p="md"
-          >
-            <Group justify="space-between" align="center">
-              <Group gap="md">
-                <IconBuilding size={24} />
-                <div>
-                  <Text size="lg" fw={600} c="white">
-                    Analytics for {data.tenant.name}
-                  </Text>
-                  <Text size="sm" c="rgba(255, 255, 255, 0.8)">
-                    Data filtered by selected entity
-                  </Text>
-                </div>
-              </Group>
-              <Badge variant="white" color="blue" size="lg">
-                {data.totalFitments} fitments
-              </Badge>
+        {/* Entity Selection Header */}
+        <Card
+          style={{
+            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            border: "none",
+            color: "white",
+          }}
+          p="md"
+        >
+          <Group justify="space-between" align="center">
+            <Group gap="md">
+              <IconBuilding size={24} />
+              <div>
+                <Text size="lg" fw={600} c="white">
+                  Analytics Dashboard
+                </Text>
+                <Text size="sm" c="rgba(255, 255, 255, 0.8)">
+                  {selectedEntities.length === 1
+                    ? `Data for selected entity`
+                    : `Data for ${selectedEntities.length} selected entities`}
+                </Text>
+              </div>
             </Group>
-          </Card>
-        )}
+            <Group gap="sm">
+              <Badge variant="white" color="blue" size="lg">
+                {data?.totalFitments || 0} fitments
+              </Badge>
+              <Button
+                variant="white"
+                color="blue"
+                size="sm"
+                leftSection={<IconRefresh size={16} />}
+                onClick={() => handleDataFetch(selectedEntities)}
+              >
+                Refresh Data
+              </Button>
+            </Group>
+          </Group>
+        </Card>
+
+        {/* Entity Selection Controls */}
+        <Card withBorder p="md" radius="md">
+          <Group justify="space-between" align="center">
+            <div>
+              <Text size="sm" fw={600} c="#1e293b">
+                Selected Entities
+              </Text>
+              <Text size="xs" c="#64748b">
+                {selectedEntities.length} entities selected
+              </Text>
+            </div>
+            <Button
+              variant="light"
+              color="blue"
+              size="sm"
+              onClick={() => {
+                setDataFetched(false);
+                setData(null);
+              }}
+            >
+              Change Selection
+            </Button>
+          </Group>
+        </Card>
 
         {/* Key Metrics Cards */}
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
@@ -809,7 +955,7 @@ const Analytics: React.FC = () => {
             <Divider />
 
             {/* Coverage Component */}
-            <CoverageWrapper />
+            <CoverageWrapper selectedEntities={selectedEntities} />
           </Stack>
         </Card>
       </Stack>
