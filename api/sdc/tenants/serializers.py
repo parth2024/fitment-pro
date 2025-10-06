@@ -27,7 +27,7 @@ class TenantCreateSerializer(serializers.ModelSerializer):
         ]
     
     def validate_slug(self, value):
-        if Tenant.objects.filter(slug=value).exists():
+        if value and Tenant.objects.filter(slug=value).exists():
             raise serializers.ValidationError("A tenant with this slug already exists.")
         return value
 

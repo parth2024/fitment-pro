@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   Container,
   Title,
@@ -9,26 +9,22 @@ import {
   Text,
   Badge,
   ActionIcon,
-  Modal,
-  TextInput,
-  Textarea,
-  Switch,
   Stack,
   Alert,
   Loader,
   Grid,
   Paper,
-  Divider,
 } from "@mantine/core";
 import {
   IconPlus,
   IconEdit,
   IconTrash,
   IconUsers,
-  IconSettings,
   IconRefresh,
   IconInfoCircle,
+  IconSettings,
 } from "@tabler/icons-react";
+import { useNavigate } from "react-router-dom";
 import { useEntity } from "../hooks/useEntity";
 import apiClient from "../api/client";
 import { notifications } from "@mantine/notifications";
@@ -36,7 +32,7 @@ import { notifications } from "@mantine/notifications";
 interface Entity {
   id: string;
   name: string;
-  slug: string;
+  slug: string | null;
   description?: string;
   is_active: boolean;
   is_default: boolean;
@@ -49,82 +45,12 @@ interface Entity {
   company_address?: string;
 }
 
-interface EntityFormData {
-  name: string;
-  slug: string;
-  description: string;
-  contact_email: string;
-  contact_phone: string;
-  company_address: string;
-  ai_instructions: string;
-  is_active: boolean;
-  is_default: boolean;
-}
-
 const EntityManagement: React.FC = () => {
   const { entities, loading, error, refreshEntities } = useEntity();
-  const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [formData, setFormData] = useState<EntityFormData>({
-    name: "",
-    slug: "",
-    description: "",
-    contact_email: "",
-    contact_phone: "",
-    company_address: "",
-    ai_instructions: "",
-    is_active: true,
-    is_default: false,
-  });
-  const [submitting, setSubmitting] = useState(false);
+  const navigate = useNavigate();
 
-  const handleCreate = async () => {
-    try {
-      setSubmitting(true);
-      await apiClient.post("/api/tenants/", formData);
-      notifications.show({
-        title: "Success",
-        message: "Entity created successfully",
-        color: "green",
-      });
-      setIsCreateModalOpen(false);
-      resetForm();
-      await refreshEntities();
-    } catch (error) {
-      notifications.show({
-        title: "Error",
-        message: "Failed to create entity",
-        color: "red",
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleEdit = async () => {
-    if (!selectedEntity) return;
-
-    try {
-      setSubmitting(true);
-      await apiClient.put(`/api/tenants/${selectedEntity.id}/`, formData);
-      notifications.show({
-        title: "Success",
-        message: "Entity updated successfully",
-        color: "green",
-      });
-      setIsEditModalOpen(false);
-      resetForm();
-      await refreshEntities();
-    } catch (error) {
-      notifications.show({
-        title: "Error",
-        message: "Failed to update entity",
-        color: "red",
-      });
-    } finally {
-      setSubmitting(false);
-    }
+  const handleEdit = (entity: Entity) => {
+    navigate(`/edit-entity/${entity.id}`);
   };
 
   const handleDelete = async (entity: Entity) => {
@@ -147,39 +73,8 @@ const EntityManagement: React.FC = () => {
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      slug: "",
-      description: "",
-      contact_email: "",
-      contact_phone: "",
-      company_address: "",
-      ai_instructions: "",
-      is_active: true,
-      is_default: false,
-    });
-  };
-
-  const openEditModal = (entity: Entity) => {
-    setSelectedEntity(entity);
-    setFormData({
-      name: entity.name,
-      slug: entity.slug,
-      description: entity.description || "",
-      contact_email: entity.contact_email || "",
-      contact_phone: entity.contact_phone || "",
-      company_address: entity.company_address || "",
-      ai_instructions: entity.ai_instructions || "",
-      is_active: entity.is_active,
-      is_default: entity.is_default,
-    });
-    setIsEditModalOpen(true);
-  };
-
-  const openCreateModal = () => {
-    resetForm();
-    setIsCreateModalOpen(true);
+  const handleCreate = () => {
+    navigate("/create-entity");
   };
 
   if (loading) {
@@ -215,10 +110,7 @@ const EntityManagement: React.FC = () => {
             >
               Refresh
             </Button>
-            <Button
-              leftSection={<IconPlus size={16} />}
-              onClick={openCreateModal}
-            >
+            <Button leftSection={<IconPlus size={16} />} onClick={handleCreate}>
               Create Entity
             </Button>
           </Group>
@@ -234,9 +126,9 @@ const EntityManagement: React.FC = () => {
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th>Name</Table.Th>
-                    <Table.Th>Slug</Table.Th>
+                    <Table.Th>URL</Table.Th>
                     <Table.Th>Status</Table.Th>
-                    <Table.Th>Users</Table.Th>
+                    {/* <Table.Th>Users</Table.Th> */}
                     <Table.Th>Created</Table.Th>
                     <Table.Th>Actions</Table.Th>
                   </Table.Tr>
@@ -246,7 +138,13 @@ const EntityManagement: React.FC = () => {
                     <Table.Tr key={entity.id}>
                       <Table.Td>
                         <Stack gap={4}>
-                          <Text fw={500}>{entity.name}</Text>
+                          <Text
+                            fw={500}
+                            style={{ cursor: "pointer", color: "#3b82f6" }}
+                            onClick={() => handleEdit(entity)}
+                          >
+                            {entity.name}
+                          </Text>
                           {entity.description && (
                             <Text size="sm" c="dimmed">
                               {entity.description}
@@ -256,7 +154,7 @@ const EntityManagement: React.FC = () => {
                       </Table.Td>
                       <Table.Td>
                         <Text size="sm" c="dimmed">
-                          {entity.slug}
+                          {entity.slug || "No URL"}
                         </Text>
                       </Table.Td>
                       <Table.Td>
@@ -274,12 +172,12 @@ const EntityManagement: React.FC = () => {
                           )}
                         </Group>
                       </Table.Td>
-                      <Table.Td>
+                      {/* <Table.Td>
                         <Group gap="xs">
                           <IconUsers size={16} />
                           <Text size="sm">{entity.user_count}</Text>
                         </Group>
-                      </Table.Td>
+                      </Table.Td> */}
                       <Table.Td>
                         <Text size="sm" c="dimmed">
                           {new Date(entity.created_at).toLocaleDateString()}
@@ -290,7 +188,7 @@ const EntityManagement: React.FC = () => {
                           <ActionIcon
                             variant="subtle"
                             color="blue"
-                            onClick={() => openEditModal(entity)}
+                            onClick={() => handleEdit(entity)}
                           >
                             <IconEdit size={16} />
                           </ActionIcon>
@@ -328,236 +226,17 @@ const EntityManagement: React.FC = () => {
                       {entities.filter((e) => e.is_active).length}
                     </Text>
                   </Group>
-                  <Group justify="space-between">
+                  {/* <Group justify="space-between">
                     <Text size="sm">Total Users</Text>
                     <Text fw={500}>
                       {entities.reduce((sum, e) => sum + e.user_count, 0)}
                     </Text>
-                  </Group>
+                  </Group> */}
                 </Stack>
               </Paper>
             </Stack>
           </Grid.Col>
         </Grid>
-
-        {/* Create Modal */}
-        <Modal
-          opened={isCreateModalOpen}
-          onClose={() => setIsCreateModalOpen(false)}
-          title="Create New Entity"
-          size="lg"
-        >
-          <Stack gap="md">
-            <TextInput
-              label="Name"
-              placeholder="Enter entity name"
-              value={formData.name}
-              onChange={(e) =>
-                setFormData({ ...formData, name: e.target.value })
-              }
-              required
-            />
-            <TextInput
-              label="URL"
-              placeholder="Enter entity slug"
-              value={formData.slug}
-              onChange={(e) =>
-                setFormData({ ...formData, slug: e.target.value })
-              }
-              required
-            />
-            <Textarea
-              label="Description"
-              placeholder="Enter entity description"
-              value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
-              rows={3}
-            />
-            <Divider />
-            <Text fw={500}>Contact Information</Text>
-            <TextInput
-              label="Contact Email"
-              placeholder="Enter contact email"
-              value={formData.contact_email}
-              onChange={(e) =>
-                setFormData({ ...formData, contact_email: e.target.value })
-              }
-            />
-            <TextInput
-              label="Contact Phone"
-              placeholder="Enter contact phone"
-              value={formData.contact_phone}
-              onChange={(e) =>
-                setFormData({ ...formData, contact_phone: e.target.value })
-              }
-            />
-            <Textarea
-              label="Company Address"
-              placeholder="Enter company address"
-              value={formData.company_address}
-              onChange={(e) =>
-                setFormData({ ...formData, company_address: e.target.value })
-              }
-              rows={3}
-            />
-            <Divider />
-            <Textarea
-              label="AI Instructions"
-              placeholder="Enter default AI instructions for this entity"
-              value={formData.ai_instructions}
-              onChange={(e) =>
-                setFormData({ ...formData, ai_instructions: e.target.value })
-              }
-              rows={4}
-            />
-            <Group>
-              <Switch
-                label="Active"
-                checked={formData.is_active}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    is_active: e.currentTarget.checked,
-                  })
-                }
-              />
-              <Switch
-                label="Default Entity"
-                checked={formData.is_default}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    is_default: e.currentTarget.checked,
-                  })
-                }
-              />
-            </Group>
-            <Group justify="flex-end">
-              <Button
-                variant="outline"
-                onClick={() => setIsCreateModalOpen(false)}
-                disabled={submitting}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleCreate} loading={submitting}>
-                Create Entity
-              </Button>
-            </Group>
-          </Stack>
-        </Modal>
-
-        {/* Edit Modal with Tabs */}
-        <Modal
-          opened={isEditModalOpen}
-          onClose={() => setIsEditModalOpen(false)}
-          title="Edit Entity"
-          size="xl"
-        >
-          <Stack gap="md" p="10px">
-            <TextInput
-              label="Name"
-              placeholder="Enter entity name"
-              value={formData.name}
-              onChange={(e) =>
-                setFormData({ ...formData, name: e.target.value })
-              }
-              required
-            />
-            <TextInput
-              label="Slug"
-              placeholder="Enter entity slug"
-              value={formData.slug}
-              onChange={(e) =>
-                setFormData({ ...formData, slug: e.target.value })
-              }
-              required
-              disabled
-            />
-            <Textarea
-              label="Description"
-              placeholder="Enter entity description"
-              value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
-              rows={3}
-            />
-            <Divider />
-            <Text fw={500}>Contact Information</Text>
-            <TextInput
-              label="Contact Email"
-              placeholder="Enter contact email"
-              value={formData.contact_email}
-              onChange={(e) =>
-                setFormData({ ...formData, contact_email: e.target.value })
-              }
-            />
-            <TextInput
-              label="Contact Phone"
-              placeholder="Enter contact phone"
-              value={formData.contact_phone}
-              onChange={(e) =>
-                setFormData({ ...formData, contact_phone: e.target.value })
-              }
-            />
-            <Textarea
-              label="Company Address"
-              placeholder="Enter company address"
-              value={formData.company_address}
-              onChange={(e) =>
-                setFormData({ ...formData, company_address: e.target.value })
-              }
-              rows={3}
-            />
-            <Divider />
-            <Textarea
-              label="AI Instructions"
-              placeholder="Enter default AI instructions for this entity"
-              value={formData.ai_instructions}
-              onChange={(e) =>
-                setFormData({ ...formData, ai_instructions: e.target.value })
-              }
-              rows={4}
-            />
-            <Group>
-              <Switch
-                label="Active"
-                checked={formData.is_active}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    is_active: e.currentTarget.checked,
-                  })
-                }
-              />
-              <Switch
-                label="Default Entity"
-                checked={formData.is_default}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    is_default: e.currentTarget.checked,
-                  })
-                }
-              />
-            </Group>
-            <Group justify="flex-end">
-              <Button
-                variant="outline"
-                onClick={() => setIsEditModalOpen(false)}
-                disabled={submitting}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleEdit} loading={submitting}>
-                Update Entity
-              </Button>
-            </Group>
-          </Stack>
-        </Modal>
       </Stack>
     </Container>
   );

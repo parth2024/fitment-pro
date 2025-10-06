@@ -47,7 +47,7 @@ import { notifications } from "@mantine/notifications";
 interface Entity {
   id: string;
   name: string;
-  slug: string;
+  slug?: string;
   description?: string;
   is_active: boolean;
   is_default: boolean;
@@ -62,7 +62,7 @@ interface Entity {
 
 interface EntityFormData {
   name: string;
-  slug: string;
+  slug?: string;
   description: string;
   contact_email: string;
   contact_phone: string;
@@ -227,7 +227,7 @@ const EntityManagementEnhanced: React.FC = () => {
     }
   };
 
-  const handleDelete = async (entity: Entity) => {
+  const handleDelete = async (entity: any) => {
     if (!confirm(`Are you sure you want to delete "${entity.name}"?`)) return;
 
     try {
@@ -261,11 +261,11 @@ const EntityManagementEnhanced: React.FC = () => {
     });
   };
 
-  const openEditModal = (entity: Entity) => {
+  const openEditModal = (entity: any) => {
     setSelectedEntity(entity);
     setFormData({
       name: entity.name,
-      slug: entity.slug,
+      slug: entity.slug || "",
       description: entity.description || "",
       contact_email: entity.contact_email || "",
       contact_phone: entity.contact_phone || "",
@@ -413,7 +413,7 @@ const EntityManagementEnhanced: React.FC = () => {
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th>Name</Table.Th>
-                    <Table.Th>Slug</Table.Th>
+                    <Table.Th>URL</Table.Th>
                     <Table.Th>Status</Table.Th>
                     <Table.Th>Users</Table.Th>
                     <Table.Th>Created</Table.Th>
@@ -435,7 +435,7 @@ const EntityManagementEnhanced: React.FC = () => {
                       </Table.Td>
                       <Table.Td>
                         <Text size="sm" c="dimmed">
-                          {entity.slug}
+                          {entity.slug || "—"}
                         </Text>
                       </Table.Td>
                       <Table.Td>
@@ -538,12 +538,11 @@ const EntityManagementEnhanced: React.FC = () => {
             />
             <TextInput
               label="URL"
-              placeholder="Enter entity slug"
+              placeholder="Enter entity URL (optional)"
               value={formData.slug}
               onChange={(e) =>
                 setFormData({ ...formData, slug: e.target.value })
               }
-              required
             />
             <Textarea
               label="Description"
@@ -666,13 +665,12 @@ const EntityManagementEnhanced: React.FC = () => {
                   required
                 />
                 <TextInput
-                  label="Slug"
-                  placeholder="Enter entity slug"
+                  label="URL"
+                  placeholder="Enter entity URL (optional)"
                   value={formData.slug}
                   onChange={(e) =>
                     setFormData({ ...formData, slug: e.target.value })
                   }
-                  required
                   disabled
                 />
                 <Textarea

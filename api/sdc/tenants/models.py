@@ -6,7 +6,7 @@ import uuid
 class Tenant(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=200, unique=True)
-    slug = models.SlugField(max_length=120, unique=True)
+    slug = models.SlugField(max_length=120, unique=True, blank=True, null=True)
     description = models.TextField(blank=True, null=True, help_text="Description of the entity/company")
     
     # Entity settings and configuration

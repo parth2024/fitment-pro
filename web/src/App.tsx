@@ -19,13 +19,8 @@ import {
   IconLogout,
   IconChevronRight,
   IconDashboard,
-  IconDatabase,
-  IconChartBar,
   IconBulb,
-  IconUpload,
-  IconSettings,
   IconBuilding,
-  IconDatabaseCog,
 } from "@tabler/icons-react";
 import {
   Routes,
@@ -51,6 +46,8 @@ import ManualFitment from "./pages/ManualFitment";
 import AIFitment from "./pages/AIFitment";
 import Settings from "./pages/Settings";
 import EntityManagement from "./pages/EntityManagement";
+import EditEntity from "./pages/EditEntity";
+import CreateEntity from "./pages/CreateEntity";
 import CustomPCDB from "./pages/CustomPCDB";
 import ProtectedRoute from "./components/ProtectedRoute";
 import EntitySelector from "./components/EntitySelector";
@@ -79,13 +76,13 @@ const navigationItems = [
     icon: IconDashboard,
     color: "blue",
   },
-  {
-    label: "Upload Data",
-    value: "upload-data",
-    path: "/upload-data",
-    icon: IconDatabase,
-    color: "cyan",
-  },
+  // {
+  //   label: "Upload Data",
+  //   value: "upload-data",
+  //   path: "/upload-data",
+  //   icon: IconDatabase,
+  //   color: "cyan",
+  // },
   // {
   //   label: "Apply Fitments",
   //   value: "apply",
@@ -122,20 +119,20 @@ const navigationItems = [
     icon: IconBulb,
     color: "yellow",
   },
-  {
-    label: "Custom PCDB",
-    value: "custom-pcdb",
-    path: "/custom-pcdb",
-    icon: IconDatabaseCog,
-    color: "purple",
-  },
-  {
-    label: "Settings",
-    value: "settings",
-    path: "/settings",
-    icon: IconSettings,
-    color: "gray",
-  },
+  // {
+  //   label: "Custom PCDB",
+  //   value: "custom-pcdb",
+  //   path: "/custom-pcdb",
+  //   icon: IconDatabaseCog,
+  //   color: "purple",
+  // },
+  // {
+  //   label: "Settings",
+  //   value: "settings",
+  //   path: "/settings",
+  //   icon: IconSettings,
+  //   color: "gray",
+  // },
 ];
 
 function App() {
@@ -154,6 +151,16 @@ function App() {
     // Handle edit fitment route
     if (location.pathname.startsWith("/edit-fitment/")) {
       return "Edit Fitment";
+    }
+
+    // Handle edit entity route
+    if (location.pathname.startsWith("/edit-entity/")) {
+      return "Edit Entity";
+    }
+
+    // Handle create entity route
+    if (location.pathname === "/create-entity") {
+      return "Create Entity";
     }
 
     return "Dashboard";
@@ -198,6 +205,8 @@ function App() {
         <Route path="/mismatches" element={<Mismatches />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/entities" element={<EntityManagement />} />
+        <Route path="/create-entity" element={<CreateEntity />} />
+        <Route path="/edit-entity/:id" element={<EditEntity />} />
         <Route path="/custom-pcdb" element={<CustomPCDB />} />
         <Route path="*" element={<Analytics />} />
       </Routes>
