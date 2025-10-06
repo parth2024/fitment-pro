@@ -25,6 +25,7 @@ import {
   IconUpload,
   IconSettings,
   IconBuilding,
+  IconDatabaseCog,
 } from "@tabler/icons-react";
 import {
   Routes,
@@ -50,6 +51,7 @@ import ManualFitment from "./pages/ManualFitment";
 import AIFitment from "./pages/AIFitment";
 import Settings from "./pages/Settings";
 import EntityManagement from "./pages/EntityManagement";
+import CustomPCDB from "./pages/CustomPCDB";
 import ProtectedRoute from "./components/ProtectedRoute";
 import EntitySelector from "./components/EntitySelector";
 import { useAuth } from "./contexts/AuthContext";
@@ -92,13 +94,13 @@ const navigationItems = [
   //   color: "green",
   // },
 
-  {
-    label: "Bulk Fitments Upload",
-    value: "bulk",
-    path: "/bulk-upload",
-    icon: IconUpload,
-    color: "orange",
-  },
+  // {
+  //   label: "Bulk Fitments Upload",
+  //   value: "bulk",
+  //   path: "/bulk-upload",
+  //   icon: IconUpload,
+  //   color: "orange",
+  // },
   // {
   //   label: "Mismatches(Beta)",
   //   value: "mismatches",
@@ -106,19 +108,26 @@ const navigationItems = [
   //   icon: IconAlertTriangle,
   //   color: "red",
   // },
-  {
-    label: "Coverage",
-    value: "coverage",
-    path: "/coverage",
-    icon: IconChartBar,
-    color: "cyan",
-  },
+  // {
+  //   label: "Coverage",
+  //   value: "coverage",
+  //   path: "/coverage",
+  //   icon: IconChartBar,
+  //   color: "cyan",
+  // },
   {
     label: "Potential Fitments",
     value: "potential",
     path: "/potential-fitments",
     icon: IconBulb,
     color: "yellow",
+  },
+  {
+    label: "Custom PCDB",
+    value: "custom-pcdb",
+    path: "/custom-pcdb",
+    icon: IconDatabaseCog,
+    color: "purple",
   },
   {
     label: "Settings",
@@ -189,6 +198,7 @@ function App() {
         <Route path="/mismatches" element={<Mismatches />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/entities" element={<EntityManagement />} />
+        <Route path="/custom-pcdb" element={<CustomPCDB />} />
         <Route path="*" element={<Analytics />} />
       </Routes>
     );

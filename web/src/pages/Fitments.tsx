@@ -41,6 +41,8 @@ import {
   IconBrain,
   IconUsers,
   IconShield,
+  IconSettings,
+  IconInfoCircle,
 } from "@tabler/icons-react";
 import FilterableSortableHeader from "../components/FilterableSortableHeader";
 import { useApi } from "../hooks/useApi";
@@ -628,6 +630,50 @@ export default function Fitments() {
               />
             </Group>
           </Group>
+
+          {/* AI Instructions Section */}
+          <Card
+            withBorder
+            p="md"
+            style={{
+              background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
+            }}
+          >
+            <Stack gap="md">
+              <Group justify="space-between">
+                <Group gap="sm">
+                  <IconBrain size={20} color="#3b82f6" />
+                  <Title order={4}>AI Instructions</Title>
+                </Group>
+                <Tooltip label="Configure AI behavior for fitment generation and analysis">
+                  <ActionIcon variant="subtle" color="blue">
+                    <IconSettings size={16} />
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
+              <Text size="sm" c="dimmed">
+                Configure how AI should analyze and generate fitments for your
+                organization. These instructions will guide the AI in making
+                fitment decisions and recommendations.
+              </Text>
+              <Group gap="md">
+                <Button
+                  variant="light"
+                  leftSection={<IconBrain size={16} />}
+                  size="sm"
+                >
+                  Configure AI Instructions
+                </Button>
+                <Button
+                  variant="subtle"
+                  leftSection={<IconInfoCircle size={16} />}
+                  size="sm"
+                >
+                  View Current Settings
+                </Button>
+              </Group>
+            </Stack>
+          </Card>
 
           {/* Professional Filters and Actions */}
           <div>

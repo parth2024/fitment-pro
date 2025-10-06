@@ -12,6 +12,7 @@ import {
   RingProgress,
   Paper,
   Skeleton,
+  Divider,
 } from "@mantine/core";
 import {
   IconChartBar,
@@ -30,6 +31,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import api from "../api/client";
 import { useEntity } from "../hooks/useEntity";
+import CoverageWrapper from "./CoverageNew/CoverageWrapper";
 
 interface AnalyticsData {
   totalFitments: number;
@@ -776,6 +778,38 @@ const Analytics: React.FC = () => {
                 );
               })}
             </SimpleGrid>
+          </Stack>
+        </Card>
+
+        {/* Coverage Section */}
+        <Card
+          style={{
+            background: "#ffffff",
+            border: "1px solid #e2e8f0",
+            borderRadius: "12px",
+            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+          }}
+          p="lg"
+        >
+          <Stack gap="lg">
+            <Group justify="space-between">
+              <div>
+                <Text size="xl" fw={700} c="#1e293b">
+                  Coverage Analytics
+                </Text>
+                <Text size="sm" c="#64748b" mt="xs">
+                  Vehicle coverage analysis and fitment statistics
+                </Text>
+              </div>
+              <Badge variant="light" color="cyan" size="lg">
+                Coverage
+              </Badge>
+            </Group>
+
+            <Divider />
+
+            {/* Coverage Component */}
+            <CoverageWrapper />
           </Stack>
         </Card>
       </Stack>

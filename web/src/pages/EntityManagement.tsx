@@ -449,12 +449,12 @@ const EntityManagement: React.FC = () => {
           </Stack>
         </Modal>
 
-        {/* Edit Modal */}
+        {/* Edit Modal with Tabs */}
         <Modal
           opened={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
           title="Edit Entity"
-          size="lg"
+          size="xl"
         >
           <Stack gap="md" p="10px">
             <TextInput
