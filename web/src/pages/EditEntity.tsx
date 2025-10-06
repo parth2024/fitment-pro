@@ -23,6 +23,8 @@ import {
   FileInput,
   Accordion,
   ActionIcon,
+  Table,
+  Progress,
 } from "@mantine/core";
 import {
   IconPlus,
@@ -30,6 +32,7 @@ import {
   IconCar,
   IconDatabase,
   IconArrowLeft,
+  IconClock,
 } from "@tabler/icons-react";
 import { useParams, useNavigate } from "react-router-dom";
 import apiClient from "../api/client";
@@ -77,12 +80,28 @@ interface EntityFormData {
   uploaded_files: File[];
 }
 
+interface VCDBCategory {
+  id: string;
+  name: string;
+  version: string;
+  is_valid: boolean;
+  record_count: number;
+}
+
+interface FitmentJob {
+  id: string;
+  job_type: string;
+  status: string;
+  created_at: string;
+  started_at?: string;
+  finished_at?: string;
+  result?: any;
+  params?: any;
+  progress?: number;
+  duration?: string;
+}
+
 // VCDB Field Options
-const VCDB_CATEGORIES = [
-  "Light Duty & Powersports, North America",
-  "Medium & Heavy Duty Trucks (Classes 4–8), North America",
-  "Off-Highway & Equipment, North America",
-];
 
 const VCDB_FIELDS = [
   "Year (model year)",
@@ -122,6 +141,13 @@ const EditEntity: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // New state for VCDB categories and jobs
+  const [vcdbCategories, setVcdbCategories] = useState<VCDBCategory[]>([]);
+  const [fitmentJobs, setFitmentJobs] = useState<FitmentJob[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(false);
+  const [loadingJobs, setLoadingJobs] = useState(false);
+  const [historyTabLoaded, setHistoryTabLoaded] = useState(false);
+
   const [formData, setFormData] = useState<EntityFormData>({
     name: "",
     slug: "",
@@ -155,6 +181,7 @@ const EditEntity: React.FC = () => {
         setEntity(entityData);
 
         // Populate form with entity data
+        const fitmentSettings = entityData.fitment_settings || {};
         setFormData({
           name: entityData.name,
           slug: entityData.slug || "",
@@ -165,14 +192,27 @@ const EditEntity: React.FC = () => {
           ai_instructions: entityData.ai_instructions || "",
           is_active: entityData.is_active,
           is_default: entityData.is_default,
-          default_fitment_method: "manual", // Default value, will be updated from API
-          // Fitments Configuration
-          vcdb_categories: [],
-          required_vcdb_fields: [],
-          optional_vcdb_fields: [],
-          // Products Configuration
-          required_product_fields: [],
-          additional_attributes: [],
+          default_fitment_method: entityData.default_fitment_method || "manual",
+          // Fitments Configuration - use fitment_settings if available
+          vcdb_categories:
+            fitmentSettings.vcdb_categories || entityData.vcdb_categories || [],
+          required_vcdb_fields:
+            fitmentSettings.required_vcdb_fields ||
+            entityData.required_vcdb_fields ||
+            [],
+          optional_vcdb_fields:
+            fitmentSettings.optional_vcdb_fields ||
+            entityData.optional_vcdb_fields ||
+            [],
+          // Products Configuration - read from fitment_settings
+          required_product_fields:
+            fitmentSettings.required_product_fields ||
+            entityData.required_product_fields ||
+            [],
+          additional_attributes:
+            fitmentSettings.additional_attributes ||
+            entityData.additional_attributes ||
+            [],
           uploaded_files: [],
         });
       } catch (error) {
@@ -190,18 +230,215 @@ const EditEntity: React.FC = () => {
     fetchEntity();
   }, [id]);
 
+  // Fetch VCDB categories
+  const fetchVCDBCategories = async () => {
+    if (!id) return;
+
+    try {
+      setLoadingCategories(true);
+      const response = await apiClient.get(
+        `/api/vcdb-categories/categories/?tenant_id=${id}`
+      );
+      setVcdbCategories(response.data);
+    } catch (error) {
+      notifications.show({
+        title: "Error",
+        message: "Failed to load VCDB categories",
+        color: "red",
+      });
+    } finally {
+      setLoadingCategories(false);
+    }
+  };
+
+  // Fetch fitment jobs
+  const fetchFitmentJobs = async () => {
+    if (!id) return;
+
+    try {
+      setLoadingJobs(true);
+      const response = await apiClient.get(
+        `/api/data-uploads/job-history/?tenant_id=${id}`
+      );
+      const newJobs = response.data.job_history || [];
+
+      // Check for newly completed jobs and show notifications
+      newJobs.forEach((newJob: any) => {
+        const existingJob = fitmentJobs.find((job) => job.id === newJob.id);
+
+        // If job status changed from pending/processing to completed
+        if (
+          existingJob &&
+          ["pending", "processing"].includes(existingJob.status) &&
+          ["failed", "completed", "completed_with_warnings"].includes(
+            newJob.status
+          )
+        ) {
+          if (
+            newJob.status === "failed" &&
+            newJob.result?.fitments_failed > 0
+          ) {
+            notifications.show({
+              title: "Fitments Already Exist",
+              message:
+                newJob.result.error_message ||
+                `All ${newJob.result.fitments_failed} fitments already exist. No new fitments were created.`,
+              color: "orange",
+              autoClose: 10000,
+            });
+          } else if (
+            newJob.status === "completed_with_warnings" &&
+            newJob.result?.fitments_failed > 0
+          ) {
+            notifications.show({
+              title: "Fitments Created with Warnings",
+              message:
+                newJob.result.error_message ||
+                `Created ${newJob.result.fitments_created} new fitments, but ${newJob.result.fitments_failed} already existed.`,
+              color: "yellow",
+              autoClose: 10000,
+            });
+          } else if (
+            newJob.status === "completed" &&
+            newJob.result?.fitments_created > 0
+          ) {
+            notifications.show({
+              title: "Fitments Created Successfully",
+              message: `Successfully created ${newJob.result.fitments_created} new fitments.`,
+              color: "green",
+              autoClose: 5000,
+            });
+          }
+        }
+      });
+
+      setFitmentJobs(newJobs);
+    } catch (error) {
+      notifications.show({
+        title: "Error",
+        message: "Failed to load fitment jobs",
+        color: "red",
+      });
+    } finally {
+      setLoadingJobs(false);
+    }
+  };
+
+  // Load VCDB categories when component mounts
+  useEffect(() => {
+    if (id) {
+      fetchVCDBCategories();
+    }
+  }, [id]);
+
+  // Poll for job status updates every 3 seconds (only when history tab is loaded)
+  useEffect(() => {
+    if (!id || !historyTabLoaded) return;
+
+    const interval = setInterval(() => {
+      fetchFitmentJobs();
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [id, historyTabLoaded]);
+
+  // Track previous job statuses to detect changes
+  const [previousJobStatuses, setPreviousJobStatuses] = useState<
+    Record<string, string>
+  >({});
+
+  // Show notifications for job status changes
+  useEffect(() => {
+    if (fitmentJobs.length > 0) {
+      // Check all jobs for status changes
+      fitmentJobs.forEach((job) => {
+        const jobId = job.id;
+        const currentStatus = job.status;
+        const previousStatus = previousJobStatuses[jobId];
+
+        // Only show notification if status changed to a completed state
+        if (previousStatus && previousStatus !== currentStatus) {
+          if (currentStatus === "failed" && job.result?.fitments_failed > 0) {
+            notifications.show({
+              title: "Fitments Already Exist",
+              message:
+                job.result.error_message ||
+                `All ${job.result.fitments_failed} fitments already exist. No new fitments were created.`,
+              color: "orange",
+              autoClose: 10000,
+            });
+          } else if (
+            currentStatus === "completed_with_warnings" &&
+            job.result?.fitments_failed > 0
+          ) {
+            notifications.show({
+              title: "Fitments Created with Warnings",
+              message:
+                job.result.error_message ||
+                `Created ${job.result.fitments_created} new fitments, but ${job.result.fitments_failed} already existed.`,
+              color: "yellow",
+              autoClose: 10000,
+            });
+          } else if (
+            currentStatus === "completed" &&
+            job.result?.fitments_created > 0
+          ) {
+            notifications.show({
+              title: "Fitments Created Successfully",
+              message: `Successfully created ${job.result.fitments_created} new fitments.`,
+              color: "green",
+              autoClose: 5000,
+            });
+          }
+        }
+      });
+
+      // Update previous statuses
+      const newStatuses: Record<string, string> = {};
+      fitmentJobs.forEach((job) => {
+        newStatuses[job.id] = job.status;
+      });
+      setPreviousJobStatuses(newStatuses);
+    }
+  }, [fitmentJobs]);
+
+  // Function to handle tab change and load history data when needed
+  const handleTabChange = (value: string | null) => {
+    if (value === "history" && !historyTabLoaded) {
+      setHistoryTabLoaded(true);
+      fetchFitmentJobs();
+    }
+  };
+
   const handleUpdate = async () => {
     if (!entity) return;
 
     try {
       setSubmitting(true);
-      await apiClient.put(`/api/tenants/${entity.id}/`, formData);
+
+      // Save all tenant data including fitment settings
+      const updateData = {
+        ...formData,
+        fitment_settings: {
+          vcdb_categories: formData.vcdb_categories,
+          required_vcdb_fields: formData.required_vcdb_fields,
+          optional_vcdb_fields: formData.optional_vcdb_fields,
+          required_product_fields: formData.required_product_fields,
+          additional_attributes: formData.additional_attributes,
+        },
+      };
+
+      await apiClient.put(`/api/tenants/${entity.id}/`, updateData);
+
+      // Refresh entity data to get updated info
+      const response = await apiClient.get(`/api/tenants/${entity.id}/`);
+      setEntity(response.data);
+
       notifications.show({
         title: "Success",
         message: "Entity updated successfully",
         color: "green",
       });
-      navigate("/entities");
     } catch (error) {
       notifications.show({
         title: "Error",
@@ -270,7 +507,11 @@ const EditEntity: React.FC = () => {
 
         {/* Edit Form with Tabs */}
         <Card shadow="sm" padding="xl" radius="md" withBorder>
-          <Tabs defaultValue="basic" variant="outline">
+          <Tabs
+            defaultValue="basic"
+            variant="outline"
+            onChange={handleTabChange}
+          >
             <Tabs.List>
               <Tabs.Tab value="basic" leftSection={<IconDatabase size={16} />}>
                 Basic Info
@@ -283,6 +524,12 @@ const EditEntity: React.FC = () => {
                 leftSection={<IconDatabase size={16} />}
               >
                 Products
+              </Tabs.Tab>
+              <Tabs.Tab
+                value="history"
+                leftSection={<IconDatabase size={16} />}
+              >
+                History
               </Tabs.Tab>
             </Tabs.List>
 
@@ -396,6 +643,19 @@ const EditEntity: React.FC = () => {
                     }
                   />
                 </Group>
+
+                <Group justify="flex-end" mt="xl">
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate("/entities")}
+                    disabled={submitting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button onClick={handleUpdate} loading={submitting}>
+                    Update Entity
+                  </Button>
+                </Group>
               </Stack>
             </Tabs.Panel>
 
@@ -408,13 +668,17 @@ const EditEntity: React.FC = () => {
                 <MultiSelect
                   label="VCDB Categories"
                   placeholder="Select VCDB categories"
-                  data={VCDB_CATEGORIES}
+                  data={vcdbCategories.map((cat) => ({
+                    value: cat.id,
+                    label: `${cat.name} (${cat.version}) - ${cat.record_count} records`,
+                  }))}
                   value={formData.vcdb_categories}
                   onChange={(value) =>
                     setFormData({ ...formData, vcdb_categories: value })
                   }
                   searchable
                   clearable
+                  disabled={loadingCategories}
                 />
 
                 <Group grow>
@@ -444,6 +708,46 @@ const EditEntity: React.FC = () => {
                     clearable
                   />
                 </Group>
+
+                <Group justify="flex-end" mt="md">
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        setSubmitting(true);
+
+                        // Save fitment configuration to tenant
+                        const fitmentConfig = {
+                          vcdb_categories: formData.vcdb_categories,
+                          required_vcdb_fields: formData.required_vcdb_fields,
+                          optional_vcdb_fields: formData.optional_vcdb_fields,
+                        };
+
+                        await apiClient.put(`/api/tenants/${entity.id}/`, {
+                          ...formData,
+                          fitment_settings: fitmentConfig,
+                        });
+
+                        notifications.show({
+                          title: "Success",
+                          message: "Fitment configuration saved",
+                          color: "green",
+                        });
+                      } catch (error) {
+                        notifications.show({
+                          title: "Error",
+                          message: "Failed to save fitment configuration",
+                          color: "red",
+                        });
+                      } finally {
+                        setSubmitting(false);
+                      }
+                    }}
+                    loading={submitting}
+                  >
+                    Save Fitment Configuration
+                  </Button>
+                </Group>
               </Stack>
             </Tabs.Panel>
 
@@ -452,6 +756,17 @@ const EditEntity: React.FC = () => {
                 <Text fw={500} size="lg">
                   Product Configuration
                 </Text>
+                <Alert color="blue" title="How to use this tab:">
+                  <Text size="sm">
+                    1. Configure your product fields below
+                    <br />
+                    2. Upload product files (CSV/Excel)
+                    <br />
+                    3. Click "Upload Files & Start Fitment Job" to process
+                    <br />
+                    4. Check the History tab to monitor progress
+                  </Text>
+                </Alert>
 
                 <MultiSelect
                   label="Required Product Fields"
@@ -620,22 +935,317 @@ const EditEntity: React.FC = () => {
                     setFormData({ ...formData, uploaded_files: files || [] })
                   }
                 />
+
+                <Group justify="flex-end" mt="md">
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        setSubmitting(true);
+
+                        // Save product configuration to tenant
+                        const updateData = {
+                          ...formData,
+                          fitment_settings: {
+                            vcdb_categories: formData.vcdb_categories,
+                            required_vcdb_fields: formData.required_vcdb_fields,
+                            optional_vcdb_fields: formData.optional_vcdb_fields,
+                            required_product_fields:
+                              formData.required_product_fields,
+                            additional_attributes:
+                              formData.additional_attributes,
+                          },
+                        };
+
+                        await apiClient.put(
+                          `/api/tenants/${entity.id}/`,
+                          updateData
+                        );
+
+                        notifications.show({
+                          title: "Success",
+                          message: "Product configuration saved successfully",
+                          color: "green",
+                        });
+                      } catch (error) {
+                        notifications.show({
+                          title: "Error",
+                          message: "Failed to save product configuration",
+                          color: "red",
+                        });
+                      } finally {
+                        setSubmitting(false);
+                      }
+                    }}
+                    loading={submitting}
+                  >
+                    Save Configuration
+                  </Button>
+                  {formData.uploaded_files.length > 0 && (
+                    <Button
+                      onClick={async () => {
+                        try {
+                          setSubmitting(true);
+
+                          // First save configuration
+                          const updateData = {
+                            ...formData,
+                            fitment_settings: {
+                              vcdb_categories: formData.vcdb_categories,
+                              required_vcdb_fields:
+                                formData.required_vcdb_fields,
+                              optional_vcdb_fields:
+                                formData.optional_vcdb_fields,
+                              required_product_fields:
+                                formData.required_product_fields,
+                              additional_attributes:
+                                formData.additional_attributes,
+                            },
+                          };
+                          await apiClient.put(
+                            `/api/tenants/${entity.id}/`,
+                            updateData
+                          );
+
+                          // Then upload files and create fitment job
+                          const formDataToSend = new FormData();
+                          formDataToSend.append("tenant_id", entity.id);
+                          formDataToSend.append(
+                            "required_product_fields",
+                            JSON.stringify(formData.required_product_fields)
+                          );
+                          formDataToSend.append(
+                            "additional_attributes",
+                            JSON.stringify(formData.additional_attributes)
+                          );
+
+                          // Include fitment settings for job creation
+                          const fitmentSettings = {
+                            vcdb_categories: formData.vcdb_categories,
+                            required_vcdb_fields: formData.required_vcdb_fields,
+                            optional_vcdb_fields: formData.optional_vcdb_fields,
+                          };
+                          formDataToSend.append(
+                            "fitment_settings",
+                            JSON.stringify(fitmentSettings)
+                          );
+
+                          formData.uploaded_files.forEach((file) => {
+                            formDataToSend.append(`files`, file);
+                          });
+
+                          await apiClient.post(
+                            "/api/products/upload/",
+                            formDataToSend,
+                            {
+                              headers: {
+                                "Content-Type": "multipart/form-data",
+                              },
+                            }
+                          );
+
+                          // Refresh fitment jobs to show the new job
+                          fetchFitmentJobs();
+
+                          notifications.show({
+                            title: "Success",
+                            message:
+                              "Files uploaded and fitment job started! Check History tab for progress.",
+                            color: "green",
+                          });
+                        } catch (error) {
+                          notifications.show({
+                            title: "Error",
+                            message: "Failed to upload files",
+                            color: "red",
+                          });
+                        } finally {
+                          setSubmitting(false);
+                        }
+                      }}
+                      loading={submitting}
+                    >
+                      Upload Files & Start Fitment Job
+                    </Button>
+                  )}
+                </Group>
+              </Stack>
+            </Tabs.Panel>
+
+            <Tabs.Panel value="history" pt="md">
+              <Stack gap="md">
+                <Group justify="space-between" align="center">
+                  <Text fw={500} size="lg">
+                    Fitment Job History
+                  </Text>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={() => {
+                      notifications.show({
+                        title: "Test Notification",
+                        message:
+                          "This is a test notification to verify the system is working.",
+                        color: "blue",
+                        autoClose: 3000,
+                      });
+                    }}
+                  >
+                    Test Notifications
+                  </Button>
+                </Group>
+
+                {loadingJobs ? (
+                  <Group justify="center">
+                    <Loader size="sm" />
+                    <Text>Loading job history...</Text>
+                  </Group>
+                ) : fitmentJobs.length === 0 ? (
+                  <Paper p="xl" style={{ textAlign: "center" }}>
+                    <Text c="dimmed">No fitment jobs found</Text>
+                    <Text size="sm" c="dimmed" mt="xs">
+                      Upload product files in the Products tab and click "Upload
+                      Files & Start Fitment Job" to create your first job
+                    </Text>
+                  </Paper>
+                ) : (
+                  <Table striped highlightOnHover>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Job Type</Table.Th>
+                        <Table.Th>Status</Table.Th>
+                        <Table.Th>Progress</Table.Th>
+                        <Table.Th>Results</Table.Th>
+                        <Table.Th>Created</Table.Th>
+                        <Table.Th>Duration</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {fitmentJobs.map((job) => (
+                        <Table.Tr key={job.id}>
+                          <Table.Td>
+                            <Badge
+                              color={
+                                job.job_type === "ai_fitment" ? "blue" : "green"
+                              }
+                              variant="light"
+                            >
+                              {job.job_type === "ai_fitment"
+                                ? "AI"
+                                : job.job_type === "manual_fitment"
+                                ? "MANUAL"
+                                : job.job_type.toUpperCase()}
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Group gap="xs">
+                              <Badge
+                                color={
+                                  job.status === "completed"
+                                    ? "green"
+                                    : job.status === "failed"
+                                    ? "red"
+                                    : job.status === "completed_with_warnings"
+                                    ? "yellow"
+                                    : job.status === "processing"
+                                    ? "blue"
+                                    : "gray"
+                                }
+                                size="sm"
+                              >
+                                {job.status === "completed_with_warnings"
+                                  ? "COMPLETED WITH WARNINGS"
+                                  : job.status.toUpperCase()}
+                              </Badge>
+                              {job.status === "processing" && (
+                                <IconClock size={16} color="#3b82f6" />
+                              )}
+                            </Group>
+                          </Table.Td>
+                          <Table.Td>
+                            <Stack gap="xs">
+                              <Progress
+                                value={job.progress || 0}
+                                size="sm"
+                                color={
+                                  job.status === "completed"
+                                    ? "green"
+                                    : job.status === "failed"
+                                    ? "red"
+                                    : "blue"
+                                }
+                              />
+                              <Text size="xs" c="dimmed">
+                                {job.status === "completed"
+                                  ? "Completed"
+                                  : job.status === "failed"
+                                  ? "Failed"
+                                  : job.status === "processing"
+                                  ? "Processing..."
+                                  : "Pending"}
+                              </Text>
+                            </Stack>
+                          </Table.Td>
+                          <Table.Td>
+                            <Stack gap="xs">
+                              <Text size="sm">
+                                Created: {job.result?.fitments_created || 0}
+                              </Text>
+                              {job.result?.fitments_failed > 0 && (
+                                <Text
+                                  size="sm"
+                                  c={job.status === "failed" ? "red" : "orange"}
+                                >
+                                  {job.status === "failed"
+                                    ? "Duplicates: "
+                                    : "Failed: "}
+                                  {job.result.fitments_failed}
+                                </Text>
+                              )}
+                              {job.result?.error_message && (
+                                <Text
+                                  size="xs"
+                                  c="dimmed"
+                                  style={{
+                                    maxWidth: 200,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                  }}
+                                >
+                                  {job.result.error_message}
+                                </Text>
+                              )}
+                            </Stack>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm" c="dimmed">
+                              {new Date(job.created_at).toLocaleString()}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm" c="dimmed">
+                              {job.duration ||
+                                (job.finished_at
+                                  ? `${Math.round(
+                                      (new Date(job.finished_at).getTime() -
+                                        new Date(
+                                          job.started_at || job.created_at
+                                        ).getTime()) /
+                                        1000
+                                    )}s`
+                                  : job.started_at
+                                  ? "Running..."
+                                  : "Pending")}
+                            </Text>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                )}
               </Stack>
             </Tabs.Panel>
           </Tabs>
-
-          <Group justify="flex-end" mt="xl">
-            <Button
-              variant="outline"
-              onClick={() => navigate("/entities")}
-              disabled={submitting}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleUpdate} loading={submitting}>
-              Update Entity
-            </Button>
-          </Group>
         </Card>
       </Stack>
     </Container>

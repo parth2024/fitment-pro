@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from tenants.views import TenantListCreateView, TenantDetailView, get_current_tenant, switch_tenant, tenant_stats
 from vcdb.views import version, year_range, configurations
-from fitments.views import export_fitments_advanced_csv, export_fitments_advanced_xlsx, fitments_root, coverage, property_values, validate, submit, export_csv, coverage_export, export_ai_fitments, ai_fitments_list, applied_fitments_list, fitment_filter_options, fitment_detail, update_fitment, delete_fitment, validate_fitments_csv, submit_validated_fitments, get_validation_results, detailed_coverage, coverage_trends, coverage_gaps, get_potential_fitments, get_parts_with_fitments, apply_potential_fitments, analytics_dashboard
+from fitments.views import export_fitments_advanced_csv, export_fitments_advanced_xlsx, fitments_root, coverage, property_values, validate, submit, export_csv, coverage_export, export_ai_fitments, ai_fitments_list, applied_fitments_list, fitment_filter_options, fitment_detail, update_fitment, delete_fitment, validate_fitments_csv, submit_validated_fitments, get_validation_results, detailed_coverage, coverage_trends, coverage_gaps, get_potential_fitments, get_parts_with_fitments, apply_potential_fitments, analytics_dashboard, approve_fitments, reject_fitments, bulk_delete_fitments
 from workflow.views import uploads as wf_uploads, ai_map, vcdb_validate, review_queue, review_actions, publish, presets as wf_presets, preset_detail, ai_fitments, apply_fitments_batch
 
 
@@ -56,6 +56,9 @@ urlpatterns = [
     path('api/fitments/export-advanced-xlsx/', export_fitments_advanced_xlsx),
     path('api/fitments/export', export_csv),
     path('api/fitments/filter-options/', fitment_filter_options),
+    path('api/fitments/approve/', approve_fitments),
+    path('api/fitments/reject/', reject_fitments),
+    path('api/fitments/bulk-delete/', bulk_delete_fitments),
     path('api/fitments/<str:fitment_hash>/update/', update_fitment),
     path('api/fitments/<str:fitment_hash>/delete/', delete_fitment),
     path('api/fitments/<str:fitment_hash>/', fitment_detail),
@@ -84,4 +87,8 @@ urlpatterns = [
     path('api/data-uploads/', include('data_uploads.urls')),
     # Field Configuration
     path('api/field-config/', include('field_config.urls')),
+    # VCDB Categories
+    path('api/vcdb-categories/', include('vcdb_categories.urls')),
+    # Products
+    path('api/products/', include('products.urls')),
 ]

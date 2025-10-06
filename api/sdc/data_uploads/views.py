@@ -45,6 +45,7 @@ from .serializers import (
 )
 from .utils import FileParser, VCDBValidator, ProductValidator, DataProcessor
 from .dynamic_field_validator import DynamicFieldValidator
+from .job_manager import FitmentJobManager
 import logging
 
 logger = logging.getLogger(__name__)
@@ -216,6 +217,10 @@ class DataUploadSessionView(APIView):
                 if not is_valid:
                     error_message = f"Data validation failed: {'; '.join(validation_errors)}"
                     self._log_validation(session, file_type, 'data', False, error_message)
+                    
+                    # Update session status to indicate validation failure
+                    session.status = 'validation_failed'
+                    session.save()
                     return
                 
                 # Process and store the data
@@ -601,10 +606,34 @@ def process_ai_fitment(request):
         
     except Exception as e:
         logger.error(f"Error processing AI fitment: {str(e)}", exc_info=True)
-        return Response(
-            {"error": f"Failed to process AI fitment: {str(e)}"}, 
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        
+        # Handle specific error types
+        error_message = str(e)
+        if "duplicate key value violates unique constraint" in error_message:
+            return Response(
+                {"error": "Duplicate fitment detected. Some fitments may already exist in the database."}, 
+                status=status.HTTP_409_CONFLICT
+            )
+        elif "Missing required columns" in error_message:
+            return Response(
+                {"error": f"Data validation error: {error_message}"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        elif "No VCDB data available" in error_message:
+            return Response(
+                {"error": "No VCDB data available. Please upload VCDB data first."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        elif "No Product data available" in error_message:
+            return Response(
+                {"error": "No Product data available. Please upload Product data first."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        else:
+            return Response(
+                {"error": f"Failed to process AI fitment: {error_message}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 def _generate_mock_fitments(vcdb_df, products_df):
@@ -674,31 +703,6 @@ def apply_manual_fitment(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Get vehicles from VCDBData table
-        try:
-            vehicles = VCDBData.objects.filter(id__in=vehicle_ids)
-            
-            if not vehicles.exists():
-                return Response(
-                    {'error': 'No vehicles found with the provided IDs'}, 
-                    status=status.HTTP_404_NOT_FOUND
-                )
-        except Exception as e:
-            logger.error(f"Failed to fetch vehicles: {str(e)}", exc_info=True)
-            return Response(
-                {'error': f'Failed to fetch vehicles: {str(e)}'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-        
-        # Verify part exists in ProductData
-        try:
-            product = ProductData.objects.get(part_id=part_id)
-        except ProductData.DoesNotExist:
-            return Response(
-                {'error': f'Part {part_id} not found in product database'}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
-        
         # Get tenant if provided
         tenant = None
         if tenant_id:
@@ -710,63 +714,49 @@ def apply_manual_fitment(request):
                     {'error': f'Tenant with ID {tenant_id} not found'}, 
                     status=status.HTTP_404_NOT_FOUND
                 )
+        else:
+            # Try to get tenant from header
+            tenant_id = request.headers.get('X-Tenant-ID')
+            if tenant_id:
+                from tenants.models import Tenant
+                try:
+                    tenant = Tenant.objects.get(id=tenant_id)
+                except Tenant.DoesNotExist:
+                    return Response(
+                        {'error': f'Tenant with ID {tenant_id} not found'}, 
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+            else:
+                # Get default tenant
+                from tenants.models import Tenant
+                tenant = Tenant.objects.filter(is_default=True).first()
+                if not tenant:
+                    tenant = Tenant.objects.first()
+                
+                if not tenant:
+                    return Response(
+                        {'error': 'No tenant available'}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
         
-        # Create fitments for each selected vehicle
-        applied_fitments = []
+        # Prepare fitment data
+        fitment_data = {
+            'position': position,
+            'quantity': quantity,
+            'title': title,
+            'description': description,
+            'notes': notes,
+            'selected_columns': selected_columns
+        }
         
-        for vehicle in vehicles:
-            try:
-                # Create vehicle data with configurable columns
-                vehicle_data = {}
-                for column in selected_columns:
-                    if hasattr(vehicle, column):
-                        value = getattr(vehicle, column)
-                        # Convert to string for JSON serialization
-                        vehicle_data[column] = str(value) if value is not None else ''
-                
-                # Create Fitment record
-                fitment = Fitment.objects.create(
-                    hash=uuid.uuid4().hex,
-                    tenant=tenant,  # Associate with tenant
-                    partId=part_id,
-                    itemStatus='Active',
-                    itemStatusCode=0,
-                    baseVehicleId=str(vehicle.id),
-                    year=int(vehicle.year),
-                    makeName=str(vehicle.make),
-                    modelName=str(vehicle.model),
-                    subModelName=str(vehicle.submodel or ''),
-                    driveTypeName=str(vehicle.drive_type or ''),
-                    fuelTypeName=str(vehicle.fuel_type or 'Gas'),
-                    bodyNumDoors=int(vehicle.num_doors or 4),
-                    bodyTypeName=str(vehicle.body_type or 'Sedan'),
-                    ptid='PT-22',
-                    partTypeDescriptor='Manual Fitment',
-                    uom='EA',
-                    quantity=int(quantity),
-                    fitmentTitle=title or f"Manual Fitment - {part_id}",
-                    fitmentDescription=description or f"Manual fitment for {vehicle.make} {vehicle.model}",
-                    fitmentNotes=notes or f"Applied manually with columns: {', '.join(selected_columns)}",
-                    position=position or 'Front',
-                    positionId=1,
-                    liftHeight='Stock',
-                    wheelType='Alloy',
-                    fitmentType='manual_fitment',  # Set as manual fitment type
-                    createdBy='manual_user',
-                    updatedBy='manual_user'
-                )
-                
-                applied_fitments.append({
-                    'vehicle_id': str(vehicle.id),
-                    'vehicle_info': f"{vehicle.year} {vehicle.make} {vehicle.model}",
-                    'fitment_hash': fitment.hash,
-                    'vehicle_data': vehicle_data,
-                    'selected_columns': selected_columns
-                })
-                
-            except Exception as e:
-                logger.error(f"Failed to create fitment for vehicle {vehicle.id}: {str(e)}", exc_info=True)
-                continue
+        # Process manual fitment job
+        job, applied_fitments = FitmentJobManager.process_manual_fitment_job(
+            tenant=tenant,
+            session_id=session_id,
+            vehicle_ids=vehicle_ids,
+            part_id=part_id,
+            fitment_data=fitment_data
+        )
         
         # Log the processing activity
         try:
@@ -779,7 +769,8 @@ def apply_manual_fitment(request):
                 details={
                     'records_processed': len(applied_fitments), 
                     'part_id': part_id,
-                    'selected_columns': selected_columns
+                    'selected_columns': selected_columns,
+                    'job_id': str(job.id)
                 }
             )
         except Exception as e:
@@ -791,7 +782,9 @@ def apply_manual_fitment(request):
             'applied_fitments': applied_fitments,
             'session_id': str(session_id),
             'part_id': part_id,
-            'selected_columns': selected_columns
+            'selected_columns': selected_columns,
+            'job_id': str(job.id),
+            'job_status': job.status
         })
         
     except Exception as e:
@@ -826,6 +819,30 @@ def apply_ai_fitments(request):
                     {'error': f'Tenant with ID {tenant_id} not found'}, 
                     status=status.HTTP_404_NOT_FOUND
                 )
+        else:
+            # Try to get tenant from header
+            tenant_id = request.headers.get('X-Tenant-ID')
+            if tenant_id:
+                from tenants.models import Tenant
+                try:
+                    tenant = Tenant.objects.get(id=tenant_id)
+                except Tenant.DoesNotExist:
+                    return Response(
+                        {'error': f'Tenant with ID {tenant_id} not found'}, 
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+            else:
+                # Get default tenant
+                from tenants.models import Tenant
+                tenant = Tenant.objects.filter(is_default=True).first()
+                if not tenant:
+                    tenant = Tenant.objects.first()
+                
+                if not tenant:
+                    return Response(
+                        {'error': 'No tenant available'}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
         
         try:
             session = DataUploadSession.objects.get(id=session_id)
@@ -834,6 +851,19 @@ def apply_ai_fitments(request):
                 {'error': 'Session not found'}, 
                 status=status.HTTP_404_NOT_FOUND
             )
+        
+        # Create job for AI fitment application
+        job = FitmentJobManager.create_job(
+            tenant=tenant,
+            job_type='apply_ai_fitments',
+            params={
+                'session_id': session_id,
+                'fitment_ids': fitment_ids
+            }
+        )
+        
+        # Update job to processing
+        FitmentJobManager.update_job_status(job.id, 'processing')
         
         # Get selected AI results
         ai_results = AIFitmentResult.objects.filter(
@@ -866,6 +896,21 @@ def apply_ai_fitments(request):
                 title=f"AI Generated Fitment",
                 description=ai_result.ai_reasoning
             )
+            
+            # Check for existing fitment to avoid duplicates
+            existing_fitment = Fitment.objects.filter(
+                tenant=tenant,
+                partId=ai_result.part_id,
+                year=ai_result.year,
+                makeName=ai_result.make,
+                modelName=ai_result.model,
+                subModelName=ai_result.submodel,
+                isDeleted=False
+            ).first()
+            
+            if existing_fitment:
+                logger.warning(f"AI Fitment already exists for {ai_result.part_id} and {ai_result.year} {ai_result.make} {ai_result.model}")
+                continue
             
             # Create Fitment record
             fitment = Fitment.objects.create(
@@ -905,6 +950,17 @@ def apply_ai_fitments(request):
             
             applied_count += 1
         
+        # Update job status to completed
+        FitmentJobManager.update_job_status(
+            job.id, 
+            'completed', 
+            result={
+                'applied_count': applied_count,
+                'session_id': session_id,
+                'fitment_ids': fitment_ids
+            }
+        )
+        
         # Log the processing activity
         try:
             DataProcessingLog.objects.create(
@@ -912,7 +968,11 @@ def apply_ai_fitments(request):
                 step='apply_ai_fitments',
                 status='completed',
                 message=f"Applied {applied_count} AI fitments to database",
-                details={'records_processed': applied_count, 'fitment_ids': fitment_ids}
+                details={
+                    'records_processed': applied_count, 
+                    'fitment_ids': fitment_ids,
+                    'job_id': str(job.id)
+                }
             )
         except Exception as e:
             logger.error(f"Failed to create processing log: {str(e)}", exc_info=True)
@@ -920,7 +980,9 @@ def apply_ai_fitments(request):
         return Response({
             'message': f'Successfully applied {applied_count} fitments',
             'applied_count': applied_count,
-            'session_id': str(session_id)
+            'session_id': str(session_id),
+            'job_id': str(job.id),
+            'job_status': job.status
         })
         
     except Exception as e:
@@ -1568,6 +1630,128 @@ def validate_file_with_dynamic_fields(request):
         logger.error(f"Error validating file with dynamic fields: {str(e)}")
         return Response(
             {"error": f"Validation failed: {str(e)}"}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_job_history(request):
+    """Get job history for fitment processing"""
+    try:
+        # Get tenant from header or request
+        tenant_id = request.headers.get('X-Tenant-ID') or request.GET.get('tenant_id')
+
+        if not tenant_id:
+            return Response(
+                {'error': 'Tenant ID is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get job history from both Job and FitmentJob models
+        from workflow.models import Job
+        from vcdb_categories.models import FitmentJob
+        
+        # Get jobs from workflow.Job
+        workflow_jobs = Job.objects.filter(tenant_id=tenant_id).order_by('-created_at')
+        
+        # Get jobs from vcdb_categories.FitmentJob
+        fitment_jobs = FitmentJob.objects.filter(tenant_id=tenant_id).order_by('-created_at')
+        
+        # Combine and format job history
+        job_history = []
+        
+        # Add workflow jobs
+        for job in workflow_jobs:
+            duration = None
+            if job.started_at and job.finished_at:
+                duration = (job.finished_at - job.started_at).total_seconds()
+            elif job.started_at:
+                duration = (timezone.now() - job.started_at).total_seconds()
+
+            job_history.append({
+                'id': str(job.id),
+                'job_type': job.job_type,
+                'status': job.status,
+                'created_at': job.created_at.isoformat(),
+                'started_at': job.started_at.isoformat() if job.started_at else None,
+                'finished_at': job.finished_at.isoformat() if job.finished_at else None,
+                'result': job.result,
+                'params': job.params,
+                'progress': getattr(job, 'progress', 0),
+                'duration': f"{int(duration)}s" if duration is not None else "Pending"
+            })
+        
+        # Add fitment jobs
+        for job in fitment_jobs:
+            duration = None
+            if job.started_at and job.completed_at:
+                duration = (job.completed_at - job.started_at).total_seconds()
+            elif job.started_at:
+                duration = (timezone.now() - job.started_at).total_seconds()
+
+            # Prepare result data
+            result_data = {
+                'fitments_created': job.fitments_created,
+                'fitments_failed': job.fitments_failed,
+                'error_message': job.error_message
+            }
+            
+            # Add duplicate messages if available
+            if hasattr(job, 'result') and job.result:
+                result_data.update(job.result)
+            
+            job_history.append({
+                'id': str(job.id),
+                'job_type': job.job_type,
+                'status': job.status,
+                'created_at': job.created_at.isoformat(),
+                'started_at': job.started_at.isoformat() if job.started_at else None,
+                'finished_at': job.completed_at.isoformat() if job.completed_at else None,
+                'result': result_data,
+                'params': {
+                    'vcdb_categories': job.vcdb_categories,
+                    'product_fields': job.product_fields
+                },
+                'progress': job.progress_percentage or 0,
+                'duration': f"{int(duration)}s" if duration is not None else "Pending"
+            })
+        
+        # Sort by created_at descending
+        job_history.sort(key=lambda x: x['created_at'], reverse=True)
+
+        return Response({
+            'job_history': job_history,
+            'total_count': len(job_history)
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to get job history: {str(e)}", exc_info=True)
+        return Response(
+            {'error': f'Failed to get job history: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_job_status(request, job_id):
+    """Get status of a specific job"""
+    try:
+        job_status = FitmentJobManager.get_job_status(job_id)
+        
+        if not job_status:
+            return Response(
+                {'error': 'Job not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        return Response(job_status)
+        
+    except Exception as e:
+        logger.error(f"Failed to get job status: {str(e)}", exc_info=True)
+        return Response(
+            {'error': f'Failed to get job status: {str(e)}'}, 
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 

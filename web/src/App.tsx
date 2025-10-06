@@ -21,6 +21,7 @@ import {
   IconDashboard,
   IconBulb,
   IconBuilding,
+  IconDatabase,
 } from "@tabler/icons-react";
 import {
   Routes,
@@ -49,6 +50,7 @@ import EntityManagement from "./pages/EntityManagement";
 import EditEntity from "./pages/EditEntity";
 import CreateEntity from "./pages/CreateEntity";
 import CustomPCDB from "./pages/CustomPCDB";
+import VCDBData from "./pages/VCDBData";
 import ProtectedRoute from "./components/ProtectedRoute";
 import EntitySelector from "./components/EntitySelector";
 import { useAuth } from "./contexts/AuthContext";
@@ -62,6 +64,7 @@ const navigationItems = [
     icon: IconBuilding,
     color: "violet",
   },
+
   {
     label: "Fitments",
     value: "fitments",
@@ -119,6 +122,13 @@ const navigationItems = [
     icon: IconBulb,
     color: "yellow",
   },
+  {
+    label: "VCDB Data",
+    value: "vcdb-data",
+    path: "/vcdb-data",
+    icon: IconDatabase,
+    color: "cyan",
+  },
   // {
   //   label: "Custom PCDB",
   //   value: "custom-pcdb",
@@ -161,6 +171,11 @@ function App() {
     // Handle create entity route
     if (location.pathname === "/create-entity") {
       return "Create Entity";
+    }
+
+    // Handle VCDB Data route
+    if (location.pathname === "/vcdb-data") {
+      return "VCDB Data";
     }
 
     return "Dashboard";
@@ -207,6 +222,7 @@ function App() {
         <Route path="/entities" element={<EntityManagement />} />
         <Route path="/create-entity" element={<CreateEntity />} />
         <Route path="/edit-entity/:id" element={<EditEntity />} />
+        <Route path="/vcdb-data" element={<VCDBData />} />
         <Route path="/custom-pcdb" element={<CustomPCDB />} />
         <Route path="*" element={<Analytics />} />
       </Routes>

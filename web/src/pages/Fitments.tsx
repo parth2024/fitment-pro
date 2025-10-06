@@ -43,6 +43,7 @@ import {
   IconShield,
   IconSettings,
   IconInfoCircle,
+  IconCheck,
 } from "@tabler/icons-react";
 import FilterableSortableHeader from "../components/FilterableSortableHeader";
 import { useApi } from "../hooks/useApi";
@@ -51,6 +52,7 @@ import {
   fitmentUploadService,
   type FlattenedAppliedFitment,
 } from "../api/services";
+import apiClient from "../api/client";
 import { notifications } from "@mantine/notifications";
 
 interface FilterOptions {
@@ -427,6 +429,42 @@ export default function Fitments() {
     }
   };
 
+  const handleApproveFitment = async (fitmentHash: string) => {
+    try {
+      await fitmentsService.approveFitments([fitmentHash]);
+      notifications.show({
+        title: "Success",
+        message: "Fitment approved successfully",
+        color: "green",
+      });
+      refetch();
+    } catch (error) {
+      notifications.show({
+        title: "Error",
+        message: "Failed to approve fitment",
+        color: "red",
+      });
+    }
+  };
+
+  const handleRejectFitment = async (fitmentHash: string) => {
+    try {
+      await fitmentsService.rejectFitments([fitmentHash]);
+      notifications.show({
+        title: "Success",
+        message: "Fitment rejected and deleted successfully",
+        color: "green",
+      });
+      refetch();
+    } catch (error) {
+      notifications.show({
+        title: "Error",
+        message: "Failed to reject fitment",
+        color: "red",
+      });
+    }
+  };
+
   const handleExport = async (format: "csv" | "xlsx") => {
     setExportLoading(true);
     try {
@@ -474,10 +512,131 @@ export default function Fitments() {
     }
   };
 
-  const handleBulkDelete = () => {
-    console.log("Deleting fitments:", selectedFitments);
-    setSelectedFitments([]);
-    setDeleteModalOpen(false);
+  const handleBulkDelete = async () => {
+    if (selectedFitments.length === 0) {
+      notifications.show({
+        title: "Error",
+        message: "Please select fitments to delete",
+        color: "red",
+      });
+      return;
+    }
+
+    try {
+      await fitmentsService.bulkDeleteFitments(selectedFitments);
+      notifications.show({
+        title: "Success",
+        message: `Successfully deleted ${selectedFitments.length} fitments`,
+        color: "green",
+      });
+      setSelectedFitments([]);
+      setDeleteModalOpen(false);
+      refetch();
+    } catch (error) {
+      notifications.show({
+        title: "Error",
+        message: "Failed to delete fitments",
+        color: "red",
+      });
+    }
+  };
+
+  const handleApproveAIFitments = async () => {
+    if (selectedFitments.length === 0) {
+      notifications.show({
+        title: "Error",
+        message: "Please select AI fitments to approve",
+        color: "red",
+      });
+      return;
+    }
+
+    try {
+      // Filter selected fitments to only include AI fitments
+      const aiFitmentsToApprove = fitments.filter(
+        (fitment) =>
+          selectedFitments.includes(fitment.hash) &&
+          fitment.fitmentType === "ai_fitment"
+      );
+
+      if (aiFitmentsToApprove.length === 0) {
+        notifications.show({
+          title: "Warning",
+          message: "No AI fitments selected for approval",
+          color: "orange",
+        });
+        return;
+      }
+
+      // Call API to approve AI fitments
+      await apiClient.post("/api/vcdb-categories/ai-fitments/bulk_approve/", {
+        fitment_ids: aiFitmentsToApprove.map((f) => f.hash),
+      });
+
+      notifications.show({
+        title: "Success",
+        message: `${aiFitmentsToApprove.length} AI fitments approved`,
+        color: "green",
+      });
+
+      setSelectedFitments([]);
+      refetch();
+    } catch (error) {
+      notifications.show({
+        title: "Error",
+        message: "Failed to approve AI fitments",
+        color: "red",
+      });
+    }
+  };
+
+  const handleRejectAIFitments = async () => {
+    if (selectedFitments.length === 0) {
+      notifications.show({
+        title: "Error",
+        message: "Please select AI fitments to reject",
+        color: "red",
+      });
+      return;
+    }
+
+    try {
+      // Filter selected fitments to only include AI fitments
+      const aiFitmentsToReject = fitments.filter(
+        (fitment) =>
+          selectedFitments.includes(fitment.hash) &&
+          fitment.fitmentType === "ai_fitment"
+      );
+
+      if (aiFitmentsToReject.length === 0) {
+        notifications.show({
+          title: "Warning",
+          message: "No AI fitments selected for rejection",
+          color: "orange",
+        });
+        return;
+      }
+
+      // Call API to reject AI fitments
+      await apiClient.post("/api/vcdb-categories/ai-fitments/bulk_reject/", {
+        fitment_ids: aiFitmentsToReject.map((f) => f.hash),
+      });
+
+      notifications.show({
+        title: "Success",
+        message: `${aiFitmentsToReject.length} AI fitments rejected`,
+        color: "green",
+      });
+
+      setSelectedFitments([]);
+      refetch();
+    } catch (error) {
+      notifications.show({
+        title: "Error",
+        message: "Failed to reject AI fitments",
+        color: "red",
+      });
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -801,6 +960,47 @@ export default function Fitments() {
                       }}
                     />
 
+                    <Select
+                      placeholder="Filter by status"
+                      value={columnFilters.itemStatus}
+                      onChange={(value) =>
+                        handleColumnFilterChange("itemStatus", value || "")
+                      }
+                      data={[
+                        { value: "", label: "All Status" },
+                        { value: "Active", label: "Active" },
+                        { value: "readyToApprove", label: "Ready to Approve" },
+                      ]}
+                      clearable
+                      styles={{
+                        root: { minWidth: 160 },
+                        label: {
+                          fontWeight: 600,
+                          fontSize: "13px",
+                          color: "#374151",
+                          marginBottom: "8px",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.5px",
+                        },
+                        input: {
+                          borderRadius: "10px",
+                          border: "2px solid #e2e8f0",
+                          fontSize: "14px",
+                          height: "48px",
+                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                          "&:focus": {
+                            borderColor: "#3b82f6",
+                            boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)",
+                            backgroundColor: "#ffffff",
+                          },
+                          "&:hover": {
+                            borderColor: "#cbd5e1",
+                            backgroundColor: "#ffffff",
+                          },
+                        },
+                      }}
+                    />
+
                     <Button
                       leftSection={
                         showAdvancedFilters ? (
@@ -837,31 +1037,109 @@ export default function Fitments() {
 
                   <Group gap="sm">
                     {selectedFitments.length > 0 && (
-                      <Button
-                        leftSection={<IconTrash size={16} />}
-                        color="red"
-                        variant="outline"
-                        onClick={() => setDeleteModalOpen(true)}
-                        styles={{
-                          root: {
-                            borderRadius: "10px",
-                            fontWeight: 600,
-                            fontSize: "14px",
-                            height: "48px",
-                            padding: "0 20px",
-                            border: "2px solid #ef4444",
-                            color: "#ef4444",
-                            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                            "&:hover": {
-                              backgroundColor: "#fef2f2",
-                              borderColor: "#dc2626",
-                              transform: "translateY(-1px)",
-                            },
-                          },
-                        }}
-                      >
-                        Delete ({selectedFitments.length})
-                      </Button>
+                      <>
+                        {(() => {
+                          return (
+                            <>
+                              {(() => {
+                                const selectedFitmentsData = fitments.filter(
+                                  (f) => selectedFitments.includes(f.hash)
+                                );
+                                const hasAIFitments = selectedFitmentsData.some(
+                                  (f) => f.fitmentType === "ai_fitment"
+                                );
+
+                                return (
+                                  <>
+                                    {hasAIFitments && (
+                                      <>
+                                        <Button
+                                          leftSection={<IconCheck size={16} />}
+                                          color="green"
+                                          variant="outline"
+                                          onClick={handleApproveAIFitments}
+                                          styles={{
+                                            root: {
+                                              borderRadius: "10px",
+                                              fontWeight: 600,
+                                              fontSize: "14px",
+                                              height: "48px",
+                                              padding: "0 20px",
+                                              border: "2px solid #10b981",
+                                              color: "#10b981",
+                                              transition:
+                                                "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                              "&:hover": {
+                                                backgroundColor: "#f0fdf4",
+                                                borderColor: "#059669",
+                                                transform: "translateY(-1px)",
+                                              },
+                                            },
+                                          }}
+                                        >
+                                          Approve AI Fitments
+                                        </Button>
+                                        <Button
+                                          leftSection={<IconX size={16} />}
+                                          color="red"
+                                          variant="outline"
+                                          onClick={handleRejectAIFitments}
+                                          styles={{
+                                            root: {
+                                              borderRadius: "10px",
+                                              fontWeight: 600,
+                                              fontSize: "14px",
+                                              height: "48px",
+                                              padding: "0 20px",
+                                              border: "2px solid #ef4444",
+                                              color: "#ef4444",
+                                              transition:
+                                                "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                              "&:hover": {
+                                                backgroundColor: "#fef2f2",
+                                                borderColor: "#dc2626",
+                                                transform: "translateY(-1px)",
+                                              },
+                                            },
+                                          }}
+                                        >
+                                          Reject AI Fitments
+                                        </Button>
+                                      </>
+                                    )}
+                                    <Button
+                                      leftSection={<IconTrash size={16} />}
+                                      color="red"
+                                      variant="outline"
+                                      onClick={() => setDeleteModalOpen(true)}
+                                      styles={{
+                                        root: {
+                                          borderRadius: "10px",
+                                          fontWeight: 600,
+                                          fontSize: "14px",
+                                          height: "48px",
+                                          padding: "0 20px",
+                                          border: "2px solid #ef4444",
+                                          color: "#ef4444",
+                                          transition:
+                                            "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                          "&:hover": {
+                                            backgroundColor: "#fef2f2",
+                                            borderColor: "#dc2626",
+                                            transform: "translateY(-1px)",
+                                          },
+                                        },
+                                      }}
+                                    >
+                                      Delete ({selectedFitments.length})
+                                    </Button>
+                                  </>
+                                );
+                              })()}
+                            </>
+                          );
+                        })()}
+                      </>
                     )}
 
                     <Menu shadow="md" width={200}>
@@ -2053,13 +2331,15 @@ export default function Fitments() {
                         <Text fw={500}>{fitment.partId}</Text>
                       </Table.Td>
                       <Table.Td>
-                        <Badge
-                          variant="light"
-                          color={getStatusColor(fitment.itemStatus)}
-                          size="sm"
-                        >
-                          {fitment.itemStatus}
-                        </Badge>
+                        <Group gap="xs">
+                          <Badge
+                            variant="light"
+                            color={getStatusColor(fitment.itemStatus)}
+                            size="sm"
+                          >
+                            {fitment.itemStatus}
+                          </Badge>
+                        </Group>
                       </Table.Td>
                       <Table.Td>
                         <div>
@@ -2159,26 +2439,59 @@ export default function Fitments() {
                       )}
                       <Table.Td>
                         <Group gap="xs">
-                          <Tooltip label="Edit fitment">
-                            <ActionIcon
-                              color="blue"
-                              variant="light"
-                              size="sm"
-                              onClick={() => handleEditFitment(fitment)}
-                            >
-                              <IconEdit size={14} />
-                            </ActionIcon>
-                          </Tooltip>
-                          <Tooltip label="Delete fitment">
-                            <ActionIcon
-                              color="red"
-                              variant="light"
-                              size="sm"
-                              onClick={() => handleDeleteFitment(fitment.hash)}
-                            >
-                              <IconTrash size={14} />
-                            </ActionIcon>
-                          </Tooltip>
+                          {fitment.itemStatus === "readyToApprove" ? (
+                            <>
+                              <Tooltip label="Approve fitment">
+                                <ActionIcon
+                                  color="green"
+                                  variant="light"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleApproveFitment(fitment.hash)
+                                  }
+                                >
+                                  <IconCheck size={14} />
+                                </ActionIcon>
+                              </Tooltip>
+                              <Tooltip label="Reject fitment">
+                                <ActionIcon
+                                  color="red"
+                                  variant="light"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleRejectFitment(fitment.hash)
+                                  }
+                                >
+                                  <IconX size={14} />
+                                </ActionIcon>
+                              </Tooltip>
+                            </>
+                          ) : (
+                            <>
+                              <Tooltip label="Edit fitment">
+                                <ActionIcon
+                                  color="blue"
+                                  variant="light"
+                                  size="sm"
+                                  onClick={() => handleEditFitment(fitment)}
+                                >
+                                  <IconEdit size={14} />
+                                </ActionIcon>
+                              </Tooltip>
+                              <Tooltip label="Delete fitment">
+                                <ActionIcon
+                                  color="red"
+                                  variant="light"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleDeleteFitment(fitment.hash)
+                                  }
+                                >
+                                  <IconTrash size={14} />
+                                </ActionIcon>
+                              </Tooltip>
+                            </>
+                          )}
                         </Group>
                       </Table.Td>
                     </Table.Tr>

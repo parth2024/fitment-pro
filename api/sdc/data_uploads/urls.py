@@ -38,4 +38,8 @@ urlpatterns = [
     # Field configuration
     path('field-configuration/', views.get_field_configuration, name='get_field_configuration'),
     path('validate-dynamic-fields/', views.validate_file_with_dynamic_fields, name='validate_file_with_dynamic_fields'),
+    
+    # Job management
+    path('job-history/', views.get_job_history, name='get_job_history'),
+    path('job-status/<uuid:job_id>/', views.get_job_status, name='get_job_status'),
 ]

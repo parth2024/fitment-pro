@@ -2227,3 +2227,212 @@ def _generate_base_vehicle_explanation(config, base_vehicle_id):
     except Exception as e:
         logger.error(f"Error generating base vehicle explanation: {str(e)}")
         return "AI-generated base vehicle compatibility analysis"
+
+
+@api_view(['POST'])
+def bulk_update_status(request):
+    """Bulk update fitment status"""
+    try:
+        data = request.data
+        fitment_hashes = data.get('fitment_hashes', [])
+        new_status = data.get('status', 'Active')
+        
+        if not fitment_hashes:
+            return Response(
+                {'error': 'No fitment hashes provided'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get tenant from request
+        tenant_id = get_tenant_id_from_request(request)
+        if not tenant_id:
+            return Response(
+                {'error': 'Tenant not found'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Filter fitments by tenant and provided hashes
+        fitments = Fitment.objects.filter(
+            hash__in=fitment_hashes,
+            tenant_id=tenant_id
+        )
+        
+        if not fitments.exists():
+            return Response(
+                {'error': 'No fitments found for the provided hashes'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Update status
+        updated_count = fitments.update(itemStatus=new_status)
+        
+        return Response({
+            'message': f'Successfully updated {updated_count} fitments to {new_status}',
+            'updated_count': updated_count,
+            'status': new_status
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in bulk update status: {str(e)}")
+        return Response(
+            {'error': 'Failed to update fitment status'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@csrf_exempt
+def approve_fitments(request):
+    """Approve selected fitments (change status from readyToApprove to Active)"""
+    try:
+        data = request.data
+        fitment_hashes = data.get('fitment_hashes', [])
+        
+        if not fitment_hashes:
+            return Response(
+                {'error': 'No fitment hashes provided'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get tenant from request
+        tenant_id = get_tenant_id_from_request(request)
+        if not tenant_id:
+            return Response(
+                {'error': 'Tenant not found'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Filter fitments by tenant and provided hashes
+        fitments = Fitment.objects.filter(
+            hash__in=fitment_hashes,
+            tenant_id=tenant_id,
+            itemStatus='readyToApprove'
+        )
+        
+        if not fitments.exists():
+            return Response(
+                {'error': 'No fitments found for approval'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Update status to Active
+        updated_count = fitments.update(itemStatus='Active')
+        
+        return Response({
+            'message': f'Successfully approved {updated_count} fitments',
+            'approved_count': updated_count
+        })
+        
+    except Exception as e:
+        logger.error(f"Error approving fitments: {str(e)}")
+        return Response(
+            {'error': 'Failed to approve fitments'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@csrf_exempt
+def bulk_delete_fitments(request):
+    """Bulk delete fitments"""
+    logger.info(f"BULK DELETE CALLED: {request.method} {request.path}")
+    try:
+        data = request.data
+        fitment_hashes = data.get('fitment_hashes', [])
+        
+        if not fitment_hashes:
+            return Response(
+                {'error': 'No fitment hashes provided'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get tenant from request
+        tenant_id = get_tenant_id_from_request(request)
+        
+        if not tenant_id:
+            return Response(
+                {'error': 'Tenant not found'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Filter fitments by tenant and provided hashes
+        fitments = Fitment.objects.filter(
+            hash__in=fitment_hashes,
+            tenant_id=tenant_id
+        )
+        
+        if not fitments.exists():
+            return Response(
+                {'error': 'No fitments found to delete'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Soft delete fitments
+        deleted_count = 0
+        for fitment in fitments:
+            fitment.soft_delete(deleted_by='bulk_delete_user')
+            deleted_count += 1
+        
+        return Response({
+            'message': f'Successfully deleted {deleted_count} fitments',
+            'deleted_count': deleted_count
+        })
+        
+    except Exception as e:
+        logger.error(f"Error bulk deleting fitments: {str(e)}")
+        return Response(
+            {'error': 'Failed to delete fitments'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@csrf_exempt
+def reject_fitments(request):
+    """Reject selected fitments (delete them)"""
+    try:
+        data = request.data
+        fitment_hashes = data.get('fitment_hashes', [])
+        
+        if not fitment_hashes:
+            return Response(
+                {'error': 'No fitment hashes provided'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get tenant from request
+        tenant_id = get_tenant_id_from_request(request)
+        if not tenant_id:
+            return Response(
+                {'error': 'Tenant not found'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Filter fitments by tenant and provided hashes
+        fitments = Fitment.objects.filter(
+            hash__in=fitment_hashes,
+            tenant_id=tenant_id,
+            itemStatus='readyToApprove'
+        )
+        
+        if not fitments.exists():
+            return Response(
+                {'error': 'No fitments found for rejection'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Delete fitments
+        deleted_count = fitments.count()
+        fitments.delete()
+        
+        return Response({
+            'message': f'Successfully rejected and deleted {deleted_count} fitments',
+            'rejected_count': deleted_count
+        })
+        
+    except Exception as e:
+        logger.error(f"Error rejecting fitments: {str(e)}")
+        return Response(
+            {'error': 'Failed to reject fitments'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

@@ -15,6 +15,15 @@ class Tenant(models.Model):
         blank=True,
         help_text="Entity-level fitment settings and preferences"
     )
+    default_fitment_method = models.CharField(
+        max_length=20,
+        choices=[
+            ('manual', 'Manual'),
+            ('ai', 'AI'),
+        ],
+        default='manual',
+        help_text="Default fitment method for this entity"
+    )
     ai_instructions = models.TextField(
         blank=True, 
         null=True,

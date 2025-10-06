@@ -19,7 +19,6 @@ import {
   IconPlus,
   IconEdit,
   IconTrash,
-  IconUsers,
   IconRefresh,
   IconInfoCircle,
   IconSettings,
