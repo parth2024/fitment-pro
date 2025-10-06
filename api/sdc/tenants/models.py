@@ -6,7 +6,7 @@ import uuid
 class Tenant(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=200, unique=True)
-    slug = models.SlugField(max_length=120, unique=True)
+    slug = models.SlugField(max_length=120, unique=True, blank=True, null=True)
     description = models.TextField(blank=True, null=True, help_text="Description of the entity/company")
     
     # Entity settings and configuration
@@ -14,6 +14,15 @@ class Tenant(models.Model):
         default=dict, 
         blank=True,
         help_text="Entity-level fitment settings and preferences"
+    )
+    default_fitment_method = models.CharField(
+        max_length=20,
+        choices=[
+            ('manual', 'Manual'),
+            ('ai', 'AI'),
+        ],
+        default='manual',
+        help_text="Default fitment method for this entity"
     )
     ai_instructions = models.TextField(
         blank=True, 

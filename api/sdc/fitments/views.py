@@ -34,6 +34,14 @@ logger = logging.getLogger(__name__)
 
 def _apply_filters(queryset, params):
     """Apply comprehensive filtering to fitments queryset"""
+    # Entity filtering - handle entity_ids parameter
+    entity_ids = params.get("entity_ids")
+    if entity_ids:
+        # Split comma-separated entity IDs and filter by tenant
+        entity_id_list = [eid.strip() for eid in entity_ids.split(',') if eid.strip()]
+        if entity_id_list:
+            queryset = queryset.filter(tenant_id__in=entity_id_list)
+    
     # Global search
     search = params.get("search")
     if search:
@@ -150,13 +158,20 @@ def fitments_root(request):
     if request.method == "GET":
         params = request.query_params
         
-        # Handle tenant filtering - use default tenant if no authenticated user
-        try:
-            qs = filter_queryset_by_tenant(Fitment.objects.all(), request)
-        except:
-            # If no authenticated user, get all fitments (for testing)
-            # In production, this should be restricted
+        # Check if entity_ids parameter is provided
+        entity_ids = params.get("entity_ids")
+        
+        if entity_ids:
+            # If entity_ids is provided, start with all fitments and let _apply_filters handle the filtering
             qs = Fitment.objects.all()
+        else:
+            # Handle tenant filtering - use default tenant if no authenticated user
+            try:
+                qs = filter_queryset_by_tenant(Fitment.objects.all(), request)
+            except:
+                # If no authenticated user, get all fitments (for testing)
+                # In production, this should be restricted
+                qs = Fitment.objects.all()
         
         qs = _apply_filters(qs, params)
         qs = _apply_sort(qs, params.get("sortBy"), params.get("sortOrder"))
@@ -259,7 +274,7 @@ def fitments_root(request):
 
 @api_view(["GET"]) 
 def coverage(request):
-    """Enhanced coverage analysis with real VCDB data filtered by tenant"""
+    """Enhanced coverage analysis with real VCDB data filtered by tenant or entity_ids"""
     qp = request.query_params
     try:
         yf = int(qp.get("yearFrom", 2010))
@@ -270,19 +285,33 @@ def coverage(request):
     except ValueError:
         yt = 2030
     
-    # Handle tenant filtering - use default tenant if no authenticated user
-    try:
-        tenant = get_tenant_from_request(request)
-        tenant_fitments = filter_queryset_by_tenant(Fitment.objects.all(), request)
-        print(f"DEBUG: Coverage API - Using tenant: {tenant.name} (ID: {tenant.id})")
-        print(f"DEBUG: Coverage API - X-Tenant-ID header: {request.headers.get('X-Tenant-ID')}")
-    except Exception as e:
-        # If no authenticated user, get all fitments (for testing)
-        # In production, this should be restricted
-        tenant_fitments = Fitment.objects.all()
-        tenant = None
-        print(f"DEBUG: Coverage API - No tenant found, using all fitments. Error: {str(e)}")
-        print(f"DEBUG: Coverage API - X-Tenant-ID header: {request.headers.get('X-Tenant-ID')}")
+    # Check if entity_ids parameter is provided
+    entity_ids = qp.get("entity_ids")
+    
+    if entity_ids:
+        # If entity_ids is provided, filter by those specific entities
+        entity_id_list = [eid.strip() for eid in entity_ids.split(',') if eid.strip()]
+        if entity_id_list:
+            tenant_fitments = Fitment.objects.filter(tenant_id__in=entity_id_list)
+            tenant = None  # No single tenant when using entity_ids
+            print(f"DEBUG: Coverage API - Using entity_ids filtering: {entity_id_list}")
+        else:
+            tenant_fitments = Fitment.objects.all()
+            tenant = None
+    else:
+        # Handle tenant filtering - use default tenant if no authenticated user
+        try:
+            tenant = get_tenant_from_request(request)
+            tenant_fitments = filter_queryset_by_tenant(Fitment.objects.all(), request)
+            print(f"DEBUG: Coverage API - Using tenant: {tenant.name} (ID: {tenant.id})")
+            print(f"DEBUG: Coverage API - X-Tenant-ID header: {request.headers.get('X-Tenant-ID')}")
+        except Exception as e:
+            # If no authenticated user, get all fitments (for testing)
+            # In production, this should be restricted
+            tenant_fitments = Fitment.objects.all()
+            tenant = None
+            print(f"DEBUG: Coverage API - No tenant found, using all fitments. Error: {str(e)}")
+            print(f"DEBUG: Coverage API - X-Tenant-ID header: {request.headers.get('X-Tenant-ID')}")
     
     # Get all unique vehicle configurations from fitments (this represents our VCDB universe)
     # We'll use the fitments table as our source of truth for available configurations
@@ -345,7 +374,7 @@ def coverage(request):
 
 @api_view(["GET"])
 def detailed_coverage(request):
-    """Get detailed coverage by model within a make filtered by tenant"""
+    """Get detailed coverage by model within a make filtered by tenant or entity_ids"""
     make = request.GET.get('make')
     year_from = request.GET.get('yearFrom', 2010)
     year_to = request.GET.get('yearTo', 2030)
@@ -359,16 +388,30 @@ def detailed_coverage(request):
     except ValueError:
         return Response({"error": "Invalid year parameters"}, status=400)
     
-    # Handle tenant filtering
-    try:
-        tenant = get_tenant_from_request(request)
-        tenant_fitments = filter_queryset_by_tenant(Fitment.objects.all(), request)
-        print(f"DEBUG: Detailed Coverage API - Using tenant: {tenant.name} (ID: {tenant.id})")
-    except Exception as e:
-        # If no authenticated user, get all fitments (for testing)
-        tenant_fitments = Fitment.objects.all()
-        tenant = None
-        print(f"DEBUG: Detailed Coverage API - No tenant found, using all fitments. Error: {str(e)}")
+    # Check if entity_ids parameter is provided
+    entity_ids = request.GET.get("entity_ids")
+    
+    if entity_ids:
+        # If entity_ids is provided, filter by those specific entities
+        entity_id_list = [eid.strip() for eid in entity_ids.split(',') if eid.strip()]
+        if entity_id_list:
+            tenant_fitments = Fitment.objects.filter(tenant_id__in=entity_id_list)
+            tenant = None  # No single tenant when using entity_ids
+            print(f"DEBUG: Detailed Coverage API - Using entity_ids filtering: {entity_id_list}")
+        else:
+            tenant_fitments = Fitment.objects.all()
+            tenant = None
+    else:
+        # Handle tenant filtering
+        try:
+            tenant = get_tenant_from_request(request)
+            tenant_fitments = filter_queryset_by_tenant(Fitment.objects.all(), request)
+            print(f"DEBUG: Detailed Coverage API - Using tenant: {tenant.name} (ID: {tenant.id})")
+        except Exception as e:
+            # If no authenticated user, get all fitments (for testing)
+            tenant_fitments = Fitment.objects.all()
+            tenant = None
+            print(f"DEBUG: Detailed Coverage API - No tenant found, using all fitments. Error: {str(e)}")
     
     # Get all configurations for this make
     all_configs = tenant_fitments.filter(
@@ -416,22 +459,36 @@ def detailed_coverage(request):
 
 @api_view(["GET"])
 def coverage_trends(request):
-    """Get coverage trends by year for a specific make filtered by tenant"""
+    """Get coverage trends by year for a specific make filtered by tenant or entity_ids"""
     make = request.GET.get('make')
     
     if not make:
         return Response({"error": "Make parameter is required"}, status=400)
     
-    # Handle tenant filtering
-    try:
-        tenant = get_tenant_from_request(request)
-        tenant_fitments = filter_queryset_by_tenant(Fitment.objects.all(), request)
-        print(f"DEBUG: Coverage Trends API - Using tenant: {tenant.name} (ID: {tenant.id})")
-    except Exception as e:
-        # If no authenticated user, get all fitments (for testing)
-        tenant_fitments = Fitment.objects.all()
-        tenant = None
-        print(f"DEBUG: Coverage Trends API - No tenant found, using all fitments. Error: {str(e)}")
+    # Check if entity_ids parameter is provided
+    entity_ids = request.GET.get("entity_ids")
+    
+    if entity_ids:
+        # If entity_ids is provided, filter by those specific entities
+        entity_id_list = [eid.strip() for eid in entity_ids.split(',') if eid.strip()]
+        if entity_id_list:
+            tenant_fitments = Fitment.objects.filter(tenant_id__in=entity_id_list)
+            tenant = None  # No single tenant when using entity_ids
+            print(f"DEBUG: Coverage Trends API - Using entity_ids filtering: {entity_id_list}")
+        else:
+            tenant_fitments = Fitment.objects.all()
+            tenant = None
+    else:
+        # Handle tenant filtering
+        try:
+            tenant = get_tenant_from_request(request)
+            tenant_fitments = filter_queryset_by_tenant(Fitment.objects.all(), request)
+            print(f"DEBUG: Coverage Trends API - Using tenant: {tenant.name} (ID: {tenant.id})")
+        except Exception as e:
+            # If no authenticated user, get all fitments (for testing)
+            tenant_fitments = Fitment.objects.all()
+            tenant = None
+            print(f"DEBUG: Coverage Trends API - No tenant found, using all fitments. Error: {str(e)}")
     
     # Get all configurations by year for this make
     yearly_configs = tenant_fitments.filter(
@@ -472,7 +529,7 @@ def coverage_trends(request):
 
 @api_view(["GET"])
 def coverage_gaps(request):
-    """Find models with low coverage that need attention filtered by tenant"""
+    """Find models with low coverage that need attention filtered by tenant or entity_ids"""
     make = request.GET.get('make')
     year_from = request.GET.get('yearFrom', 2010)
     year_to = request.GET.get('yearTo', 2030)
@@ -488,16 +545,30 @@ def coverage_gaps(request):
     except ValueError:
         return Response({"error": "Invalid year parameters"}, status=400)
     
-    # Handle tenant filtering
-    try:
-        tenant = get_tenant_from_request(request)
-        tenant_fitments = filter_queryset_by_tenant(Fitment.objects.all(), request)
-        print(f"DEBUG: Coverage Gaps API - Using tenant: {tenant.name} (ID: {tenant.id})")
-    except Exception as e:
-        # If no authenticated user, get all fitments (for testing)
-        tenant_fitments = Fitment.objects.all()
-        tenant = None
-        print(f"DEBUG: Coverage Gaps API - No tenant found, using all fitments. Error: {str(e)}")
+    # Check if entity_ids parameter is provided
+    entity_ids = request.GET.get("entity_ids")
+    
+    if entity_ids:
+        # If entity_ids is provided, filter by those specific entities
+        entity_id_list = [eid.strip() for eid in entity_ids.split(',') if eid.strip()]
+        if entity_id_list:
+            tenant_fitments = Fitment.objects.filter(tenant_id__in=entity_id_list)
+            tenant = None  # No single tenant when using entity_ids
+            print(f"DEBUG: Coverage Gaps API - Using entity_ids filtering: {entity_id_list}")
+        else:
+            tenant_fitments = Fitment.objects.all()
+            tenant = None
+    else:
+        # Handle tenant filtering
+        try:
+            tenant = get_tenant_from_request(request)
+            tenant_fitments = filter_queryset_by_tenant(Fitment.objects.all(), request)
+            print(f"DEBUG: Coverage Gaps API - Using tenant: {tenant.name} (ID: {tenant.id})")
+        except Exception as e:
+            # If no authenticated user, get all fitments (for testing)
+            tenant_fitments = Fitment.objects.all()
+            tenant = None
+            print(f"DEBUG: Coverage Gaps API - No tenant found, using all fitments. Error: {str(e)}")
     
     # Get all configurations by model
     model_configs = tenant_fitments.filter(
@@ -1959,7 +2030,7 @@ def analytics_dashboard(request):
     """
     GET /api/analytics/dashboard/
     
-    Returns aggregated analytics data for the dashboard filtered by current tenant.
+    Returns aggregated analytics data for the dashboard filtered by current tenant or entity_ids.
     """
     try:
         from datetime import timedelta
@@ -1967,18 +2038,32 @@ def analytics_dashboard(request):
         from django.utils import timezone
         from tenants.utils import filter_queryset_by_tenant, get_tenant_from_request
         
-        # Get tenant-filtered fitments queryset
-        try:
-            tenant = get_tenant_from_request(request)
-            tenant_fitments = filter_queryset_by_tenant(Fitment.objects.all(), request)
-            print(f"DEBUG: Tenant found: {tenant.name} (ID: {tenant.id})")
-            print(f"DEBUG: X-Tenant-ID header: {request.headers.get('X-Tenant-ID')}")
-        except Exception as e:
-            # Fallback to all fitments if no tenant found (for testing)
-            tenant_fitments = Fitment.objects.all()
-            tenant = None
-            print(f"DEBUG: No tenant found, using all fitments. Error: {str(e)}")
-            print(f"DEBUG: X-Tenant-ID header: {request.headers.get('X-Tenant-ID')}")
+        # Check if entity_ids parameter is provided
+        entity_ids = request.query_params.get("entity_ids")
+        
+        if entity_ids:
+            # If entity_ids is provided, filter by those specific entities
+            entity_id_list = [eid.strip() for eid in entity_ids.split(',') if eid.strip()]
+            if entity_id_list:
+                tenant_fitments = Fitment.objects.filter(tenant_id__in=entity_id_list)
+                tenant = None  # No single tenant when using entity_ids
+                print(f"DEBUG: Using entity_ids filtering: {entity_id_list}")
+            else:
+                tenant_fitments = Fitment.objects.all()
+                tenant = None
+        else:
+            # Get tenant-filtered fitments queryset
+            try:
+                tenant = get_tenant_from_request(request)
+                tenant_fitments = filter_queryset_by_tenant(Fitment.objects.all(), request)
+                print(f"DEBUG: Tenant found: {tenant.name} (ID: {tenant.id})")
+                print(f"DEBUG: X-Tenant-ID header: {request.headers.get('X-Tenant-ID')}")
+            except Exception as e:
+                # Fallback to all fitments if no tenant found (for testing)
+                tenant_fitments = Fitment.objects.all()
+                tenant = None
+                print(f"DEBUG: No tenant found, using all fitments. Error: {str(e)}")
+                print(f"DEBUG: X-Tenant-ID header: {request.headers.get('X-Tenant-ID')}")
         
         print(f"DEBUG: Total fitments before filtering: {Fitment.objects.count()}")
         print(f"DEBUG: Tenant-filtered fitments: {tenant_fitments.count()}")
@@ -2227,3 +2312,212 @@ def _generate_base_vehicle_explanation(config, base_vehicle_id):
     except Exception as e:
         logger.error(f"Error generating base vehicle explanation: {str(e)}")
         return "AI-generated base vehicle compatibility analysis"
+
+
+@api_view(['POST'])
+def bulk_update_status(request):
+    """Bulk update fitment status"""
+    try:
+        data = request.data
+        fitment_hashes = data.get('fitment_hashes', [])
+        new_status = data.get('status', 'Active')
+        
+        if not fitment_hashes:
+            return Response(
+                {'error': 'No fitment hashes provided'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get tenant from request
+        tenant_id = get_tenant_id_from_request(request)
+        if not tenant_id:
+            return Response(
+                {'error': 'Tenant not found'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Filter fitments by tenant and provided hashes
+        fitments = Fitment.objects.filter(
+            hash__in=fitment_hashes,
+            tenant_id=tenant_id
+        )
+        
+        if not fitments.exists():
+            return Response(
+                {'error': 'No fitments found for the provided hashes'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Update status
+        updated_count = fitments.update(itemStatus=new_status)
+        
+        return Response({
+            'message': f'Successfully updated {updated_count} fitments to {new_status}',
+            'updated_count': updated_count,
+            'status': new_status
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in bulk update status: {str(e)}")
+        return Response(
+            {'error': 'Failed to update fitment status'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@csrf_exempt
+def approve_fitments(request):
+    """Approve selected fitments (change status from readyToApprove to Active)"""
+    try:
+        data = request.data
+        fitment_hashes = data.get('fitment_hashes', [])
+        
+        if not fitment_hashes:
+            return Response(
+                {'error': 'No fitment hashes provided'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get tenant from request
+        tenant_id = get_tenant_id_from_request(request)
+        if not tenant_id:
+            return Response(
+                {'error': 'Tenant not found'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Filter fitments by tenant and provided hashes
+        fitments = Fitment.objects.filter(
+            hash__in=fitment_hashes,
+            tenant_id=tenant_id,
+            itemStatus='readyToApprove'
+        )
+        
+        if not fitments.exists():
+            return Response(
+                {'error': 'No fitments found for approval'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Update status to Active
+        updated_count = fitments.update(itemStatus='Active')
+        
+        return Response({
+            'message': f'Successfully approved {updated_count} fitments',
+            'approved_count': updated_count
+        })
+        
+    except Exception as e:
+        logger.error(f"Error approving fitments: {str(e)}")
+        return Response(
+            {'error': 'Failed to approve fitments'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@csrf_exempt
+def bulk_delete_fitments(request):
+    """Bulk delete fitments"""
+    logger.info(f"BULK DELETE CALLED: {request.method} {request.path}")
+    try:
+        data = request.data
+        fitment_hashes = data.get('fitment_hashes', [])
+        
+        if not fitment_hashes:
+            return Response(
+                {'error': 'No fitment hashes provided'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get tenant from request
+        tenant_id = get_tenant_id_from_request(request)
+        
+        if not tenant_id:
+            return Response(
+                {'error': 'Tenant not found'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Filter fitments by tenant and provided hashes
+        fitments = Fitment.objects.filter(
+            hash__in=fitment_hashes,
+            tenant_id=tenant_id
+        )
+        
+        if not fitments.exists():
+            return Response(
+                {'error': 'No fitments found to delete'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Soft delete fitments
+        deleted_count = 0
+        for fitment in fitments:
+            fitment.soft_delete(deleted_by='bulk_delete_user')
+            deleted_count += 1
+        
+        return Response({
+            'message': f'Successfully deleted {deleted_count} fitments',
+            'deleted_count': deleted_count
+        })
+        
+    except Exception as e:
+        logger.error(f"Error bulk deleting fitments: {str(e)}")
+        return Response(
+            {'error': 'Failed to delete fitments'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@csrf_exempt
+def reject_fitments(request):
+    """Reject selected fitments (delete them)"""
+    try:
+        data = request.data
+        fitment_hashes = data.get('fitment_hashes', [])
+        
+        if not fitment_hashes:
+            return Response(
+                {'error': 'No fitment hashes provided'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get tenant from request
+        tenant_id = get_tenant_id_from_request(request)
+        if not tenant_id:
+            return Response(
+                {'error': 'Tenant not found'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Filter fitments by tenant and provided hashes
+        fitments = Fitment.objects.filter(
+            hash__in=fitment_hashes,
+            tenant_id=tenant_id,
+            itemStatus='readyToApprove'
+        )
+        
+        if not fitments.exists():
+            return Response(
+                {'error': 'No fitments found for rejection'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Delete fitments
+        deleted_count = fitments.count()
+        fitments.delete()
+        
+        return Response({
+            'message': f'Successfully rejected and deleted {deleted_count} fitments',
+            'rejected_count': deleted_count
+        })
+        
+    except Exception as e:
+        logger.error(f"Error rejecting fitments: {str(e)}")
+        return Response(
+            {'error': 'Failed to reject fitments'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

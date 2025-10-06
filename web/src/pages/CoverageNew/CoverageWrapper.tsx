@@ -12,7 +12,13 @@ let yearRangeCache: { min: number; max: number } | null = null;
 let lastYearRangeFetch = 0;
 const YEAR_RANGE_CACHE_DURATION = 60000; // 1 minute
 
-const CoverageWrapper: React.FC = () => {
+interface CoverageWrapperProps {
+  selectedEntities?: string[];
+}
+
+const CoverageWrapper: React.FC<CoverageWrapperProps> = ({
+  selectedEntities = [],
+}) => {
   const { user } = useAuth();
   const { currentEntity, loading: entityLoading } = useEntity();
   const { showError } = useProfessionalToast();
@@ -167,6 +173,7 @@ const CoverageWrapper: React.FC = () => {
       }}
       onError={handleError}
       tabOpened={true}
+      selectedEntities={selectedEntities}
     />
   );
 };

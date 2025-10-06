@@ -24,6 +24,7 @@ const COVERAGE_CACHE_DURATION = 30000; // 30 seconds
 
 interface CoverageProps extends UserProps, YearOptionProps, ErrorHandlerProps {
   tabOpened: boolean;
+  selectedEntities?: string[];
 }
 
 const Coverage: React.FC<CoverageProps> = (props) => {
@@ -58,18 +59,32 @@ const Coverage: React.FC<CoverageProps> = (props) => {
 
   // Function to fetch coverage data
   const fetchCoverage = useCallback(async () => {
-    if (!props.tabOpened || !currentEntity || isFetching) {
+    if (!props.tabOpened || isFetching) {
       return;
     }
 
-    // Create cache key based on entity and year range
-    const cacheKey = `${currentEntity.id}_${yearValues["year-from"]}_${yearValues["year-to"]}`;
+    // Use selectedEntities if available, otherwise fall back to currentEntity
+    const entitiesToUse =
+      props.selectedEntities && props.selectedEntities.length > 0
+        ? props.selectedEntities
+        : currentEntity
+        ? [currentEntity.id]
+        : [];
+
+    if (entitiesToUse.length === 0) {
+      return;
+    }
+
+    // Create cache key based on entities and year range
+    const cacheKey = `${entitiesToUse.join(",")}_${yearValues["year-from"]}_${
+      yearValues["year-to"]
+    }`;
     const now = Date.now();
 
     // Check cache first
     const cachedData = coverageCache.get(cacheKey);
     if (cachedData && now - cachedData.timestamp < COVERAGE_CACHE_DURATION) {
-      console.log("Using cached coverage data for entity:", currentEntity.name);
+      console.log("Using cached coverage data for entities:", entitiesToUse);
       setCoverage(cachedData.data);
       setLoading(false);
       return;
@@ -80,15 +95,18 @@ const Coverage: React.FC<CoverageProps> = (props) => {
     setError(null);
     try {
       console.log(
-        "Fetching coverage data for entity:",
-        currentEntity.name,
-        "ID:",
-        currentEntity.id
+        "Fetching coverage data for entities:",
+        entitiesToUse,
+        "Year range:",
+        yearValues["year-from"],
+        "-",
+        yearValues["year-to"]
       );
 
       const response = await fitmentsService.getCoverage({
         yearFrom: yearValues["year-from"],
         yearTo: yearValues["year-to"],
+        entity_ids: entitiesToUse.join(","),
       });
 
       // Transform the response to match our expected format
@@ -113,8 +131,8 @@ const Coverage: React.FC<CoverageProps> = (props) => {
 
       setCoverage(sortedCoverage);
       console.log(
-        "Coverage data loaded successfully for entity:",
-        currentEntity.name
+        "Coverage data loaded successfully for entities:",
+        entitiesToUse
       );
     } catch (error) {
       console.error("Error fetching coverage:", error);
@@ -126,6 +144,7 @@ const Coverage: React.FC<CoverageProps> = (props) => {
     }
   }, [
     props.tabOpened,
+    props.selectedEntities,
     currentEntity,
     yearValues["year-from"],
     yearValues["year-to"],
@@ -133,9 +152,21 @@ const Coverage: React.FC<CoverageProps> = (props) => {
     isFetching,
   ]);
 
-  // Effect for year range changes
+  // Effect for year range changes and entity changes
   useEffect(() => {
-    if (!props.tabOpened || !currentEntity) {
+    if (!props.tabOpened) {
+      return;
+    }
+
+    // Check if we have entities to use (either selectedEntities or currentEntity)
+    const entitiesToUse =
+      props.selectedEntities && props.selectedEntities.length > 0
+        ? props.selectedEntities
+        : currentEntity
+        ? [currentEntity.id]
+        : [];
+
+    if (entitiesToUse.length === 0) {
       return;
     }
 
@@ -154,6 +185,7 @@ const Coverage: React.FC<CoverageProps> = (props) => {
     yearValues["year-from"],
     yearValues["year-to"],
     props.tabOpened,
+    props.selectedEntities,
     currentEntity?.id,
     fetchCoverage,
     hasInitialized,

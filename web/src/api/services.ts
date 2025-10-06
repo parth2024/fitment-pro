@@ -186,9 +186,26 @@ export const fitmentsService = {
   deleteFitment: (fitmentHash: string) =>
     apiClient.delete(`/api/fitments/${fitmentHash}/delete/`),
   getFilterOptions: () => apiClient.get("/api/fitments/filter-options/"),
+  bulkUpdateStatus: (fitmentHashes: string[], status: string) =>
+    apiClient.post("/api/fitments/bulk-update-status/", {
+      fitment_hashes: fitmentHashes,
+      status: status,
+    }),
   exportFitments: (format: "csv" | "xlsx") =>
     apiClient.get(`/api/fitments/export-advanced-${format}/`, {
       responseType: "blob",
+    }),
+  approveFitments: (fitmentHashes: string[]) =>
+    apiClient.post("/api/fitments/approve/", {
+      fitment_hashes: fitmentHashes,
+    }),
+  rejectFitments: (fitmentHashes: string[]) =>
+    apiClient.post("/api/fitments/reject/", {
+      fitment_hashes: fitmentHashes,
+    }),
+  bulkDeleteFitments: (fitmentHashes: string[]) =>
+    apiClient.post("/api/fitments/bulk-delete/", {
+      fitment_hashes: fitmentHashes,
     }),
 };
 
@@ -599,6 +616,14 @@ export const dataUploadService = {
     description?: string;
     quantity?: number;
   }) => apiClient.post("/api/fitments/apply-potential-fitments/", data),
+
+  // Job management
+  getJobHistory: (tenantId?: string) =>
+    apiClient.get("/api/data-uploads/job-history/", {
+      params: tenantId ? { tenant_id: tenantId } : {},
+    }),
+  getJobStatus: (jobId: string) =>
+    apiClient.get(`/api/data-uploads/job-status/${jobId}/`),
 };
 
 // Export all services as a single object

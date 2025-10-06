@@ -19,12 +19,9 @@ import {
   IconLogout,
   IconChevronRight,
   IconDashboard,
-  IconDatabase,
-  IconChartBar,
   IconBulb,
-  IconUpload,
-  IconSettings,
   IconBuilding,
+  IconDatabase,
 } from "@tabler/icons-react";
 import {
   Routes,
@@ -50,6 +47,10 @@ import ManualFitment from "./pages/ManualFitment";
 import AIFitment from "./pages/AIFitment";
 import Settings from "./pages/Settings";
 import EntityManagement from "./pages/EntityManagement";
+import EditEntity from "./pages/EditEntity";
+import CreateEntity from "./pages/CreateEntity";
+import CustomPCDB from "./pages/CustomPCDB";
+import VCDBData from "./pages/VCDBData";
 import ProtectedRoute from "./components/ProtectedRoute";
 import EntitySelector from "./components/EntitySelector";
 import { useAuth } from "./contexts/AuthContext";
@@ -57,26 +58,13 @@ import { useProfessionalToast } from "./hooks/useProfessionalToast";
 
 const navigationItems = [
   {
-    label: "Analytics",
-    value: "analytics",
-    path: "/",
-    icon: IconDashboard,
-    color: "blue",
+    label: "Entity Management",
+    value: "entities",
+    path: "/entities",
+    icon: IconBuilding,
+    color: "violet",
   },
-  {
-    label: "Upload Data",
-    value: "upload-data",
-    path: "/upload-data",
-    icon: IconDatabase,
-    color: "cyan",
-  },
-  // {
-  //   label: "Apply Fitments",
-  //   value: "apply",
-  //   path: "/apply-fitments",
-  //   icon: IconCar,
-  //   color: "green",
-  // },
+
   {
     label: "Fitments",
     value: "fitments",
@@ -85,12 +73,34 @@ const navigationItems = [
     color: "teal",
   },
   {
-    label: "Bulk Fitments Upload",
-    value: "bulk",
-    path: "/bulk-upload",
-    icon: IconUpload,
-    color: "orange",
+    label: "Analytics",
+    value: "analytics",
+    path: "/",
+    icon: IconDashboard,
+    color: "blue",
   },
+  // {
+  //   label: "Upload Data",
+  //   value: "upload-data",
+  //   path: "/upload-data",
+  //   icon: IconDatabase,
+  //   color: "cyan",
+  // },
+  // {
+  //   label: "Apply Fitments",
+  //   value: "apply",
+  //   path: "/apply-fitments",
+  //   icon: IconCar,
+  //   color: "green",
+  // },
+
+  // {
+  //   label: "Bulk Fitments Upload",
+  //   value: "bulk",
+  //   path: "/bulk-upload",
+  //   icon: IconUpload,
+  //   color: "orange",
+  // },
   // {
   //   label: "Mismatches(Beta)",
   //   value: "mismatches",
@@ -98,13 +108,13 @@ const navigationItems = [
   //   icon: IconAlertTriangle,
   //   color: "red",
   // },
-  {
-    label: "Coverage",
-    value: "coverage",
-    path: "/coverage",
-    icon: IconChartBar,
-    color: "cyan",
-  },
+  // {
+  //   label: "Coverage",
+  //   value: "coverage",
+  //   path: "/coverage",
+  //   icon: IconChartBar,
+  //   color: "cyan",
+  // },
   {
     label: "Potential Fitments",
     value: "potential",
@@ -113,19 +123,26 @@ const navigationItems = [
     color: "yellow",
   },
   {
-    label: "Settings",
-    value: "settings",
-    path: "/settings",
-    icon: IconSettings,
-    color: "gray",
+    label: "VCDB Data",
+    value: "vcdb-data",
+    path: "/vcdb-data",
+    icon: IconDatabase,
+    color: "cyan",
   },
-  {
-    label: "Entity Management",
-    value: "entities",
-    path: "/entities",
-    icon: IconBuilding,
-    color: "violet",
-  },
+  // {
+  //   label: "Custom PCDB",
+  //   value: "custom-pcdb",
+  //   path: "/custom-pcdb",
+  //   icon: IconDatabaseCog,
+  //   color: "purple",
+  // },
+  // {
+  //   label: "Settings",
+  //   value: "settings",
+  //   path: "/settings",
+  //   icon: IconSettings,
+  //   color: "gray",
+  // },
 ];
 
 function App() {
@@ -144,6 +161,21 @@ function App() {
     // Handle edit fitment route
     if (location.pathname.startsWith("/edit-fitment/")) {
       return "Edit Fitment";
+    }
+
+    // Handle edit entity route
+    if (location.pathname.startsWith("/edit-entity/")) {
+      return "Edit Entity";
+    }
+
+    // Handle create entity route
+    if (location.pathname === "/create-entity") {
+      return "Create Entity";
+    }
+
+    // Handle VCDB Data route
+    if (location.pathname === "/vcdb-data") {
+      return "VCDB Data";
     }
 
     return "Dashboard";
@@ -188,6 +220,10 @@ function App() {
         <Route path="/mismatches" element={<Mismatches />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/entities" element={<EntityManagement />} />
+        <Route path="/create-entity" element={<CreateEntity />} />
+        <Route path="/edit-entity/:id" element={<EditEntity />} />
+        <Route path="/vcdb-data" element={<VCDBData />} />
+        <Route path="/custom-pcdb" element={<CustomPCDB />} />
         <Route path="*" element={<Analytics />} />
       </Routes>
     );

@@ -65,3 +65,5 @@ whitenoise
 azure-storage-blob
 chardet
 django_filters
+celery
+redis

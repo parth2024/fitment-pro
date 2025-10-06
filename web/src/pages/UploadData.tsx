@@ -616,11 +616,21 @@ export default function UploadData() {
       }
     } catch (error: any) {
       console.error("Upload error:", error);
-      showError(
-        error.response?.data?.message ||
-          error.message ||
-          "Failed to upload files"
-      );
+
+      // Handle specific validation errors
+      if (error.response?.data?.error_message) {
+        showError(`Validation Error: ${error.response.data.error_message}`);
+      } else if (error.response?.data?.message) {
+        showError(`Upload Error: ${error.response.data.message}`);
+      } else if (error.response?.data?.error) {
+        showError(`Upload Error: ${error.response.data.error}`);
+      } else if (error.message) {
+        showError(`Upload Error: ${error.message}`);
+      } else {
+        showError(
+          "Failed to upload files. Please check your file format and try again."
+        );
+      }
     } finally {
       setUploading(false);
       setUploadProgress(0);
@@ -734,14 +744,26 @@ export default function UploadData() {
           "No fitments were generated. Please check your VCDB and Product data and try again."
         );
       }
-    } catch (error) {
+    } catch (error: any) {
       clearInterval(logInterval);
       console.error("AI fitment error:", error);
       setAiLogs((prev) => [
         ...prev,
         "❌ AI processing failed. Please try again.",
       ]);
-      showError("Failed to process AI fitment");
+
+      // Handle specific AI fitment errors
+      if (error.response?.data?.error) {
+        showError(`AI Fitment Error: ${error.response.data.error}`);
+      } else if (error.response?.data?.message) {
+        showError(`AI Fitment Error: ${error.response.data.message}`);
+      } else if (error.message) {
+        showError(`AI Fitment Error: ${error.message}`);
+      } else {
+        showError(
+          "Failed to process AI fitment. Please check your data and try again."
+        );
+      }
     } finally {
       setAiProcessing(false);
     }
@@ -787,8 +809,19 @@ export default function UploadData() {
         setSelectedAiFitments([]);
         setAiFitments([]);
       }
-    } catch (error) {
-      showError("Failed to apply AI fitments");
+    } catch (error: any) {
+      console.error("Apply AI fitments error:", error);
+
+      // Handle specific application errors
+      if (error.response?.data?.error) {
+        showError(`Application Error: ${error.response.data.error}`);
+      } else if (error.response?.data?.message) {
+        showError(`Application Error: ${error.response.data.message}`);
+      } else if (error.message) {
+        showError(`Application Error: ${error.message}`);
+      } else {
+        showError("Failed to apply AI fitments. Please try again.");
+      }
     } finally {
       setApplyingAiFitment(false);
     }
@@ -1082,9 +1115,21 @@ export default function UploadData() {
       } else {
         showError("Failed to create fitments");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Create fitment error:", error);
-      showError("Failed to create fitments");
+
+      // Handle specific manual fitment errors
+      if (error.response?.data?.error) {
+        showError(`Manual Fitment Error: ${error.response.data.error}`);
+      } else if (error.response?.data?.message) {
+        showError(`Manual Fitment Error: ${error.response.data.message}`);
+      } else if (error.message) {
+        showError(`Manual Fitment Error: ${error.message}`);
+      } else {
+        showError(
+          "Failed to create fitments. Please check your data and try again."
+        );
+      }
     } finally {
       setApplyingManualFitment(false);
     }

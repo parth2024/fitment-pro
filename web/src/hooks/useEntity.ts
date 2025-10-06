@@ -10,7 +10,7 @@ const CACHE_DURATION = 30000; // 30 seconds
 interface Entity {
   id: string;
   name: string;
-  slug: string;
+  slug: string | null;
   description?: string;
   is_active: boolean;
   is_default: boolean;
@@ -131,6 +131,9 @@ export const useEntity = (): UseEntityReturn => {
   );
 
   const refreshEntities = useCallback(async () => {
+    // Clear cache to force fresh fetch
+    entitiesCache = null;
+    lastFetchTime = 0;
     await fetchEntities();
   }, [fetchEntities]);
 

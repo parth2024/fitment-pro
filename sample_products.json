@@ -1,0 +1,57 @@
+[
+  {
+    "Part Number": "WHEEL001",
+    "Part Terminology Name": "18\" Alloy Wheel",
+    "PTID": "12345",
+    "Parent/Child": "Parent",
+    "Description": "High-quality alloy wheel for performance vehicles",
+    "Brand": "ACME Wheels",
+    "Price": 299.99,
+    "Material": "Aluminum",
+    "Color": "Silver"
+  },
+  {
+    "Part Number": "BRAKE001",
+    "Part Terminology Name": "Brake Pad Set",
+    "PTID": "67890",
+    "Parent/Child": "Parent",
+    "Description": "Performance brake pads for high-speed applications",
+    "Brand": "StopTech",
+    "Price": 89.99,
+    "Material": "Ceramic",
+    "Color": "Black"
+  },
+  {
+    "Part Number": "FILTER001",
+    "Part Terminology Name": "Oil Filter",
+    "PTID": "11111",
+    "Parent/Child": "Child",
+    "Description": "High-flow oil filter for engine protection",
+    "Brand": "K&N",
+    "Price": 24.99,
+    "Material": "Synthetic",
+    "Color": "Red"
+  },
+  {
+    "Part Number": "SPARK001",
+    "Part Terminology Name": "Spark Plug Set",
+    "PTID": "22222",
+    "Parent/Child": "Parent",
+    "Description": "Iridium spark plugs for optimal ignition",
+    "Brand": "NGK",
+    "Price": 45.99,
+    "Material": "Iridium",
+    "Color": "Silver"
+  },
+  {
+    "Part Number": "BATTERY001",
+    "Part Terminology Name": "Car Battery",
+    "PTID": "33333",
+    "Parent/Child": "Parent",
+    "Description": "High-capacity automotive battery",
+    "Brand": "Optima",
+    "Price": 199.99,
+    "Material": "Lead-Acid",
+    "Color": "Yellow"
+  }
+]

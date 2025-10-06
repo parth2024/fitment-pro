@@ -16,7 +16,7 @@ import apiClient from "../api/client";
 interface Entity {
   id: string;
   name: string;
-  slug: string;
+  slug: string | null;
   description?: string;
   is_active: boolean;
   is_default: boolean;
