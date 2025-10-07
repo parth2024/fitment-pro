@@ -205,12 +205,7 @@ CORS_EXPOSE_HEADERS = [
 # Ensure CORS preflight requests are handled correctly
 CORS_PREFLIGHT_MAX_AGE = 86400  # 24 hours
 
-# Additional CORS settings for development
-CORS_ALLOW_PRIVATE_NETWORK = True  # Allow private network access
-CORS_ALLOW_CREDENTIALS = False  # Disabled for JWT authentication
-CORS_ALLOW_ALL_ORIGINS = True  # Allow all origins for development
-CORS_ALLOW_ALL_HEADERS = True  # Allow all headers
-CORS_ALLOW_ALL_METHODS = True  # Allow all HTTP methods
+
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
