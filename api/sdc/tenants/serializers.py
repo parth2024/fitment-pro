@@ -28,6 +28,9 @@ class TenantCreateSerializer(serializers.ModelSerializer):
         ]
     
     def validate_slug(self, value):
+        # Treat empty strings as None
+        if value is not None and isinstance(value, str) and value.strip() == "":
+            return None
         if value and Tenant.objects.filter(slug=value).exists():
             raise serializers.ValidationError("A tenant with this slug already exists.")
         return value

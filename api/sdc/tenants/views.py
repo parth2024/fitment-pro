@@ -1,4 +1,5 @@
 from django.shortcuts import render, get_object_or_404
+from django.db import IntegrityError
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
@@ -23,7 +24,15 @@ class TenantListCreateView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = TenantCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        tenant = Tenant.objects.create(**serializer.validated_data)
+        try:
+            # Use serializer.save() so model save() logic (slug generation, default handling) runs
+            tenant = serializer.save()
+        except IntegrityError as e:
+            # Return a clean 400 instead of 500 for uniqueness issues
+            return Response({
+                'error': 'Tenant with this name or slug already exists.',
+                'details': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
         return Response(TenantSerializer(tenant).data, status=status.HTTP_201_CREATED)
 
 

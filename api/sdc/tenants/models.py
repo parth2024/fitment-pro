@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils.text import slugify
 import uuid
 
 
@@ -61,9 +62,27 @@ class Tenant(models.Model):
         return self.name
     
     def save(self, *args, **kwargs):
+        # Normalize empty slug to None and auto-generate from name if missing
+        if self.slug is not None and isinstance(self.slug, str) and self.slug.strip() == "":
+            self.slug = None
+
+        if not self.slug and self.name:
+            base_slug = slugify(self.name)
+            # Fallback if name slugifies to empty
+            if not base_slug:
+                base_slug = str(self.id or "tenant")
+
+            unique_slug = base_slug
+            suffix = 2
+            # Ensure uniqueness; exclude current instance when updating
+            while Tenant.objects.filter(slug=unique_slug).exclude(id=self.id).exists():
+                unique_slug = f"{base_slug}-{suffix}"
+                suffix += 1
+            self.slug = unique_slug
+
         # Ensure only one default entity
         if self.is_default:
-            Tenant.objects.filter(is_default=True).update(is_default=False)
+            Tenant.objects.filter(is_default=True).exclude(id=self.id).update(is_default=False)
         super().save(*args, **kwargs)
 
 

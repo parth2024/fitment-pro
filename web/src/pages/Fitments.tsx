@@ -26,7 +26,6 @@ import {
   Grid,
   Tooltip,
   Divider,
-  SimpleGrid,
 } from "@mantine/core";
 import {
   IconSearch,
@@ -42,7 +41,6 @@ import {
   IconBrain,
   IconUsers,
   IconShield,
-  IconInfoCircle,
   IconCheck,
   IconTable,
 } from "@tabler/icons-react";

@@ -28,8 +28,6 @@ import {
   IconChevronRight,
   IconBuilding,
   IconRefresh,
-  IconInfoCircle,
-  IconCheck,
 } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/client";
