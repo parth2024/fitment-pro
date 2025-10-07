@@ -162,21 +162,17 @@ def process_manual_fitments(job, vcdb_categories, product_data):
                                     session_id=job.session_id if hasattr(job, 'session_id') else None,
                                     tenant=job.tenant,
                                     part_id=product.part_number,
+                                    part_description=getattr(product, 'description', None) or getattr(product, 'part_terminology_name', None) or f"Bulk fitment for {vcdb_record.make} {vcdb_record.model}",
                                     year=vcdb_record.year,
                                     make=vcdb_record.make,
                                     model=vcdb_record.model,
                                     submodel=vcdb_record.submodel or '',
                                     drive_type=vcdb_record.drive_type or '',
-                                    fuel_type=vcdb_record.fuel_type or 'Gas',
-                                    num_doors=vcdb_record.num_doors or 4,
-                                    body_type=vcdb_record.body_type or 'Sedan',
                                     position='Front',  # Default position
                                     quantity=1,  # Default quantity
                                     title=f"Manual Fitment - {product.part_number}",
                                     description=f"Manual fitment for {vcdb_record.make} {vcdb_record.model}",
-                                    notes='Applied via bulk processing',
-                                    fitment_type='manual_fitment',
-                                    created_by='bulk_processing'
+                                    notes='Applied via bulk processing'
                                 )
                                 
                                 fitments_created += 1

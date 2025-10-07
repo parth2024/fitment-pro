@@ -10,6 +10,9 @@ import pandas as pd
 import json
 import asyncio
 import uuid
+import logging
+
+logger = logging.getLogger(__name__)
 from .models import FitmentUploadSession, AIFitmentResult, AppliedFitment
 from fitments.models import Fitment
 from .serializers import (
@@ -213,9 +216,25 @@ def apply_ai_fitments(request):
                 description=ai_result.ai_reasoning
             )
             
-            # Create Fitment record
+            # Check for existing fitment to avoid duplicates within tenant
+            existing_fitment = Fitment.objects.filter(
+                tenant=session.tenant,  # Check within tenant scope
+                partId=ai_result.part_id,
+                year=ai_result.year,
+                makeName=ai_result.make,
+                modelName=ai_result.model,
+                subModelName=ai_result.submodel,
+                isDeleted=False
+            ).first()
+            
+            if existing_fitment:
+                logger.warning(f"AI Fitment already exists for {ai_result.part_id} and {ai_result.year} {ai_result.make} {ai_result.model} in tenant {session.tenant.id}")
+                continue
+            
+            # Create Fitment record with tenant association
             fitment = Fitment.objects.create(
-                hash=uuid.uuid4().hex,
+                hash=f"{session.tenant.id}_{uuid.uuid4().hex}",  # Include tenant ID in hash for uniqueness
+                tenant=session.tenant,  # Associate with tenant
                 partId=ai_result.part_id,
                 itemStatus='Active',
                 itemStatusCode=0,
@@ -239,6 +258,7 @@ def apply_ai_fitments(request):
                 positionId=1,  # Default position ID
                 liftHeight='Stock',  # Default value
                 wheelType='Alloy',  # Default value
+                fitmentType='ai_fitment',  # Set as AI fitment type
                 createdBy='ai_system',
                 updatedBy='ai_system'
             )

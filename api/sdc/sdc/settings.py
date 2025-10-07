@@ -273,3 +273,15 @@ CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
 CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # 25 minutes
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 
+# Improved Celery settings for better job processing
+CELERY_TASK_ALWAYS_EAGER = False  # Ensure tasks are queued properly
+CELERY_TASK_EAGER_PROPAGATES = True
+CELERY_WORKER_CONCURRENCY = 2  # Limit concurrency to prevent overload
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 50  # Restart workers after 50 tasks
+CELERY_TASK_REJECT_ON_WORKER_LOST = True  # Reject tasks if worker dies
+CELERY_TASK_ACKS_LATE = True  # Acknowledge tasks only after completion
+CELERY_WORKER_DISABLE_RATE_LIMITS = True  # Disable rate limits for immediate processing
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True  # Retry connection on startup
+CELERY_BROKER_CONNECTION_RETRY = True  # Retry connection if lost
+CELERY_BROKER_CONNECTION_MAX_RETRIES = 10  # Max retry attempts
+

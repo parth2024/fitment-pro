@@ -150,15 +150,51 @@ def process_pending_jobs():
         
         for job in pending_jobs:
             try:
-                # Dispatch the job to be processed
-                process_workflow_job.delay(str(job.id))
-                logger.info(f"Dispatched job {job.id} for processing")
+                # Update job status to processing
+                job.status = 'processing'
+                job.started_at = timezone.now()
+                job.save()
+                
+                # Process the job directly
+                process_workflow_job(str(job.id))
+                logger.info(f"Processed job {job.id} directly")
             except Exception as e:
-                logger.error(f"Failed to dispatch job {job.id}: {str(e)}")
+                logger.error(f"Failed to process job {job.id}: {str(e)}")
+                # Mark job as failed
+                job.status = 'failed'
+                job.finished_at = timezone.now()
+                job.result = {'error': str(e)}
+                job.save()
                 continue
         
-        return f"Dispatched {pending_jobs.count()} jobs for processing"
+        return f"Processed {pending_jobs.count()} jobs"
         
     except Exception as e:
         logger.error(f"Failed to process pending jobs: {str(e)}")
+        raise
+
+
+@shared_task
+def monitor_pending_jobs():
+    """Monitor and process any stuck pending jobs"""
+    try:
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        # Find jobs that have been pending for more than 5 minutes
+        cutoff_time = timezone.now() - timedelta(minutes=5)
+        stuck_jobs = Job.objects.filter(
+            status='queued',
+            created_at__lt=cutoff_time
+        )
+        
+        if stuck_jobs.exists():
+            logger.warning(f"Found {stuck_jobs.count()} stuck jobs, processing them...")
+            return process_pending_jobs()
+        else:
+            logger.info("No stuck jobs found")
+            return "No stuck jobs to process"
+            
+    except Exception as e:
+        logger.error(f"Failed to monitor pending jobs: {str(e)}")
         raise

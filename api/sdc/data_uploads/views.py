@@ -915,7 +915,7 @@ def apply_ai_fitments(request):
             
             # Create Fitment record
             fitment = Fitment.objects.create(
-                hash=uuid.uuid4().hex,
+                hash=f"{tenant.id}_{uuid.uuid4().hex}",  # Include tenant ID in hash for uniqueness
                 tenant=tenant,  # Associate with tenant
                 partId=ai_result.part_id,
                 itemStatus='Active',
@@ -1054,7 +1054,7 @@ def apply_ai_fitments_direct(request):
             
             # Create Fitment record
             fitment = Fitment.objects.create(
-                hash=uuid.uuid4().hex,
+                hash=f"{tenant.id}_{uuid.uuid4().hex}",  # Include tenant ID in hash for uniqueness
                 tenant=tenant,  # Associate with tenant
                 partId=fitment_data.get('part_id'),
                 itemStatus='Active',

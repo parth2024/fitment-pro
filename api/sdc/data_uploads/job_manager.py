@@ -55,11 +55,23 @@ class FitmentJobManager:
             # Dispatch the job to Celery for processing
             try:
                 from workflow.tasks import process_workflow_job
-                process_workflow_job.delay(str(job.id))
-                logger.info(f"Dispatched job {job.id} to Celery for processing")
+                # Use apply_async with immediate execution fallback
+                result = process_workflow_job.apply_async(
+                    args=[str(job.id)],
+                    queue='default',
+                    routing_key='default'
+                )
+                logger.info(f"Dispatched job {job.id} to Celery for processing with task ID: {result.id}")
             except Exception as e:
                 logger.error(f"Failed to dispatch job {job.id} to Celery: {str(e)}")
-                # Continue anyway - the job will remain queued
+                # Try to process immediately as fallback
+                try:
+                    logger.info(f"Attempting immediate processing for job {job.id}")
+                    from workflow.tasks import process_workflow_job
+                    process_workflow_job(str(job.id))
+                except Exception as fallback_error:
+                    logger.error(f"Fallback processing also failed for job {job.id}: {str(fallback_error)}")
+                    # Continue anyway - the job will remain queued
             
             return job
             
@@ -281,21 +293,17 @@ class FitmentJobManager:
                         session_id=session_id,
                         tenant=tenant,
                         part_id=part_id,
+                        part_description=fitment_data.get('description', f"Manual fitment for {vehicle.make} {vehicle.model}"),
                         year=vehicle.year,
                         make=vehicle.make,
                         model=vehicle.model,
                         submodel=vehicle.submodel or '',
                         drive_type=vehicle.drive_type or '',
-                        fuel_type=vehicle.fuel_type or 'Gas',
-                        num_doors=vehicle.num_doors or 4,
-                        body_type=vehicle.body_type or 'Sedan',
                         position=fitment_data.get('position', 'Front'),
                         quantity=fitment_data.get('quantity', 1),
                         title=fitment_data.get('title', f"Manual Fitment - {part_id}"),
                         description=fitment_data.get('description', f"Manual fitment for {vehicle.make} {vehicle.model}"),
-                        notes=fitment_data.get('notes', 'Applied manually'),
-                        fitment_type='manual_fitment',
-                        created_by='manual_user'
+                        notes=fitment_data.get('notes', 'Applied manually')
                     )
                     applied_fitments.append(applied_fitment)
                     

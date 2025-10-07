@@ -50,6 +50,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import EntitySelector from "./components/EntitySelector";
 import UserRoleToggle from "./components/UserRoleToggle";
 import { useAuth } from "./contexts/AuthContext";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 // Base navigation items that are always available
 const baseNavigationItems = [
@@ -434,6 +436,20 @@ function App() {
           </Box>
         </AppShell.Main>
       </AppShell>
+
+      {/* Toast Container */}
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
     </ProtectedRoute>
   );
 }

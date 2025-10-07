@@ -34,10 +34,11 @@ import {
   IconArrowLeft,
   IconClock,
   IconRefresh,
+  IconX,
 } from "@tabler/icons-react";
 import { useParams, useNavigate } from "react-router-dom";
 import apiClient from "../api/client";
-import { notifications } from "@mantine/notifications";
+import { toast } from "react-toastify";
 
 interface Entity {
   id: string;
@@ -222,11 +223,7 @@ const EditEntity: React.FC = () => {
         });
       } catch (error) {
         setError("Failed to load entity data");
-        notifications.show({
-          title: "Error",
-          message: "Failed to load entity data",
-          color: "red",
-        });
+        toast.error("Failed to load entity data");
       } finally {
         setLoading(false);
       }
@@ -251,11 +248,7 @@ const EditEntity: React.FC = () => {
       );
       setVcdbCategories(response.data);
     } catch (error) {
-      notifications.show({
-        title: "Error",
-        message: "Failed to load VCDB categories",
-        color: "red",
-      });
+      toast.error("Failed to load VCDB categories");
     } finally {
       setLoadingCategories(false);
     }
@@ -297,47 +290,35 @@ const EditEntity: React.FC = () => {
             newJob.status === "failed" &&
             newJob.result?.fitments_failed > 0
           ) {
-            notifications.show({
-              title: "Fitments Already Exist",
-              message:
-                newJob.result.error_message ||
+            toast.warning(
+              newJob.result.error_message ||
                 `All ${newJob.result.fitments_failed} fitments already exist. No new fitments were created.`,
-              color: "orange",
-              autoClose: 10000,
-            });
+              { autoClose: 10000 }
+            );
           } else if (
             newJob.status === "completed_with_warnings" &&
             newJob.result?.fitments_failed > 0
           ) {
-            notifications.show({
-              title: "Fitments Created with Warnings",
-              message:
-                newJob.result.error_message ||
+            toast.warning(
+              newJob.result.error_message ||
                 `Created ${newJob.result.fitments_created} new fitments, but ${newJob.result.fitments_failed} already existed.`,
-              color: "yellow",
-              autoClose: 10000,
-            });
+              { autoClose: 10000 }
+            );
           } else if (
             newJob.status === "completed" &&
             newJob.result?.fitments_created > 0
           ) {
-            notifications.show({
-              title: "Fitments Created Successfully",
-              message: `Successfully created ${newJob.result.fitments_created} new fitments.`,
-              color: "green",
-              autoClose: 5000,
-            });
+            toast.success(
+              `Successfully created ${newJob.result.fitments_created} new fitments.`,
+              { autoClose: 5000 }
+            );
           }
         }
       });
 
       setFitmentJobs(newJobs);
     } catch (error) {
-      notifications.show({
-        title: "Error",
-        message: "Failed to load fitment jobs",
-        color: "red",
-      });
+      toast.error("Failed to load fitment jobs");
     } finally {
       setLoadingJobs(false);
     }
@@ -375,11 +356,7 @@ const EditEntity: React.FC = () => {
       setUploadHistory(response.data || []);
     } catch (error) {
       console.error("Error fetching upload history:", error);
-      notifications.show({
-        title: "Error",
-        message: "Failed to load upload history",
-        color: "red",
-      });
+      toast.error("Failed to load upload history");
     } finally {
       setLoadingUploadHistory(false);
     }
@@ -419,36 +396,28 @@ const EditEntity: React.FC = () => {
         // Only show notification if status changed to a completed state
         if (previousStatus && previousStatus !== currentStatus) {
           if (currentStatus === "failed" && job.result?.fitments_failed > 0) {
-            notifications.show({
-              title: "Fitments Already Exist",
-              message:
-                job.result.error_message ||
+            toast.warning(
+              job.result.error_message ||
                 `All ${job.result.fitments_failed} fitments already exist. No new fitments were created.`,
-              color: "orange",
-              autoClose: 10000,
-            });
+              { autoClose: 10000 }
+            );
           } else if (
             currentStatus === "completed_with_warnings" &&
             job.result?.fitments_failed > 0
           ) {
-            notifications.show({
-              title: "Fitments Created with Warnings",
-              message:
-                job.result.error_message ||
+            toast.warning(
+              job.result.error_message ||
                 `Created ${job.result.fitments_created} new fitments, but ${job.result.fitments_failed} already existed.`,
-              color: "yellow",
-              autoClose: 10000,
-            });
+              { autoClose: 10000 }
+            );
           } else if (
             currentStatus === "completed" &&
             job.result?.fitments_created > 0
           ) {
-            notifications.show({
-              title: "Fitments Created Successfully",
-              message: `Successfully created ${job.result.fitments_created} new fitments.`,
-              color: "green",
-              autoClose: 5000,
-            });
+            toast.success(
+              `Successfully created ${job.result.fitments_created} new fitments.`,
+              { autoClose: 5000 }
+            );
           }
         }
       });
@@ -509,17 +478,9 @@ const EditEntity: React.FC = () => {
       const response = await apiClient.get(`/api/tenants/${entity.id}/`);
       setEntity(response.data);
 
-      notifications.show({
-        title: "Success",
-        message: "Entity updated successfully",
-        color: "green",
-      });
+      toast.success("Entity updated successfully");
     } catch (error) {
-      notifications.show({
-        title: "Error",
-        message: "Failed to update entity",
-        color: "red",
-      });
+      toast.error("Failed to update entity");
     } finally {
       setSubmitting(false);
     }
@@ -808,17 +769,9 @@ const EditEntity: React.FC = () => {
                           fitment_settings: fitmentConfig,
                         });
 
-                        notifications.show({
-                          title: "Success",
-                          message: "Fitment configuration saved",
-                          color: "green",
-                        });
+                        toast.success("Fitment configuration saved");
                       } catch (error) {
-                        notifications.show({
-                          title: "Error",
-                          message: "Failed to save fitment configuration",
-                          color: "red",
-                        });
+                        toast.error("Failed to save fitment configuration");
                       } finally {
                         setSubmitting(false);
                       }
@@ -1029,17 +982,11 @@ const EditEntity: React.FC = () => {
                           updateData
                         );
 
-                        notifications.show({
-                          title: "Success",
-                          message: "Product configuration saved successfully",
-                          color: "green",
-                        });
+                        toast.success(
+                          "Product configuration saved successfully"
+                        );
                       } catch (error) {
-                        notifications.show({
-                          title: "Error",
-                          message: "Failed to save product configuration",
-                          color: "red",
-                        });
+                        toast.error("Failed to save product configuration");
                       } finally {
                         setSubmitting(false);
                       }
@@ -1057,17 +1004,6 @@ const EditEntity: React.FC = () => {
                 <Text fw={500} size="lg">
                   Apply Fitment
                 </Text>
-                <Alert color="blue" title="How to use this tab:">
-                  <Text size="sm">
-                    1. Upload product files (CSV/Excel) below
-                    <br />
-                    2. Review the list of uploaded files
-                    <br />
-                    3. Click "Apply Fitment" to start the fitment process
-                    <br />
-                    4. Check the History tab to monitor progress
-                  </Text>
-                </Alert>
 
                 {checkingFiles && (
                   <Alert color="yellow" title="Checking for existing files...">
@@ -1077,63 +1013,222 @@ const EditEntity: React.FC = () => {
                   </Alert>
                 )}
 
-                <FileInput
-                  label="Upload Product Files"
-                  placeholder="Upload product data files"
-                  multiple
-                  accept=".csv,.xlsx,.json"
-                  value={formData.uploaded_files}
-                  onChange={(files) =>
-                    setFormData({ ...formData, uploaded_files: files || [] })
-                  }
-                />
+                {/* Enhanced File Upload Section */}
+                <Card withBorder p="lg" style={{ backgroundColor: "#fafbfc" }}>
+                  <Stack gap="md">
+                    <Group justify="space-between" align="center">
+                      <div>
+                        <Text fw={600} size="lg" c="dark">
+                          Product Files Upload
+                        </Text>
+                        <Text size="sm" c="dimmed">
+                          Upload CSV, XLSX, or JSON files containing your
+                          product data
+                        </Text>
+                      </div>
+                      <Badge color="blue" variant="light" size="lg">
+                        {formData.uploaded_files.length} files
+                      </Badge>
+                    </Group>
 
-                {/* List of uploaded files */}
-                {formData.uploaded_files.length > 0 && (
-                  <Card withBorder>
-                    <Text fw={500} mb="sm">
-                      Uploaded Files ({formData.uploaded_files.length})
-                    </Text>
-                    <Stack gap="xs">
-                      {formData.uploaded_files.map((file, index) => (
-                        <Group
-                          key={index}
-                          justify="space-between"
-                          p="xs"
-                          style={{
-                            backgroundColor: "#f8f9fa",
-                            borderRadius: "4px",
-                          }}
-                        >
-                          <Text size="sm">{file.name}</Text>
-                          <Text size="xs" c="dimmed">
-                            {file.size < 1024 * 1024
-                              ? `${(file.size / 1024).toFixed(1)} KB`
-                              : `${(file.size / 1024 / 1024).toFixed(2)} MB`}
+                    <FileInput
+                      placeholder="Click to browse or drag & drop files here"
+                      multiple
+                      accept=".csv,.xlsx,.json"
+                      value={formData.uploaded_files}
+                      onChange={(files) =>
+                        setFormData({
+                          ...formData,
+                          uploaded_files: files || [],
+                        })
+                      }
+                      styles={{
+                        input: {
+                          border: "2px dashed #dee2e6",
+                          backgroundColor: "#ffffff",
+                          borderRadius: "8px",
+                          padding: "24px",
+                          textAlign: "center",
+                          cursor: "pointer",
+                          transition: "all 0.2s ease",
+                          "&:hover": {
+                            borderColor: "#339af0",
+                            backgroundColor: "#f8f9ff",
+                          },
+                        },
+                        placeholder: {
+                          color: "#6c757d",
+                          fontSize: "14px",
+                        },
+                      }}
+                    />
+
+                    {/* File Type Guidelines */}
+                    <Alert variant="light" radius="md">
+                      <Text size="sm" fw={500} mb="xs">
+                        Supported File Types:
+                      </Text>
+                      <Group gap="md">
+                        <Badge color="green" variant="light" size="sm">
+                          CSV Files
+                        </Badge>
+                        <Badge color="orange" variant="light" size="sm">
+                          Excel Files
+                        </Badge>
+                        <Badge color="purple" variant="light" size="sm">
+                          JSON Files
+                        </Badge>
+                      </Group>
+                    </Alert>
+
+                    {/* Enhanced File List */}
+                    {formData.uploaded_files.length > 0 && (
+                      <Card withBorder radius="md" p="md">
+                        <Group justify="space-between" mb="md">
+                          <Text fw={600} size="md" c="dark">
+                            Uploaded Files
                           </Text>
+                          <Button
+                            variant="subtle"
+                            color="red"
+                            size="xs"
+                            onClick={() =>
+                              setFormData({ ...formData, uploaded_files: [] })
+                            }
+                          >
+                            Clear All
+                          </Button>
                         </Group>
-                      ))}
-                    </Stack>
-                  </Card>
-                )}
 
-                {/* Show default mapping type */}
+                        <Stack gap="xs">
+                          {formData.uploaded_files.map((file, index) => (
+                            <Paper
+                              key={index}
+                              p="sm"
+                              radius="md"
+                              style={{
+                                backgroundColor: "#ffffff",
+                                border: "1px solid #e9ecef",
+                                transition: "all 0.2s ease",
+                              }}
+                            >
+                              <Group justify="space-between" align="center">
+                                <Group gap="sm">
+                                  <div
+                                    style={{
+                                      width: "8px",
+                                      height: "8px",
+                                      borderRadius: "50%",
+                                      backgroundColor: "#51cf66",
+                                    }}
+                                  />
+                                  <div>
+                                    <Text size="sm" fw={500} c="dark">
+                                      {file.name}
+                                    </Text>
+                                    <Text size="xs" c="dimmed">
+                                      {file.size < 1024 * 1024
+                                        ? `${(file.size / 1024).toFixed(1)} KB`
+                                        : `${(file.size / 1024 / 1024).toFixed(
+                                            2
+                                          )} MB`}
+                                    </Text>
+                                  </div>
+                                </Group>
+
+                                <Group gap="xs">
+                                  <Badge
+                                    color={
+                                      file.name.endsWith(".csv")
+                                        ? "green"
+                                        : file.name.endsWith(".xlsx")
+                                        ? "orange"
+                                        : file.name.endsWith(".json")
+                                        ? "purple"
+                                        : "gray"
+                                    }
+                                    variant="light"
+                                    size="xs"
+                                  >
+                                    {file.name.split(".").pop()?.toUpperCase()}
+                                  </Badge>
+
+                                  <ActionIcon
+                                    color="red"
+                                    variant="subtle"
+                                    size="sm"
+                                    onClick={() => {
+                                      const newFiles =
+                                        formData.uploaded_files.filter(
+                                          (_, i) => i !== index
+                                        );
+                                      setFormData({
+                                        ...formData,
+                                        uploaded_files: newFiles,
+                                      });
+                                    }}
+                                  >
+                                    <IconX size={14} />
+                                  </ActionIcon>
+                                </Group>
+                              </Group>
+                            </Paper>
+                          ))}
+                        </Stack>
+                      </Card>
+                    )}
+                  </Stack>
+                </Card>
+
+                {/* Enhanced Fitment Method Display */}
                 {formData.default_fitment_method && (
-                  <Alert color="blue" title="Default Fitment Method">
-                    <Text size="sm">
-                      Current default mapping type:{" "}
-                      <strong>
-                        {formData.default_fitment_method.toUpperCase()}
-                      </strong>
+                  <Card
+                    withBorder
+                    p="md"
+                    style={{ backgroundColor: "#f8f9ff" }}
+                  >
+                    <Group justify="space-between" align="center" mb="sm">
+                      <Text fw={600} size="md" c="dark">
+                        🎯 Fitment Configuration
+                      </Text>
+                      <Badge
+                        color={
+                          formData.default_fitment_method === "ai"
+                            ? "purple"
+                            : "blue"
+                        }
+                        variant="light"
+                        size="lg"
+                      >
+                        {formData.default_fitment_method === "ai"
+                          ? "🤖 AI Fitment"
+                          : "👤 Manual Fitment"}
+                      </Badge>
+                    </Group>
+
+                    <Stack gap="xs">
+                      <Text size="sm">
+                        <strong>Processing Method:</strong>{" "}
+                        {formData.default_fitment_method === "ai"
+                          ? "AI-Powered"
+                          : "Manual Mapping"}
+                      </Text>
+
                       {formData.default_fitment_method === "ai" && (
-                        <Text size="xs" c="dimmed" mt="xs">
-                          AI Instructions:{" "}
+                        <Text size="xs" c="dimmed">
+                          <strong>AI Instructions:</strong>{" "}
                           {formData.ai_instructions ||
-                            "No specific instructions provided"}
+                            "Using default AI processing"}
                         </Text>
                       )}
-                    </Text>
-                  </Alert>
+
+                      <Text size="xs" c="dimmed">
+                        When you click "Apply Fitment", a{" "}
+                        {formData.default_fitment_method} fitment job will be
+                        created and started automatically.
+                      </Text>
+                    </Stack>
+                  </Card>
                 )}
 
                 <Group justify="flex-end" mt="md">
@@ -1164,6 +1259,14 @@ const EditEntity: React.FC = () => {
                             updateData
                           );
 
+                          // Show processing notification
+                          toast.info(
+                            "🚀 Starting Fitment Process - Uploading files and configuring fitment settings...",
+                            {
+                              autoClose: 3000,
+                            }
+                          );
+
                           // Then upload files and create fitment job
                           const formDataToSend = new FormData();
                           formDataToSend.append("tenant_id", entity.id);
@@ -1191,7 +1294,7 @@ const EditEntity: React.FC = () => {
                             formDataToSend.append(`files`, file);
                           });
 
-                          await apiClient.post(
+                          const uploadResponse = await apiClient.post(
                             "/api/products/upload/",
                             formDataToSend,
                             {
@@ -1202,23 +1305,34 @@ const EditEntity: React.FC = () => {
                             }
                           );
 
+                          // Show job creation notification
+                          const jobType =
+                            formData.default_fitment_method === "ai"
+                              ? "AI"
+                              : "Manual";
+                          toast.info(
+                            `⚙️ Creating ${jobType} Fitment Job - Setting up with your uploaded files...`,
+                            {
+                              autoClose: 3000,
+                            }
+                          );
+
                           // Refresh fitment jobs to show the new job
                           fetchFitmentJobs();
 
                           // Refresh upload history to show the latest uploads
                           fetchUploadHistory();
 
-                          notifications.show({
-                            title: "Success",
-                            message:
-                              "Files uploaded and fitment job started! Check History tab for progress.",
-                            color: "green",
-                          });
+                          // Show success message with job type
+                          toast.success(
+                            `✅ ${jobType} Fitment Started! Your ${jobType.toLowerCase()} fitment process has been initiated successfully. Check the History tab to monitor progress.`,
+                            {
+                              autoClose: 6000,
+                            }
+                          );
                         } catch (error) {
-                          notifications.show({
-                            title: "Error",
-                            message: "Failed to upload files",
-                            color: "red",
+                          toast.error("❌ Failed to upload files", {
+                            autoClose: 5000,
                           });
                         } finally {
                           setSubmitting(false);
@@ -1226,7 +1340,9 @@ const EditEntity: React.FC = () => {
                       }}
                       loading={submitting}
                     >
-                      Apply Fitment
+                      {formData.default_fitment_method === "ai"
+                        ? "Apply AI Fitment"
+                        : "Apply Manual Fitment"}
                     </Button>
                   ) : (
                     <Button disabled>Upload Files Required</Button>
@@ -1334,10 +1450,7 @@ const EditEntity: React.FC = () => {
                       leftSection={<IconRefresh size={16} />}
                       onClick={() => {
                         fetchFitmentJobs();
-                        notifications.show({
-                          title: "Refreshing",
-                          message: "Job history is being refreshed...",
-                          color: "blue",
+                        toast.info("Job history is being refreshed...", {
                           autoClose: 2000,
                         });
                       }}
