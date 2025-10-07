@@ -10,7 +10,6 @@ import {
   Stack,
   Group,
   Alert,
-  Loader,
   Card,
   Badge,
 } from "@mantine/core";

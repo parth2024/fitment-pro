@@ -9,12 +9,7 @@ import {
   Stack,
   Divider,
 } from "@mantine/core";
-import {
-  IconUser,
-  IconShield,
-  IconUsers,
-  IconChevronDown,
-} from "@tabler/icons-react";
+import { IconShield, IconUsers, IconChevronDown } from "@tabler/icons-react";
 import { useAuth } from "../contexts/AuthContext";
 
 interface UserRoleToggleProps {

@@ -42,7 +42,6 @@ import {
   IconBrain,
   IconUsers,
   IconShield,
-  IconSettings,
   IconInfoCircle,
   IconCheck,
   IconTable,
