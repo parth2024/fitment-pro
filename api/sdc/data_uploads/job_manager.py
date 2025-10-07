@@ -237,10 +237,12 @@ class FitmentJobManager:
             # Create fitments
             applied_fitments = []
             created_fitments = []
+            duplicates_count = 0
+            errors_count = 0
             
             for vehicle in vehicles:
                 try:
-                # Check for existing fitment to avoid duplicates
+                    # Check for existing fitment to avoid duplicates
                     existing_fitment = Fitment.objects.filter(
                         tenant=tenant,
                         partId=part_id,
@@ -253,6 +255,7 @@ class FitmentJobManager:
                 
                     if existing_fitment:
                         logger.warning(f"Fitment already exists for {part_id} and {vehicle.year} {vehicle.make} {vehicle.model}")
+                        duplicates_count += 1
                         continue
                 
                     # Create Fitment record
@@ -309,15 +312,29 @@ class FitmentJobManager:
                     
                 except Exception as e:
                     logger.error(f"Failed to create fitment for vehicle {vehicle.id}: {str(e)}")
+                    errors_count += 1
                     continue
             
-            # Update job with results
+            # Decide final status
+            total_failures = duplicates_count + errors_count
+            if len(created_fitments) == 0 and total_failures > 0:
+                final_status = 'failed'
+            elif len(created_fitments) > 0 and total_failures > 0:
+                final_status = 'completed_with_warnings'
+            else:
+                final_status = 'completed'
+
+            # Update job with results (include backward-compatible keys and UI-expected keys)
             FitmentJobManager.update_job_status(
                 job.id, 
-                'completed', 
+                final_status, 
                 result={
                     'applied_count': len(applied_fitments),
-                    'created_fitments': len(created_fitments),
+                    'created_fitments': len(created_fitments),  # legacy count name
+                    'fitments_created': len(created_fitments),   # UI expected
+                    'fitments_failed': total_failures,           # UI expected (duplicates + errors)
+                    'duplicates': duplicates_count,
+                    'errors': errors_count,
                     'session_id': session_id,
                     'part_id': part_id,
                     'vehicles_processed': len(vehicle_ids)

@@ -1680,6 +1680,14 @@ def get_job_history(request):
             elif job.started_at:
                 duration = (timezone.now() - job.started_at).total_seconds()
 
+            # Normalize result keys for UI expectations
+            result = job.result or {}
+            if result and isinstance(result, dict):
+                if 'fitments_created' not in result and 'created_fitments' in result:
+                    result['fitments_created'] = result.get('created_fitments', 0)
+                if 'fitments_failed' not in result and 'failed' in result:
+                    result['fitments_failed'] = result.get('failed', 0)
+
             job_history.append({
                 'id': str(job.id),
                 'job_type': job.job_type,
@@ -1687,10 +1695,11 @@ def get_job_history(request):
                 'created_at': job.created_at.isoformat(),
                 'started_at': job.started_at.isoformat() if job.started_at else None,
                 'finished_at': job.finished_at.isoformat() if job.finished_at else None,
-                'result': job.result,
+                'result': result,
                 'params': job.params,
                 'progress': getattr(job, 'progress', 0),
-                'duration': f"{int(duration)}s" if duration is not None else "Pending"
+                'duration': f"{int(duration)}s" if duration is not None else "Pending",
+                'source': 'workflow'
             })
         
         # Add fitment jobs
@@ -1725,11 +1734,16 @@ def get_job_history(request):
                     'product_fields': job.product_fields
                 },
                 'progress': job.progress_percentage or 0,
-                'duration': f"{int(duration)}s" if duration is not None else "Pending"
+                'duration': f"{int(duration)}s" if duration is not None else "Pending",
+                'source': 'vcdb_categories'
             })
         
-        # Sort by created_at descending
-        job_history.sort(key=lambda x: x['created_at'], reverse=True)
+        # Sort by created_at descending; prefer workflow jobs over vcdb_categories when times are close
+        def sort_key(j):
+            # Use tuple: (created_at desc, source priority)
+            src_priority = 0 if j.get('source') == 'workflow' else 1
+            return (j['created_at'], -1 * (1 - src_priority))
+        job_history.sort(key=lambda j: (j['created_at'], 0 if j.get('source') == 'workflow' else -1), reverse=True)
 
         return Response({
             'job_history': job_history,

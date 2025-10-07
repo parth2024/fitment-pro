@@ -92,7 +92,7 @@ def process_manual_fitments(job, vcdb_categories, product_data):
     duplicate_messages = []
     
     # Import AppliedFitment model for tracking
-    from data_uploads.models import AppliedFitment
+    from data_uploads.models import AppliedFitment, DataUploadSession
     
     for product in product_data:
         for category in vcdb_categories:
@@ -157,23 +157,36 @@ def process_manual_fitments(job, vcdb_categories, product_data):
                                     updatedBy='bulk_processing'
                                 )
                                 
-                                # Create AppliedFitment record for tracking (following apply_manual_fitment pattern)
-                                applied_fitment = AppliedFitment.objects.create(
-                                    session_id=job.session_id if hasattr(job, 'session_id') else None,
-                                    tenant=job.tenant,
-                                    part_id=product.part_number,
-                                    part_description=getattr(product, 'description', None) or getattr(product, 'part_terminology_name', None) or f"Bulk fitment for {vcdb_record.make} {vcdb_record.model}",
-                                    year=vcdb_record.year,
-                                    make=vcdb_record.make,
-                                    model=vcdb_record.model,
-                                    submodel=vcdb_record.submodel or '',
-                                    drive_type=vcdb_record.drive_type or '',
-                                    position='Front',  # Default position
-                                    quantity=1,  # Default quantity
-                                    title=f"Manual Fitment - {product.part_number}",
-                                    description=f"Manual fitment for {vcdb_record.make} {vcdb_record.model}",
-                                    notes='Applied via bulk processing'
-                                )
+                                # Create AppliedFitment record for tracking (optional)
+                                # Only create when a valid DataUploadSession is available to satisfy NOT NULL constraint
+                                session_obj = None
+                                try:
+                                    if hasattr(job, 'session_id') and job.session_id:
+                                        session_obj = DataUploadSession.objects.get(id=job.session_id)
+                                except DataUploadSession.DoesNotExist:
+                                    session_obj = None
+
+                                if session_obj:
+                                    try:
+                                        AppliedFitment.objects.create(
+                                            session=session_obj,
+                                            tenant=job.tenant,
+                                            part_id=product.part_number,
+                                            part_description=getattr(product, 'description', None) or getattr(product, 'part_terminology_name', None) or f"Bulk fitment for {vcdb_record.make} {vcdb_record.model}",
+                                            year=vcdb_record.year,
+                                            make=vcdb_record.make,
+                                            model=vcdb_record.model,
+                                            submodel=vcdb_record.submodel or '',
+                                            drive_type=vcdb_record.drive_type or '',
+                                            position='Front',  # Default position
+                                            quantity=1,  # Default quantity
+                                            title=f"Manual Fitment - {product.part_number}",
+                                            description=f"Manual fitment for {vcdb_record.make} {vcdb_record.model}",
+                                            notes='Applied via bulk processing'
+                                        )
+                                    except Exception:
+                                        # Tracking failure should not mark the overall fitment creation as failed
+                                        pass
                                 
                                 fitments_created += 1
                                 print(f"✅ Created manual fitment: {product.part_number} -> {vcdb_record.year} {vcdb_record.make} {vcdb_record.model}")
