@@ -245,7 +245,7 @@ export const MultiEntitySelector: React.FC<MultiEntitySelectorProps> = ({
                       selectedEntities.length > 0 &&
                       selectedEntities.length < entities.length
                     }
-                    onChange={() => {}}
+                    onChange={handleSelectAll}
                     size="sm"
                   />
                   <IconUsers size={16} color="#64748b" />
@@ -283,7 +283,7 @@ export const MultiEntitySelector: React.FC<MultiEntitySelectorProps> = ({
                   <Group gap="sm">
                     <Checkbox
                       checked={selectedEntities.includes(entity.id)}
-                      onChange={() => {}}
+                      onChange={() => handleEntityToggle(entity.id)}
                       size="sm"
                     />
                     <IconBuilding size={16} color="#64748b" />

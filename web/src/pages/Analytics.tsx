@@ -14,6 +14,7 @@ import {
   Skeleton,
   Divider,
   Button,
+  Center,
 } from "@mantine/core";
 import {
   IconChartBar,
@@ -72,7 +73,7 @@ const Analytics: React.FC = () => {
   const [selectedEntities, setSelectedEntities] = useState<string[]>([]);
   const [dataFetched, setDataFetched] = useState(false);
   const navigate = useNavigate();
-  const { currentEntity } = useEntity();
+  const { currentEntity, loading: entityLoading } = useEntity();
 
   const navigationShortcuts: NavigationShortcut[] = [
     {
@@ -190,10 +191,13 @@ const Analytics: React.FC = () => {
     await fetchAnalyticsData(entityIds);
   };
 
-  // Initialize with current entity if available
+  // Initialize with current entity if available and fetch data automatically
   useEffect(() => {
-    if (currentEntity && selectedEntities.length === 0) {
+    if (currentEntity) {
+      // Always set the current entity and fetch data when component mounts or entity changes
       setSelectedEntities([currentEntity.id]);
+      setDataFetched(true);
+      fetchAnalyticsData([currentEntity.id]);
     }
   }, [currentEntity]);
 
@@ -201,8 +205,9 @@ const Analytics: React.FC = () => {
   useEffect(() => {
     const handleEntityChange = () => {
       console.log("Entity changed, refreshing Analytics data...");
-      if (selectedEntities.length > 0) {
-        fetchAnalyticsData(selectedEntities);
+      if (currentEntity) {
+        setSelectedEntities([currentEntity.id]);
+        fetchAnalyticsData([currentEntity.id]);
       }
     };
 
@@ -213,7 +218,7 @@ const Analytics: React.FC = () => {
     return () => {
       window.removeEventListener("entityChanged", handleEntityChange);
     };
-  }, [selectedEntities]);
+  }, [currentEntity]);
 
   const handleNavigationClick = (path: string) => {
     // Navigate to the specified route
@@ -222,8 +227,27 @@ const Analytics: React.FC = () => {
     window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
   };
 
-  // Show entity selection if no entities selected or data not fetched
-  if (!dataFetched || selectedEntities.length === 0) {
+  // Show loading state while entity is being loaded
+  if (entityLoading) {
+    return (
+      <div style={{ minHeight: "100vh" }}>
+        <Stack gap="xl">
+          <Card withBorder p="xl" radius="md">
+            <Center py="xl">
+              <Stack align="center" gap="md">
+                <Text size="lg" c="dimmed">
+                  Loading entity data...
+                </Text>
+              </Stack>
+            </Center>
+          </Card>
+        </Stack>
+      </div>
+    );
+  }
+
+  // Show entity selection only if no current entity and no data fetched
+  if (!currentEntity || (!dataFetched && selectedEntities.length === 0)) {
     return (
       <div style={{ minHeight: "100vh" }}>
         <Stack gap="xl">
@@ -267,38 +291,6 @@ const Analytics: React.FC = () => {
             description="Choose one or more entities to view their analytics data. You can select multiple entities to compare their performance."
             showStats={true}
           />
-
-          {/* Instructions */}
-          <Card withBorder p="lg" radius="md">
-            <Stack gap="md">
-              <Group gap="sm">
-                <IconInfoCircle size={20} color="#3b82f6" />
-                <Title order={4}>How to Use Analytics</Title>
-              </Group>
-              <Text size="sm" c="#64748b">
-                Select one or more entities above to view their analytics data.
-                The dashboard will show:
-              </Text>
-              <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-                <Group gap="sm">
-                  <IconCheck size={16} color="#10b981" />
-                  <Text size="sm">Total fitments and parts count</Text>
-                </Group>
-                <Group gap="sm">
-                  <IconCheck size={16} color="#10b981" />
-                  <Text size="sm">AI vs Manual fitment breakdown</Text>
-                </Group>
-                <Group gap="sm">
-                  <IconCheck size={16} color="#10b981" />
-                  <Text size="sm">Vehicle coverage analysis</Text>
-                </Group>
-                <Group gap="sm">
-                  <IconCheck size={16} color="#10b981" />
-                  <Text size="sm">Top performing makes and models</Text>
-                </Group>
-              </SimpleGrid>
-            </Stack>
-          </Card>
         </Stack>
       </div>
     );
@@ -515,6 +507,7 @@ const Analytics: React.FC = () => {
               onClick={() => {
                 setDataFetched(false);
                 setData(null);
+                setSelectedEntities([]);
               }}
             >
               Change Selection

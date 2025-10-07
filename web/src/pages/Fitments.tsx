@@ -48,6 +48,7 @@ import {
 } from "@tabler/icons-react";
 import FilterableSortableHeader from "../components/FilterableSortableHeader";
 import { useApi } from "../hooks/useApi";
+import { useEntity } from "../hooks/useEntity";
 import {
   fitmentsService,
   fitmentUploadService,
@@ -113,6 +114,7 @@ interface ColumnFilters {
 
 export default function Fitments() {
   const navigate = useNavigate();
+  const { currentEntity, loading: entityLoading } = useEntity();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFitments, setSelectedFitments] = useState<string[]>([]);
   const [selectedEntities, setSelectedEntities] = useState<string[]>([]);
@@ -227,11 +229,21 @@ export default function Fitments() {
     await refetch();
   };
 
+  // Initialize with current entity if available and fetch data automatically
+  useEffect(() => {
+    if (currentEntity) {
+      // Always set the current entity and fetch data when component mounts or entity changes
+      setSelectedEntities([currentEntity.id]);
+      setDataFetched(true);
+    }
+  }, [currentEntity]);
+
   // Listen for entity change events from EntitySelector
   useEffect(() => {
     const handleEntityChange = async () => {
       console.log("Entity changed, refreshing Fitments...");
-      if (selectedEntities.length > 0) {
+      if (currentEntity) {
+        setSelectedEntities([currentEntity.id]);
         await refetch();
       }
     };
@@ -243,7 +255,7 @@ export default function Fitments() {
     return () => {
       window.removeEventListener("entityChanged", handleEntityChange);
     };
-  }, [refetch, selectedEntities]);
+  }, [refetch, currentEntity]);
 
   // Fetch AI-generated fitments from Django backend
   const { refetch: refetchAi } = useApi<{
@@ -785,8 +797,27 @@ export default function Fitments() {
     return baseDescription;
   };
 
-  // Show entity selection if no entities selected or data not fetched
-  if (!dataFetched || selectedEntities.length === 0) {
+  // Show loading state while entity is being loaded
+  if (entityLoading) {
+    return (
+      <div style={{ minHeight: "100vh" }}>
+        <Stack gap="xl">
+          <Card withBorder p="xl" radius="md">
+            <Center py="xl">
+              <Stack align="center" gap="md">
+                <Text size="lg" c="dimmed">
+                  Loading entity data...
+                </Text>
+              </Stack>
+            </Center>
+          </Card>
+        </Stack>
+      </div>
+    );
+  }
+
+  // Show entity selection only if no current entity and no data fetched
+  if (!currentEntity || (!dataFetched && selectedEntities.length === 0)) {
     return (
       <div style={{ minHeight: "100vh" }}>
         <Stack gap="xl">
@@ -830,37 +861,6 @@ export default function Fitments() {
             description="Choose one or more entities to view and manage their fitments. You can select multiple entities to compare their fitment data."
             showStats={true}
           />
-
-          {/* Instructions */}
-          <Card withBorder p="lg" radius="md">
-            <Stack gap="md">
-              <Group gap="sm">
-                <IconInfoCircle size={20} color="#10b981" />
-                <Title order={4}>Fitments Management Features</Title>
-              </Group>
-              <Text size="sm" c="#64748b">
-                Once you select entities, you'll have access to:
-              </Text>
-              <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-                <Group gap="sm">
-                  <IconCheck size={16} color="#10b981" />
-                  <Text size="sm">View and filter all fitments</Text>
-                </Group>
-                <Group gap="sm">
-                  <IconCheck size={16} color="#10b981" />
-                  <Text size="sm">AI vs Manual fitment management</Text>
-                </Group>
-                <Group gap="sm">
-                  <IconCheck size={16} color="#10b981" />
-                  <Text size="sm">Bulk operations and approvals</Text>
-                </Group>
-                <Group gap="sm">
-                  <IconCheck size={16} color="#10b981" />
-                  <Text size="sm">Advanced filtering and search</Text>
-                </Group>
-              </SimpleGrid>
-            </Stack>
-          </Card>
         </Stack>
       </div>
     );
@@ -911,6 +911,7 @@ export default function Fitments() {
                 onClick={() => {
                   setDataFetched(false);
                   setSelectedFitments([]);
+                  setSelectedEntities([]);
                 }}
               >
                 Change Selection
