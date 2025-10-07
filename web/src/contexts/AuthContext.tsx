@@ -5,18 +5,32 @@ import React, {
   useEffect,
   ReactNode,
 } from "react";
+import apiClient from "../api/client";
 
 interface User {
+  id: number;
+  username: string;
   email: string;
-  name: string;
+  first_name: string;
+  last_name: string;
+  display_name: string;
+  roles: string[];
+  is_admin: boolean;
+  is_mft_user: boolean;
+  tenant: {
+    id: string;
+    name: string;
+    slug: string;
+  };
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
   loading: boolean;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,44 +45,81 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Check for existing session on mount
   useEffect(() => {
-    const savedUser = localStorage.getItem("user");
-    if (savedUser) {
+    const initializeAuth = async () => {
       try {
-        setUser(JSON.parse(savedUser));
+        // Try to get current user from backend
+        const response = await apiClient.get("/api/auth/user/");
+        if (response.data.success) {
+          setUser(response.data.user);
+          localStorage.setItem("user", JSON.stringify(response.data.user));
+        }
       } catch (error) {
+        // If not authenticated, clear any stored user data
         localStorage.removeItem("user");
+        setUser(null);
+      } finally {
+        setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+
+    initializeAuth();
   }, []);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (
+    username: string,
+    password: string
+  ): Promise<boolean> => {
     setLoading(true);
 
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      const response = await apiClient.post("/api/auth/login/", {
+        username,
+        password,
+      });
 
-    // Dummy authentication - accept any email/password combination
-    // In a real app, this would validate against your backend
-    if (email && password) {
-      const userData: User = {
-        email: email,
-        name: email.split("@")[0] || "User",
-      };
-
-      setUser(userData);
-      localStorage.setItem("user", JSON.stringify(userData));
+      if (response.data.success) {
+        const userData = response.data.user;
+        setUser(userData);
+        localStorage.setItem("user", JSON.stringify(userData));
+        setLoading(false);
+        return true;
+      } else {
+        setLoading(false);
+        return false;
+      }
+    } catch (error) {
+      console.error("Login error:", error);
       setLoading(false);
-      return true;
+      return false;
     }
-
-    setLoading(false);
-    return false;
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("user");
+  const logout = async () => {
+    try {
+      await apiClient.post("/api/auth/logout/");
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      setUser(null);
+      localStorage.removeItem("user");
+      localStorage.removeItem("current_entity");
+    }
+  };
+
+  const refreshUser = async () => {
+    try {
+      const response = await apiClient.get("/api/auth/user/");
+      if (response.data.success) {
+        const userData = response.data.user;
+        setUser(userData);
+        localStorage.setItem("user", JSON.stringify(userData));
+      }
+    } catch (error) {
+      console.error("Refresh user error:", error);
+      // If refresh fails, user might be logged out
+      setUser(null);
+      localStorage.removeItem("user");
+    }
   };
 
   const value: AuthContextType = {
@@ -77,6 +128,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     logout,
     loading,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

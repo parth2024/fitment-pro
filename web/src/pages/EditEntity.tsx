@@ -149,10 +149,9 @@ const EditEntity: React.FC = () => {
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [historyTabLoaded, setHistoryTabLoaded] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("basic");
-  const [hasExistingFiles, setHasExistingFiles] = useState(false);
-  const [canProceedWithoutUpload, setCanProceedWithoutUpload] = useState(false);
-  const [existingUploads, setExistingUploads] = useState<any[]>([]);
   const [checkingFiles, setCheckingFiles] = useState(false);
+  const [uploadHistory, setUploadHistory] = useState<any[]>([]);
+  const [loadingUploadHistory, setLoadingUploadHistory] = useState(false);
 
   const [formData, setFormData] = useState<EntityFormData>({
     name: "",
@@ -349,23 +348,40 @@ const EditEntity: React.FC = () => {
 
     try {
       setCheckingFiles(true);
-      const response = await apiClient.get(
-        `/api/products/upload/check_existing_files/`,
-        {
-          headers: {
-            "X-Tenant-ID": id, // Override with the specific entity ID from URL
-          },
-        }
-      );
-      const data = response.data;
-
-      setHasExistingFiles(data.has_existing_files);
-      setCanProceedWithoutUpload(data.can_proceed_without_upload);
-      setExistingUploads(data.existing_uploads || []);
+      // Check existing files if needed
+      await apiClient.get(`/api/products/upload/check_existing_files/`, {
+        headers: {
+          "X-Tenant-ID": id, // Override with the specific entity ID from URL
+        },
+      });
+      // File checking logic can be added here if needed
     } catch (error) {
       console.error("Error checking existing files:", error);
     } finally {
       setCheckingFiles(false);
+    }
+  };
+
+  const fetchUploadHistory = async () => {
+    if (!id) return;
+
+    try {
+      setLoadingUploadHistory(true);
+      const response = await apiClient.get(`/api/products/upload/history/`, {
+        headers: {
+          "X-Tenant-ID": id, // Override with the specific entity ID from URL
+        },
+      });
+      setUploadHistory(response.data || []);
+    } catch (error) {
+      console.error("Error fetching upload history:", error);
+      notifications.show({
+        title: "Error",
+        message: "Failed to load upload history",
+        color: "red",
+      });
+    } finally {
+      setLoadingUploadHistory(false);
     }
   };
 
@@ -463,6 +479,10 @@ const EditEntity: React.FC = () => {
     if (value === "products") {
       checkExistingFiles();
     }
+    if (value === "apply-fitment") {
+      checkExistingFiles();
+      fetchUploadHistory();
+    }
   };
 
   const handleUpdate = async () => {
@@ -546,7 +566,7 @@ const EditEntity: React.FC = () => {
             >
               Back to Entities
             </Button>
-            <Title order={2}>Edit Entity: {entity.name}</Title>
+            <Title order={2}>{entity.name}</Title>
           </Group>
           <Group>
             <Badge color={entity.is_active ? "green" : "red"} size="lg">
@@ -581,6 +601,12 @@ const EditEntity: React.FC = () => {
                 Products
               </Tabs.Tab>
               <Tabs.Tab
+                value="apply-fitment"
+                leftSection={<IconCar size={16} />}
+              >
+                Apply Fitment
+              </Tabs.Tab>
+              <Tabs.Tab
                 value="history"
                 leftSection={<IconDatabase size={16} />}
               >
@@ -606,7 +632,6 @@ const EditEntity: React.FC = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, slug: e.target.value })
                   }
-                  disabled
                 />
                 <Textarea
                   label="Description"
@@ -811,64 +836,15 @@ const EditEntity: React.FC = () => {
                 <Text fw={500} size="lg">
                   Product Configuration
                 </Text>
-                <Alert color="blue" title="How to use this tab:">
+                <Alert color="blue" title="Product Configuration">
                   <Text size="sm">
-                    1. Configure your product fields below
+                    Configure your product fields and additional attributes
+                    below.
                     <br />
-                    2. Upload product files (CSV/Excel) - optional if files
-                    already exist
-                    <br />
-                    3. Click "Upload Files & Start Fitment Job" to process
-                    <br />
-                    4. Check the History tab to monitor progress
+                    To upload files and apply fitment, use the "Apply Fitment"
+                    tab.
                   </Text>
                 </Alert>
-
-                {checkingFiles && (
-                  <Alert color="yellow" title="Checking for existing files...">
-                    <Text size="sm">
-                      Please wait while we check for existing product files.
-                    </Text>
-                  </Alert>
-                )}
-
-                {hasExistingFiles && (
-                  <Alert color="green" title="Existing Product Files Found">
-                    <Group justify="space-between" align="flex-start">
-                      <div>
-                        <Text size="sm">
-                          You have existing product files. You can either:
-                          <br />
-                          • Upload new files to replace existing data
-                          <br />• Use existing data to create a new fitment job
-                        </Text>
-                        {existingUploads.length > 0 && (
-                          <Text size="xs" mt="xs">
-                            Last upload: {existingUploads[0].filename} (
-                            {existingUploads[0].created_at})
-                          </Text>
-                        )}
-                      </div>
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        onClick={checkExistingFiles}
-                        loading={checkingFiles}
-                      >
-                        Refresh
-                      </Button>
-                    </Group>
-                  </Alert>
-                )}
-
-                {!hasExistingFiles && !checkingFiles && (
-                  <Alert color="orange" title="No Product Files Found">
-                    <Text size="sm">
-                      No product files have been uploaded yet. Please upload
-                      product files to proceed.
-                    </Text>
-                  </Alert>
-                )}
 
                 <MultiSelect
                   label="Required Product Fields"
@@ -1027,17 +1003,6 @@ const EditEntity: React.FC = () => {
                   </Accordion.Item>
                 </Accordion>
 
-                <FileInput
-                  label="Upload Product Files"
-                  placeholder="Upload product data files"
-                  multiple
-                  accept=".csv,.xlsx,.json"
-                  value={formData.uploaded_files}
-                  onChange={(files) =>
-                    setFormData({ ...formData, uploaded_files: files || [] })
-                  }
-                />
-
                 <Group justify="flex-end" mt="md">
                   <Button
                     variant="outline"
@@ -1083,8 +1048,96 @@ const EditEntity: React.FC = () => {
                   >
                     Save Configuration
                   </Button>
+                </Group>
+              </Stack>
+            </Tabs.Panel>
 
-                  {/* Show different buttons based on file status */}
+            <Tabs.Panel value="apply-fitment" pt="md">
+              <Stack gap="md">
+                <Text fw={500} size="lg">
+                  Apply Fitment
+                </Text>
+                <Alert color="blue" title="How to use this tab:">
+                  <Text size="sm">
+                    1. Upload product files (CSV/Excel) below
+                    <br />
+                    2. Review the list of uploaded files
+                    <br />
+                    3. Click "Apply Fitment" to start the fitment process
+                    <br />
+                    4. Check the History tab to monitor progress
+                  </Text>
+                </Alert>
+
+                {checkingFiles && (
+                  <Alert color="yellow" title="Checking for existing files...">
+                    <Text size="sm">
+                      Please wait while we check for existing product files.
+                    </Text>
+                  </Alert>
+                )}
+
+                <FileInput
+                  label="Upload Product Files"
+                  placeholder="Upload product data files"
+                  multiple
+                  accept=".csv,.xlsx,.json"
+                  value={formData.uploaded_files}
+                  onChange={(files) =>
+                    setFormData({ ...formData, uploaded_files: files || [] })
+                  }
+                />
+
+                {/* List of uploaded files */}
+                {formData.uploaded_files.length > 0 && (
+                  <Card withBorder>
+                    <Text fw={500} mb="sm">
+                      Uploaded Files ({formData.uploaded_files.length})
+                    </Text>
+                    <Stack gap="xs">
+                      {formData.uploaded_files.map((file, index) => (
+                        <Group
+                          key={index}
+                          justify="space-between"
+                          p="xs"
+                          style={{
+                            backgroundColor: "#f8f9fa",
+                            borderRadius: "4px",
+                          }}
+                        >
+                          <Text size="sm">{file.name}</Text>
+                          <Text size="xs" c="dimmed">
+                            {file.size < 1024 * 1024
+                              ? `${(file.size / 1024).toFixed(1)} KB`
+                              : `${(file.size / 1024 / 1024).toFixed(2)} MB`}
+                          </Text>
+                        </Group>
+                      ))}
+                    </Stack>
+                  </Card>
+                )}
+
+                {/* Show default mapping type */}
+                {formData.default_fitment_method && (
+                  <Alert color="blue" title="Default Fitment Method">
+                    <Text size="sm">
+                      Current default mapping type:{" "}
+                      <strong>
+                        {formData.default_fitment_method.toUpperCase()}
+                      </strong>
+                      {formData.default_fitment_method === "ai" && (
+                        <Text size="xs" c="dimmed" mt="xs">
+                          AI Instructions:{" "}
+                          {formData.ai_instructions ||
+                            "No specific instructions provided"}
+                        </Text>
+                      )}
+                    </Text>
+                  </Alert>
+                )}
+
+                <Group justify="flex-end" mt="md">
+                  {/* Only allow Apply Fitment when new files are uploaded */}
                   {formData.uploaded_files.length > 0 ? (
                     <Button
                       onClick={async () => {
@@ -1152,6 +1205,9 @@ const EditEntity: React.FC = () => {
                           // Refresh fitment jobs to show the new job
                           fetchFitmentJobs();
 
+                          // Refresh upload history to show the latest uploads
+                          fetchUploadHistory();
+
                           notifications.show({
                             title: "Success",
                             message:
@@ -1170,80 +1226,93 @@ const EditEntity: React.FC = () => {
                       }}
                       loading={submitting}
                     >
-                      Upload Files & Start Fitment Job
-                    </Button>
-                  ) : canProceedWithoutUpload ? (
-                    <Button
-                      onClick={async () => {
-                        try {
-                          setSubmitting(true);
-
-                          // First save configuration
-                          const updateData = {
-                            ...formData,
-                            fitment_settings: {
-                              vcdb_categories: formData.vcdb_categories,
-                              required_vcdb_fields:
-                                formData.required_vcdb_fields,
-                              optional_vcdb_fields:
-                                formData.optional_vcdb_fields,
-                              required_product_fields:
-                                formData.required_product_fields,
-                              additional_attributes:
-                                formData.additional_attributes,
-                            },
-                          };
-                          await apiClient.put(
-                            `/api/tenants/${entity.id}/`,
-                            updateData
-                          );
-
-                          // Create fitment job using existing data
-                          const fitmentSettings = {
-                            vcdb_categories: formData.vcdb_categories,
-                            required_vcdb_fields: formData.required_vcdb_fields,
-                            optional_vcdb_fields: formData.optional_vcdb_fields,
-                          };
-
-                          await apiClient.post(
-                            "/api/products/upload/create_fitment_job_without_upload/",
-                            {
-                              fitment_settings: JSON.stringify(fitmentSettings),
-                            },
-                            {
-                              headers: {
-                                "X-Tenant-ID": id, // Override with the specific entity ID from URL
-                              },
-                            }
-                          );
-
-                          // Refresh fitment jobs to show the new job
-                          fetchFitmentJobs();
-
-                          notifications.show({
-                            title: "Success",
-                            message:
-                              "Fitment job started using existing product data! Check History tab for progress.",
-                            color: "green",
-                          });
-                        } catch (error) {
-                          notifications.show({
-                            title: "Error",
-                            message: "Failed to start fitment job",
-                            color: "red",
-                          });
-                        } finally {
-                          setSubmitting(false);
-                        }
-                      }}
-                      loading={submitting}
-                    >
-                      Start Fitment Job (Use Existing Data)
+                      Apply Fitment
                     </Button>
                   ) : (
                     <Button disabled>Upload Files Required</Button>
                   )}
                 </Group>
+
+                {/* Upload History Section */}
+                <Card withBorder>
+                  <Group justify="space-between" align="center" mb="md">
+                    <Text fw={500}>Upload History</Text>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      onClick={fetchUploadHistory}
+                      loading={loadingUploadHistory}
+                    >
+                      Refresh
+                    </Button>
+                  </Group>
+
+                  {loadingUploadHistory ? (
+                    <Group justify="center" py="md">
+                      <Loader size="sm" />
+                      <Text size="sm">Loading upload history...</Text>
+                    </Group>
+                  ) : uploadHistory.length === 0 ? (
+                    <Text
+                      size="sm"
+                      c="dimmed"
+                      py="md"
+                      style={{ textAlign: "center" }}
+                    >
+                      No upload history found
+                    </Text>
+                  ) : (
+                    <Table striped highlightOnHover>
+                      <Table.Thead>
+                        <Table.Tr>
+                          <Table.Th>Filename</Table.Th>
+                          <Table.Th>Size</Table.Th>
+                          <Table.Th>Upload Date</Table.Th>
+                          <Table.Th>Status</Table.Th>
+                        </Table.Tr>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {uploadHistory.map((upload, index) => (
+                          <Table.Tr key={index}>
+                            <Table.Td>
+                              <Text size="sm">{upload.filename}</Text>
+                            </Table.Td>
+                            <Table.Td>
+                              <Text size="sm" c="dimmed">
+                                {upload.file_size < 1024 * 1024
+                                  ? `${(upload.file_size / 1024).toFixed(1)} KB`
+                                  : `${(upload.file_size / 1024 / 1024).toFixed(
+                                      2
+                                    )} MB`}
+                              </Text>
+                            </Table.Td>
+                            <Table.Td>
+                              <Text size="sm" c="dimmed">
+                                {new Date(upload.uploaded_at).toLocaleString()}
+                              </Text>
+                            </Table.Td>
+                            <Table.Td>
+                              <Badge
+                                color={
+                                  upload.status === "processed"
+                                    ? "green"
+                                    : upload.status === "processing"
+                                    ? "blue"
+                                    : upload.status === "failed"
+                                    ? "red"
+                                    : "gray"
+                                }
+                                size="sm"
+                              >
+                                {upload.status}
+                              </Badge>
+                            </Table.Td>
+                          </Table.Tr>
+                        ))}
+                      </Table.Tbody>
+                    </Table>
+                  )}
+                </Card>
               </Stack>
             </Tabs.Panel>
 

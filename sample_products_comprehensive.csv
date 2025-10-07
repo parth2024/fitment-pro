@@ -1,0 +1,29 @@
+Part Number,Part Terminology Name,PTID,Parent/Child,Description,Brand,Price,Material,Color,Position,Category,Engine Type,Size,Weight
+WHEEL001,18" Alloy Wheel,12345,Parent,High-quality alloy wheel for performance vehicles,ACME Wheels,299.99,Aluminum,Silver,All,Wheels,All,18x8,22.5
+WHEEL002,20" Chrome Wheel,12346,Parent,Premium chrome wheel for luxury vehicles,Luxury Wheels,599.99,Chrome,Chrome,All,Wheels,All,20x9,25.0
+BRAKE001,Brake Pad Set,67890,Parent,Performance brake pads for high-speed applications,StopTech,89.99,Ceramic,Black,Front,Brakes,All,Standard,0.8
+BRAKE002,Brake Rotor,67891,Parent,Vented brake rotor for improved cooling,Brembo,129.99,Cast Iron,Gray,Front,Brakes,All,330mm,8.5
+FILTER001,Oil Filter,11111,Child,High-flow oil filter for engine protection,K&N,24.99,Synthetic,Red,Engine,Engine,All,Standard,0.3
+SPARK001,Spark Plug Set,22222,Parent,Iridium spark plugs for optimal ignition,NGK,45.99,Iridium,Silver,Engine,Engine,Gasoline,Standard,0.1
+BATTERY001,Car Battery,33333,Parent,High-capacity automotive battery,Optima,199.99,Lead-Acid,Yellow,Engine,Engine,All,12V,45.0
+SHOCK001,Front Shock Absorber,77777,Parent,High-performance shock absorber,Bilstein,199.99,Steel,Yellow,Front,Suspension,All,Standard,4.2
+STRUT001,Strut Assembly,88888,Parent,Complete strut assembly with spring,Monroe,149.99,Steel,Black,Front,Suspension,All,Standard,6.8
+HEADLIGHT001,LED Headlight Assembly,30303,Parent,High-performance LED headlight assembly,Philips,399.99,Plastic,Clear,Front,Lights,All,Standard,2.1
+TAILLIGHT001,LED Taillight Assembly,40404,Parent,LED taillight with sequential turn signals,Sequential,299.99,Plastic,Red,Rear,Lights,All,Standard,1.8
+BUMPER001,Front Bumper,80808,Parent,OEM-style front bumper,OEM Plus,299.99,Plastic,Primed,Front,Body,All,Standard,12.5
+SEAT001,Racing Seat,131313,Parent,High-back racing seat with harness,Sparco,599.99,Fiberglass,Black,Front,Interior,All,Standard,15.2
+STEERING001,Steering Wheel,141414,Parent,Carbon fiber steering wheel,OMP,299.99,Carbon Fiber,Weave,Front,Interior,All,350mm,1.2
+AIRFILTER001,Air Filter,44444,Child,High-performance air filter,K&N,59.99,Cotton Gauze,Red,Engine,Engine,Gasoline,Panel,0.5
+BELT001,Serpentine Belt,55555,Child,Heavy-duty serpentine belt,Gates,34.99,Rubber,Black,Engine,Engine,All,Custom,0.4
+COOLANT001,Engine Coolant,66666,Child,Long-life engine coolant,Prestone,19.99,Ethylene Glycol,Green,Engine,Engine,All,1 Gallon,8.3
+BUSHING001,Control Arm Bushing,10101,Child,Polyurethane control arm bushing,Energy Suspension,39.99,Polyurethane,Red,Front,Suspension,All,Standard,0.2
+SWAYBAR001,Sway Bar,20202,Parent,Performance sway bar for improved handling,Whiteline,179.99,Steel,Black,Front,Suspension,All,22mm,5.8
+FOGLIGHT001,Fog Light Kit,50505,Parent,High-intensity fog light kit,Rigid,199.99,Aluminum,Black,Front,Lights,All,Standard,1.5
+BULB001,HID Bulb Set,60606,Child,High-intensity discharge bulb set,Osram,79.99,Glass,White,Front,Lights,All,Standard,0.1
+FENDER001,Fender Flare Set,90909,Parent,Wide fender flares for aggressive look,Rocket Bunny,599.99,Fiberglass,Primed,All,Body,All,Wide Body,8.5
+HOOD001,Carbon Fiber Hood,101010,Parent,Lightweight carbon fiber hood,Seibon,899.99,Carbon Fiber,Weave,Front,Body,All,OEM Style,12.0
+SPOILER001,Rear Spoiler,111111,Parent,High-performance rear spoiler,APR,499.99,Carbon Fiber,Weave,Rear,Body,All,GT Wing,3.2
+MIRROR001,Side Mirror Set,121212,Parent,Carbon fiber side mirrors,Seibon,199.99,Carbon Fiber,Weave,Side,Body,All,OEM Style,1.8
+SHIFTER001,Short Shifter,151515,Child,Precision short shifter kit,B&M,199.99,Aluminum,Silver,Center,Interior,All,Short Throw,0.6
+PEDAL001,Racing Pedal Set,161616,Parent,Aluminum racing pedal set,Sparco,149.99,Aluminum,Silver,Floor,Interior,All,Racing,2.1
+GAUGE001,Boost Gauge,171717,Child,Digital boost pressure gauge,AEM,199.99,Plastic,Black,Dash,Interior,All,Digital,0.3

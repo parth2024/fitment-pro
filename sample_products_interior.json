@@ -1,0 +1,67 @@
+[
+  {
+    "Part Number": "SEAT001",
+    "Part Terminology Name": "Racing Seat",
+    "PTID": "131313",
+    "Parent/Child": "Parent",
+    "Description": "High-back racing seat with harness",
+    "Brand": "Sparco",
+    "Price": 599.99,
+    "Material": "Fiberglass",
+    "Color": "Black",
+    "Position": "Front",
+    "Type": "Racing"
+  },
+  {
+    "Part Number": "STEERING001",
+    "Part Terminology Name": "Steering Wheel",
+    "PTID": "141414",
+    "Parent/Child": "Parent",
+    "Description": "Carbon fiber steering wheel",
+    "Brand": "OMP",
+    "Price": 299.99,
+    "Material": "Carbon Fiber",
+    "Color": "Weave",
+    "Position": "Front",
+    "Diameter": "350mm"
+  },
+  {
+    "Part Number": "SHIFTER001",
+    "Part Terminology Name": "Short Shifter",
+    "PTID": "151515",
+    "Parent/Child": "Child",
+    "Description": "Precision short shifter kit",
+    "Brand": "B&M",
+    "Price": 199.99,
+    "Material": "Aluminum",
+    "Color": "Silver",
+    "Position": "Center",
+    "Type": "Short Throw"
+  },
+  {
+    "Part Number": "PEDAL001",
+    "Part Terminology Name": "Racing Pedal Set",
+    "PTID": "161616",
+    "Parent/Child": "Parent",
+    "Description": "Aluminum racing pedal set",
+    "Brand": "Sparco",
+    "Price": 149.99,
+    "Material": "Aluminum",
+    "Color": "Silver",
+    "Position": "Floor",
+    "Type": "Racing"
+  },
+  {
+    "Part Number": "GAUGE001",
+    "Part Terminology Name": "Boost Gauge",
+    "PTID": "171717",
+    "Parent/Child": "Child",
+    "Description": "Digital boost pressure gauge",
+    "Brand": "AEM",
+    "Price": 199.99,
+    "Material": "Plastic",
+    "Color": "Black",
+    "Position": "Dash",
+    "Type": "Digital"
+  }
+]

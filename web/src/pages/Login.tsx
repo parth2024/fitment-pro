@@ -7,30 +7,24 @@ import {
   Button,
   Title,
   Text,
-  Group,
-  Box,
   Stack,
-  ThemeIcon,
-  Divider,
+  Group,
   Alert,
+  Card,
+  Badge,
 } from "@mantine/core";
-import {
-  IconCar,
-  IconMail,
-  IconLock,
-  IconAlertCircle,
-} from "@tabler/icons-react";
+import { IconShield, IconUsers, IconAlertCircle } from "@tabler/icons-react";
 import { useAuth } from "../contexts/AuthContext";
-import { useProfessionalToast } from "../hooks/useProfessionalToast";
+import { useNavigate } from "react-router-dom";
 
 const Login: React.FC = () => {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const { login } = useAuth();
-  const { showSuccess } = useProfessionalToast();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,185 +32,133 @@ const Login: React.FC = () => {
     setError("");
 
     try {
-      const success = await login(email, password);
+      const success = await login(username, password);
       if (success) {
-        showSuccess("Login successful! Welcome back.");
+        navigate("/");
       } else {
-        setError("Invalid email or password. Please try again.");
+        setError("Invalid username or password");
       }
     } catch (err) {
-      setError("An error occurred during login. Please try again.");
+      setError("Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
+  const demoCredentials = [
+    {
+      role: "Admin",
+      username: "admin",
+      password: "admin123",
+      description: "Full access including VCDB data",
+      icon: IconShield,
+      color: "blue",
+    },
+    {
+      role: "MFT User",
+      username: "mft_user",
+      password: "mft123",
+      description: "Limited access (no VCDB data)",
+      icon: IconUsers,
+      color: "green",
+    },
+  ];
+
   return (
-    <Box
-      style={{
-        minHeight: "100vh",
-        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "20px",
-      }}
-    >
-      <Container size="sm" w="100%">
-        <Paper
-          shadow="xl"
-          radius="lg"
-          p="xl"
-          style={{
-            background: "rgba(255, 255, 255, 0.95)",
-            backdropFilter: "blur(10px)",
-            border: "1px solid rgba(255, 255, 255, 0.2)",
-          }}
-        >
-          {/* Header */}
-          <Stack align="center" gap="lg" mb="xl">
-            <Group gap="sm" align="center">
-              <ThemeIcon
-                size={48}
-                radius="lg"
-                variant="gradient"
-                gradient={{ from: "blue", to: "purple", deg: 135 }}
-              >
-                <IconCar size={24} />
-              </ThemeIcon>
-              <div>
-                <Title order={2} style={{ color: "#2d3748", fontWeight: 700 }}>
-                  Fitmentpro.ai
-                </Title>
-                <Text size="sm" c="dimmed" style={{ fontWeight: 500 }}>
-                  Professional Fitment Management
-                </Text>
-              </div>
-            </Group>
+    <Container size="sm" style={{ paddingTop: "60px" }}>
+      <Paper shadow="xl" radius="md" p="xl">
+        <Stack gap="lg">
+          <div style={{ textAlign: "center" }}>
+            <Title order={2} mb="xs">
+              Welcome to Fitmentpro.ai
+            </Title>
+            <Text c="dimmed">Sign in to access the Mass Fitment Tool</Text>
+          </div>
 
-            <div style={{ textAlign: "center" }}>
-              <Title order={3} style={{ color: "#2d3748", fontWeight: 600 }}>
-                Welcome Back
-              </Title>
-              <Text c="dimmed" size="sm">
-                Sign in to your account to continue
-              </Text>
-            </div>
-          </Stack>
+          {error && (
+            <Alert icon={<IconAlertCircle size={16} />} color="red">
+              {error}
+            </Alert>
+          )}
 
-          {/* Login Form */}
           <form onSubmit={handleSubmit}>
             <Stack gap="md">
-              {error && (
-                <Alert
-                  icon={<IconAlertCircle size={16} />}
-                  title="Login Failed"
-                  color="red"
-                  variant="light"
-                  radius="md"
-                >
-                  {error}
-                </Alert>
-              )}
-
               <TextInput
-                label="Email Address"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                leftSection={<IconMail size={16} />}
+                label="Username"
+                placeholder="Enter your username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
-                size="md"
-                radius="md"
-                styles={{
-                  input: {
-                    border: "1px solid #e2e8f0",
-                    "&:focus": {
-                      borderColor: "#3b82f6",
-                      boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)",
-                    },
-                  },
-                  label: {
-                    fontWeight: 600,
-                    color: "#374151",
-                    marginBottom: "8px",
-                  },
-                }}
+                disabled={loading}
               />
-
               <PasswordInput
                 label="Password"
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                leftSection={<IconLock size={16} />}
                 required
-                size="md"
-                radius="md"
-                styles={{
-                  input: {
-                    border: "1px solid #e2e8f0",
-                    "&:focus": {
-                      borderColor: "#3b82f6",
-                      boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)",
-                    },
-                  },
-                  label: {
-                    fontWeight: 600,
-                    color: "#374151",
-                    marginBottom: "8px",
-                  },
-                }}
+                disabled={loading}
               />
-
               <Button
                 type="submit"
-                loading={loading}
-                size="md"
-                radius="md"
                 fullWidth
-                variant="gradient"
-                gradient={{ from: "blue", to: "purple", deg: 135 }}
-                style={{
-                  fontWeight: 600,
-                  fontSize: "16px",
-                  height: "48px",
-                  marginTop: "8px",
-                }}
+                size="md"
+                loading={loading}
+                disabled={!username || !password}
               >
-                {loading ? "Signing In..." : "Sign In"}
+                {loading ? "Signing in..." : "Sign In"}
               </Button>
             </Stack>
           </form>
 
-          <Divider my="xl" />
-
-          {/* Demo Credentials */}
-          <Box
-            style={{
-              background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
-              borderRadius: "12px",
-              padding: "16px",
-              border: "1px solid #e2e8f0",
-            }}
-          >
-            <Text size="sm" fw={600} c="dimmed" mb="xs">
-              Demo Credentials
+          <div>
+            <Text size="sm" fw={500} mb="md">
+              Demo Credentials:
             </Text>
-            <Text size="xs" c="dimmed" style={{ lineHeight: 1.5 }}>
-              Use any email and password combination to sign in.
-              <br />
-              Example: admin@fitmentpro.ai / password123
-            </Text>
-          </Box>
-
-          {/* Footer */}
-          <Text size="xs" c="dimmed" ta="center" mt="xl">
-            © 2024 Fitmentpro.ai. All rights reserved.
-          </Text>
-        </Paper>
-      </Container>
-    </Box>
+            <Stack gap="sm">
+              {demoCredentials.map((cred, index) => {
+                const IconComponent = cred.icon;
+                return (
+                  <Card key={index} withBorder p="sm">
+                    <Group justify="space-between" align="flex-start">
+                      <Group gap="sm">
+                        <IconComponent
+                          size={20}
+                          color={`var(--mantine-color-${cred.color}-6)`}
+                        />
+                        <div>
+                          <Group gap="xs" align="center">
+                            <Text fw={500} size="sm">
+                              {cred.role}
+                            </Text>
+                            <Badge size="xs" color={cred.color} variant="light">
+                              {cred.username}
+                            </Badge>
+                          </Group>
+                          <Text size="xs" c="dimmed">
+                            {cred.description}
+                          </Text>
+                        </div>
+                      </Group>
+                      <Button
+                        size="xs"
+                        variant="subtle"
+                        onClick={() => {
+                          setUsername(cred.username);
+                          setPassword(cred.password);
+                        }}
+                      >
+                        Use
+                      </Button>
+                    </Group>
+                  </Card>
+                );
+              })}
+            </Stack>
+          </div>
+        </Stack>
+      </Paper>
+    </Container>
   );
 };
 

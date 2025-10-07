@@ -19,7 +19,7 @@ interface CoverageWrapperProps {
 const CoverageWrapper: React.FC<CoverageWrapperProps> = ({
   selectedEntities = [],
 }) => {
-  const { user } = useAuth();
+  const { user } = useAuth() as { user: any };
   const { currentEntity, loading: entityLoading } = useEntity();
   const { showError } = useProfessionalToast();
   const [yearRange, setYearRange] = useState<{

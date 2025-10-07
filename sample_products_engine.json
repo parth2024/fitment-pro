@@ -1,0 +1,80 @@
+[
+  {
+    "Part Number": "FILTER001",
+    "Part Terminology Name": "Oil Filter",
+    "PTID": "11111",
+    "Parent/Child": "Child",
+    "Description": "High-flow oil filter for engine protection",
+    "Brand": "K&N",
+    "Price": 24.99,
+    "Material": "Synthetic",
+    "Color": "Red",
+    "Engine Type": "Gasoline",
+    "Filter Type": "Spin-On"
+  },
+  {
+    "Part Number": "SPARK001",
+    "Part Terminology Name": "Spark Plug Set",
+    "PTID": "22222",
+    "Parent/Child": "Parent",
+    "Description": "Iridium spark plugs for optimal ignition",
+    "Brand": "NGK",
+    "Price": 45.99,
+    "Material": "Iridium",
+    "Color": "Silver",
+    "Engine Type": "Gasoline",
+    "Gap": "0.032"
+  },
+  {
+    "Part Number": "BATTERY001",
+    "Part Terminology Name": "Car Battery",
+    "PTID": "33333",
+    "Parent/Child": "Parent",
+    "Description": "High-capacity automotive battery",
+    "Brand": "Optima",
+    "Price": 199.99,
+    "Material": "Lead-Acid",
+    "Color": "Yellow",
+    "Voltage": "12V",
+    "Capacity": "75Ah"
+  },
+  {
+    "Part Number": "AIRFILTER001",
+    "Part Terminology Name": "Air Filter",
+    "PTID": "44444",
+    "Parent/Child": "Child",
+    "Description": "High-performance air filter",
+    "Brand": "K&N",
+    "Price": 59.99,
+    "Material": "Cotton Gauze",
+    "Color": "Red",
+    "Engine Type": "Gasoline",
+    "Filter Type": "Panel"
+  },
+  {
+    "Part Number": "BELT001",
+    "Part Terminology Name": "Serpentine Belt",
+    "PTID": "55555",
+    "Parent/Child": "Child",
+    "Description": "Heavy-duty serpentine belt",
+    "Brand": "Gates",
+    "Price": 34.99,
+    "Material": "Rubber",
+    "Color": "Black",
+    "Engine Type": "All",
+    "Length": "Custom"
+  },
+  {
+    "Part Number": "COOLANT001",
+    "Part Terminology Name": "Engine Coolant",
+    "PTID": "66666",
+    "Parent/Child": "Child",
+    "Description": "Long-life engine coolant",
+    "Brand": "Prestone",
+    "Price": 19.99,
+    "Material": "Ethylene Glycol",
+    "Color": "Green",
+    "Engine Type": "All",
+    "Protection": "5 Years"
+  }
+]

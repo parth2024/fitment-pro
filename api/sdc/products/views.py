@@ -104,6 +104,23 @@ class ProductUploadViewSet(viewsets.ModelViewSet):
             'can_proceed_without_upload': has_product_data
         })
     
+    @action(detail=False, methods=['get'])
+    def history(self, request):
+        """Get upload history for the tenant"""
+        tenant_id = get_tenant_id_from_request(request)
+        if not tenant_id:
+            return Response(
+                {'error': 'Tenant not found'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get all uploads for the tenant, ordered by most recent first
+        uploads = ProductUpload.objects.filter(
+            tenant_id=tenant_id
+        ).order_by('-uploaded_at')
+        
+        return Response(ProductUploadSerializer(uploads, many=True).data)
+    
     @action(detail=False, methods=['post'])
     def create_fitment_job_without_upload(self, request):
         """Create fitment job using existing product data without uploading new files"""
