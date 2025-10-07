@@ -7,6 +7,7 @@ from fitments.models import Fitment
 import hashlib
 import json
 import random
+import uuid
 
 
 def generate_fitment_hash(fitment_data):
@@ -83,12 +84,15 @@ def process_fitment_job(job_id):
 
 
 def process_manual_fitments(job, vcdb_categories, product_data):
-    """Process manual fitments"""
+    """Process manual fitments following the same pattern as apply_manual_fitment"""
     fitments_created = 0
     fitments_failed = 0
     fitments_skipped = 0
     completed_steps = 0
     duplicate_messages = []
+    
+    # Import AppliedFitment model for tracking
+    from data_uploads.models import AppliedFitment
     
     for product in product_data:
         for category in vcdb_categories:
@@ -102,20 +106,14 @@ def process_manual_fitments(job, vcdb_categories, product_data):
                     # Create fitment based on matching criteria
                     if should_create_fitment(product, vcdb_record, job):
                         try:
-                            fitment_data = create_fitment_data(product, vcdb_record, job)
-                            fitment_hash = generate_fitment_hash(fitment_data)
-                            fitment_data['hash'] = fitment_hash
-                            fitment_data['fitmentType'] = 'manual_fitment'
-                            
                             # Check if fitment already exists before creating
-                            # Use a more comprehensive check that includes tenant and key fields
                             existing_fitment = Fitment.objects.filter(
                                 tenant=job.tenant,
-                                partId=fitment_data['partId'],
-                                year=fitment_data['year'],
-                                makeName=fitment_data['makeName'],
-                                modelName=fitment_data['modelName'],
-                                subModelName=fitment_data['subModelName'],
+                                partId=product.part_number,
+                                year=vcdb_record.year,
+                                makeName=vcdb_record.make,
+                                modelName=vcdb_record.model,
+                                subModelName=vcdb_record.submodel,
                                 isDeleted=False
                             ).first()
                             
@@ -124,16 +122,69 @@ def process_manual_fitments(job, vcdb_categories, product_data):
                                 fitments_skipped += 1
                                 duplicate_msg = f"Fitment already exists for {product.part_number} -> {vcdb_record.year} {vcdb_record.make} {vcdb_record.model}"
                                 duplicate_messages.append(duplicate_msg)
-                                # Only log warning if it's a significant duplicate (not just same hash)
                                 if len(duplicate_messages) <= 5:  # Limit warnings to first 5 duplicates
                                     print(duplicate_msg)
                             else:
-                                # Create new fitment
-                                fitment = Fitment.objects.create(**fitment_data)
+                                # Create Fitment record (following apply_manual_fitment pattern)
+                                fitment = Fitment.objects.create(
+                                    hash=uuid.uuid4().hex,
+                                    tenant=job.tenant,
+                                    partId=product.part_number,
+                                    itemStatus='Active',
+                                    itemStatusCode=0,
+                                    baseVehicleId=str(vcdb_record.id),
+                                    year=vcdb_record.year,
+                                    makeName=vcdb_record.make,
+                                    modelName=vcdb_record.model,
+                                    subModelName=vcdb_record.submodel or '',
+                                    driveTypeName=vcdb_record.drive_type or '',
+                                    fuelTypeName=vcdb_record.fuel_type or 'Gas',
+                                    bodyNumDoors=vcdb_record.num_doors or 4,
+                                    bodyTypeName=vcdb_record.body_type or 'Sedan',
+                                    ptid='PT-22',  # Default part type ID
+                                    partTypeDescriptor=product.part_terminology_name or 'Manual Fitment',
+                                    uom='EA',  # Each
+                                    quantity=1,  # Default quantity
+                                    fitmentTitle=f"Manual Fitment - {product.part_number}",
+                                    fitmentDescription=f"Manual fitment for {vcdb_record.make} {vcdb_record.model}",
+                                    fitmentNotes='Applied via bulk processing',
+                                    position='Front',  # Default position
+                                    positionId=1,  # Default position ID
+                                    liftHeight='Stock',  # Default value
+                                    wheelType='Alloy',  # Default value
+                                    fitmentType='manual_fitment',
+                                    createdBy='bulk_processing',
+                                    updatedBy='bulk_processing'
+                                )
+                                
+                                # Create AppliedFitment record for tracking (following apply_manual_fitment pattern)
+                                applied_fitment = AppliedFitment.objects.create(
+                                    session_id=job.session_id if hasattr(job, 'session_id') else None,
+                                    tenant=job.tenant,
+                                    part_id=product.part_number,
+                                    year=vcdb_record.year,
+                                    make=vcdb_record.make,
+                                    model=vcdb_record.model,
+                                    submodel=vcdb_record.submodel or '',
+                                    drive_type=vcdb_record.drive_type or '',
+                                    fuel_type=vcdb_record.fuel_type or 'Gas',
+                                    num_doors=vcdb_record.num_doors or 4,
+                                    body_type=vcdb_record.body_type or 'Sedan',
+                                    position='Front',  # Default position
+                                    quantity=1,  # Default quantity
+                                    title=f"Manual Fitment - {product.part_number}",
+                                    description=f"Manual fitment for {vcdb_record.make} {vcdb_record.model}",
+                                    notes='Applied via bulk processing',
+                                    fitment_type='manual_fitment',
+                                    created_by='bulk_processing'
+                                )
+                                
                                 fitments_created += 1
+                                print(f"✅ Created manual fitment: {product.part_number} -> {vcdb_record.year} {vcdb_record.make} {vcdb_record.model}")
+                                
                         except Exception as e:
                             fitments_failed += 1
-                            print(f"Error creating fitment for {product.part_number}: {e}")
+                            print(f"❌ Error creating fitment for {product.part_number}: {e}")
                     else:
                         # Count as failed if no fitment should be created
                         fitments_failed += 1
@@ -149,7 +200,7 @@ def process_manual_fitments(job, vcdb_categories, product_data):
                         
             except Exception as e:
                 fitments_failed += 1
-                print(f"Error processing {product.part_number}: {e}")
+                print(f"❌ Error processing {product.part_number}: {e}")
                 continue
     
     # Final update with proper status handling
@@ -208,9 +259,9 @@ def process_ai_fitments(job, vcdb_categories, product_data):
                     'driveType': record.drive_type,
                     'bodyType': record.body_type,
                     'engineType': record.engine_type,
-                    'transmissionType': record.transmission_type,
+                    'transmissionType': record.transmission,
                     'fuelType': record.fuel_type,
-                    'region': record.region,
+                    'region': 'US',  # Default region since field doesn't exist in model
                     'category': str(category.id),
                     'category_name': category.name
                 })
@@ -238,20 +289,35 @@ def process_ai_fitments(job, vcdb_categories, product_data):
                 fitment_dict = {
                     'tenant': job.tenant,
                     'partId': fitment_data.get('partId', ''),
-                    'partDescription': fitment_data.get('partDescription', ''),
+                    'fitmentDescription': fitment_data.get('partDescription', ''),
                     'year': fitment_data.get('year', 2020),
                     'makeName': fitment_data.get('make', ''),
                     'modelName': fitment_data.get('model', ''),
                     'subModelName': fitment_data.get('submodel', ''),
-                    'driveType': fitment_data.get('driveType', ''),
+                    'driveTypeName': fitment_data.get('driveType', ''),
                     'position': fitment_data.get('position', ''),
                     'quantity': fitment_data.get('quantity', 1),
                     'fitmentType': 'ai_fitment',
                     'itemStatus': 'readyToApprove',
                     'confidenceScore': fitment_data.get('confidence', 0.7),
                     'aiDescription': fitment_data.get('ai_reasoning', 'AI-generated fitment'),
-                    'confidenceExplanation': fitment_data.get('confidence_explanation', ''),
-                    'isDeleted': False
+                    'fitmentNotes': fitment_data.get('confidence_explanation', ''),
+                    'isDeleted': False,
+                    # Required fields with defaults
+                    'baseVehicleId': f"{fitment_data.get('year', 2020)}_{fitment_data.get('make', '')}_{fitment_data.get('model', '')}",
+                    'fuelTypeName': 'Gasoline',  # Default fuel type
+                    'bodyNumDoors': 4,  # Default number of doors
+                    'bodyTypeName': 'SUV',  # Default body type
+                    'ptid': 'AI001',  # Default PTID for AI fitments
+                    'partTypeDescriptor': fitment_data.get('partDescription', 'AI Generated Part'),
+                    'uom': 'EA',  # Default unit of measure
+                    'fitmentTitle': f"{fitment_data.get('partId', '')} for {fitment_data.get('year', 2020)} {fitment_data.get('make', '')} {fitment_data.get('model', '')}",
+                    'positionId': hash(f"{fitment_data.get('partId', '')}_{fitment_data.get('year', 2020)}_{fitment_data.get('make', '')}_{fitment_data.get('model', '')}") % 1000000,
+                    'liftHeight': 'Standard',
+                    'wheelType': 'Alloy',
+                    'itemStatusCode': 0,
+                    'createdBy': 'ai_system',
+                    'updatedBy': 'ai_system'
                 }
                 
                 # Generate hash for uniqueness
@@ -293,6 +359,17 @@ def process_ai_fitments(job, vcdb_categories, product_data):
     except Exception as e:
         print(f"❌ Error in AI fitment processing: {e}")
         fitments_failed += len(product_data)  # Mark all as failed if AI service fails
+        job.status = 'failed'
+        job.error_message = str(e)
+    
+    # Set final job status
+    if job.status != 'failed':
+        if fitments_created > 0:
+            job.status = 'completed'
+            job.current_step = "Completed"
+        else:
+            job.status = 'failed'
+            job.error_message = "No fitments were created"
     
     job.fitments_created = fitments_created
     job.fitments_failed = fitments_failed
@@ -303,31 +380,6 @@ def should_create_fitment(product, vcdb_record, job):
     """Determine if a manual fitment should be created"""
     # Basic matching logic - can be enhanced based on business rules
     return True  # For now, create all potential fitments
-
-
-def create_fitment_data(product, vcdb_record, job):
-    """Create fitment data structure"""
-    return {
-        'tenant': job.tenant,
-        'partId': product.part_number,
-        'baseVehicleId': f"{vcdb_record.year}_{vcdb_record.make}_{vcdb_record.model}",
-        'year': vcdb_record.year,
-        'makeName': vcdb_record.make,
-        'modelName': vcdb_record.model,
-        'subModelName': vcdb_record.submodel,
-        'driveTypeName': vcdb_record.drive_type,
-        'fuelTypeName': vcdb_record.fuel_type,
-        'bodyNumDoors': vcdb_record.num_doors or 0,
-        'bodyTypeName': vcdb_record.body_type,
-        'ptid': product.ptid,
-        'partTypeDescriptor': product.part_terminology_name,
-        'quantity': 1,
-        'fitmentTitle': f"{product.part_number} for {vcdb_record.year} {vcdb_record.make} {vcdb_record.model}",
-        'fitmentDescription': product.part_terminology_name,
-        'position': 'Universal',  # Default position
-        'positionId': hash(f"{product.part_number}_{vcdb_record.year}_{vcdb_record.make}_{vcdb_record.model}") % 1000000,  # Required field - numeric ID
-        'itemStatus': 'Active',
-    }
 
 
 # Old generate_ai_fitment function removed - now using Azure AI service directly
