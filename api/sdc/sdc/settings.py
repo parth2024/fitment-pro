@@ -57,6 +57,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
+    'sdc.cors_middleware.FixCorsCredentialsMiddleware',  # Fix duplicate CORS credentials header
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -143,7 +144,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOW_CREDENTIALS = True
 
-
+# Explicitly set CORS origins
 CORS_ALLOWED_ORIGINS = [
     "https://fitment-pro-w23j.vercel.app",
     "http://localhost:3000",
@@ -154,9 +155,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:8000",
     "http://localhost:8001",
     "http://127.0.0.1:8001",
-  
 ]
 
+# Allow all headers and methods
 CORS_ALLOW_ALL_HEADERS = True
 CORS_ALLOW_METHODS = [
     'DELETE',
@@ -167,10 +168,7 @@ CORS_ALLOW_METHODS = [
     'PUT',
 ]
 
-CSRF_TRUSTED_ORIGINS = [
-    "https://fitment-pro-w23j.vercel.app",
-]
-
+# Explicitly set allowed headers to avoid conflicts
 CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
@@ -183,6 +181,20 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
     'x-tenant-id',
 ]
+
+# CSRF trusted origins
+CSRF_TRUSTED_ORIGINS = [
+    "https://fitment-pro-w23j.vercel.app",
+]
+
+# Additional CORS settings to prevent header duplication
+CORS_EXPOSE_HEADERS = [
+    'content-type',
+    'x-csrftoken',
+]
+
+# Ensure CORS preflight requests are handled correctly
+CORS_PREFLIGHT_MAX_AGE = 86400  # 24 hours
 
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
