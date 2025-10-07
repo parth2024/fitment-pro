@@ -188,61 +188,111 @@ def process_manual_fitments(job, vcdb_categories, product_data):
 
 
 def process_ai_fitments(job, vcdb_categories, product_data):
-    """Process AI fitments"""
+    """Process AI fitments using Azure AI service"""
+    from fitment_uploads.azure_ai_service import azure_ai_service
+    
     fitments_created = 0
     fitments_failed = 0
     
-    for product in product_data:
+    try:
+        # Convert VCDB data to list of dictionaries for AI service
+        vcdb_data_list = []
         for category in vcdb_categories:
+            vcdb_records = VCDBData.objects.filter(category=category)
+            for record in vcdb_records:
+                vcdb_data_list.append({
+                    'year': record.year,
+                    'make': record.make,
+                    'model': record.model,
+                    'submodel': record.submodel,
+                    'driveType': record.drive_type,
+                    'bodyType': record.body_type,
+                    'engineType': record.engine_type,
+                    'transmissionType': record.transmission_type,
+                    'fuelType': record.fuel_type,
+                    'region': record.region,
+                    'category': str(category.id),
+                    'category_name': category.name
+                })
+        
+        # Convert product data to list of dictionaries for AI service
+        products_data_list = []
+        for product in product_data:
+            products_data_list.append({
+                'id': product.part_number,
+                'description': product.part_terminology_name,
+                'ptid': product.ptid,
+                'parent_child': product.parent_child,
+                'additional_attributes': product.additional_attributes
+            })
+        
+        # Use Azure AI service to generate fitments
+        ai_fitments = azure_ai_service.generate_fitments(vcdb_data_list, products_data_list)
+        
+        print(f"🤖 Azure AI generated {len(ai_fitments)} fitments")
+        
+        # Process each AI-generated fitment
+        for fitment_data in ai_fitments:
             try:
-                # Get VCDB data for this category
-                vcdb_data = VCDBData.objects.filter(category=category)
+                # Map AI response to our fitment structure
+                fitment_dict = {
+                    'tenant': job.tenant,
+                    'partId': fitment_data.get('partId', ''),
+                    'partDescription': fitment_data.get('partDescription', ''),
+                    'year': fitment_data.get('year', 2020),
+                    'makeName': fitment_data.get('make', ''),
+                    'modelName': fitment_data.get('model', ''),
+                    'subModelName': fitment_data.get('submodel', ''),
+                    'driveType': fitment_data.get('driveType', ''),
+                    'position': fitment_data.get('position', ''),
+                    'quantity': fitment_data.get('quantity', 1),
+                    'fitmentType': 'ai_fitment',
+                    'itemStatus': 'readyToApprove',
+                    'confidenceScore': fitment_data.get('confidence', 0.7),
+                    'aiDescription': fitment_data.get('ai_reasoning', 'AI-generated fitment'),
+                    'confidenceExplanation': fitment_data.get('confidence_explanation', ''),
+                    'isDeleted': False
+                }
                 
-                for vcdb_record in vcdb_data:
-                    # Use AI to determine if fitment should be created
-                    ai_result = generate_ai_fitment(product, vcdb_record, job)
-                    
-                    if ai_result['should_create']:
-                        # Create fitment data structure for AI fitment
-                        fitment_data = create_fitment_data(product, vcdb_record, job)
-                        fitment_hash = generate_fitment_hash(fitment_data)
-                        fitment_data['hash'] = fitment_hash
-                        fitment_data['fitmentType'] = 'ai_fitment'
-                        fitment_data['itemStatus'] = 'readyToApprove'  # Set status for approval
-                        fitment_data['aiDescription'] = ai_result['reasoning']
-                        fitment_data['confidenceScore'] = ai_result['confidence_score']
-                        fitment_data['dynamicFields'] = ai_result.get('dynamic_fields', {})
-                        
-                        # Check if AI fitment already exists before creating
-                        # Use a more comprehensive check that includes tenant and key fields
-                        existing_fitment = Fitment.objects.filter(
-                            tenant=job.tenant,
-                            partId=fitment_data['partId'],
-                            year=fitment_data['year'],
-                            makeName=fitment_data['makeName'],
-                            modelName=fitment_data['modelName'],
-                            subModelName=fitment_data['subModelName'],
-                            isDeleted=False
-                        ).first()
-                        
-                        if existing_fitment:
-                            # AI fitment already exists, skip silently
-                            pass
-                        else:
-                            # Create new AI fitment
-                            fitment = Fitment.objects.create(**fitment_data)
-                            fitments_created += 1
-                        
-                        # Update job progress
-                        job.completed_steps += 1
-                        job.progress_percentage = int((job.completed_steps / job.total_steps) * 100)
-                        job.current_step = f"AI analyzing {product.part_number} for {vcdb_record.year} {vcdb_record.make} {vcdb_record.model}"
-                        job.save()
-                        
+                # Generate hash for uniqueness
+                fitment_hash = generate_fitment_hash(fitment_dict)
+                fitment_dict['hash'] = fitment_hash
+                
+                # Check if fitment already exists
+                existing_fitment = Fitment.objects.filter(
+                    tenant=job.tenant,
+                    partId=fitment_dict['partId'],
+                    year=fitment_dict['year'],
+                    makeName=fitment_dict['makeName'],
+                    modelName=fitment_dict['modelName'],
+                    subModelName=fitment_dict['subModelName'],
+                    isDeleted=False
+                ).first()
+                
+                if not existing_fitment:
+                    # Create new AI fitment
+                    fitment = Fitment.objects.create(**fitment_dict)
+                    fitments_created += 1
+                    print(f"✅ Created AI fitment: {fitment_dict['partId']} -> {fitment_dict['year']} {fitment_dict['makeName']} {fitment_dict['modelName']}")
+                else:
+                    print(f"⏭️  Skipped existing fitment: {fitment_dict['partId']} -> {fitment_dict['year']} {fitment_dict['makeName']} {fitment_dict['modelName']}")
+                
+                # Update job progress
+                job.completed_steps += 1
+                job.progress_percentage = int((job.completed_steps / job.total_steps) * 100)
+                job.current_step = f"AI processing fitment {fitments_created + fitments_failed + 1} of {len(ai_fitments)}"
+                job.save()
+                
             except Exception as e:
                 fitments_failed += 1
-                print(f"Error creating AI fitment for {product.part_number}: {e}")
+                print(f"❌ Error processing AI fitment: {e}")
                 continue
+        
+        print(f"🎯 AI Fitment processing complete: {fitments_created} created, {fitments_failed} failed")
+        
+    except Exception as e:
+        print(f"❌ Error in AI fitment processing: {e}")
+        fitments_failed += len(product_data)  # Mark all as failed if AI service fails
     
     job.fitments_created = fitments_created
     job.fitments_failed = fitments_failed
@@ -280,28 +330,4 @@ def create_fitment_data(product, vcdb_record, job):
     }
 
 
-def generate_ai_fitment(product, vcdb_record, job):
-    """Generate AI fitment analysis"""
-    # This is a simplified AI simulation
-    # In a real implementation, this would call an AI service
-    
-    # Simulate AI analysis
-    confidence_score = random.uniform(0.6, 0.95)
-    should_create = confidence_score > 0.7
-    
-    reasoning = f"AI analysis for {product.part_terminology_name} on {vcdb_record.year} {vcdb_record.make} {vcdb_record.model}. "
-    reasoning += f"Based on vehicle specifications including {vcdb_record.drive_type} drive system, "
-    reasoning += f"{vcdb_record.body_type} body type, and {vcdb_record.fuel_type} fuel type, "
-    reasoning += f"this fitment shows {'high' if confidence_score > 0.8 else 'moderate'} compatibility."
-    
-    return {
-        'should_create': should_create,
-        'confidence_score': confidence_score,
-        'reasoning': reasoning,
-        'position': 'Universal',
-        'dynamic_fields': {
-            'ai_analysis_date': timezone.now().isoformat(),
-            'compatibility_score': confidence_score,
-            'recommended_quantity': 1
-        }
-    }
+# Old generate_ai_fitment function removed - now using Azure AI service directly

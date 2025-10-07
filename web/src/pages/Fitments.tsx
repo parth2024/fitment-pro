@@ -2101,11 +2101,50 @@ export default function Fitments() {
 
           {/* Table */}
           {error && <Text c="red">{error}</Text>}
-          <ScrollArea>
-            <Table striped highlightOnHover>
+          {expandedView && (
+            <div
+              style={{
+                marginBottom: "8px",
+                padding: "8px 12px",
+                backgroundColor: "#f8fafc",
+                borderRadius: "8px",
+                border: "1px solid #e2e8f0",
+              }}
+            >
+              <Text size="sm" c="#64748b" fw={500}>
+                💡 Expanded view is active - scroll horizontally to see all
+                columns
+              </Text>
+            </div>
+          )}
+          <ScrollArea
+            type="scroll"
+            scrollbarSize={8}
+            style={{
+              width: "100%",
+              maxWidth: "100%",
+              border: "1px solid #e2e8f0",
+              borderRadius: "8px",
+            }}
+          >
+            <Table
+              striped
+              highlightOnHover
+              style={{
+                minWidth: expandedView ? "1400px" : "800px",
+                width: "100%",
+              }}
+            >
               <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>
+                <Table.Tr style={{ height: "48px" }}>
+                  <Table.Th
+                    style={{
+                      width: "50px",
+                      minWidth: "50px",
+                      verticalAlign: "middle",
+                      textAlign: "center",
+                    }}
+                  >
                     <Checkbox
                       checked={selectedFitments.length === fitments.length}
                       indeterminate={
@@ -2115,10 +2154,15 @@ export default function Fitments() {
                       onChange={(event) =>
                         handleSelectAll(event.currentTarget.checked)
                       }
-                      ml={7}
                     />
                   </Table.Th>
-                  <Table.Th>
+                  <Table.Th
+                    style={{
+                      width: "120px",
+                      minWidth: "120px",
+                      verticalAlign: "middle",
+                    }}
+                  >
                     <FilterableSortableHeader
                       label="Part ID"
                       field="partId"
@@ -2132,7 +2176,13 @@ export default function Fitments() {
                       placeholder="Filter by Part ID"
                     />
                   </Table.Th>
-                  <Table.Th>
+                  <Table.Th
+                    style={{
+                      width: "100px",
+                      minWidth: "100px",
+                      verticalAlign: "middle",
+                    }}
+                  >
                     <FilterableSortableHeader
                       label="Status"
                       field="itemStatus"
@@ -2152,7 +2202,13 @@ export default function Fitments() {
                       placeholder="Select status"
                     />
                   </Table.Th>
-                  <Table.Th>
+                  <Table.Th
+                    style={{
+                      width: "200px",
+                      minWidth: "200px",
+                      verticalAlign: "middle",
+                    }}
+                  >
                     <FilterableSortableHeader
                       label="Vehicle"
                       field="makeName"
@@ -2172,7 +2228,13 @@ export default function Fitments() {
                       placeholder="Select make"
                     />
                   </Table.Th>
-                  <Table.Th>
+                  <Table.Th
+                    style={{
+                      width: "150px",
+                      minWidth: "150px",
+                      verticalAlign: "middle",
+                    }}
+                  >
                     <FilterableSortableHeader
                       label="Part Type"
                       field="partTypeDescriptor"
@@ -2192,7 +2254,13 @@ export default function Fitments() {
                       placeholder="Select part type"
                     />
                   </Table.Th>
-                  <Table.Th>
+                  <Table.Th
+                    style={{
+                      width: "100px",
+                      minWidth: "100px",
+                      verticalAlign: "middle",
+                    }}
+                  >
                     <FilterableSortableHeader
                       label="Position"
                       field="position"
@@ -2212,7 +2280,13 @@ export default function Fitments() {
                       placeholder="Select position"
                     />
                   </Table.Th>
-                  <Table.Th>
+                  <Table.Th
+                    style={{
+                      width: "200px",
+                      minWidth: "200px",
+                      verticalAlign: "middle",
+                    }}
+                  >
                     <FilterableSortableHeader
                       label="Title"
                       field="fitmentTitle"
@@ -2226,7 +2300,13 @@ export default function Fitments() {
                       placeholder="Filter by title"
                     />
                   </Table.Th>
-                  <Table.Th>
+                  <Table.Th
+                    style={{
+                      width: "180px",
+                      minWidth: "180px",
+                      verticalAlign: "middle",
+                    }}
+                  >
                     <FilterableSortableHeader
                       label="Fitment Type"
                       field="fitmentType"
@@ -2250,8 +2330,22 @@ export default function Fitments() {
                   </Table.Th>
                   {expandedView && (
                     <>
-                      <Table.Th>Description</Table.Th>
-                      <Table.Th>
+                      <Table.Th
+                        style={{
+                          width: "250px",
+                          minWidth: "250px",
+                          verticalAlign: "middle",
+                        }}
+                      >
+                        Description
+                      </Table.Th>
+                      <Table.Th
+                        style={{
+                          width: "80px",
+                          minWidth: "80px",
+                          verticalAlign: "middle",
+                        }}
+                      >
                         <FilterableSortableHeader
                           label="Quantity"
                           field="quantity"
@@ -2267,7 +2361,13 @@ export default function Fitments() {
                           max={100}
                         />
                       </Table.Th>
-                      <Table.Th>
+                      <Table.Th
+                        style={{
+                          width: "120px",
+                          minWidth: "120px",
+                          verticalAlign: "middle",
+                        }}
+                      >
                         <FilterableSortableHeader
                           label="Lift Height"
                           field="liftHeight"
@@ -2287,7 +2387,13 @@ export default function Fitments() {
                           placeholder="Select lift height"
                         />
                       </Table.Th>
-                      <Table.Th>
+                      <Table.Th
+                        style={{
+                          width: "120px",
+                          minWidth: "120px",
+                          verticalAlign: "middle",
+                        }}
+                      >
                         <FilterableSortableHeader
                           label="Wheel Type"
                           field="wheelType"
@@ -2307,7 +2413,13 @@ export default function Fitments() {
                           placeholder="Select wheel type"
                         />
                       </Table.Th>
-                      <Table.Th>
+                      <Table.Th
+                        style={{
+                          width: "120px",
+                          minWidth: "120px",
+                          verticalAlign: "middle",
+                        }}
+                      >
                         <FilterableSortableHeader
                           label="Updated"
                           field="updatedAt"
@@ -2323,7 +2435,16 @@ export default function Fitments() {
                       </Table.Th>
                     </>
                   )}
-                  <Table.Th>Actions</Table.Th>
+                  <Table.Th
+                    style={{
+                      width: "100px",
+                      minWidth: "100px",
+                      verticalAlign: "middle",
+                      textAlign: "center",
+                    }}
+                  >
+                    Actions
+                  </Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>

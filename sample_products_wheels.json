@@ -1,0 +1,68 @@
+[
+  {
+    "Part Number": "WHEEL001",
+    "Part Terminology Name": "18\" Alloy Wheel",
+    "PTID": "12345",
+    "Parent/Child": "Parent",
+    "Description": "High-quality alloy wheel for performance vehicles",
+    "Brand": "ACME Wheels",
+    "Price": 299.99,
+    "Material": "Aluminum",
+    "Color": "Silver",
+    "Size": "18x8",
+    "Bolt Pattern": "5x114.3",
+    "Offset": "+35"
+  },
+  {
+    "Part Number": "WHEEL002",
+    "Part Terminology Name": "20\" Chrome Wheel",
+    "PTID": "12346",
+    "Parent/Child": "Parent",
+    "Description": "Premium chrome wheel for luxury vehicles",
+    "Brand": "Luxury Wheels",
+    "Price": 599.99,
+    "Material": "Chrome",
+    "Color": "Chrome",
+    "Size": "20x9",
+    "Bolt Pattern": "5x120",
+    "Offset": "+25"
+  },
+  {
+    "Part Number": "WHEEL003",
+    "Part Terminology Name": "17\" Steel Wheel",
+    "PTID": "12347",
+    "Parent/Child": "Parent",
+    "Description": "Durable steel wheel for commercial vehicles",
+    "Brand": "SteelMax",
+    "Price": 89.99,
+    "Material": "Steel",
+    "Color": "Black",
+    "Size": "17x7",
+    "Bolt Pattern": "6x139.7",
+    "Offset": "+15"
+  },
+  {
+    "Part Number": "TIRE001",
+    "Part Terminology Name": "All-Season Tire",
+    "PTID": "12348",
+    "Parent/Child": "Child",
+    "Description": "High-performance all-season tire",
+    "Brand": "TireMax",
+    "Price": 149.99,
+    "Size": "225/45R18",
+    "Load Rating": "91W",
+    "Speed Rating": "W"
+  },
+  {
+    "Part Number": "TIRE002",
+    "Part Terminology Name": "Winter Tire",
+    "PTID": "12349",
+    "Parent/Child": "Child",
+    "Description": "Studless winter tire for cold climates",
+    "Brand": "WinterPro",
+    "Price": 179.99,
+    "Size": "235/55R17",
+    "Load Rating": "99H",
+    "Speed Rating": "H"
+  }
+]

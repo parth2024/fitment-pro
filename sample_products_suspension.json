@@ -1,0 +1,67 @@
+[
+  {
+    "Part Number": "SHOCK001",
+    "Part Terminology Name": "Front Shock Absorber",
+    "PTID": "77777",
+    "Parent/Child": "Parent",
+    "Description": "High-performance shock absorber",
+    "Brand": "Bilstein",
+    "Price": 199.99,
+    "Material": "Steel",
+    "Color": "Yellow",
+    "Position": "Front",
+    "Type": "Gas"
+  },
+  {
+    "Part Number": "STRUT001",
+    "Part Terminology Name": "Strut Assembly",
+    "PTID": "88888",
+    "Parent/Child": "Parent",
+    "Description": "Complete strut assembly with spring",
+    "Brand": "Monroe",
+    "Price": 149.99,
+    "Material": "Steel",
+    "Color": "Black",
+    "Position": "Front",
+    "Type": "Complete"
+  },
+  {
+    "Part Number": "SPRING001",
+    "Part Terminology Name": "Lowering Spring Set",
+    "PTID": "99999",
+    "Parent/Child": "Parent",
+    "Description": "Performance lowering springs",
+    "Brand": "Eibach",
+    "Price": 299.99,
+    "Material": "Steel",
+    "Color": "Red",
+    "Position": "All",
+    "Drop": "1.5 inches"
+  },
+  {
+    "Part Number": "BUSHING001",
+    "Part Terminology Name": "Control Arm Bushing",
+    "PTID": "10101",
+    "Parent/Child": "Child",
+    "Description": "Polyurethane control arm bushing",
+    "Brand": "Energy Suspension",
+    "Price": 39.99,
+    "Material": "Polyurethane",
+    "Color": "Red",
+    "Position": "Front",
+    "Type": "Lower"
+  },
+  {
+    "Part Number": "SWAYBAR001",
+    "Part Terminology Name": "Sway Bar",
+    "PTID": "20202",
+    "Parent/Child": "Parent",
+    "Description": "Performance sway bar for improved handling",
+    "Brand": "Whiteline",
+    "Price": 179.99,
+    "Material": "Steel",
+    "Color": "Black",
+    "Position": "Front",
+    "Diameter": "22mm"
+  }
+]

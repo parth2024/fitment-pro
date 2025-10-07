@@ -1,0 +1,67 @@
+[
+  {
+    "Part Number": "BUMPER001",
+    "Part Terminology Name": "Front Bumper",
+    "PTID": "80808",
+    "Parent/Child": "Parent",
+    "Description": "OEM-style front bumper",
+    "Brand": "OEM Plus",
+    "Price": 299.99,
+    "Material": "Plastic",
+    "Color": "Primed",
+    "Position": "Front",
+    "Type": "OEM Style"
+  },
+  {
+    "Part Number": "FENDER001",
+    "Part Terminology Name": "Fender Flare Set",
+    "PTID": "90909",
+    "Parent/Child": "Parent",
+    "Description": "Wide fender flares for aggressive look",
+    "Brand": "Rocket Bunny",
+    "Price": 599.99,
+    "Material": "Fiberglass",
+    "Color": "Primed",
+    "Position": "All",
+    "Type": "Wide Body"
+  },
+  {
+    "Part Number": "HOOD001",
+    "Part Terminology Name": "Carbon Fiber Hood",
+    "PTID": "101010",
+    "Parent/Child": "Parent",
+    "Description": "Lightweight carbon fiber hood",
+    "Brand": "Seibon",
+    "Price": 899.99,
+    "Material": "Carbon Fiber",
+    "Color": "Weave",
+    "Position": "Front",
+    "Type": "OEM Style"
+  },
+  {
+    "Part Number": "SPOILER001",
+    "Part Terminology Name": "Rear Spoiler",
+    "PTID": "111111",
+    "Parent/Child": "Parent",
+    "Description": "High-performance rear spoiler",
+    "Brand": "APR",
+    "Price": 499.99,
+    "Material": "Carbon Fiber",
+    "Color": "Weave",
+    "Position": "Rear",
+    "Type": "GT Wing"
+  },
+  {
+    "Part Number": "MIRROR001",
+    "Part Terminology Name": "Side Mirror Set",
+    "PTID": "121212",
+    "Parent/Child": "Parent",
+    "Description": "Carbon fiber side mirrors",
+    "Brand": "Seibon",
+    "Price": 199.99,
+    "Material": "Carbon Fiber",
+    "Color": "Weave",
+    "Position": "Side",
+    "Type": "OEM Style"
+  }
+]

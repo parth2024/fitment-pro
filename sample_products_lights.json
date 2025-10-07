@@ -1,0 +1,72 @@
+[
+  {
+    "Part Number": "HEADLIGHT001",
+    "Part Terminology Name": "LED Headlight Assembly",
+    "PTID": "30303",
+    "Parent/Child": "Parent",
+    "Description": "High-performance LED headlight assembly",
+    "Brand": "Philips",
+    "Price": 399.99,
+    "Material": "Plastic",
+    "Color": "Clear",
+    "Position": "Front",
+    "Type": "LED",
+    "Wattage": "35W"
+  },
+  {
+    "Part Number": "TAILLIGHT001",
+    "Part Terminology Name": "LED Taillight Assembly",
+    "PTID": "40404",
+    "Parent/Child": "Parent",
+    "Description": "LED taillight with sequential turn signals",
+    "Brand": "Sequential",
+    "Price": 299.99,
+    "Material": "Plastic",
+    "Color": "Red",
+    "Position": "Rear",
+    "Type": "LED",
+    "Features": "Sequential"
+  },
+  {
+    "Part Number": "FOGLIGHT001",
+    "Part Terminology Name": "Fog Light Kit",
+    "PTID": "50505",
+    "Parent/Child": "Parent",
+    "Description": "High-intensity fog light kit",
+    "Brand": "Rigid",
+    "Price": 199.99,
+    "Material": "Aluminum",
+    "Color": "Black",
+    "Position": "Front",
+    "Type": "LED",
+    "Beam Pattern": "Wide"
+  },
+  {
+    "Part Number": "BULB001",
+    "Part Terminology Name": "HID Bulb Set",
+    "PTID": "60606",
+    "Parent/Child": "Child",
+    "Description": "High-intensity discharge bulb set",
+    "Brand": "Osram",
+    "Price": 79.99,
+    "Material": "Glass",
+    "Color": "White",
+    "Position": "Front",
+    "Type": "HID",
+    "Color Temperature": "6000K"
+  },
+  {
+    "Part Number": "LEDSTRIP001",
+    "Part Terminology Name": "LED Strip Light",
+    "PTID": "70707",
+    "Parent/Child": "Child",
+    "Description": "Flexible LED strip for accent lighting",
+    "Brand": "FlexLED",
+    "Price": 29.99,
+    "Material": "Silicone",
+    "Color": "RGB",
+    "Position": "Interior",
+    "Type": "Strip",
+    "Length": "5 meters"
+  }
+]

@@ -186,15 +186,35 @@ export default function FilterableSortableHeader({
   };
 
   return (
-    <Group gap="xs" style={{ userSelect: "none" }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "4px",
+        userSelect: "none",
+        width: "100%",
+        minHeight: "32px",
+      }}
+    >
       {/* Sort Button */}
-      <Group gap="xs" style={{ cursor: "pointer" }} onClick={handleSort}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "4px",
+          cursor: "pointer",
+          flex: 1,
+        }}
+        onClick={handleSort}
+      >
         <Text
           fw={600}
           size="sm"
           c={isActive ? "#3b82f6" : "#374151"}
           style={{
             transition: "color 0.2s ease",
+            lineHeight: 1.2,
+            whiteSpace: "nowrap",
           }}
         >
           {label}
@@ -205,11 +225,12 @@ export default function FilterableSortableHeader({
           color={isActive ? "blue" : "gray"}
           style={{
             transition: "color 0.2s ease",
+            flexShrink: 0,
           }}
         >
           {getIcon()}
         </ActionIcon>
-      </Group>
+      </div>
 
       {/* Filter Button */}
       <Popover
@@ -232,6 +253,7 @@ export default function FilterableSortableHeader({
             onClick={() => setOpened(!opened)}
             style={{
               transition: "all 0.2s ease",
+              flexShrink: 0,
             }}
           >
             <IconFilter size={12} />
@@ -273,6 +295,6 @@ export default function FilterableSortableHeader({
           </Stack>
         </Popover.Dropdown>
       </Popover>
-    </Group>
+    </div>
   );
 }

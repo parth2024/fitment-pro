@@ -1,0 +1,67 @@
+[
+  {
+    "Part Number": "BRAKE001",
+    "Part Terminology Name": "Brake Pad Set",
+    "PTID": "67890",
+    "Parent/Child": "Parent",
+    "Description": "Performance brake pads for high-speed applications",
+    "Brand": "StopTech",
+    "Price": 89.99,
+    "Material": "Ceramic",
+    "Color": "Black",
+    "Position": "Front",
+    "Thickness": "12mm"
+  },
+  {
+    "Part Number": "BRAKE002",
+    "Part Terminology Name": "Brake Rotor",
+    "PTID": "67891",
+    "Parent/Child": "Parent",
+    "Description": "Vented brake rotor for improved cooling",
+    "Brand": "Brembo",
+    "Price": 129.99,
+    "Material": "Cast Iron",
+    "Color": "Gray",
+    "Position": "Front",
+    "Diameter": "330mm"
+  },
+  {
+    "Part Number": "BRAKE003",
+    "Part Terminology Name": "Brake Caliper",
+    "PTID": "67892",
+    "Parent/Child": "Parent",
+    "Description": "High-performance brake caliper",
+    "Brand": "Wilwood",
+    "Price": 299.99,
+    "Material": "Aluminum",
+    "Color": "Red",
+    "Position": "Front",
+    "Piston Count": "4"
+  },
+  {
+    "Part Number": "BRAKE004",
+    "Part Terminology Name": "Brake Line Set",
+    "PTID": "67893",
+    "Parent/Child": "Child",
+    "Description": "Stainless steel braided brake lines",
+    "Brand": "Goodridge",
+    "Price": 79.99,
+    "Material": "Stainless Steel",
+    "Color": "Silver",
+    "Position": "All",
+    "Length": "Custom"
+  },
+  {
+    "Part Number": "BRAKE005",
+    "Part Terminology Name": "Brake Fluid",
+    "PTID": "67894",
+    "Parent/Child": "Child",
+    "Description": "High-temperature brake fluid",
+    "Brand": "Motul",
+    "Price": 24.99,
+    "Material": "Synthetic",
+    "Color": "Clear",
+    "Position": "System",
+    "DOT Rating": "DOT 4"
+  }
+]
