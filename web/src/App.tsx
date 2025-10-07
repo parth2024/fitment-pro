@@ -6,17 +6,12 @@ import {
   Stack,
   NavLink,
   Text,
-  Avatar,
-  Menu,
-  Button,
   Box,
   ThemeIcon,
 } from "@mantine/core";
 import {
   IconCar,
   IconTable,
-  IconUser,
-  IconLogout,
   IconChevronRight,
   IconDashboard,
   IconBulb,
@@ -53,10 +48,11 @@ import CustomPCDB from "./pages/CustomPCDB";
 import VCDBData from "./pages/VCDBData";
 import ProtectedRoute from "./components/ProtectedRoute";
 import EntitySelector from "./components/EntitySelector";
+import UserRoleToggle from "./components/UserRoleToggle";
 import { useAuth } from "./contexts/AuthContext";
-import { useProfessionalToast } from "./hooks/useProfessionalToast";
 
-const navigationItems = [
+// Base navigation items that are always available
+const baseNavigationItems = [
   {
     label: "Entity Management",
     value: "entities",
@@ -78,42 +74,6 @@ const navigationItems = [
     icon: IconTable,
     color: "teal",
   },
-  // {
-  //   label: "Upload Data",
-  //   value: "upload-data",
-  //   path: "/upload-data",
-  //   icon: IconDatabase,
-  //   color: "cyan",
-  // },
-  // {
-  //   label: "Apply Fitments",
-  //   value: "apply",
-  //   path: "/apply-fitments",
-  //   icon: IconCar,
-  //   color: "green",
-  // },
-
-  // {
-  //   label: "Bulk Fitments Upload",
-  //   value: "bulk",
-  //   path: "/bulk-upload",
-  //   icon: IconUpload,
-  //   color: "orange",
-  // },
-  // {
-  //   label: "Mismatches(Beta)",
-  //   value: "mismatches",
-  //   path: "/mismatches",
-  //   icon: IconAlertTriangle,
-  //   color: "red",
-  // },
-  // {
-  //   label: "Coverage",
-  //   value: "coverage",
-  //   path: "/coverage",
-  //   icon: IconChartBar,
-  //   color: "cyan",
-  // },
   {
     label: "Potential Fitments",
     value: "potential",
@@ -121,6 +81,10 @@ const navigationItems = [
     icon: IconBulb,
     color: "yellow",
   },
+];
+
+// Admin-only navigation items
+const adminNavigationItems = [
   {
     label: "VCDB Data",
     value: "vcdb-data",
@@ -128,27 +92,25 @@ const navigationItems = [
     icon: IconDatabase,
     color: "cyan",
   },
-  // {
-  //   label: "Custom PCDB",
-  //   value: "custom-pcdb",
-  //   path: "/custom-pcdb",
-  //   icon: IconDatabaseCog,
-  //   color: "purple",
-  // },
-  // {
-  //   label: "Settings",
-  //   value: "settings",
-  //   path: "/settings",
-  //   icon: IconSettings,
-  //   color: "gray",
-  // },
 ];
+
+// Function to get navigation items based on user role
+const getNavigationItems = (isAdmin: boolean) => {
+  if (isAdmin) {
+    return [...baseNavigationItems, ...adminNavigationItems];
+  }
+  return baseNavigationItems;
+};
 
 function App() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
-  const { showSuccess } = useProfessionalToast();
+  const { user } = useAuth();
+
+  // Get navigation items based on user role
+  const navigationItems = user
+    ? getNavigationItems(user.is_admin)
+    : baseNavigationItems;
 
   // Get current page name for header based on current route
   const getCurrentPageName = () => {
@@ -188,12 +150,6 @@ function App() {
     return currentNav ? currentNav.value : "entities";
   };
 
-  // Handle sign out
-  const handleSignOut = () => {
-    logout();
-    showSuccess("You have been signed out successfully.");
-  };
-
   const renderContent = () => {
     return (
       <Routes>
@@ -222,7 +178,7 @@ function App() {
         <Route path="/entities" element={<EntityManagement />} />
         <Route path="/create-entity" element={<CreateEntity />} />
         <Route path="/edit-entity/:id" element={<EditEntity />} />
-        <Route path="/vcdb-data" element={<VCDBData />} />
+        <Route path="/vcdb-data" element={<VCDBDataWrapper />} />
         <Route path="/custom-pcdb" element={<CustomPCDB />} />
         <Route path="*" element={<EntityManagement />} />
       </Routes>
@@ -238,6 +194,31 @@ function App() {
         onBack={() => navigate("/fitments")}
       />
     );
+  };
+
+  // Wrapper component for VCDBData to check admin access
+  const VCDBDataWrapper = () => {
+    if (!user?.is_admin) {
+      return (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            height: "400px",
+            textAlign: "center",
+          }}
+        >
+          <div>
+            <Title order={3} mb="md">
+              Access Denied
+            </Title>
+            <Text c="dimmed">VCDB Data is only accessible to Admin users.</Text>
+          </div>
+        </div>
+      );
+    }
+    return <VCDBData />;
   };
 
   return (
@@ -287,42 +268,7 @@ function App() {
 
             <Group gap="md">
               <EntitySelector compact />
-              <Menu width={200} position="bottom-end" withArrow>
-                <Menu.Target>
-                  <Button
-                    variant="subtle"
-                    size="sm"
-                    leftSection={
-                      <Avatar
-                        size={24}
-                        radius="xl"
-                        gradient={{
-                          from: "primary.6",
-                          to: "secondary.6",
-                          deg: 135,
-                        }}
-                      >
-                        AD
-                      </Avatar>
-                    }
-                    rightSection={<IconChevronRight size={16} />}
-                    style={{ fontWeight: 500 }}
-                  >
-                    {user?.name || "Admin User"}
-                  </Button>
-                </Menu.Target>
-                <Menu.Dropdown>
-                  <Menu.Item leftSection={<IconUser size={16} />}>
-                    Profile Settings
-                  </Menu.Item>
-                  <Menu.Item
-                    leftSection={<IconLogout size={16} />}
-                    onClick={handleSignOut}
-                  >
-                    Sign Out
-                  </Menu.Item>
-                </Menu.Dropdown>
-              </Menu>
+              <UserRoleToggle />
             </Group>
           </Container>
         </AppShell.Header>
