@@ -69,10 +69,11 @@ MIDDLEWARE = [
 # Session configuration for authentication
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_COOKIE_AGE = 86400  # 24 hours
-SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
+SESSION_COOKIE_SECURE = True  # Set to True in production with HTTPS
+# SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = 'Lax'
-
+# SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SAMESITE = 'None' 
 ROOT_URLCONF = 'sdc.urls'
 
 TEMPLATES = [
@@ -144,6 +145,7 @@ CORS_ALLOW_CREDENTIALS = True
 
 
 CORS_ALLOWED_ORIGINS = [
+    "https://fitment-pro-w23j.vercel.app",
     "http://localhost:3000",
     "http://localhost:5001",
     "http://127.0.0.1:3000",
@@ -152,7 +154,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:8000",
     "http://localhost:8001",
     "http://127.0.0.1:8001",
-    "https://fitment-pro-w23j.vercel.app",
+  
 ]
 
 CORS_ALLOW_ALL_HEADERS = True
@@ -163,6 +165,10 @@ CORS_ALLOW_METHODS = [
     'PATCH',
     'POST',
     'PUT',
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://fitment-pro-w23j.vercel.app",
 ]
 
 CORS_ALLOW_HEADERS = [
