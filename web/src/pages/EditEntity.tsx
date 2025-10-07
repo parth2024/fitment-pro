@@ -451,6 +451,7 @@ const EditEntity: React.FC = () => {
     if (value) {
       setActiveTab(value);
     }
+    console.log(activeTab);
 
     if (value === "history") {
       if (!historyTabLoaded) {
