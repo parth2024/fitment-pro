@@ -295,6 +295,12 @@ def process_ai_fitments(job, vcdb_categories, product_data):
         for fitment_data in ai_fitments:
             try:
                 # Map AI response to our fitment structure
+                # Safe defaults to satisfy NOT NULL columns
+                ai_position = (fitment_data.get('position') or '').strip() or 'Standard'
+                ai_position_id = fitment_data.get('positionId')
+                if not isinstance(ai_position_id, int) or ai_position_id is None:
+                    ai_position_id = hash(f"{fitment_data.get('partId', '')}_{fitment_data.get('year', 2020)}_{fitment_data.get('make', '')}_{fitment_data.get('model', '')}_{ai_position}") % 1000000
+
                 fitment_dict = {
                     'tenant': job.tenant,
                     'partId': fitment_data.get('partId', ''),
@@ -304,7 +310,7 @@ def process_ai_fitments(job, vcdb_categories, product_data):
                     'modelName': fitment_data.get('model', ''),
                     'subModelName': fitment_data.get('submodel', ''),
                     'driveTypeName': fitment_data.get('driveType', ''),
-                    'position': fitment_data.get('position', ''),
+                    'position': ai_position,
                     'quantity': fitment_data.get('quantity', 1),
                     'fitmentType': 'ai_fitment',
                     'itemStatus': 'readyToApprove',
@@ -321,7 +327,7 @@ def process_ai_fitments(job, vcdb_categories, product_data):
                     'partTypeDescriptor': fitment_data.get('partDescription', 'AI Generated Part'),
                     'uom': 'EA',  # Default unit of measure
                     'fitmentTitle': f"{fitment_data.get('partId', '')} for {fitment_data.get('year', 2020)} {fitment_data.get('make', '')} {fitment_data.get('model', '')}",
-                    'positionId': hash(f"{fitment_data.get('partId', '')}_{fitment_data.get('year', 2020)}_{fitment_data.get('make', '')}_{fitment_data.get('model', '')}") % 1000000,
+                    'positionId': ai_position_id,
                     'liftHeight': 'Standard',
                     'wheelType': 'Alloy',
                     'itemStatusCode': 0,
