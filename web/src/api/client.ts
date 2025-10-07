@@ -21,23 +21,27 @@ apiClient.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // Add tenant context if available
-    const currentEntity = localStorage.getItem("current_entity");
-    if (currentEntity) {
-      try {
-        const entity = JSON.parse(currentEntity);
-        config.headers["X-Tenant-ID"] = entity.id;
-        console.log(
-          "DEBUG: Adding X-Tenant-ID header:",
-          entity.id,
-          "for entity:",
-          entity.name
-        );
-      } catch (err) {
-        console.warn("Invalid entity data in localStorage");
+    // Add tenant context if available (but only if not already set by the request)
+    if (!config.headers["X-Tenant-ID"]) {
+      const currentEntity = localStorage.getItem("current_entity");
+      if (currentEntity) {
+        try {
+          const entity = JSON.parse(currentEntity);
+          config.headers["X-Tenant-ID"] = entity.id;
+          console.log(
+            "DEBUG: Adding X-Tenant-ID header:",
+            entity.id,
+            "for entity:",
+            entity.name
+          );
+        } catch (err) {
+          console.warn("Invalid entity data in localStorage");
+        }
+      } else {
+        console.log("DEBUG: No current_entity found in localStorage");
       }
     } else {
-      console.log("DEBUG: No current_entity found in localStorage");
+      console.log("DEBUG: X-Tenant-ID header already set, not overriding");
     }
 
     return config;
@@ -70,7 +74,10 @@ apiClient.interceptors.response.use(
 // Wrapper function to prevent duplicate API calls
 const deduplicatedApiClient = {
   get: (url: string, config?: any) => {
-    const requestKey = `GET_${url}_${JSON.stringify(config?.params || {})}`;
+    // Include headers in the request key to prevent deduplication of requests with different tenant IDs
+    const requestKey = `GET_${url}_${JSON.stringify(
+      config?.params || {}
+    )}_${JSON.stringify(config?.headers || {})}`;
 
     if (pendingRequests.has(requestKey)) {
       console.log("DEBUG: Deduplicating GET request:", url);
