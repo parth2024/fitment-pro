@@ -1294,7 +1294,7 @@ const EditEntity: React.FC = () => {
                             formDataToSend.append(`files`, file);
                           });
 
-                          const uploadResponse = await apiClient.post(
+                          await apiClient.post(
                             "/api/products/upload/",
                             formDataToSend,
                             {
