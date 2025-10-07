@@ -19,14 +19,12 @@ import {
   IconChartBar,
   IconCar,
   IconTable,
-  IconUpload,
   IconBulb,
   IconTrendingUp,
   IconUsers,
   IconDatabase,
   IconRobot,
   IconChevronRight,
-  IconSettings,
   IconBuilding,
   IconRefresh,
   IconInfoCircle,
@@ -78,12 +76,19 @@ const Analytics: React.FC = () => {
 
   const navigationShortcuts: NavigationShortcut[] = [
     {
-      title: "Upload Data",
-      description: "Map uploaded data to vehicles",
-      icon: IconDatabase,
-      color: "cyan",
-      value: "/upload-data",
+      title: "Entity Management",
+      description: "Manage entities and their settings",
+      icon: IconBuilding,
+      color: "gray",
+      value: "/entities",
     },
+    // {
+    //   title: "Upload Data",
+    //   description: "Map uploaded data to vehicles",
+    //   icon: IconDatabase,
+    //   color: "cyan",
+    //   value: "/upload-data",
+    // },
     // {
     //   title: "Apply Fitments",
     //   description: "Upload and apply new fitments",
@@ -98,13 +103,13 @@ const Analytics: React.FC = () => {
       color: "teal",
       value: "/fitments",
     },
-    {
-      title: "Bulk Fitments Upload",
-      description: "Upload multiple fitments at once",
-      icon: IconUpload,
-      color: "orange",
-      value: "/bulk-upload",
-    },
+    // {
+    //   title: "Bulk Fitments Upload",
+    //   description: "Upload multiple fitments at once",
+    //   icon: IconUpload,
+    //   color: "orange",
+    //   value: "/bulk-upload",
+    // },
 
     // {
     //   title: "Mistmatches",
@@ -113,13 +118,13 @@ const Analytics: React.FC = () => {
     //   color: "red",
     //   value: "/mismatches",
     // },
-    {
-      title: "Coverage Analytics",
-      description: "Vehicle coverage analysis",
-      icon: IconChartBar,
-      color: "cyan",
-      value: "/coverage",
-    },
+    // {
+    //   title: "Coverage Analytics",
+    //   description: "Vehicle coverage analysis",
+    //   icon: IconChartBar,
+    //   color: "cyan",
+    //   value: "/coverage",
+    // },
     {
       title: "Potential Fitments",
       description: "AI-suggested fitment opportunities",
@@ -128,20 +133,13 @@ const Analytics: React.FC = () => {
       value: "/potential-fitments",
     },
 
-    {
-      title: "Settings",
-      description: "Configure field mappings and validation rules",
-      icon: IconSettings,
-      color: "gray",
-      value: "/settings",
-    },
-    {
-      title: "Entity Management",
-      description: "Manage entities and their settings",
-      icon: IconBuilding,
-      color: "gray",
-      value: "/entities",
-    },
+    // {
+    //   title: "Settings",
+    //   description: "Configure field mappings and validation rules",
+    //   icon: IconSettings,
+    //   color: "gray",
+    //   value: "/settings",
+    // },
   ];
 
   const fetchAnalyticsData = async (entityIds?: string[]) => {
@@ -876,7 +874,7 @@ const Analytics: React.FC = () => {
                 )}
               </div>
               <Badge variant="light" color="blue" size="lg">
-                8 Modules
+                3 Modules
               </Badge>
             </Group>
 

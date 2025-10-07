@@ -60,24 +60,23 @@ const navigationItems = [
   {
     label: "Entity Management",
     value: "entities",
-    path: "/entities",
+    path: "/",
     icon: IconBuilding,
     color: "violet",
   },
-
+  {
+    label: "Analytics",
+    value: "analytics",
+    path: "/analytics",
+    icon: IconDashboard,
+    color: "blue",
+  },
   {
     label: "Fitments",
     value: "fitments",
     path: "/fitments",
     icon: IconTable,
     color: "teal",
-  },
-  {
-    label: "Analytics",
-    value: "analytics",
-    path: "/",
-    icon: IconDashboard,
-    color: "blue",
   },
   // {
   //   label: "Upload Data",
@@ -186,7 +185,7 @@ function App() {
     const currentNav = navigationItems.find(
       (item) => item.path === location.pathname
     );
-    return currentNav ? currentNav.value : "analytics";
+    return currentNav ? currentNav.value : "entities";
   };
 
   // Handle sign out
@@ -198,7 +197,8 @@ function App() {
   const renderContent = () => {
     return (
       <Routes>
-        <Route path="/" element={<Analytics />} />
+        <Route path="/" element={<EntityManagement />} />
+        <Route path="/analytics" element={<Analytics />} />
         <Route path="/upload-data" element={<UploadData />} />
         <Route path="/apply-fitments" element={<ApplyFitments />} />
         <Route path="/fitments" element={<Fitments />} />
@@ -224,7 +224,7 @@ function App() {
         <Route path="/edit-entity/:id" element={<EditEntity />} />
         <Route path="/vcdb-data" element={<VCDBData />} />
         <Route path="/custom-pcdb" element={<CustomPCDB />} />
-        <Route path="*" element={<Analytics />} />
+        <Route path="*" element={<EntityManagement />} />
       </Routes>
     );
   };
