@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework_simplejwt',
     'corsheaders',
     'django_filters',
     'tenants',
@@ -61,7 +62,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    # 'django.middleware.csrf.CsrfViewMiddleware',  # Disabled for JWT authentication
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -70,8 +71,8 @@ MIDDLEWARE = [
 # Session configuration for authentication
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_COOKIE_AGE = 86400  # 24 hours
-SESSION_COOKIE_SECURE = True  # Set to True in production with HTTPS
-# SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
+# SESSION_COOKIE_SECURE = True  # Set to True in production with HTTPS
+SESSION_COOKIE_SECURE = False  # Set to False for localhost development
 SESSION_COOKIE_HTTPONLY = True
 # SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SAMESITE = 'None' 
@@ -105,8 +106,8 @@ DATABASES = {
         'NAME': "fitmentpro_db",
         'USER': "fitmentpro_user",
         'PASSWORD': "fitmentpro_pass",
-        'HOST': "ec2-65-0-133-50.ap-south-1.compute.amazonaws.com",
-        # 'HOST': "localhost",
+        # 'HOST': "ec2-65-0-133-50.ap-south-1.compute.amazonaws.com",
+        'HOST': "localhost",
         'PORT': "5432",
     }
 }
@@ -185,6 +186,14 @@ CORS_ALLOW_HEADERS = [
 # CSRF trusted origins
 CSRF_TRUSTED_ORIGINS = [
     "https://fitment-pro-w23j.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:5001",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5001",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://localhost:8001",
+    "http://127.0.0.1:8001",
 ]
 
 # Additional CORS settings to prevent header duplication
@@ -196,14 +205,53 @@ CORS_EXPOSE_HEADERS = [
 # Ensure CORS preflight requests are handled correctly
 CORS_PREFLIGHT_MAX_AGE = 86400  # 24 hours
 
+# Additional CORS settings for development
+CORS_ALLOW_PRIVATE_NETWORK = True  # Allow private network access
+CORS_ALLOW_CREDENTIALS = False  # Disabled for JWT authentication
+CORS_ALLOW_ALL_ORIGINS = True  # Allow all origins for development
+CORS_ALLOW_ALL_HEADERS = True  # Allow all headers
+CORS_ALLOW_ALL_METHODS = True  # Allow all HTTP methods
+
 REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny'
+        'rest_framework.permissions.IsAuthenticated'
     ],
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer'
     ]
+}
+
+# JWT Configuration
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=24),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUDIENCE': None,
+    'ISSUER': None,
+    'JWK_URL': None,
+    'LEEWAY': 0,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'USER_AUTHENTICATION_RULE': 'rest_framework_simplejwt.authentication.default_user_authentication_rule',
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+    'JTI_CLAIM': 'jti',
+    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
+    'SLIDING_TOKEN_LIFETIME': timedelta(hours=24),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=7),
 }
 
 # Azure AI Foundry settings

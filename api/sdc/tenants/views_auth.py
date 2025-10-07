@@ -2,9 +2,9 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
-from django.views.decorators.csrf import csrf_exempt
+from rest_framework_simplejwt.tokens import RefreshToken
 from .models import UserProfile, Role
 from .serializers import UserProfileSerializer
 import json
@@ -12,9 +12,8 @@ import json
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
-@csrf_exempt
 def login_view(request):
-    """Login endpoint that returns user information with roles"""
+    """JWT-based login endpoint that returns user information with roles and tokens"""
     try:
         data = json.loads(request.body)
         username = data.get('username')
@@ -26,10 +25,13 @@ def login_view(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        user = authenticate(request, username=username, password=password)
+        user = authenticate(username=username, password=password)
         
         if user is not None:
-            login(request, user)
+            # Generate JWT tokens
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+            refresh_token = str(refresh)
             
             # Get user profile and roles
             try:
@@ -59,6 +61,8 @@ def login_view(request):
                 return Response({
                     'success': True,
                     'user': user_data,
+                    'access_token': access_token,
+                    'refresh_token': refresh_token,
                     'message': 'Login successful'
                 })
                 
@@ -86,12 +90,52 @@ def login_view(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def logout_view(request):
-    """Logout endpoint"""
+    """JWT logout endpoint - client should discard tokens"""
     try:
-        logout(request)
         return Response({'success': True, 'message': 'Logout successful'})
+    except Exception as e:
+        return Response(
+            {'error': str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def refresh_token_view(request):
+    """Refresh JWT token endpoint"""
+    try:
+        data = json.loads(request.body)
+        refresh_token = data.get('refresh_token')
+        
+        if not refresh_token:
+            return Response(
+                {'error': 'Refresh token required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            refresh = RefreshToken(refresh_token)
+            access_token = str(refresh.access_token)
+            
+            return Response({
+                'success': True,
+                'access_token': access_token,
+                'message': 'Token refreshed successfully'
+            })
+        except Exception as e:
+            return Response(
+                {'error': 'Invalid refresh token'}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+            
+    except json.JSONDecodeError:
+        return Response(
+            {'error': 'Invalid JSON'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
     except Exception as e:
         return Response(
             {'error': str(e)}, 

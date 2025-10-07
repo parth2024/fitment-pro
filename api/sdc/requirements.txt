@@ -67,3 +67,5 @@ chardet
 django-filter
 celery
 redis
+djangorestframework-simplejwt
+PyJWT

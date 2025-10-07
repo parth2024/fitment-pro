@@ -79,8 +79,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (response.data.success) {
         const userData = response.data.user;
+        const accessToken = response.data.access_token;
+        const refreshToken = response.data.refresh_token;
+
         setUser(userData);
         localStorage.setItem("user", JSON.stringify(userData));
+        localStorage.setItem("access_token", accessToken);
+        localStorage.setItem("refresh_token", refreshToken);
         setLoading(false);
         return true;
       } else {
@@ -102,6 +107,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } finally {
       setUser(null);
       localStorage.removeItem("user");
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
       localStorage.removeItem("current_entity");
     }
   };

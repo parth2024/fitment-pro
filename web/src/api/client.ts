@@ -10,16 +10,16 @@ const apiClient = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  withCredentials: true, // Include cookies for session authentication
+  // withCredentials: true, // Disabled for JWT authentication
 });
 
 // Request interceptor
 apiClient.interceptors.request.use(
   (config) => {
-    // Add authentication token if available
-    const token = localStorage.getItem("auth_token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Add JWT authentication token if available
+    const accessToken = localStorage.getItem("access_token");
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
     }
 
     // Add tenant context if available (but only if not already set by the request)
@@ -57,7 +57,37 @@ apiClient.interceptors.response.use(
   (response) => {
     return response;
   },
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Handle 401 errors (token expired)
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        const refreshToken = localStorage.getItem("refresh_token");
+        if (refreshToken) {
+          const response = await axios.post(
+            `${(import.meta as any).env.VITE_BACKEND_URL}/api/auth/refresh/`,
+            { refresh_token: refreshToken }
+          );
+
+          if (response.data.success) {
+            localStorage.setItem("access_token", response.data.access_token);
+            originalRequest.headers.Authorization = `Bearer ${response.data.access_token}`;
+            return apiClient(originalRequest);
+          }
+        }
+      } catch (refreshError) {
+        // Refresh failed, redirect to login
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        localStorage.removeItem("user");
+        window.location.href = "/login";
+        return Promise.reject(refreshError);
+      }
+    }
+
     if (error.response) {
       // Server responded with error status
       console.error("API Error:", error.response.data);
