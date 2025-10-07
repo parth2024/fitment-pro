@@ -1642,11 +1642,21 @@ def get_job_history(request):
     try:
         # Get tenant from header or request
         tenant_id = request.headers.get('X-Tenant-ID') or request.GET.get('tenant_id')
-
+        
         if not tenant_id:
             return Response(
                 {'error': 'Tenant ID is required'},
                 status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate tenant exists
+        from tenants.models import Tenant
+        try:
+            tenant_obj = Tenant.objects.get(id=tenant_id)
+        except Tenant.DoesNotExist:
+            return Response(
+                {'error': f'Tenant with ID {tenant_id} not found'},
+                status=status.HTTP_404_NOT_FOUND
             )
 
         # Get job history from both Job and FitmentJob models

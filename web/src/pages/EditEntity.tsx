@@ -33,6 +33,7 @@ import {
   IconDatabase,
   IconArrowLeft,
   IconClock,
+  IconRefresh,
 } from "@tabler/icons-react";
 import { useParams, useNavigate } from "react-router-dom";
 import apiClient from "../api/client";
@@ -242,7 +243,12 @@ const EditEntity: React.FC = () => {
     try {
       setLoadingCategories(true);
       const response = await apiClient.get(
-        `/api/vcdb-categories/categories/?tenant_id=${id}`
+        `/api/vcdb-categories/categories/?tenant_id=${id}`,
+        {
+          headers: {
+            "X-Tenant-ID": id, // Override with the specific entity ID from URL
+          },
+        }
       );
       setVcdbCategories(response.data);
     } catch (error) {
@@ -258,12 +264,21 @@ const EditEntity: React.FC = () => {
 
   // Fetch fitment jobs
   const fetchFitmentJobs = async () => {
-    if (!id) return;
+    if (!id || !entity) {
+      return;
+    }
 
     try {
       setLoadingJobs(true);
+
+      // Override the global X-Tenant-ID header with the specific entity ID being edited
       const response = await apiClient.get(
-        `/api/data-uploads/job-history/?tenant_id=${id}`
+        `/api/data-uploads/job-history/?tenant_id=${id}`,
+        {
+          headers: {
+            "X-Tenant-ID": id, // Override with the specific entity ID from URL
+          },
+        }
       );
       const newJobs = response.data.job_history || [];
 
@@ -335,7 +350,12 @@ const EditEntity: React.FC = () => {
     try {
       setCheckingFiles(true);
       const response = await apiClient.get(
-        `/api/products/upload/check_existing_files/`
+        `/api/products/upload/check_existing_files/`,
+        {
+          headers: {
+            "X-Tenant-ID": id, // Override with the specific entity ID from URL
+          },
+        }
       );
       const data = response.data;
 
@@ -356,23 +376,22 @@ const EditEntity: React.FC = () => {
     }
   }, [id]);
 
-  // Poll for job status updates every 3 seconds (only when history tab is loaded and active)
+  // Clear job history when entity changes
   useEffect(() => {
-    if (!id || !historyTabLoaded || activeTab !== "history") return;
+    if (id) {
+      setFitmentJobs([]);
+      setHistoryTabLoaded(false);
+    }
+  }, [id]);
 
-    const interval = setInterval(() => {
-      fetchFitmentJobs();
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [id, historyTabLoaded, activeTab]);
+  // Remove automatic polling - only fetch when manually requested
 
   // Track previous job statuses to detect changes
   const [previousJobStatuses, setPreviousJobStatuses] = useState<
     Record<string, string>
   >({});
 
-  // Show notifications for job status changes
+  // Show notifications for job status changes (only when manually refreshing)
   useEffect(() => {
     if (fitmentJobs.length > 0) {
       // Check all jobs for status changes
@@ -433,8 +452,11 @@ const EditEntity: React.FC = () => {
       setActiveTab(value);
     }
 
-    if (value === "history" && !historyTabLoaded) {
-      setHistoryTabLoaded(true);
+    if (value === "history") {
+      if (!historyTabLoaded) {
+        setHistoryTabLoaded(true);
+      }
+      // Always fetch fresh data when switching to history tab
       fetchFitmentJobs();
     }
     if (value === "products") {
@@ -1121,6 +1143,7 @@ const EditEntity: React.FC = () => {
                             {
                               headers: {
                                 "Content-Type": "multipart/form-data",
+                                "X-Tenant-ID": id, // Override with the specific entity ID from URL
                               },
                             }
                           );
@@ -1185,6 +1208,11 @@ const EditEntity: React.FC = () => {
                             "/api/products/upload/create_fitment_job_without_upload/",
                             {
                               fitment_settings: JSON.stringify(fitmentSettings),
+                            },
+                            {
+                              headers: {
+                                "X-Tenant-ID": id, // Override with the specific entity ID from URL
+                              },
                             }
                           );
 
@@ -1218,27 +1246,36 @@ const EditEntity: React.FC = () => {
               </Stack>
             </Tabs.Panel>
 
-            <Tabs.Panel value="history" pt="md">
+            <Tabs.Panel value="history" pt="md" key={`history-${id}`}>
               <Stack gap="md">
                 <Group justify="space-between" align="center">
-                  <Text fw={500} size="lg">
-                    Fitment Job History
-                  </Text>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    onClick={() => {
-                      notifications.show({
-                        title: "Test Notification",
-                        message:
-                          "This is a test notification to verify the system is working.",
-                        color: "blue",
-                        autoClose: 3000,
-                      });
-                    }}
-                  >
-                    Test Notifications
-                  </Button>
+                  <Group>
+                    <Text fw={500} size="lg">
+                      Fitment Job History
+                    </Text>
+                    <Badge color="blue" variant="light" size="sm">
+                      Entity: {entity?.name}
+                    </Badge>
+                  </Group>
+                  <Group>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      leftSection={<IconRefresh size={16} />}
+                      onClick={() => {
+                        fetchFitmentJobs();
+                        notifications.show({
+                          title: "Refreshing",
+                          message: "Job history is being refreshed...",
+                          color: "blue",
+                          autoClose: 2000,
+                        });
+                      }}
+                      loading={loadingJobs}
+                    >
+                      Refresh
+                    </Button>
+                  </Group>
                 </Group>
 
                 {loadingJobs ? (
@@ -1248,10 +1285,15 @@ const EditEntity: React.FC = () => {
                   </Group>
                 ) : fitmentJobs.length === 0 ? (
                   <Paper p="xl" style={{ textAlign: "center" }}>
-                    <Text c="dimmed">No fitment jobs found</Text>
+                    <Text c="dimmed">
+                      No fitment jobs found for this entity
+                    </Text>
                     <Text size="sm" c="dimmed" mt="xs">
                       Upload product files in the Products tab and click "Upload
                       Files & Start Fitment Job" to create your first job
+                    </Text>
+                    <Text size="xs" c="dimmed" mt="xs">
+                      Showing job history for: <strong>{entity?.name}</strong>
                     </Text>
                   </Paper>
                 ) : (
