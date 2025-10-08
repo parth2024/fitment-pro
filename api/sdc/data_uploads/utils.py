@@ -512,7 +512,7 @@ class DataProcessor:
         return created_count, errors
     
     @staticmethod
-    def process_product_data(df: pd.DataFrame, session_id: str, tenant=None) -> Tuple[int, List[str]]:
+    def process_product_data(df: pd.DataFrame, session_id: str, tenant=None, session=None, source_filename='') -> Tuple[int, List[str]]:
         """
         Process Product data and store in database
         
@@ -520,6 +520,8 @@ class DataProcessor:
             df: Normalized Product DataFrame
             session_id: Session ID for tracking
             tenant: Tenant instance for multi-tenant support
+            session: DataUploadSession instance
+            source_filename: Original filename of the uploaded file
             
         Returns:
             Tuple of (records_created, error_messages)
@@ -554,6 +556,8 @@ class DataProcessor:
                         existing_record.price = row.get('price')
                         existing_record.weight = row.get('weight')
                         existing_record.dimensions = row.get('dimensions', '')
+                        existing_record.session = session
+                        existing_record.source_file_name = source_filename
                         existing_record.save()
                         # Not counting as created since it's an update
                     else:
@@ -570,7 +574,9 @@ class DataProcessor:
                             price=row.get('price'),
                             weight=row.get('weight'),
                             dimensions=row.get('dimensions', ''),
-                            tenant=tenant
+                            tenant=tenant,
+                            session=session,
+                            source_file_name=source_filename
                         )
                         created = True
                     

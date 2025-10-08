@@ -146,11 +146,28 @@ class CreateAiFitmentJobSerializer(serializers.Serializer):
     """Serializer for creating AI fitment jobs"""
     job_type = serializers.ChoiceField(choices=['upload', 'selection'])
     product_file = serializers.FileField(required=False, allow_null=True)
-    product_ids = serializers.ListField(
-        child=serializers.CharField(),
-        required=False,
-        allow_empty=False
-    )
+    product_ids = serializers.CharField(required=False, allow_blank=True)
+    
+    def validate_product_ids(self, value):
+        """Convert string IDs to integers if needed"""
+        if value:
+            # Handle case where product_ids comes as JSON string from multipart form
+            if isinstance(value, str):
+                try:
+                    import json
+                    value = json.loads(value)
+                except (json.JSONDecodeError, TypeError):
+                    raise serializers.ValidationError("Invalid JSON format for product_ids")
+            
+            # Handle case where it's already a list
+            if isinstance(value, list):
+                try:
+                    return [int(id) for id in value]
+                except (ValueError, TypeError):
+                    raise serializers.ValidationError("All product IDs must be valid integers")
+            else:
+                raise serializers.ValidationError("product_ids must be a list")
+        return value
     
     def validate(self, data):
         job_type = data.get('job_type')
@@ -171,8 +188,8 @@ class CreateAiFitmentJobSerializer(serializers.Serializer):
 class ApproveRejectFitmentsSerializer(serializers.Serializer):
     """Serializer for approving/rejecting fitments"""
     fitment_ids = serializers.ListField(
-        child=serializers.UUIDField(),
+        child=serializers.CharField(),  # Changed from UUIDField to CharField (for hash)
         required=False,
         allow_empty=True,
-        help_text="If not provided, applies to all pending fitments"
+        help_text="Fitment hash IDs. If not provided, applies to all pending fitments"
     )

@@ -15,6 +15,7 @@ urlpatterns = [
     # Data retrieval endpoints
     path('vcdb/', views.get_vcdb_data, name='get_vcdb_data'),
     path('products/', views.get_product_data, name='get_product_data'),
+    path('product-files/', views.get_product_files, name='get_product_files'),
     
     # AI fitment processing
     path('ai-fitment/', views.process_ai_fitment, name='process_ai_fitment'),
@@ -46,8 +47,12 @@ urlpatterns = [
     # AI Fitment Jobs Management
     path('ai-fitment-jobs/', views.AiFitmentJobView.as_view(), name='ai_fitment_jobs'),
     path('ai-fitment-jobs/<uuid:job_id>/', views.AiFitmentJobDetailView.as_view(), name='ai_fitment_job_detail'),
+    path('ai-fitment-jobs/<uuid:job_id>/status/', views.get_ai_job_status, name='get_ai_job_status'),
     path('ai-fitment-jobs/<uuid:job_id>/fitments/', views.get_job_fitments, name='get_job_fitments'),
     path('ai-fitment-jobs/<uuid:job_id>/approve/', views.approve_fitments, name='approve_fitments'),
     path('ai-fitment-jobs/<uuid:job_id>/reject/', views.reject_fitments, name='reject_fitments'),
-    path('ai-fitment-jobs/<uuid:job_id>/fitments/<uuid:fitment_id>/', views.update_fitment, name='update_fitment'),
+    path('ai-fitment-jobs/<uuid:job_id>/fitments/<str:fitment_id>/', views.update_fitment, name='update_fitment'),
+    path('ai-fitment-jobs/<uuid:job_id>/progress/', views.get_job_progress, name='get_job_progress'),
+    path('ai-fitment-jobs/<uuid:job_id>/bulk-approve/', views.bulk_approve_fitments, name='bulk_approve_fitments'),
+    path('ai-fitment-jobs/<uuid:job_id>/bulk-reject/', views.bulk_reject_fitments, name='bulk_reject_fitments'),
 ]

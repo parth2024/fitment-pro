@@ -632,6 +632,9 @@ export const dataUploadService = {
   getAiFitmentJob: (jobId: string) =>
     apiClient.get(`/api/data-uploads/ai-fitment-jobs/${jobId}/`),
 
+  getAiFitmentJobStatus: (jobId: string) =>
+    apiClient.get(`/api/data-uploads/ai-fitment-jobs/${jobId}/status/`),
+
   createAiFitmentJob: (data: {
     product_file?: File;
     product_ids?: string[];

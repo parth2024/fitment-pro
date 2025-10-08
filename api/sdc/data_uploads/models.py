@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from tenants.models import Tenant
 import uuid
 import os
@@ -136,6 +137,9 @@ class ProductData(models.Model):
     """Model to store Product/Parts data"""
     id = models.AutoField(primary_key=True)
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='product_data', null=True, blank=True)
+    session = models.ForeignKey(DataUploadSession, on_delete=models.CASCADE, related_name='products', null=True, blank=True, help_text="Upload session this product belongs to")
+    source_file_name = models.CharField(max_length=255, blank=True, help_text="Original filename of the product file")
+    
     part_id = models.CharField(max_length=100)
     description = models.TextField()
     category = models.CharField(max_length=100, blank=True)
@@ -340,7 +344,8 @@ class Backspacing(models.Model):
 class AiFitmentJob(models.Model):
     """Model to track AI fitment generation jobs"""
     STATUS_CHOICES = [
-        ('in_progress', 'In Progress'),
+        ('queued', 'Queued'),
+        ('processing', 'Processing'),
         ('completed', 'Completed'),
         ('failed', 'Failed'),
         ('review_required', 'Review Required'),
@@ -389,14 +394,16 @@ class AiFitmentJob(models.Model):
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
-        default='in_progress'
+        default='queued'
     )
     error_message = models.TextField(blank=True, null=True)
+    celery_task_id = models.CharField(max_length=255, blank=True, null=True, help_text="Celery task ID for tracking")
     
     # Timestamps and user tracking
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.CharField(max_length=255, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
+    started_at = models.DateTimeField(null=True, blank=True, help_text="When job processing started")
     completed_at = models.DateTimeField(null=True, blank=True)
     
     class Meta:

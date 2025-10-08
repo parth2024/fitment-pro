@@ -11,6 +11,7 @@ import pandas as pd
 from typing import Tuple, List, Dict, Any
 from django.utils import timezone
 from django.db.models import Q
+from django.core.exceptions import ValidationError
 
 from .models import (
     AiFitmentJob,
@@ -18,8 +19,73 @@ from .models import (
     ProductData,
     VCDBData,
 )
+from .utils import FileParser, ProductValidator
 
 logger = logging.getLogger(__name__)
+
+
+def get_vcdb_data_for_tenant(tenant):
+    """
+    Get VCDB data for the tenant, prioritizing global categories if configured
+    """
+    try:
+        vcdb_data = []
+        
+        # Check if tenant has selected VCDB categories
+        if tenant and hasattr(tenant, 'fitment_settings'):
+            selected_categories = tenant.fitment_settings.get('vcdb_categories', [])
+            if selected_categories:
+                # Use global VCDB data filtered by selected categories
+                from vcdb_categories.models import VCDBData as GlobalVCDBData
+                vcdb_records = GlobalVCDBData.objects.filter(
+                    category_id__in=selected_categories
+                )[:100]  # Limit for AI processing
+                
+                # Convert to list of dictionaries for AI processing
+                for record in vcdb_records:
+                    vcdb_dict = {
+                        'year': record.year,
+                        'make': record.make,
+                        'model': record.model,
+                        'submodel': record.submodel or '',
+                        'driveType': record.drive_type or '',
+                        'fuelType': record.fuel_type or 'Gas',
+                        'numDoors': record.num_doors or 4,
+                        'bodyType': record.body_type or 'Sedan',
+                        'engine': getattr(record, 'engine_type', '') or '',
+                        'transmission': getattr(record, 'transmission', '') or '',
+                        'trim': getattr(record, 'trim_level', '') or ''
+                    }
+                    vcdb_data.append(vcdb_dict)
+                
+                return vcdb_data
+        
+        # Fallback: Use tenant-specific VCDB data
+        from .models import VCDBData as TenantVCDBData
+        vcdb_records = TenantVCDBData.objects.filter(tenant=tenant)[:100]
+        
+        # Convert to list of dictionaries for AI processing
+        for record in vcdb_records:
+            vcdb_dict = {
+                'year': record.year,
+                'make': record.make,
+                'model': record.model,
+                'submodel': record.submodel or '',
+                'driveType': record.drive_type or '',
+                'fuelType': record.fuel_type or 'Gas',
+                'numDoors': record.num_doors or 4,
+                'bodyType': record.body_type or 'Sedan',
+                'engine': getattr(record, 'engine', '') or '',
+                'transmission': getattr(record, 'transmission', '') or '',
+                'trim': getattr(record, 'trim', '') or ''
+            }
+            vcdb_data.append(vcdb_dict)
+        
+        return vcdb_data
+        
+    except Exception as e:
+        logger.error(f"Failed to get VCDB data for tenant: {str(e)}", exc_info=True)
+        return []
 
 
 class AiFitmentProcessor:
@@ -190,55 +256,93 @@ class AiFitmentProcessor:
         return "; ".join(reasons)
 
 
-def process_product_file_for_ai_fitments(job: AiFitmentJob) -> Tuple[bool, str]:
+def validate_product_file(job: AiFitmentJob) -> Tuple[bool, str, pd.DataFrame]:
     """
-    Process uploaded product file and generate AI fitments
-    Returns: (success: bool, message: str)
+    Step 1: Validate the uploaded product file
+    Returns: (success: bool, message: str, dataframe: pd.DataFrame)
     """
     try:
         if not job.product_file:
-            return False, "No product file attached to job"
+            return False, "No product file attached to job", None
         
-        # Parse product file
+        # Parse product file using FileParser
         file_path = job.product_file.path
-        file_ext = file_path.lower().split('.')[-1]
+        filename = job.product_file_name or job.product_file.name
         
-        # Read file based on format
-        if file_ext == 'json':
-            with open(file_path, 'r') as f:
-                product_data = json.load(f)
-        elif file_ext in ['csv', 'xlsx', 'xls']:
-            df = pd.read_csv(file_path) if file_ext == 'csv' else pd.read_excel(file_path)
-            product_data = df.to_dict('records')
-        else:
-            return False, f"Unsupported file format: {file_ext}"
+        logger.info(f"Parsing product file: {filename}")
         
-        # Store products in ProductData table (if not already there)
+        try:
+            df = FileParser.parse_file(file_path, filename)
+        except ValidationError as e:
+            return False, f"File parsing error: {str(e)}", None
+        
+        # Validate product data structure
+        logger.info(f"Validating product data structure")
+        is_valid, errors = ProductValidator.validate_data(df)
+        
+        if not is_valid:
+            error_message = "Product file validation failed:\n" + "\n".join(errors)
+            return False, error_message, None
+        
+        logger.info(f"Product file validated successfully: {len(df)} products")
+        return True, f"File validated: {len(df)} products found", df
+        
+    except Exception as e:
+        logger.error(f"Unexpected error validating product file: {str(e)}", exc_info=True)
+        return False, f"Validation error: {str(e)}", None
+
+
+def check_and_create_products(job: AiFitmentJob, df: pd.DataFrame) -> Tuple[bool, str, List[ProductData]]:
+    """
+    Step 2: Check if products exist in database, create if not
+    Returns: (success: bool, message: str, product_objects: List[ProductData])
+    """
+    try:
         products_created = 0
+        products_existing = 0
         product_objects = []
         
-        for item in product_data:
-            part_id = item.get('id') or item.get('part_id') or item.get('partId')
-            if not part_id:
+        logger.info(f"Checking/creating products in database for job {job.id}")
+        
+        # Normalize column names to lowercase for flexible matching
+        df.columns = df.columns.str.lower()
+        
+        for index, row in df.iterrows():
+            # Get part_id from various possible column names
+            part_id = (
+                row.get('id') or 
+                row.get('part_id') or 
+                row.get('partid') or 
+                row.get('partnumber')
+            )
+            
+            if not part_id or pd.isna(part_id):
+                logger.warning(f"Skipping row {index + 1}: No part_id found")
                 continue
             
-            # Check if product already exists
+            part_id = str(part_id).strip()
+            
+            # Check if product already exists for this tenant
             product, created = ProductData.objects.get_or_create(
                 part_id=part_id,
                 tenant=job.tenant,
                 defaults={
-                    'description': item.get('description', ''),
-                    'category': item.get('category', ''),
-                    'part_type': item.get('part_type') or item.get('partType', ''),
-                    'compatibility': item.get('compatibility', ''),
-                    'brand': item.get('brand', ''),
-                    'sku': item.get('sku', ''),
-                    'specifications': item.get('specifications', {}),
+                    'description': str(row.get('description', '')),
+                    'category': str(row.get('category', '')),
+                    'part_type': str(row.get('part_type') or row.get('parttype', '')),
+                    'compatibility': str(row.get('compatibility', '')),
+                    'brand': str(row.get('brand', '')),
+                    'sku': str(row.get('sku', '')),
+                    'specifications': row.get('specifications', {}) if isinstance(row.get('specifications'), dict) else {},
+                    'source_file_name': job.product_file_name,
+                    'session': None,  # This is from AI job, not a session
                 }
             )
             
             if created:
                 products_created += 1
+            else:
+                products_existing += 1
             
             product_objects.append(product)
         
@@ -246,45 +350,166 @@ def process_product_file_for_ai_fitments(job: AiFitmentJob) -> Tuple[bool, str]:
         job.product_count = len(product_objects)
         job.save()
         
-        # Generate AI fitments
-        processor = AiFitmentProcessor(job)
-        all_fitments = []
-        
-        for product in product_objects:
-            fitments = processor.generate_fitments_for_product(product)
-            all_fitments.extend(fitments)
-        
-        # Bulk create fitments
-        AiGeneratedFitment.objects.bulk_create(all_fitments)
-        
-        # Update job fitments count
-        job.fitments_count = len(all_fitments)
-        job.save()
-        
-        logger.info(
-            f"AI Job {job.id}: Created {products_created} products, "
-            f"generated {len(all_fitments)} fitments"
+        message = (
+            f"Products processed: {len(product_objects)} total "
+            f"({products_created} new, {products_existing} existing)"
         )
         
-        return True, f"Successfully generated {len(all_fitments)} fitments from {len(product_objects)} products"
+        logger.info(f"Job {job.id}: {message}")
+        return True, message, product_objects
         
     except Exception as e:
-        logger.error(f"Failed to process product file for AI fitments: {str(e)}", exc_info=True)
-        return False, str(e)
+        logger.error(f"Failed to check/create products: {str(e)}", exc_info=True)
+        return False, f"Database error: {str(e)}", []
+
+
+def process_product_file_for_ai_fitments(job: AiFitmentJob) -> Tuple[bool, str]:
+    """
+    Process uploaded product file and generate AI fitments
+    Complete workflow:
+    1. Validate file
+    2. Check/create products in DB
+    3. Get VCDB data based on tenant's configured categories
+    4. Send to Azure AI for fitment generation
+    5. Store fitments with status 'pending' (ready_to_approve)
+    
+    Returns: (success: bool, message: str)
+    """
+    try:
+        # Step 1: Validate file
+        logger.info(f"Step 1: Validating product file for job {job.id}")
+        is_valid, message, df = validate_product_file(job)
+        if not is_valid:
+            job.error_message = message
+            job.save()
+            return False, message
+        
+        # Step 2: Check/create products in database
+        logger.info(f"Step 2: Checking/creating products in database for job {job.id}")
+        success, message, product_objects = check_and_create_products(job, df)
+        if not success:
+            job.error_message = message
+            job.save()
+            return False, message
+        
+        if not product_objects:
+            return False, "No valid products found in file"
+        
+        # Step 3: Get VCDB data based on tenant's configured categories
+        logger.info(f"Step 3: Fetching VCDB data for job {job.id}")
+        vcdb_data = get_vcdb_data_for_tenant(job.tenant)
+        if not vcdb_data:
+            error_msg = "No VCDB data available. Please ensure VCDB categories are configured for your tenant."
+            job.error_message = error_msg
+            job.save()
+            return False, error_msg
+        
+        logger.info(f"Found {len(vcdb_data)} VCDB records for AI processing")
+        
+        # Step 4: Convert products to format expected by Azure AI
+        logger.info(f"Step 4: Preparing data for Azure AI")
+        products_data = []
+        for product in product_objects:
+            product_dict = {
+                'id': str(product.id),
+                'part_id': product.part_id,
+                'description': product.description,
+                'category': product.category,
+                'part_type': product.part_type,
+                'brand': product.brand,
+                'sku': product.sku,
+                'specifications': product.specifications or {}
+            }
+            products_data.append(product_dict)
+        
+        # Step 5: Send to Azure AI for fitment generation
+        logger.info(f"Step 5: Generating fitments using Azure AI")
+        from fitment_uploads.azure_ai_service import azure_ai_service
+        ai_fitments = azure_ai_service.generate_fitments(vcdb_data, products_data)
+        
+        logger.info(f"Azure AI returned {len(ai_fitments)} fitments")
+        
+        # Step 6: Store fitments directly in Fitment table with status 'ReadyToApprove'
+        logger.info(f"Step 6: Storing AI-generated fitments in Fitment table")
+        from fitments.models import Fitment
+        import uuid
+        
+        generated_fitments = []
+        for fitment_data in ai_fitments:
+            fitment = Fitment(
+                tenant=job.tenant,
+                ai_job_id=job.id,  # Link to AI job
+                hash=f"{fitment_data.get('partId', 'PART')}_{fitment_data.get('year', 2020)}_{fitment_data.get('make', 'MAKE')}_{fitment_data.get('model', 'MODEL')}_{uuid.uuid4().hex[:8]}",
+                partId=fitment_data.get('partId', ''),
+                itemStatus='ReadyToApprove',  # Ready for review
+                itemStatusCode=0,
+                baseVehicleId=f"BV_{fitment_data.get('year', 2020)}_{fitment_data.get('make', '')}_{fitment_data.get('model', '')}",
+                year=fitment_data.get('year', 2020),
+                makeName=fitment_data.get('make', ''),
+                modelName=fitment_data.get('model', ''),
+                subModelName=fitment_data.get('submodel', ''),
+                driveTypeName=fitment_data.get('driveType', ''),
+                fuelTypeName=fitment_data.get('fuelType', 'Gas'),
+                bodyNumDoors=fitment_data.get('numDoors', 4),
+                bodyTypeName=fitment_data.get('bodyType', 'Sedan'),
+                ptid=fitment_data.get('partId', ''),
+                partTypeDescriptor=fitment_data.get('partDescription', ''),
+                uom='EA',
+                quantity=fitment_data.get('quantity', 1),
+                fitmentTitle=f"AI Fitment - {fitment_data.get('partId', '')}",
+                fitmentDescription=fitment_data.get('partDescription', ''),
+                fitmentNotes=fitment_data.get('ai_reasoning', 'AI-generated fitment'),
+                position=fitment_data.get('position', 'Front'),
+                positionId=0,
+                liftHeight='',
+                wheelType='',
+                fitmentType='ai_fitment',
+                confidenceScore=fitment_data.get('confidence', 0.7),
+                aiDescription=fitment_data.get('confidence_explanation', ''),
+                dynamicFields={},
+                createdBy='AI System',
+                updatedBy='AI System'
+            )
+            generated_fitments.append(fitment)
+        
+        # Bulk create fitments in Fitment table
+        if generated_fitments:
+            Fitment.objects.bulk_create(generated_fitments)
+        
+        # Update job fitments count and status
+        job.fitments_count = len(generated_fitments)
+        job.status = 'review_required'  # Ready for review
+        job.completed_at = timezone.now()
+        job.save()
+        
+        success_message = (
+            f"Successfully generated {len(generated_fitments)} fitments from "
+            f"{len(product_objects)} products using Azure AI"
+        )
+        
+        logger.info(f"Job {job.id} completed: {success_message}")
+        return True, success_message
+        
+    except Exception as e:
+        error_msg = f"Failed to process product file: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        job.error_message = error_msg
+        job.save()
+        return False, error_msg
 
 
 def process_selected_products_for_ai_fitments(job: AiFitmentJob) -> Tuple[bool, str]:
     """
-    Generate AI fitments for selected products from ProductData table
+    Generate AI fitments for selected products from ProductData table using Azure AI
     Returns: (success: bool, message: str)
     """
     try:
         if not job.product_ids:
             return False, "No product IDs provided"
         
-        # Get selected products
+        # Get selected products by database ID
         products = ProductData.objects.filter(
-            part_id__in=job.product_ids,
+            id__in=job.product_ids,
             tenant=job.tenant if job.tenant else Q(tenant__isnull=True)
         )
         
@@ -295,27 +520,87 @@ def process_selected_products_for_ai_fitments(job: AiFitmentJob) -> Tuple[bool, 
         job.product_count = products.count()
         job.save()
         
-        # Generate AI fitments
-        processor = AiFitmentProcessor(job)
-        all_fitments = []
+        # Get VCDB data for the tenant
+        vcdb_data = get_vcdb_data_for_tenant(job.tenant)
+        if not vcdb_data:
+            return False, "No VCDB data available for AI processing"
         
+        # Convert products to format expected by Azure AI
+        products_data = []
         for product in products:
-            fitments = processor.generate_fitments_for_product(product)
-            all_fitments.extend(fitments)
+            product_dict = {
+                'id': str(product.id),
+                'part_id': product.part_id,
+                'description': product.description,
+                'category': product.category,
+                'part_type': product.part_type,
+                'brand': product.brand,
+                'sku': product.sku,
+                'specifications': product.specifications or {}
+            }
+            products_data.append(product_dict)
         
-        # Bulk create fitments
-        AiGeneratedFitment.objects.bulk_create(all_fitments)
+        # Use Azure AI service to generate fitments
+        from fitment_uploads.azure_ai_service import azure_ai_service
+        ai_fitments = azure_ai_service.generate_fitments(vcdb_data, products_data)
         
-        # Update job fitments count
-        job.fitments_count = len(all_fitments)
+        # Convert AI fitments to Fitment objects (create directly in Fitment table)
+        from fitments.models import Fitment
+        import uuid
+        
+        generated_fitments = []
+        for fitment_data in ai_fitments:
+            fitment = Fitment(
+                tenant=job.tenant,
+                ai_job_id=job.id,  # Link to AI job
+                hash=f"{fitment_data.get('partId', 'PART')}_{fitment_data.get('year', 2020)}_{fitment_data.get('make', 'MAKE')}_{fitment_data.get('model', 'MODEL')}_{uuid.uuid4().hex[:8]}",
+                partId=fitment_data.get('partId', ''),
+                itemStatus='ReadyToApprove',  # Ready for review
+                itemStatusCode=0,
+                baseVehicleId=f"BV_{fitment_data.get('year', 2020)}_{fitment_data.get('make', '')}_{fitment_data.get('model', '')}",
+                year=fitment_data.get('year', 2020),
+                makeName=fitment_data.get('make', ''),
+                modelName=fitment_data.get('model', ''),
+                subModelName=fitment_data.get('submodel', ''),
+                driveTypeName=fitment_data.get('driveType', ''),
+                fuelTypeName=fitment_data.get('fuelType', 'Gas'),
+                bodyNumDoors=fitment_data.get('numDoors', 4),
+                bodyTypeName=fitment_data.get('bodyType', 'Sedan'),
+                ptid=fitment_data.get('partId', ''),
+                partTypeDescriptor=fitment_data.get('partDescription', ''),
+                uom='EA',
+                quantity=fitment_data.get('quantity', 1),
+                fitmentTitle=f"AI Fitment - {fitment_data.get('partId', '')}",
+                fitmentDescription=fitment_data.get('partDescription', ''),
+                fitmentNotes=fitment_data.get('ai_reasoning', 'AI-generated fitment'),
+                position=fitment_data.get('position', 'Front'),
+                positionId=0,
+                liftHeight='',
+                wheelType='',
+                fitmentType='ai_fitment',
+                confidenceScore=fitment_data.get('confidence', 0.7),
+                aiDescription=fitment_data.get('confidence_explanation', ''),
+                dynamicFields={},
+                createdBy='AI System',
+                updatedBy='AI System'
+            )
+            generated_fitments.append(fitment)
+        
+        # Bulk create fitments in Fitment table
+        if generated_fitments:
+            Fitment.objects.bulk_create(generated_fitments)
+        
+        # Update job fitments count and status
+        job.fitments_count = len(generated_fitments)
+        job.status = 'review_required'  # Ready for review
         job.save()
         
         logger.info(
-            f"AI Job {job.id}: Generated {len(all_fitments)} fitments "
-            f"from {products.count()} selected products"
+            f"AI Job {job.id}: Generated {len(generated_fitments)} fitments "
+            f"from {products.count()} selected products using Azure AI"
         )
         
-        return True, f"Successfully generated {len(all_fitments)} fitments from {products.count()} products"
+        return True, f"Successfully generated {len(generated_fitments)} fitments from {products.count()} products using Azure AI"
         
     except Exception as e:
         logger.error(f"Failed to process selected products for AI fitments: {str(e)}", exc_info=True)

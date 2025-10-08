@@ -231,7 +231,7 @@ class DataUploadSessionView(APIView):
                 if file_type == 'vcdb':
                     created_count, processing_errors = DataProcessor.process_vcdb_data(normalized_df, str(session.id), tenant)
                 elif file_type == 'products':
-                    created_count, processing_errors = DataProcessor.process_product_data(normalized_df, str(session.id), tenant)
+                    created_count, processing_errors = DataProcessor.process_product_data(normalized_df, str(session.id), tenant, session, file_name)
                 else:
                     created_count = len(df)
                     processing_errors = []
@@ -1122,19 +1122,34 @@ def get_vcdb_data(request):
         limit = request.GET.get('limit', 1000)  # Default limit
         
         # Build query
-        queryset = VCDBData.objects.all()
+        queryset = None
         
         # Filter by tenant if provided
         if tenant_id:
             try:
                 from tenants.models import Tenant
+                from vcdb_categories.models import VCDBData as GlobalVCDBData
+                
                 tenant = Tenant.objects.get(id=tenant_id)
-                queryset = queryset.filter(tenant=tenant)
+                
+                # Check if tenant has selected VCDB categories in their settings
+                selected_categories = tenant.fitment_settings.get('vcdb_categories', [])
+                
+                if selected_categories and len(selected_categories) > 0:
+                    # Use global VCDB categories data
+                    queryset = GlobalVCDBData.objects.filter(category_id__in=selected_categories)
+                else:
+                    # Fall back to tenant-specific VCDB data
+                    queryset = VCDBData.objects.filter(tenant=tenant)
+                    
             except Tenant.DoesNotExist:
                 return Response(
                     {"error": "Invalid tenant ID"}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
+        else:
+            # No tenant ID provided
+            queryset = VCDBData.objects.all()
         
         if year:
             queryset = queryset.filter(year=year)
@@ -1263,6 +1278,73 @@ def get_product_data(request):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
+def get_product_files(request):
+    """Get products grouped by their source files"""
+    try:
+        # Get tenant ID from header
+        tenant_id = request.headers.get('X-Tenant-ID')
+        
+        # Build query
+        queryset = ProductData.objects.all()
+        
+        # Filter by tenant if provided
+        if tenant_id:
+            try:
+                from tenants.models import Tenant
+                tenant = Tenant.objects.get(id=tenant_id)
+                queryset = queryset.filter(tenant=tenant)
+            except Tenant.DoesNotExist:
+                return Response(
+                    {"error": "Invalid tenant ID"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Group products by source file
+        product_files = {}
+        
+        for product in queryset:
+            file_key = product.source_file_name or 'Unknown File'
+            
+            if file_key not in product_files:
+                product_files[file_key] = {
+                    'file_name': file_key,
+                    'session_id': str(product.session.id) if product.session else None,
+                    'upload_date': product.session.created_at.isoformat() if product.session else product.created_at.isoformat(),
+                    'product_count': 0,
+                    'products': []
+                }
+            
+            product_files[file_key]['product_count'] += 1
+            product_files[file_key]['products'].append({
+                'id': str(product.id),
+                'part_id': product.part_id,
+                'description': product.description,
+                'category': product.category,
+                'part_type': product.part_type,
+                'brand': product.brand,
+                'sku': product.sku,
+            })
+        
+        # Convert to list and sort by upload date (newest first)
+        file_list = list(product_files.values())
+        file_list.sort(key=lambda x: x['upload_date'], reverse=True)
+        
+        return Response({
+            'data': file_list,
+            'total_files': len(file_list),
+            'total_products': queryset.count()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting product files: {str(e)}")
+        return Response(
+            {"error": "Failed to get product files"}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
 def get_data_status(request):
     """Get the current status of uploaded and processed data"""
     try:
@@ -1270,7 +1352,7 @@ def get_data_status(request):
         tenant_id = request.headers.get('X-Tenant-ID')
         
         # Build base querysets
-        vcdb_queryset = VCDBData.objects.all()
+        vcdb_queryset = None
         product_queryset = ProductData.objects.all()
         session_queryset = DataUploadSession.objects.all()
         
@@ -1278,15 +1360,31 @@ def get_data_status(request):
         if tenant_id:
             try:
                 from tenants.models import Tenant
+                from vcdb_categories.models import VCDBData as GlobalVCDBData
+                
                 tenant = Tenant.objects.get(id=tenant_id)
-                vcdb_queryset = vcdb_queryset.filter(tenant=tenant)
+                
+                # Check if tenant has selected VCDB categories in their settings
+                selected_categories = tenant.fitment_settings.get('vcdb_categories', [])
+                
+                if selected_categories and len(selected_categories) > 0:
+                    # Use global VCDB categories data
+                    vcdb_queryset = GlobalVCDBData.objects.filter(category_id__in=selected_categories)
+                else:
+                    # Fall back to tenant-specific VCDB data
+                    vcdb_queryset = VCDBData.objects.filter(tenant=tenant)
+                
                 product_queryset = product_queryset.filter(tenant=tenant)
                 session_queryset = session_queryset.filter(tenant=tenant)
+                
             except Tenant.DoesNotExist:
                 return Response(
                     {"error": "Invalid tenant ID"}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
+        else:
+            # No tenant ID provided
+            vcdb_queryset = VCDBData.objects.all()
         
         # Get counts from database tables
         vcdb_count = vcdb_queryset.count()
@@ -1336,21 +1434,39 @@ def get_dropdown_data(request):
         tenant_id = request.headers.get('X-Tenant-ID')
         
         # Build base querysets
-        vcdb_queryset = VCDBData.objects.all()
+        vcdb_queryset = None
         product_queryset = ProductData.objects.all()
         
         # Filter by tenant if provided
         if tenant_id:
             try:
                 from tenants.models import Tenant
+                from vcdb_categories.models import VCDBData as GlobalVCDBData
+                
                 tenant = Tenant.objects.get(id=tenant_id)
-                vcdb_queryset = vcdb_queryset.filter(tenant=tenant)
+                
+                # Check if tenant has selected VCDB categories in their settings
+                selected_categories = tenant.fitment_settings.get('vcdb_categories', [])
+                
+                if selected_categories and len(selected_categories) > 0:
+                    # Use global VCDB categories data filtered by selected categories
+                    vcdb_queryset = GlobalVCDBData.objects.filter(category_id__in=selected_categories)
+                    logger.info(f"Using global VCDB categories: {selected_categories} for tenant {tenant.name}")
+                else:
+                    # Fall back to tenant-specific VCDB data
+                    vcdb_queryset = VCDBData.objects.filter(tenant=tenant)
+                    logger.info(f"Using tenant-specific VCDB data for tenant {tenant.name}")
+                
                 product_queryset = product_queryset.filter(tenant=tenant)
+                
             except Tenant.DoesNotExist:
                 return Response(
                     {"error": "Invalid tenant ID"}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
+        else:
+            # No tenant ID provided - use tenant-specific VCDB data
+            vcdb_queryset = VCDBData.objects.all()
         
         # Get unique values from VCDBData
         vcdb_years = vcdb_queryset.values_list('year', flat=True).distinct().order_by('year')
@@ -1411,19 +1527,36 @@ def get_filtered_vehicles(request):
         filters = request.data.get('filters', {})
         
         # Build query for VCDBData
-        queryset = VCDBData.objects.all()
+        queryset = None
         
         # Filter by tenant if provided
         if tenant_id:
             try:
                 from tenants.models import Tenant
+                from vcdb_categories.models import VCDBData as GlobalVCDBData
+                
                 tenant = Tenant.objects.get(id=tenant_id)
-                queryset = queryset.filter(tenant=tenant)
+                
+                # Check if tenant has selected VCDB categories in their settings
+                selected_categories = tenant.fitment_settings.get('vcdb_categories', [])
+                
+                if selected_categories and len(selected_categories) > 0:
+                    # Use global VCDB categories data filtered by selected categories
+                    queryset = GlobalVCDBData.objects.filter(category_id__in=selected_categories)
+                    logger.info(f"Filtering vehicles from global VCDB categories: {selected_categories}")
+                else:
+                    # Fall back to tenant-specific VCDB data
+                    queryset = VCDBData.objects.filter(tenant=tenant)
+                    logger.info(f"Filtering vehicles from tenant-specific VCDB data")
+                    
             except Tenant.DoesNotExist:
                 return Response(
                     {"error": "Invalid tenant ID"}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
+        else:
+            # No tenant ID provided - use tenant-specific VCDB data
+            queryset = VCDBData.objects.all()
         
         # Apply filters
         if filters.get('yearFrom'):
@@ -1833,7 +1966,14 @@ class AiFitmentJobView(APIView):
             )
     
     def post(self, request):
-        """Create new AI fitment job"""
+        """
+        Create new AI fitment job
+        Workflow:
+        1. Validate request data
+        2. Create job record
+        3. Dispatch Celery task for processing
+        4. Return job info immediately
+        """
         try:
             tenant_id = request.headers.get('X-Tenant-ID')
             tenant = None
@@ -1847,6 +1987,7 @@ class AiFitmentJobView(APIView):
                         status=status.HTTP_400_BAD_REQUEST
                     )
             
+            # Validate request data
             serializer = CreateAiFitmentJobSerializer(data=request.data)
             if not serializer.is_valid():
                 return Response(
@@ -1856,64 +1997,52 @@ class AiFitmentJobView(APIView):
             
             job_type = serializer.validated_data['job_type']
             
-            # Create job
+            # Create job record with status 'queued'
             job = AiFitmentJob.objects.create(
                 tenant=tenant,
                 job_type=job_type,
                 created_by=request.user.email if request.user.is_authenticated else 'anonymous',
-                status='in_progress'
+                status='queued'
             )
             
-            # Process based on job type
+            # Handle job type specific data
             if job_type == 'upload':
+                # Save product file to job
                 product_file = serializer.validated_data['product_file']
                 job.product_file = product_file
                 job.product_file_name = product_file.name
                 job.save()
                 
-                # Process product file and generate fitments
-                from .ai_fitment_processor import process_product_file_for_ai_fitments
-                success, message = process_product_file_for_ai_fitments(job)
+                logger.info(f"Created upload-type AI job {job.id} with file: {product_file.name}")
                 
-                if not success:
-                    job.status = 'failed'
-                    job.error_message = message
-                    job.save()
-                    return Response(
-                        {'error': message},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-            
             elif job_type == 'selection':
+                # Save selected product IDs
                 product_ids = serializer.validated_data['product_ids']
                 job.product_ids = product_ids
                 job.product_count = len(product_ids)
                 job.save()
                 
-                # Generate fitments for selected products
-                from .ai_fitment_processor import process_selected_products_for_ai_fitments
-                success, message = process_selected_products_for_ai_fitments(job)
-                
-                if not success:
-                    job.status = 'failed'
-                    job.error_message = message
-                    job.save()
-                    return Response(
-                        {'error': message},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
+                logger.info(f"Created selection-type AI job {job.id} with {len(product_ids)} products")
             
-            # Job created successfully
-            job.status = 'review_required'
+            # Dispatch Celery task for background processing
+            from .tasks import generate_ai_fitments_task
+            task = generate_ai_fitments_task.delay(str(job.id))
+            
+            # Save Celery task ID for tracking
+            job.celery_task_id = task.id
             job.save()
             
+            logger.info(f"Dispatched Celery task {task.id} for AI job {job.id}")
+            
+            # Return job info immediately
             response_serializer = AiFitmentJobSerializer(job)
             return Response(
                 {
                     'job_id': str(job.id),
+                    'task_id': task.id,
                     'status': job.status,
-                    'message': 'AI fitment job created successfully',
-                    'job': response_serializer.data
+                    'message': 'AI fitment job created and queued for processing',
+                    'data': response_serializer.data
                 },
                 status=status.HTTP_201_CREATED
             )
@@ -1953,7 +2082,7 @@ class AiFitmentJobDetailView(APIView):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_job_fitments(request, job_id):
-    """Get all fitments for a specific job (for review)"""
+    """Get all fitments for a specific job (for review) from Fitment table"""
     try:
         job = AiFitmentJob.objects.get(id=job_id)
         
@@ -1961,18 +2090,43 @@ def get_job_fitments(request, job_id):
         page = int(request.query_params.get('page', 1))
         page_size = int(request.query_params.get('page_size', 100))
         
-        # Get fitments (only pending ones for review)
-        fitments = job.generated_fitments.filter(status='pending')
+        # Get fitments from Fitment table with status 'ReadyToApprove'
+        fitments = Fitment.objects.filter(
+            ai_job_id=job.id,
+            itemStatus='ReadyToApprove'
+        )
         
         # Paginate
         start = (page - 1) * page_size
         end = start + page_size
         paginated_fitments = fitments[start:end]
         
-        serializer = AiGeneratedFitmentSerializer(paginated_fitments, many=True)
+        # Convert to response format
+        fitments_data = []
+        for fitment in paginated_fitments:
+            fitments_data.append({
+                'id': fitment.hash,
+                'part_id': fitment.partId,
+                'part_description': fitment.partTypeDescriptor,
+                'year': fitment.year,
+                'make': fitment.makeName,
+                'model': fitment.modelName,
+                'submodel': fitment.subModelName,
+                'drive_type': fitment.driveTypeName,
+                'fuel_type': fitment.fuelTypeName,
+                'num_doors': fitment.bodyNumDoors,
+                'body_type': fitment.bodyTypeName,
+                'position': fitment.position,
+                'quantity': fitment.quantity,
+                'confidence': fitment.confidenceScore or 0.7,
+                'confidence_explanation': fitment.aiDescription or '',
+                'ai_reasoning': fitment.fitmentNotes or '',
+                'status': fitment.itemStatus,
+                'created_at': fitment.createdAt.isoformat() if fitment.createdAt else None
+            })
         
         return Response({
-            'fitments': serializer.data,
+            'fitments': fitments_data,
             'total': fitments.count(),
             'page': page,
             'page_size': page_size,
@@ -1995,7 +2149,7 @@ def get_job_fitments(request, job_id):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def approve_fitments(request, job_id):
-    """Approve selected fitments and move them to Fitment table"""
+    """Approve selected fitments - change itemStatus from 'ReadyToApprove' to 'Active'"""
     try:
         job = AiFitmentJob.objects.get(id=job_id)
         
@@ -2008,66 +2162,46 @@ def approve_fitments(request, job_id):
         
         fitment_ids = serializer.validated_data.get('fitment_ids', [])
         
-        # Get fitments to approve
+        # Get fitments to approve from Fitment table
         if fitment_ids:
-            fitments_to_approve = job.generated_fitments.filter(
-                id__in=fitment_ids,
-                status='pending'
+            # Approve specific fitments by hash (ID)
+            fitments_to_approve = Fitment.objects.filter(
+                ai_job_id=job.id,
+                hash__in=fitment_ids,
+                itemStatus='ReadyToApprove'
             )
         else:
-            # Approve all pending fitments
-            fitments_to_approve = job.generated_fitments.filter(status='pending')
-        
-        approved_count = 0
-        
-        # Approve each fitment and create Fitment record
-        for fitment in fitments_to_approve:
-            # Approve the AI generated fitment
-            fitment.approve(reviewed_by=request.user.email if request.user.is_authenticated else 'anonymous')
-            
-            # Create actual Fitment record
-            Fitment.objects.create(
-                tenant=job.tenant,
-                hash=f"{fitment.part_id}_{fitment.year}_{fitment.make}_{fitment.model}_{uuid.uuid4().hex[:8]}",
-                partId=fitment.part_id,
-                itemStatus='Active',
-                itemStatusCode=1,
-                baseVehicleId=f"BV_{fitment.year}_{fitment.make}_{fitment.model}",
-                year=fitment.year,
-                makeName=fitment.make,
-                modelName=fitment.model,
-                subModelName=fitment.submodel,
-                driveTypeName=fitment.drive_type,
-                fuelTypeName=fitment.fuel_type,
-                bodyNumDoors=fitment.num_doors or 0,
-                bodyTypeName=fitment.body_type,
-                ptid=fitment.part_id,
-                partTypeDescriptor=fitment.part_description,
-                uom='EA',
-                quantity=fitment.quantity,
-                fitmentTitle=f"AI Fitment - {fitment.part_id}",
-                fitmentDescription=fitment.part_description,
-                fitmentNotes=fitment.ai_reasoning,
-                position=fitment.position or 'Front',
-                positionId=0,
-                fitmentType='ai_fitment',
-                confidenceScore=fitment.confidence,
-                aiDescription=fitment.confidence_explanation,
-                dynamicFields=fitment.dynamic_fields,
-                createdBy=request.user.email if request.user.is_authenticated else 'AI System',
-                updatedBy=request.user.email if request.user.is_authenticated else 'AI System',
+            # Approve all ReadyToApprove fitments for this job
+            fitments_to_approve = Fitment.objects.filter(
+                ai_job_id=job.id,
+                itemStatus='ReadyToApprove'
             )
-            
-            approved_count += 1
         
-        # Check if all fitments are reviewed
-        total_fitments = job.generated_fitments.count()
-        reviewed_fitments = job.generated_fitments.exclude(status='pending').count()
+        # Update itemStatus to 'Active'
+        approved_count = fitments_to_approve.update(
+            itemStatus='Active',
+            itemStatusCode=1,
+            updatedBy=request.user.email if request.user.is_authenticated else 'AI System',
+            updatedAt=timezone.now()
+        )
         
-        if reviewed_fitments == total_fitments:
+        # Update job approved count
+        job.approved_count = Fitment.objects.filter(
+            ai_job_id=job.id,
+            itemStatus='Active'
+        ).count()
+        
+        # Check if all fitments are reviewed (no more ReadyToApprove)
+        remaining_to_review = Fitment.objects.filter(
+            ai_job_id=job.id,
+            itemStatus='ReadyToApprove'
+        ).count()
+        
+        if remaining_to_review == 0:
             job.status = 'completed'
             job.completed_at = timezone.now()
-            job.save()
+        
+        job.save()
         
         return Response({
             'approved_count': approved_count,
@@ -2088,10 +2222,78 @@ def approve_fitments(request, job_id):
         )
 
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_ai_job_status(request, job_id):
+    """
+    Get real-time status of AI fitment job
+    Includes Celery task progress if available
+    """
+    try:
+        job = AiFitmentJob.objects.get(id=job_id)
+        
+        # Get Celery task status if available
+        task_info = None
+        if job.celery_task_id:
+            try:
+                from celery.result import AsyncResult
+                task = AsyncResult(job.celery_task_id)
+                
+                # Safely get task info
+                task_state = task.state
+                task_result = None
+                
+                try:
+                    # Try to get task info/result
+                    if task_state == 'PROGRESS':
+                        task_result = task.info if task.info else {}
+                    elif task_state == 'SUCCESS':
+                        task_result = task.result if task.result else {}
+                    elif task_state == 'FAILURE':
+                        # For failed tasks, just get basic info
+                        task_result = {'error': str(task.info) if task.info else 'Task failed'}
+                    else:
+                        task_result = {}
+                except Exception as task_error:
+                    # If we can't get task result, log it and continue
+                    logger.warning(f"Could not retrieve task result for {job.celery_task_id}: {str(task_error)}")
+                    task_result = {}
+                
+                task_info = {
+                    'task_id': job.celery_task_id,
+                    'state': task_state,
+                    'info': task_result
+                }
+            except Exception as celery_error:
+                # If Celery lookup fails, log and continue without task info
+                logger.warning(f"Could not retrieve Celery task status: {str(celery_error)}")
+                task_info = None
+        
+        # Serialize job data
+        job_serializer = AiFitmentJobSerializer(job)
+        
+        return Response({
+            'job': job_serializer.data,
+            'task': task_info
+        })
+        
+    except AiFitmentJob.DoesNotExist:
+        return Response(
+            {'error': 'Job not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger.error(f"Failed to get AI job status: {str(e)}", exc_info=True)
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def reject_fitments(request, job_id):
-    """Reject selected fitments"""
+    """Reject selected fitments - delete them from Fitment table"""
     try:
         job = AiFitmentJob.objects.get(id=job_id)
         
@@ -2110,21 +2312,37 @@ def reject_fitments(request, job_id):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Get fitments to reject
-        fitments_to_reject = job.generated_fitments.filter(
-            id__in=fitment_ids,
-            status='pending'
+        # Get fitments to reject from Fitment table
+        fitments_to_reject = Fitment.objects.filter(
+            ai_job_id=job.id,
+            hash__in=fitment_ids,
+            itemStatus='ReadyToApprove'
         )
         
-        rejected_count = 0
+        rejected_count = fitments_to_reject.count()
         
-        for fitment in fitments_to_reject:
-            fitment.reject(reviewed_by=request.user.email if request.user.is_authenticated else 'anonymous')
-            rejected_count += 1
+        # Delete fitments from Fitment table
+        fitments_to_reject.delete()
+        
+        # Update job rejected count
+        job.rejected_count += rejected_count
+        
+        # Check if all fitments are reviewed (no more ReadyToApprove)
+        remaining_to_review = Fitment.objects.filter(
+            ai_job_id=job.id,
+            itemStatus='ReadyToApprove'
+        ).count()
+        
+        if remaining_to_review == 0:
+            job.status = 'completed'
+            job.completed_at = timezone.now()
+        
+        job.save()
         
         return Response({
             'rejected_count': rejected_count,
-            'message': f'Successfully rejected {rejected_count} fitments'
+            'message': f'Successfully rejected and deleted {rejected_count} fitments',
+            'job_status': job.status
         })
         
     except AiFitmentJob.DoesNotExist:
@@ -2146,26 +2364,59 @@ def update_fitment(request, job_id, fitment_id):
     """Update a specific AI generated fitment before approval"""
     try:
         job = AiFitmentJob.objects.get(id=job_id)
-        fitment = job.generated_fitments.get(id=fitment_id, status='pending')
         
-        # Update allowed fields
-        allowed_fields = [
-            'part_id', 'part_description', 'year', 'make', 'model', 'submodel',
-            'drive_type', 'fuel_type', 'num_doors', 'body_type', 'position',
-            'quantity', 'confidence', 'confidence_explanation', 'ai_reasoning',
-            'dynamic_fields'
-        ]
+        # Get fitment from Fitment table (using hash as ID)
+        fitment = Fitment.objects.get(
+            ai_job_id=job.id,
+            hash=fitment_id,
+            itemStatus='ReadyToApprove'
+        )
         
-        for field in allowed_fields:
-            if field in request.data:
-                setattr(fitment, field, request.data[field])
+        # Update allowed fields (map to Fitment model fields)
+        if 'part_id' in request.data:
+            fitment.partId = request.data['part_id']
+        if 'part_description' in request.data:
+            fitment.partTypeDescriptor = request.data['part_description']
+        if 'year' in request.data:
+            fitment.year = request.data['year']
+        if 'make' in request.data:
+            fitment.makeName = request.data['make']
+        if 'model' in request.data:
+            fitment.modelName = request.data['model']
+        if 'submodel' in request.data:
+            fitment.subModelName = request.data['submodel']
+        if 'drive_type' in request.data:
+            fitment.driveTypeName = request.data['drive_type']
+        if 'fuel_type' in request.data:
+            fitment.fuelTypeName = request.data['fuel_type']
+        if 'num_doors' in request.data:
+            fitment.bodyNumDoors = request.data['num_doors']
+        if 'body_type' in request.data:
+            fitment.bodyTypeName = request.data['body_type']
+        if 'position' in request.data:
+            fitment.position = request.data['position']
+        if 'quantity' in request.data:
+            fitment.quantity = request.data['quantity']
+        if 'confidence' in request.data:
+            fitment.confidenceScore = request.data['confidence']
+        if 'confidence_explanation' in request.data:
+            fitment.aiDescription = request.data['confidence_explanation']
+        if 'ai_reasoning' in request.data:
+            fitment.fitmentNotes = request.data['ai_reasoning']
         
+        fitment.updatedBy = request.user.email if request.user.is_authenticated else 'AI System'
         fitment.save()
         
-        serializer = AiGeneratedFitmentSerializer(fitment)
         return Response({
             'message': 'Fitment updated successfully',
-            'fitment': serializer.data
+            'fitment': {
+                'id': fitment.hash,
+                'part_id': fitment.partId,
+                'year': fitment.year,
+                'make': fitment.makeName,
+                'model': fitment.modelName,
+                'status': fitment.itemStatus
+            }
         })
         
     except AiFitmentJob.DoesNotExist:
@@ -2173,13 +2424,138 @@ def update_fitment(request, job_id, fitment_id):
             {'error': 'Job not found'},
             status=status.HTTP_404_NOT_FOUND
         )
-    except AiGeneratedFitment.DoesNotExist:
+    except Fitment.DoesNotExist:
         return Response(
             {'error': 'Fitment not found or already reviewed'},
             status=status.HTTP_404_NOT_FOUND
         )
     except Exception as e:
         logger.error(f"Failed to update fitment: {str(e)}", exc_info=True)
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_job_progress(request, job_id):
+    """Get real-time progress of an AI fitment job"""
+    try:
+        job = AiFitmentJob.objects.get(id=job_id)
+        
+        # Get Celery task status if available
+        task_status = None
+        if job.celery_task_id:
+            try:
+                from celery.result import AsyncResult
+                task_result = AsyncResult(job.celery_task_id)
+                task_status = {
+                    'state': task_result.state,
+                    'info': task_result.info if task_result.info else {}
+                }
+            except Exception as e:
+                logger.warning(f"Could not get Celery task status: {str(e)}")
+        
+        serializer = AiFitmentJobSerializer(job)
+        return Response({
+            'job': serializer.data,
+            'task_status': task_status
+        })
+        
+    except AiFitmentJob.DoesNotExist:
+        return Response(
+            {'error': 'Job not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger.error(f"Failed to get job progress: {str(e)}", exc_info=True)
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def bulk_approve_fitments(request, job_id):
+    """Bulk approve fitments for a job"""
+    try:
+        job = AiFitmentJob.objects.get(id=job_id)
+        fitment_ids = request.data.get('fitment_ids', [])
+        
+        if not fitment_ids:
+            return Response(
+                {'error': 'fitment_ids is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Update fitments to approved
+        updated_count = AiGeneratedFitment.objects.filter(
+            job=job,
+            id__in=fitment_ids,
+            status='pending'
+        ).update(status='approved')
+        
+        # Update job counts
+        job.approved_count += updated_count
+        job.save()
+        
+        return Response({
+            'message': f'Successfully approved {updated_count} fitments',
+            'approved_count': updated_count
+        })
+        
+    except AiFitmentJob.DoesNotExist:
+        return Response(
+            {'error': 'Job not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger.error(f"Failed to bulk approve fitments: {str(e)}", exc_info=True)
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def bulk_reject_fitments(request, job_id):
+    """Bulk reject fitments for a job"""
+    try:
+        job = AiFitmentJob.objects.get(id=job_id)
+        fitment_ids = request.data.get('fitment_ids', [])
+        
+        if not fitment_ids:
+            return Response(
+                {'error': 'fitment_ids is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Update fitments to rejected
+        updated_count = AiGeneratedFitment.objects.filter(
+            job=job,
+            id__in=fitment_ids,
+            status='pending'
+        ).update(status='rejected')
+        
+        # Update job counts
+        job.rejected_count += updated_count
+        job.save()
+        
+        return Response({
+            'message': f'Successfully rejected {updated_count} fitments',
+            'rejected_count': updated_count
+        })
+        
+    except AiFitmentJob.DoesNotExist:
+        return Response(
+            {'error': 'Job not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger.error(f"Failed to bulk reject fitments: {str(e)}", exc_info=True)
         return Response(
             {'error': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
