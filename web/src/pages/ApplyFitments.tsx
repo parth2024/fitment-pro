@@ -852,44 +852,6 @@ export default function ApplyFitments() {
         minHeight: "100vh",
       }}
     >
-      {/* CSS Animations for AI Card Effects */}
-      <style>{`
-        @keyframes pulse {
-          0% {
-            transform: translate(-50%, -50%) scale(1);
-            opacity: 0.7;
-          }
-          50% {
-            transform: translate(-50%, -50%) scale(1.1);
-            opacity: 0.3;
-          }
-          100% {
-            transform: translate(-50%, -50%) scale(1);
-            opacity: 0.7;
-          }
-        }
-        
-        @keyframes shimmer {
-          0% {
-            left: -100%;
-          }
-          100% {
-            left: 100%;
-          }
-        }
-        
-        @keyframes progress {
-          0% {
-            width: 0%;
-          }
-          50% {
-            width: 45%;
-          }
-          100% {
-            width: 0%;
-          }
-        }
-      `}</style>
       <Stack gap="xl">
         {/* Step 1: Method Selection Section */}
         <Transition
@@ -964,42 +926,16 @@ export default function ApplyFitments() {
                               ? "#f0f9ff"
                               : !isManualMethodAvailable()
                               ? "#f8f9fa"
-                              : "#fefefe",
+                              : "#ffffff",
                           border:
                             selectedMethod === "manual"
                               ? "2px solid #3b82f6"
-                              : !isManualMethodAvailable()
-                              ? "2px solid #e9ecef"
-                              : "2px solid #f1f5f9",
-                          borderRadius: "12px",
+                              : "1px solid #e2e8f0",
+                          borderRadius: "8px",
                           cursor: isManualMethodAvailable()
                             ? "pointer"
                             : "not-allowed",
-                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                          boxShadow:
-                            selectedMethod === "manual"
-                              ? "0 4px 12px rgba(59, 130, 246, 0.15)"
-                              : "0 2px 4px rgba(0, 0, 0, 0.05)",
-                          transform: "translateY(0)",
                           opacity: isManualMethodAvailable() ? 1 : 0.6,
-                        }}
-                        onMouseEnter={(e) => {
-                          if (
-                            selectedMethod !== "manual" &&
-                            isManualMethodAvailable()
-                          ) {
-                            e.currentTarget.style.transform =
-                              "translateY(-4px)";
-                            e.currentTarget.style.boxShadow =
-                              "0 8px 25px rgba(0, 0, 0, 0.1)";
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (selectedMethod !== "manual") {
-                            e.currentTarget.style.transform = "translateY(0)";
-                            e.currentTarget.style.boxShadow =
-                              "0 2px 4px rgba(0, 0, 0, 0.05)";
-                          }
                         }}
                         p="xl"
                         onClick={
@@ -1012,15 +948,15 @@ export default function ApplyFitments() {
                           <div
                             style={{
                               background: isManualMethodAvailable()
-                                ? "#f8fafc"
+                                ? "#eff6ff"
                                 : "#f1f3f4",
-                              borderRadius: "12px",
-                              padding: "16px",
+                              borderRadius: "50%",
+                              padding: "20px",
                               marginBottom: "8px",
                             }}
                           >
                             <IconUsers
-                              size={32}
+                              size={28}
                               color={
                                 isManualMethodAvailable()
                                   ? "#3b82f6"
@@ -1079,42 +1015,16 @@ export default function ApplyFitments() {
                               ? "#f0f9ff"
                               : !isAiMethodAvailable()
                               ? "#f8f9fa"
-                              : "#fefefe",
+                              : "#ffffff",
                           border:
                             selectedMethod === "ai"
                               ? "2px solid #3b82f6"
-                              : !isAiMethodAvailable()
-                              ? "2px solid #e9ecef"
-                              : "2px solid #f1f5f9",
-                          borderRadius: "12px",
+                              : "1px solid #e2e8f0",
+                          borderRadius: "8px",
                           cursor: isAiMethodAvailable()
                             ? "pointer"
                             : "not-allowed",
-                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                          boxShadow:
-                            selectedMethod === "ai"
-                              ? "0 4px 12px rgba(59, 130, 246, 0.15)"
-                              : "0 2px 4px rgba(0, 0, 0, 0.05)",
-                          transform: "translateY(0)",
                           opacity: isAiMethodAvailable() ? 1 : 0.6,
-                        }}
-                        onMouseEnter={(e) => {
-                          if (
-                            selectedMethod !== "ai" &&
-                            isAiMethodAvailable()
-                          ) {
-                            e.currentTarget.style.transform =
-                              "translateY(-4px)";
-                            e.currentTarget.style.boxShadow =
-                              "0 8px 25px rgba(0, 0, 0, 0.1)";
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (selectedMethod !== "ai") {
-                            e.currentTarget.style.transform = "translateY(0)";
-                            e.currentTarget.style.boxShadow =
-                              "0 2px 4px rgba(0, 0, 0, 0.05)";
-                          }
                         }}
                         p="xl"
                         onClick={
@@ -1127,36 +1037,19 @@ export default function ApplyFitments() {
                           <div
                             style={{
                               background: isAiMethodAvailable()
-                                ? "linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)"
-                                : "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)",
-                              borderRadius: "12px",
-                              padding: "16px",
+                                ? "#eff6ff"
+                                : "#f1f3f4",
+                              borderRadius: "50%",
+                              padding: "20px",
                               marginBottom: "8px",
-                              position: "relative",
                             }}
                           >
                             <IconBrain
-                              size={32}
+                              size={28}
                               color={
-                                isAiMethodAvailable() ? "#6366f1" : "#9ca3af"
+                                isAiMethodAvailable() ? "#3b82f6" : "#9ca3af"
                               }
                             />
-                            {/* Subtle pulse effect - only when available */}
-                            {isAiMethodAvailable() && (
-                              <div
-                                style={{
-                                  position: "absolute",
-                                  top: "50%",
-                                  left: "50%",
-                                  transform: "translate(-50%, -50%)",
-                                  width: "60px",
-                                  height: "60px",
-                                  borderRadius: "50%",
-                                  background: "rgba(99, 102, 241, 0.1)",
-                                  animation: "pulse 2s infinite",
-                                }}
-                              />
-                            )}
                           </div>
 
                           <div style={{ textAlign: "center" }}>
@@ -1913,24 +1806,6 @@ export default function ApplyFitments() {
 
                                   console.log("Filters cleared!");
                                 }}
-                                styles={{
-                                  root: {
-                                    borderRadius: "10px",
-                                    fontWeight: 600,
-                                    fontSize: "14px",
-                                    height: "48px",
-                                    padding: "0 24px",
-                                    border: "2px solid #e2e8f0",
-                                    color: "#64748b",
-                                    transition:
-                                      "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                    "&:hover": {
-                                      borderColor: "#cbd5e1",
-                                      backgroundColor: "#f8fafc",
-                                      transform: "translateY(-1px)",
-                                    },
-                                  },
-                                }}
                               >
                                 Clear Filters
                               </Button>
@@ -1938,32 +1813,6 @@ export default function ApplyFitments() {
                               <Button
                                 size="md"
                                 leftSection={<IconSearch size={16} />}
-                                style={{
-                                  borderRadius: "10px",
-                                  fontWeight: 600,
-                                  fontSize: "14px",
-                                  height: "48px",
-                                  padding: "0 32px",
-                                  background:
-                                    "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-                                  border: "none",
-                                  transition:
-                                    "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                  boxShadow:
-                                    "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)",
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.transform =
-                                    "translateY(-2px)";
-                                  e.currentTarget.style.boxShadow =
-                                    "0 8px 25px -5px rgba(59, 130, 246, 0.3), 0 4px 6px -1px rgba(59, 130, 246, 0.1)";
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.transform =
-                                    "translateY(0)";
-                                  e.currentTarget.style.boxShadow =
-                                    "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)";
-                                }}
                                 onClick={async () => {
                                   // Validate required fields
                                   if (
@@ -2145,35 +1994,12 @@ export default function ApplyFitments() {
                                 size="md"
                                 leftSection={<IconArrowLeft size={16} />}
                                 onClick={() => setManualStep(1)}
-                                styles={{
-                                  root: {
-                                    borderRadius: "10px",
-                                    fontWeight: 600,
-                                    fontSize: "14px",
-                                    height: "48px",
-                                    padding: "0 24px",
-                                    border: "2px solid #e2e8f0",
-                                    color: "#64748b",
-                                    transition:
-                                      "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                    "&:hover": {
-                                      borderColor: "#cbd5e1",
-                                      backgroundColor: "#f8fafc",
-                                      transform: "translateY(-1px)",
-                                    },
-                                  },
-                                }}
                               >
                                 Back
                               </Button>
                               <Button
                                 onClick={() => setManualStep(3)}
                                 disabled={selectedVehicles.length === 0}
-                                style={{
-                                  background:
-                                    "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                                  border: "none",
-                                }}
                               >
                                 Continue ({selectedVehicles.length} selected)
                               </Button>
@@ -2809,24 +2635,6 @@ export default function ApplyFitments() {
                                 size="md"
                                 leftSection={<IconArrowLeft size={16} />}
                                 onClick={() => setManualStep(2)}
-                                styles={{
-                                  root: {
-                                    borderRadius: "10px",
-                                    fontWeight: 600,
-                                    fontSize: "14px",
-                                    height: "48px",
-                                    padding: "0 24px",
-                                    border: "2px solid #e2e8f0",
-                                    color: "#64748b",
-                                    transition:
-                                      "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                    "&:hover": {
-                                      borderColor: "#cbd5e1",
-                                      backgroundColor: "#f8fafc",
-                                      transform: "translateY(-1px)",
-                                    },
-                                  },
-                                }}
                               >
                                 Back
                               </Button>
@@ -2975,34 +2783,6 @@ export default function ApplyFitments() {
                                   !fitmentDetails.title ||
                                   selectedVehicles.length === 0
                                 }
-                                style={{
-                                  borderRadius: "10px",
-                                  fontWeight: 600,
-                                  fontSize: "14px",
-                                  height: "48px",
-                                  padding: "0 32px",
-                                  background:
-                                    "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-                                  border: "none",
-                                  transition:
-                                    "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                  boxShadow:
-                                    "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)",
-                                }}
-                                onMouseEnter={(e) => {
-                                  if (!e.currentTarget.disabled) {
-                                    e.currentTarget.style.transform =
-                                      "translateY(-2px)";
-                                    e.currentTarget.style.boxShadow =
-                                      "0 8px 25px -5px rgba(59, 130, 246, 0.3), 0 4px 6px -1px rgba(59, 130, 246, 0.1)";
-                                  }
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.transform =
-                                    "translateY(0)";
-                                  e.currentTarget.style.boxShadow =
-                                    "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)";
-                                }}
                               >
                                 Apply Fitment
                               </Button>
@@ -3067,38 +2847,11 @@ export default function ApplyFitments() {
                         {/* Generate Fitment Button */}
                         <div style={{ textAlign: "center", marginTop: "40px" }}>
                           <Button
-                            size="xl"
-                            leftSection={<IconBrain size={24} />}
+                            size="lg"
+                            leftSection={<IconBrain size={20} />}
                             onClick={handleDirectAiFitment}
                             loading={aiProcessing}
                             disabled={aiProcessing}
-                            style={{
-                              borderRadius: "12px",
-                              fontWeight: 700,
-                              fontSize: "18px",
-                              height: "60px",
-                              padding: "0 48px",
-                              background:
-                                "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-                              border: "none",
-                              transition:
-                                "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                              boxShadow:
-                                "0 8px 25px -5px rgba(99, 102, 241, 0.3), 0 4px 6px -1px rgba(99, 102, 241, 0.1)",
-                            }}
-                            onMouseEnter={(e) => {
-                              if (!e.currentTarget.disabled) {
-                                e.currentTarget.style.transform =
-                                  "translateY(-3px)";
-                                e.currentTarget.style.boxShadow =
-                                  "0 12px 35px -5px rgba(99, 102, 241, 0.4), 0 8px 10px -1px rgba(99, 102, 241, 0.1)";
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.transform = "translateY(0)";
-                              e.currentTarget.style.boxShadow =
-                                "0 8px 25px -5px rgba(99, 102, 241, 0.3), 0 4px 6px -1px rgba(99, 102, 241, 0.1)";
-                            }}
                           >
                             {aiProcessing
                               ? "Generating Fitments..."
@@ -3173,15 +2926,6 @@ export default function ApplyFitments() {
                       value={aiProgress}
                       size="lg"
                       radius="md"
-                      styles={{
-                        root: {
-                          background: "#f1f5f9",
-                        },
-                        section: {
-                          background:
-                            "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                        },
-                      }}
                       animated
                       style={{ marginBottom: "16px" }}
                     />
@@ -4307,51 +4051,10 @@ export default function ApplyFitments() {
                 onClick={() => setEditModalOpen(false)}
                 disabled={savingEdit}
                 size="md"
-                styles={{
-                  root: {
-                    borderRadius: "10px",
-                    fontWeight: 600,
-                    fontSize: "14px",
-                    height: "44px",
-                    padding: "0 24px",
-                    border: "2px solid #e2e8f0",
-                    color: "#64748b",
-                    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                    "&:hover": {
-                      borderColor: "#cbd5e1",
-                      backgroundColor: "#f8fafc",
-                      transform: "translateY(-1px)",
-                    },
-                  },
-                }}
               >
                 Cancel
               </Button>
-              <Button
-                onClick={handleSaveEdit}
-                loading={savingEdit}
-                size="md"
-                styles={{
-                  root: {
-                    borderRadius: "10px",
-                    fontWeight: 600,
-                    fontSize: "14px",
-                    height: "44px",
-                    padding: "0 24px",
-                    background:
-                      "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-                    border: "none",
-                    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                    boxShadow:
-                      "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)",
-                    "&:hover": {
-                      transform: "translateY(-2px)",
-                      boxShadow:
-                        "0 8px 25px -5px rgba(59, 130, 246, 0.3), 0 4px 6px -1px rgba(59, 130, 246, 0.1)",
-                    },
-                  },
-                }}
-              >
+              <Button onClick={handleSaveEdit} loading={savingEdit} size="md">
                 Save Changes
               </Button>
             </Group>
