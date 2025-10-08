@@ -41,10 +41,11 @@ import ReviewPublish from "./pages/ReviewPublish";
 import UploadData from "./pages/UploadData";
 import ManualFitment from "./pages/ManualFitment";
 import AIFitment from "./pages/AIFitment";
-import Settings from "./pages/Settings";
-import EntityManagement from "./pages/EntityManagement";
+import SettingsWrapper from "./pages/SettingsWrapper";
 import EditEntity from "./pages/EditEntity";
-import CreateEntity from "./pages/CreateEntity";
+import NewEntitySettings from "./pages/NewEntitySettings";
+import ManageEntitiesStandalone from "./pages/ManageEntitiesStandalone";
+import EditEntityStandalone from "./pages/EditEntityStandalone";
 import CustomPCDB from "./pages/CustomPCDB";
 import VCDBData from "./pages/VCDBData";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -101,8 +102,8 @@ const baseNavigationItems = [
 
   {
     label: "Settings",
-    value: "entities",
-    path: "/entities",
+    value: "settings",
+    path: "/settings",
     icon: IconBuilding,
     color: "violet",
   },
@@ -159,6 +160,11 @@ function App() {
       return "Create Entity";
     }
 
+    // Handle new entity settings route
+    if (location.pathname.startsWith("/new-entity-settings/")) {
+      return "Configure New Entity";
+    }
+
     // Handle VCDB Data route
     if (location.pathname === "/vcdb-data") {
       return "VCDB Data";
@@ -172,7 +178,7 @@ function App() {
     const currentNav = navigationItems.find(
       (item) => item.path === location.pathname
     );
-    return currentNav ? currentNav.value : "entities";
+    return currentNav ? currentNav.value : "analytics";
   };
 
   const renderContent = () => {
@@ -199,13 +205,16 @@ function App() {
         />
         <Route path="/admin" element={<Admin />} />
         <Route path="/mismatches" element={<Mismatches />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/entities" element={<EntityManagement />} />
-        <Route path="/create-entity" element={<CreateEntity />} />
+        <Route path="/products" element={<UploadData />} />
+        <Route path="/settings" element={<SettingsWrapper />} />
         <Route path="/edit-entity/:id" element={<EditEntity />} />
+        <Route
+          path="/new-entity-settings/:id"
+          element={<NewEntitySettings />}
+        />
         <Route path="/vcdb-data" element={<VCDBDataWrapper />} />
         <Route path="/custom-pcdb" element={<CustomPCDB />} />
-        <Route path="*" element={<EntityManagement />} />
+        <Route path="*" element={<Analytics />} />
       </Routes>
     );
   };
@@ -245,6 +254,53 @@ function App() {
     }
     return <VCDBData />;
   };
+
+  // Check if we're on the standalone pages (no sidebar/topbar)
+  const isManageEntitiesPage = location.pathname === "/manage-entities";
+  const isEditEntityStandalonePage = location.pathname.startsWith(
+    "/edit-entity-standalone/"
+  );
+
+  // Render standalone pages without AppShell
+  if (isManageEntitiesPage) {
+    return (
+      <ProtectedRoute>
+        <ManageEntitiesStandalone />
+        <ToastContainer
+          position="top-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+        />
+      </ProtectedRoute>
+    );
+  }
+
+  if (isEditEntityStandalonePage) {
+    return (
+      <ProtectedRoute>
+        <EditEntityStandalone />
+        <ToastContainer
+          position="top-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+        />
+      </ProtectedRoute>
+    );
+  }
 
   return (
     <ProtectedRoute>

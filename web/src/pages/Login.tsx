@@ -141,7 +141,7 @@ const Login: React.FC = () => {
                         </div>
                       </Group>
                       <Button
-                        size="xs"
+                        size="sm"
                         variant="subtle"
                         onClick={() => {
                           setUsername(cred.username);

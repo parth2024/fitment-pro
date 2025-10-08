@@ -51,6 +51,18 @@ const CreateEntity: React.FC = () => {
   const handleCreate = async () => {
     try {
       setSubmitting(true);
+
+      // Validate required fields
+      if (!formData.name.trim()) {
+        notifications.show({
+          title: "Validation Error",
+          message: "Entity name is required",
+          color: "red",
+        });
+        setSubmitting(false);
+        return;
+      }
+
       // Only send basic info for creation
       const basicInfo = {
         name: formData.name,
@@ -64,17 +76,23 @@ const CreateEntity: React.FC = () => {
         is_default: formData.is_default,
         default_fitment_method: formData.default_fitment_method,
       };
-      await apiClient.post("/api/tenants/", basicInfo);
+
+      const response = await apiClient.post("/api/tenants/", basicInfo);
+      const newEntity = response.data;
+
       notifications.show({
         title: "Success",
-        message: "Entity created successfully",
+        message:
+          "Entity created successfully! Configure additional settings below.",
         color: "green",
       });
-      navigate("/entities");
-    } catch (error) {
+
+      // Redirect to new entity settings page
+      navigate(`/new-entity-settings/${newEntity.id}`);
+    } catch (error: any) {
       notifications.show({
         title: "Error",
-        message: "Failed to create entity",
+        message: error?.response?.data?.error || "Failed to create entity",
         color: "red",
       });
     } finally {
@@ -92,6 +110,7 @@ const CreateEntity: React.FC = () => {
               leftSection={<IconArrowLeft size={16} />}
               variant="outline"
               onClick={() => navigate("/entities")}
+              size="md"
             >
               Back to Entities
             </Button>
@@ -215,10 +234,11 @@ const CreateEntity: React.FC = () => {
               variant="outline"
               onClick={() => navigate("/entities")}
               disabled={submitting}
+              size="md"
             >
               Cancel
             </Button>
-            <Button onClick={handleCreate} loading={submitting}>
+            <Button onClick={handleCreate} loading={submitting} size="md">
               Create Entity
             </Button>
           </Group>

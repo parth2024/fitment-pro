@@ -507,6 +507,7 @@ const EditEntity: React.FC = () => {
           leftSection={<IconArrowLeft size={16} />}
           onClick={() => navigate("/entities")}
           mt="md"
+          size="md"
         >
           Back to Entities
         </Button>
@@ -524,6 +525,7 @@ const EditEntity: React.FC = () => {
               leftSection={<IconArrowLeft size={16} />}
               variant="outline"
               onClick={() => navigate("/entities")}
+              size="md"
             >
               Back to Entities
             </Button>
@@ -560,18 +562,6 @@ const EditEntity: React.FC = () => {
                 leftSection={<IconDatabase size={16} />}
               >
                 Products
-              </Tabs.Tab>
-              <Tabs.Tab
-                value="apply-fitment"
-                leftSection={<IconCar size={16} />}
-              >
-                Apply Fitment
-              </Tabs.Tab>
-              <Tabs.Tab
-                value="history"
-                leftSection={<IconDatabase size={16} />}
-              >
-                History
               </Tabs.Tab>
             </Tabs.List>
 
@@ -690,10 +680,11 @@ const EditEntity: React.FC = () => {
                     variant="outline"
                     onClick={() => navigate("/entities")}
                     disabled={submitting}
+                    size="md"
                   >
                     Cancel
                   </Button>
-                  <Button onClick={handleUpdate} loading={submitting}>
+                  <Button onClick={handleUpdate} loading={submitting} size="md">
                     Update Entity
                   </Button>
                 </Group>
@@ -777,6 +768,7 @@ const EditEntity: React.FC = () => {
                       }
                     }}
                     loading={submitting}
+                    size="md"
                   >
                     Save Fitment Configuration
                   </Button>
@@ -948,6 +940,7 @@ const EditEntity: React.FC = () => {
                               ],
                             });
                           }}
+                          size="sm"
                         >
                           Add Attribute
                         </Button>
@@ -992,6 +985,7 @@ const EditEntity: React.FC = () => {
                       }
                     }}
                     loading={submitting}
+                    size="md"
                   >
                     Save Configuration
                   </Button>

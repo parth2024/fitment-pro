@@ -51,6 +51,8 @@ export const useEntity = (): UseEntityReturn => {
       try {
         const entity = JSON.parse(storedEntity);
         setCurrentEntity(entity);
+        currentEntityCache = entity; // Update cache to match localStorage
+        console.log("Loaded entity from localStorage:", entity.name, entity.id);
       } catch (err) {
         console.warn("Invalid entity data in localStorage");
         localStorage.removeItem(ENTITY_STORAGE_KEY);

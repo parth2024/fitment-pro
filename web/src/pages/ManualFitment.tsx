@@ -814,24 +814,6 @@ export default function ApplyFitments() {
                                   });
                                   setFilteredVehicles([]);
                                 }}
-                                styles={{
-                                  root: {
-                                    borderRadius: "10px",
-                                    fontWeight: 600,
-                                    fontSize: "14px",
-                                    height: "48px",
-                                    padding: "0 24px",
-                                    border: "2px solid #e2e8f0",
-                                    color: "#64748b",
-                                    transition:
-                                      "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                    "&:hover": {
-                                      borderColor: "#cbd5e1",
-                                      backgroundColor: "#f8fafc",
-                                      transform: "translateY(-1px)",
-                                    },
-                                  },
-                                }}
                               >
                                 Clear Filters
                               </Button>
@@ -839,32 +821,7 @@ export default function ApplyFitments() {
                               <Button
                                 size="md"
                                 leftSection={<IconSearch size={16} />}
-                                style={{
-                                  borderRadius: "10px",
-                                  fontWeight: 600,
-                                  fontSize: "14px",
-                                  height: "48px",
-                                  padding: "0 32px",
-                                  background:
-                                    "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-                                  border: "none",
-                                  transition:
-                                    "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                  boxShadow:
-                                    "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)",
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.transform =
-                                    "translateY(-2px)";
-                                  e.currentTarget.style.boxShadow =
-                                    "0 8px 25px -5px rgba(59, 130, 246, 0.3), 0 4px 6px -1px rgba(59, 130, 246, 0.1)";
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.transform =
-                                    "translateY(0)";
-                                  e.currentTarget.style.boxShadow =
-                                    "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)";
-                                }}
+                                color="blue"
                                 onClick={() => {
                                   // Validate required fields
                                   if (
@@ -1086,17 +1043,15 @@ export default function ApplyFitments() {
                               <Button
                                 variant="light"
                                 onClick={() => setManualStep(1)}
+                                size="md"
                               >
                                 Back
                               </Button>
                               <Button
                                 onClick={() => setManualStep(3)}
                                 disabled={selectedVehicles.length === 0}
-                                style={{
-                                  background:
-                                    "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                                  border: "none",
-                                }}
+                                size="md"
+                                color="blue"
                               >
                                 Continue ({selectedVehicles.length} selected)
                               </Button>
@@ -1481,30 +1436,13 @@ export default function ApplyFitments() {
                                 size="md"
                                 leftSection={<IconArrowLeft size={16} />}
                                 onClick={() => setManualStep(2)}
-                                styles={{
-                                  root: {
-                                    borderRadius: "10px",
-                                    fontWeight: 600,
-                                    fontSize: "14px",
-                                    height: "48px",
-                                    padding: "0 24px",
-                                    border: "2px solid #e2e8f0",
-                                    color: "#64748b",
-                                    transition:
-                                      "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                    "&:hover": {
-                                      borderColor: "#cbd5e1",
-                                      backgroundColor: "#f8fafc",
-                                      transform: "translateY(-1px)",
-                                    },
-                                  },
-                                }}
                               >
                                 Back
                               </Button>
 
                               <Button
                                 size="md"
+                                color="blue"
                                 leftSection={<IconSettings size={16} />}
                                 onClick={async () => {
                                   if (!selectedSession) {
@@ -1558,34 +1496,6 @@ export default function ApplyFitments() {
                                   !fitmentDetails.partId ||
                                   !fitmentDetails.partType
                                 }
-                                style={{
-                                  borderRadius: "10px",
-                                  fontWeight: 600,
-                                  fontSize: "14px",
-                                  height: "48px",
-                                  padding: "0 32px",
-                                  background:
-                                    "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-                                  border: "none",
-                                  transition:
-                                    "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                  boxShadow:
-                                    "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)",
-                                }}
-                                onMouseEnter={(e) => {
-                                  if (!e.currentTarget.disabled) {
-                                    e.currentTarget.style.transform =
-                                      "translateY(-2px)";
-                                    e.currentTarget.style.boxShadow =
-                                      "0 8px 25px -5px rgba(59, 130, 246, 0.3), 0 4px 6px -1px rgba(59, 130, 246, 0.1)";
-                                  }
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.transform =
-                                    "translateY(0)";
-                                  e.currentTarget.style.boxShadow =
-                                    "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)";
-                                }}
                               >
                                 Apply Fitment
                               </Button>
