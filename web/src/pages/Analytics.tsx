@@ -89,6 +89,7 @@ const Analytics: React.FC = () => {
   const navigate = useNavigate();
   const { currentEntity, loading: entityLoading } = useEntity();
   const selectedEntityIds = currentEntity ? [currentEntity.id] : [];
+  const hasCheckedUrlParam = React.useRef(false);
 
   // Hardcoded pending fitments data for display
   const hardcodedPendingFitments: PendingFitment[] = [
@@ -235,15 +236,36 @@ const Analytics: React.FC = () => {
     }
   }, [currentEntity]);
 
-  // Initialize with current entity if available and fetch data automatically
+  // Clean up URL parameter if present
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const entityIdFromUrl = urlParams.get("entity");
+
+    if (entityIdFromUrl && !hasCheckedUrlParam.current) {
+      console.log("Entity parameter found in URL:", entityIdFromUrl);
+      hasCheckedUrlParam.current = true;
+
+      // Remove the URL parameter
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete("entity");
+      window.history.replaceState({}, "", newUrl.toString());
+    }
+  }, []);
+
+  // Fetch analytics data whenever entity changes or is loaded
   useEffect(() => {
     if (currentEntity && !entityLoading) {
       console.log(
-        "useEffect triggered - fetching analytics for entity:",
-        currentEntity.name
+        "Fetching analytics for entity:",
+        currentEntity.name,
+        "ID:",
+        currentEntity.id
       );
-      // Always fetch data when component mounts or entity changes
       fetchAnalyticsData();
+    } else if (!entityLoading && !currentEntity) {
+      console.log("No entity available after loading");
+    } else if (entityLoading) {
+      console.log("Still loading entity...");
     }
   }, [currentEntity, entityLoading, fetchAnalyticsData]);
 

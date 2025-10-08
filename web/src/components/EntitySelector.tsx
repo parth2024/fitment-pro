@@ -247,11 +247,11 @@ export const EntitySelector: React.FC<EntitySelectorProps> = ({
       // Force a synchronous localStorage write
       localStorage.setItem("current_entity", JSON.stringify(entity));
 
-      // Small delay to ensure localStorage is saved before reload
+      // Small delay to ensure localStorage is saved before redirect
       setTimeout(() => {
         const finalCheck = localStorage.getItem("current_entity");
         console.log(
-          "DEBUG: Final localStorage check before reload:",
+          "DEBUG: Final localStorage check before redirect:",
           finalCheck
         );
 
@@ -260,31 +260,25 @@ export const EntitySelector: React.FC<EntitySelectorProps> = ({
           try {
             const storedEntity = JSON.parse(finalCheck);
             if (storedEntity.id === entity.id) {
-              console.log("DEBUG: localStorage verified, reloading page");
-              // Add entity ID to URL as backup
-              const currentUrl = new URL(window.location.href);
-              currentUrl.searchParams.set("entity", entity.id);
-              window.location.href = currentUrl.toString();
+              console.log(
+                "DEBUG: localStorage verified, redirecting to analytics"
+              );
+              // Redirect to analytics with entity ID as backup
+              window.location.href = `/analytics?entity=${entity.id}`;
             } else {
               console.error("DEBUG: localStorage mismatch, forcing update");
               localStorage.setItem("current_entity", JSON.stringify(entity));
-              const currentUrl = new URL(window.location.href);
-              currentUrl.searchParams.set("entity", entity.id);
-              window.location.href = currentUrl.toString();
+              window.location.href = `/analytics?entity=${entity.id}`;
             }
           } catch (err) {
             console.error("DEBUG: localStorage parse error, forcing update");
             localStorage.setItem("current_entity", JSON.stringify(entity));
-            const currentUrl = new URL(window.location.href);
-            currentUrl.searchParams.set("entity", entity.id);
-            window.location.href = currentUrl.toString();
+            window.location.href = `/analytics?entity=${entity.id}`;
           }
         } else {
           console.error("DEBUG: No localStorage found, forcing update");
           localStorage.setItem("current_entity", JSON.stringify(entity));
-          const currentUrl = new URL(window.location.href);
-          currentUrl.searchParams.set("entity", entity.id);
-          window.location.href = currentUrl.toString();
+          window.location.href = `/analytics?entity=${entity.id}`;
         }
       }, 200);
     } catch (err) {
