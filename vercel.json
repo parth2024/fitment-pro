@@ -1,7 +1,8 @@
 {
-  "buildCommand": "cd web && npm install && npm run build",
+  "framework": null,
+  "buildCommand": "npm install --prefix ./web && npm run build --prefix ./web",
   "outputDirectory": "web/dist",
-  "installCommand": "echo 'Skipping root install'",
+  "installCommand": "echo 'Dependencies will be installed during build'",
   "rewrites": [
     {
       "source": "/(.*)",

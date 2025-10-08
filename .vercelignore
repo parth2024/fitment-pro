@@ -1,0 +1,30 @@
+# Don't ignore the web directory - we need it for the build
+!web/
+
+# But still ignore these within web
+web/node_modules
+web/dist
+
+# Python virtual environments
+my_env/
+venv/
+env/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Database files
+*.db
+*.sqlite3
+dump.rdb
+
+# Storage directories
+storage/
+api/storage/
+
+# Environment files
+.env
+.env.local
+
