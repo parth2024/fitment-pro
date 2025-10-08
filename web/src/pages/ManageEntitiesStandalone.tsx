@@ -76,7 +76,8 @@ const ManageEntitiesStandalone: React.FC = () => {
 
   const handleSettings = (entity: Entity) => {
     // Navigate to standalone edit page (same as edit)
-    window.location.href = `/edit-entity-standalone/${entity.id}`;
+    // Add 'from' parameter to indicate we came from manage entities
+    window.location.href = `/edit-entity-standalone/${entity.id}?from=manage`;
   };
 
   const handleSelectEntity = async (entity: Entity) => {

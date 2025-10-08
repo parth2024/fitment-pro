@@ -120,9 +120,14 @@ const EditEntityStandalone: React.FC = () => {
   const pathParts = window.location.pathname.split("/");
   const id = routeId || pathParts[pathParts.length - 1];
 
+  // Check if we came from manage entities page
+  const urlParams = new URLSearchParams(window.location.search);
+  const fromManage = urlParams.get("from") === "manage";
+
   console.log("DEBUG: EditEntityStandalone component rendered with id:", id);
   console.log("DEBUG: routeId from useParams:", routeId);
   console.log("DEBUG: pathParts:", pathParts);
+  console.log("DEBUG: fromManage:", fromManage);
   const [entity, setEntity] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -364,15 +369,17 @@ const EditEntityStandalone: React.FC = () => {
             Entity ID: {id}
           </Text>
           <Group mt="md">
-            <Button
-              leftSection={<IconArrowLeft size={16} />}
-              onClick={() => (window.location.href = "/manage-entities")}
-              size="sm"
-              variant="subtle"
-              style={{ fontSize: "14px" }}
-            >
-              Back to Manage Entities
-            </Button>
+            {fromManage && (
+              <Button
+                leftSection={<IconArrowLeft size={16} />}
+                onClick={() => (window.location.href = "/manage-entities")}
+                size="sm"
+                variant="subtle"
+                style={{ fontSize: "14px" }}
+              >
+                Back to Manage Entities
+              </Button>
+            )}
             <Button
               variant="light"
               onClick={() => window.location.reload()}
@@ -399,15 +406,17 @@ const EditEntityStandalone: React.FC = () => {
           {/* Header */}
           <Group justify="space-between" align="center">
             <Group>
-              <Button
-                leftSection={<IconArrowLeft size={16} />}
-                variant="subtle"
-                onClick={() => (window.location.href = "/manage-entities")}
-                size="sm"
-                style={{ fontSize: "14px" }}
-              >
-                Back to Manage Entities
-              </Button>
+              {fromManage && (
+                <Button
+                  leftSection={<IconArrowLeft size={16} />}
+                  variant="subtle"
+                  onClick={() => (window.location.href = "/manage-entities")}
+                  size="sm"
+                  style={{ fontSize: "14px" }}
+                >
+                  Back to Manage Entities
+                </Button>
+              )}
             </Group>
             <Group>
               <Badge color={entity.is_active ? "green" : "red"} size="lg">
