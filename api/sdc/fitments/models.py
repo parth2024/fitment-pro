@@ -28,6 +28,10 @@ class Fitment(models.Model):
     
     hash = models.CharField(max_length=64, primary_key=True, editable=False)
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name='fitments', null=True, blank=True)
+    
+    # Link to AI Fitment Job (for tracking AI-generated fitments)
+    ai_job_id = models.UUIDField(null=True, blank=True, help_text="Reference to AiFitmentJob if created by AI")
+    
     partId = models.CharField(max_length=64)
     itemStatus = models.CharField(max_length=32, default='Active')
     itemStatusCode = models.IntegerField(default=0)

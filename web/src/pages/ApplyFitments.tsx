@@ -159,6 +159,9 @@ export default function ApplyFitments() {
   const [processingAiFitment, setProcessingAiFitment] = useState(false);
   const [aiProgress, setAiProgress] = useState(0);
   const [aiLogs, setAiLogs] = useState<string[]>([]);
+  const [pollingInterval, setPollingInterval] = useState<ReturnType<
+    typeof setInterval
+  > | null>(null);
 
   // AI Product Selection states
   const { data: productsResponse } = useApi(
@@ -281,6 +284,87 @@ export default function ApplyFitments() {
     setAiLogs([]);
   };
 
+  // Poll job status until completion
+  const pollJobStatus = async (jobId: string) => {
+    setProcessingAiFitment(true);
+    setAiProgress(5);
+    setAiLogs(["🚀 Starting AI fitment generation..."]);
+
+    const interval = setInterval(async () => {
+      try {
+        const statusResult: any = await dataUploadService.getAiFitmentJobStatus(
+          jobId
+        );
+        const job = statusResult?.data?.job || statusResult?.job;
+        const task = statusResult?.data?.task || statusResult?.task;
+
+        // Update progress from Celery task
+        if (task?.state === "PROGRESS" && task?.info) {
+          const progress = task.info.current || 5;
+          const statusMsg = task.info.status || "Processing...";
+          setAiProgress(progress);
+          setAiLogs((prev) => {
+            const newLogs = [...prev];
+            if (newLogs[newLogs.length - 1] !== statusMsg) {
+              newLogs.push(`⏳ ${statusMsg}`);
+            }
+            return newLogs;
+          });
+        }
+
+        // Check job status
+        if (job?.status === "review_required" || job?.status === "completed") {
+          // Job completed successfully
+          clearInterval(interval);
+          setPollingInterval(null);
+          setAiProgress(100);
+          setAiLogs((prev) => [
+            ...prev,
+            `✅ AI fitment generation completed!`,
+            `📊 Generated ${job.fitments_count} fitments from ${job.product_count} products`,
+          ]);
+          setProcessingAiFitment(false);
+
+          showSuccess(
+            `AI fitment job completed! ${job.fitments_count} fitments generated. Review them in the Jobs tab.`,
+            5000
+          );
+
+          // Refresh jobs list
+          await refetchJobs();
+
+          // Auto-navigate to jobs tab
+          setTimeout(() => {
+            setAiSubOption("jobs");
+          }, 2000);
+        } else if (job?.status === "failed") {
+          // Job failed
+          clearInterval(interval);
+          setPollingInterval(null);
+          setProcessingAiFitment(false);
+          const errorMsg = job.error_message || "Unknown error occurred";
+          setAiLogs((prev) => [...prev, `❌ Job failed: ${errorMsg}`]);
+          showError(`AI fitment job failed: ${errorMsg}`);
+          await refetchJobs();
+        }
+      } catch (error: any) {
+        console.error("Error polling job status:", error);
+        // Don't stop polling on network errors, just log
+      }
+    }, 3000); // Poll every 3 seconds
+
+    setPollingInterval(interval);
+  };
+
+  // Stop polling on component unmount or when navigating away
+  useEffect(() => {
+    return () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+    };
+  }, [pollingInterval]);
+
   // AI Fitment: Upload Product Data handler
   const handleUploadProductForAi = async () => {
     if (!productFile) {
@@ -291,7 +375,7 @@ export default function ApplyFitments() {
     setUploadingProduct(true);
     setProcessingAiFitment(true);
     setAiProgress(0);
-    setAiLogs([]);
+    setAiLogs(["📦 Uploading product file and creating job..."]);
 
     try {
       // Create AI fitment job with product file upload
@@ -301,44 +385,30 @@ export default function ApplyFitments() {
       });
 
       if (result && result.data) {
-        const jobId = result.data.job_id || result.data.id;
+        const jobId = result.data.job_id || result.data.data?.id;
 
-        // Simulate progress logs
-        const logs = [
-          "📦 Uploading product file...",
-          "✅ Product file validated successfully",
-          "🔍 Analyzing product specifications...",
-          "🧠 Initializing AI matching engine...",
-          "🎯 Processing fitment recommendations...",
-          "✅ AI fitment job created successfully!",
-        ];
+        setAiLogs((prev) => [
+          ...prev,
+          `✅ Job created successfully! Job ID: ${jobId}`,
+          "🔄 Starting background processing...",
+        ]);
 
-        for (let i = 0; i < logs.length; i++) {
-          setAiLogs((prev) => [...prev, logs[i]]);
-          setAiProgress((i + 1) * (100 / logs.length));
-          await new Promise((resolve) => setTimeout(resolve, 500));
-        }
-
-        showSuccess(
-          `AI fitment job created! Job ID: ${jobId}. You can review it in the Jobs tab.`,
-          5000
-        );
-
-        // Refresh jobs list
-        await refetchJobs();
-
-        // Navigate to jobs tab
-        setAiSubOption("jobs");
+        // Start polling for job status
+        await pollJobStatus(jobId);
       }
     } catch (error: any) {
       console.error("AI fitment job creation error:", error);
       setAiLogs((prev) => [...prev, "❌ Failed to create AI fitment job"]);
-      showError(
-        error.response?.data?.error || "Failed to create AI fitment job"
-      );
+      setProcessingAiFitment(false);
+
+      const errorMsg =
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to create AI fitment job";
+      showError(errorMsg);
     } finally {
       setUploadingProduct(false);
-      setProcessingAiFitment(false);
     }
   };
 
@@ -351,7 +421,9 @@ export default function ApplyFitments() {
 
     setProcessingAiFitment(true);
     setAiProgress(0);
-    setAiLogs([]);
+    setAiLogs([
+      `🔍 Creating job for ${selectedProducts.length} selected products...`,
+    ]);
 
     try {
       // Create AI fitment job from product selection
@@ -361,37 +433,28 @@ export default function ApplyFitments() {
       });
 
       if (result && result.data) {
-        const jobId = result.data.job_id || result.data.id;
+        const jobId = result.data.job_id || result.data.data?.id;
 
-        const logs = [
-          `🔍 Processing ${selectedProducts.length} selected products...`,
-          "🧠 Initializing AI matching engine...",
-          "🎯 Generating fitment recommendations...",
-          "✅ AI fitment job created successfully!",
-        ];
+        setAiLogs((prev) => [
+          ...prev,
+          `✅ Job created successfully! Job ID: ${jobId}`,
+          "🔄 Starting background processing...",
+        ]);
 
-        for (let i = 0; i < logs.length; i++) {
-          setAiLogs((prev) => [...prev, logs[i]]);
-          setAiProgress((i + 1) * (100 / logs.length));
-          await new Promise((resolve) => setTimeout(resolve, 500));
-        }
-
-        showSuccess(
-          `AI fitment job created! Job ID: ${jobId}. You can review it in the Jobs tab.`,
-          5000
-        );
-
-        await refetchJobs();
-        setAiSubOption("jobs");
+        // Start polling for job status
+        await pollJobStatus(jobId);
       }
     } catch (error: any) {
       console.error("AI fitment job creation error:", error);
       setAiLogs((prev) => [...prev, "❌ Failed to create AI fitment job"]);
-      showError(
-        error.response?.data?.error || "Failed to create AI fitment job"
-      );
-    } finally {
       setProcessingAiFitment(false);
+
+      const errorMsg =
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to create AI fitment job";
+      showError(errorMsg);
     }
   };
 
@@ -430,25 +493,80 @@ export default function ApplyFitments() {
     setApprovingFitments(true);
 
     try {
-      // Approve AI fitments
+      // Approve AI fitments - this will change status to 'approved' and create Fitment records
       await dataUploadService.approveAiFitments(
         selectedJobForReview,
         selectedJobFitments
       );
 
       showSuccess(
-        `Successfully approved ${selectedJobFitments.length} fitments! They are now in Fitment Management.`,
+        `Successfully approved ${selectedJobFitments.length} fitments! They are now active in Fitment Management.`,
         5000
       );
 
+      // Refresh jobs list to update counts
       await refetchJobs();
 
+      // Close review modal and reset
       setSelectedJobForReview(null);
       setJobFitments([]);
       setSelectedJobFitments([]);
     } catch (error: any) {
       console.error("Failed to approve fitments:", error);
-      showError("Failed to approve fitments");
+      const errorMsg =
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "Failed to approve fitments";
+      showError(errorMsg);
+    } finally {
+      setApprovingFitments(false);
+    }
+  };
+
+  // Reject AI Fitments
+  const handleRejectJobFitments = async () => {
+    if (!selectedJobForReview) return;
+
+    if (selectedJobFitments.length === 0) {
+      showError("Please select fitments to reject");
+      return;
+    }
+
+    const confirmReject = window.confirm(
+      `Are you sure you want to reject ${selectedJobFitments.length} fitments? This will delete them permanently.`
+    );
+
+    if (!confirmReject) return;
+
+    setApprovingFitments(true);
+
+    try {
+      // Reject AI fitments - this will delete them
+      await dataUploadService.rejectAiFitments(
+        selectedJobForReview,
+        selectedJobFitments
+      );
+
+      showSuccess(
+        `Successfully rejected ${selectedJobFitments.length} fitments. They have been removed.`,
+        5000
+      );
+
+      // Remove rejected fitments from local state
+      setJobFitments((prev) =>
+        prev.filter((f) => !selectedJobFitments.includes(f.id))
+      );
+      setSelectedJobFitments([]);
+
+      // Refresh jobs list to update counts
+      await refetchJobs();
+    } catch (error: any) {
+      console.error("Failed to reject fitments:", error);
+      const errorMsg =
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "Failed to reject fitments";
+      showError(errorMsg);
     } finally {
       setApprovingFitments(false);
     }
@@ -2226,17 +2344,30 @@ export default function ApplyFitments() {
                     }
                   />
                 </Group>
-                <Button
-                  variant="filled"
-                  color="green"
-                  size="sm"
-                  leftSection={<IconCheck size={16} />}
-                  onClick={handleApproveJobFitments}
-                  disabled={selectedJobFitments.length === 0}
-                  loading={approvingFitments}
-                >
-                  Approve Selected ({selectedJobFitments.length})
-                </Button>
+                <Group gap="sm">
+                  <Button
+                    variant="light"
+                    color="red"
+                    size="sm"
+                    leftSection={<IconX size={16} />}
+                    onClick={handleRejectJobFitments}
+                    disabled={selectedJobFitments.length === 0}
+                    loading={approvingFitments}
+                  >
+                    Reject Selected ({selectedJobFitments.length})
+                  </Button>
+                  <Button
+                    variant="filled"
+                    color="green"
+                    size="sm"
+                    leftSection={<IconCheck size={16} />}
+                    onClick={handleApproveJobFitments}
+                    disabled={selectedJobFitments.length === 0}
+                    loading={approvingFitments}
+                  >
+                    Approve Selected ({selectedJobFitments.length})
+                  </Button>
+                </Group>
               </Group>
 
               <ScrollArea h={500}>
