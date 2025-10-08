@@ -107,15 +107,16 @@ const CreateEntity: React.FC = () => {
         <Group justify="space-between" align="center">
           <Group>
             <Button
-              leftSection={<IconArrowLeft size={16} />}
-              variant="outline"
+              leftSection={<IconArrowLeft size={14} />}
+              variant="subtle"
               onClick={() => navigate("/entities")}
-              size="md"
+              size="sm"
+              style={{ fontSize: "14px" }}
             >
               Back to Entities
             </Button>
-            <Title order={2}>Create New Entity</Title>
           </Group>
+          <Title order={2}>Create New Entity</Title>
         </Group>
 
         {/* Create Form */}

@@ -31,12 +31,11 @@ import {
   IconTrash,
   IconCar,
   IconDatabase,
-  IconArrowLeft,
   IconClock,
   IconRefresh,
   IconX,
 } from "@tabler/icons-react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import apiClient from "../api/client";
 import { toast } from "react-toastify";
 
@@ -137,7 +136,6 @@ const REQUIRED_PRODUCT_FIELDS = [
 
 const EditEntity: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const [entity, setEntity] = useState<Entity | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -503,34 +501,37 @@ const EditEntity: React.FC = () => {
         <Alert title="Error" color="red">
           {error || "Entity not found"}
         </Alert>
-        <Button
-          leftSection={<IconArrowLeft size={16} />}
+        {/* <Button
+          leftSection={<IconArrowLeft size={14} />}
           onClick={() => navigate("/entities")}
           mt="md"
-          size="md"
+          size="sm"
+          variant="subtle"
+          style={{ fontSize: "14px" }}
         >
           Back to Entities
-        </Button>
+        </Button> */}
       </Container>
     );
   }
 
   return (
     <Container size="xl" py="xl">
-      <Stack gap="xl">
+      <Stack gap="md">
         {/* Header */}
         <Group justify="space-between" align="center">
           <Group>
-            <Button
-              leftSection={<IconArrowLeft size={16} />}
-              variant="outline"
+            {/* <Button
+              leftSection={<IconArrowLeft size={14} />}
+              variant="subtle"
               onClick={() => navigate("/entities")}
-              size="md"
+              size="sm"
+              style={{ fontSize: "14px" }}
             >
               Back to Entities
-            </Button>
-            <Title order={2}>{entity.name}</Title>
+            </Button> */}
           </Group>
+
           <Group>
             <Badge color={entity.is_active ? "green" : "red"} size="lg">
               {entity.is_active ? "Active" : "Inactive"}
@@ -545,6 +546,9 @@ const EditEntity: React.FC = () => {
 
         {/* Edit Form with Tabs */}
         <Card shadow="sm" padding="xl" radius="md" withBorder>
+          <Title order={3} mb={"xl"}>
+            {entity.name}
+          </Title>
           <Tabs
             defaultValue="basic"
             variant="outline"
@@ -677,14 +681,11 @@ const EditEntity: React.FC = () => {
 
                 <Group justify="flex-end" mt="xl">
                   <Button
-                    variant="outline"
-                    onClick={() => navigate("/entities")}
-                    disabled={submitting}
-                    size="md"
+                    onClick={handleUpdate}
+                    loading={submitting}
+                    size="sm"
+                    color="blue"
                   >
-                    Cancel
-                  </Button>
-                  <Button onClick={handleUpdate} loading={submitting} size="md">
                     Update Entity
                   </Button>
                 </Group>
@@ -743,7 +744,7 @@ const EditEntity: React.FC = () => {
 
                 <Group justify="flex-end" mt="md">
                   <Button
-                    variant="outline"
+                    variant="light"
                     onClick={async () => {
                       try {
                         setSubmitting(true);
@@ -768,7 +769,8 @@ const EditEntity: React.FC = () => {
                       }
                     }}
                     loading={submitting}
-                    size="md"
+                    size="sm"
+                    color="blue"
                   >
                     Save Fitment Configuration
                   </Button>
@@ -924,7 +926,7 @@ const EditEntity: React.FC = () => {
                           </Paper>
                         ))}
                         <Button
-                          variant="outline"
+                          variant="light"
                           leftSection={<IconPlus size={16} />}
                           onClick={() => {
                             setFormData({
@@ -941,6 +943,7 @@ const EditEntity: React.FC = () => {
                             });
                           }}
                           size="sm"
+                          color="blue"
                         >
                           Add Attribute
                         </Button>
@@ -951,7 +954,7 @@ const EditEntity: React.FC = () => {
 
                 <Group justify="flex-end" mt="md">
                   <Button
-                    variant="outline"
+                    variant="light"
                     onClick={async () => {
                       try {
                         setSubmitting(true);
@@ -985,7 +988,8 @@ const EditEntity: React.FC = () => {
                       }
                     }}
                     loading={submitting}
-                    size="md"
+                    size="sm"
+                    color="blue"
                   >
                     Save Configuration
                   </Button>
@@ -1083,9 +1087,9 @@ const EditEntity: React.FC = () => {
                             Uploaded Files
                           </Text>
                           <Button
-                            variant="subtle"
+                            variant="light"
                             color="red"
-                            size="xs"
+                            size="sm"
                             onClick={() =>
                               setFormData({ ...formData, uploaded_files: [] })
                             }
@@ -1348,8 +1352,8 @@ const EditEntity: React.FC = () => {
                   <Group justify="space-between" align="center" mb="md">
                     <Text fw={500}>Upload History</Text>
                     <Button
-                      size="xs"
-                      variant="outline"
+                      size="sm"
+                      variant="light"
                       onClick={fetchUploadHistory}
                       loading={loadingUploadHistory}
                     >
@@ -1440,7 +1444,7 @@ const EditEntity: React.FC = () => {
                   <Group>
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant="light"
                       leftSection={<IconRefresh size={16} />}
                       onClick={() => {
                         fetchFitmentJobs();

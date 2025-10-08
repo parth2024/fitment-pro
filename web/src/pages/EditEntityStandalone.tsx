@@ -367,14 +367,16 @@ const EditEntityStandalone: React.FC = () => {
             <Button
               leftSection={<IconArrowLeft size={16} />}
               onClick={() => (window.location.href = "/manage-entities")}
-              size="md"
+              size="sm"
+              variant="subtle"
+              style={{ fontSize: "14px" }}
             >
               Back to Manage Entities
             </Button>
             <Button
-              variant="outline"
+              variant="light"
               onClick={() => window.location.reload()}
-              size="md"
+              size="sm"
             >
               Retry
             </Button>
@@ -393,7 +395,7 @@ const EditEntityStandalone: React.FC = () => {
       }}
     >
       <Container size="xl">
-        <Stack gap="xl">
+        <Stack gap="sm">
           {/* Header */}
           <Group justify="space-between" align="center">
             <Group>
@@ -401,10 +403,11 @@ const EditEntityStandalone: React.FC = () => {
                 leftSection={<IconArrowLeft size={16} />}
                 variant="subtle"
                 onClick={() => (window.location.href = "/manage-entities")}
+                size="sm"
+                style={{ fontSize: "14px" }}
               >
                 Back to Manage Entities
               </Button>
-              <Title order={1}>{entity.name}</Title>
             </Group>
             <Group>
               <Badge color={entity.is_active ? "green" : "red"} size="lg">
@@ -420,6 +423,9 @@ const EditEntityStandalone: React.FC = () => {
 
           {/* Configuration Form with Tabs */}
           <Card shadow="sm" padding="xl" radius="md" withBorder>
+            <Title order={3} mb={"xl"}>
+              {entity.name}
+            </Title>
             <Tabs
               defaultValue="basic"
               variant="outline"
@@ -559,10 +565,11 @@ const EditEntityStandalone: React.FC = () => {
 
                   <Group justify="flex-end" mt="xl">
                     <Button
-                      variant="outline"
+                      variant="light"
                       onClick={handleUpdate}
                       loading={submitting}
-                      size="md"
+                      size="sm"
+                      color="blue"
                     >
                       Save Changes
                     </Button>
@@ -629,10 +636,11 @@ const EditEntityStandalone: React.FC = () => {
 
                   <Group justify="flex-end" mt="md">
                     <Button
-                      variant="outline"
+                      variant="light"
                       onClick={handleUpdate}
                       loading={submitting}
-                      size="md"
+                      size="sm"
+                      color="blue"
                     >
                       Save Fitment Configuration
                     </Button>
@@ -783,7 +791,7 @@ const EditEntityStandalone: React.FC = () => {
                             </Paper>
                           ))}
                           <Button
-                            variant="outline"
+                            variant="light"
                             leftSection={<IconPlus size={16} />}
                             onClick={() => {
                               setFormData({
@@ -800,6 +808,7 @@ const EditEntityStandalone: React.FC = () => {
                               });
                             }}
                             size="sm"
+                            color="blue"
                           >
                             Add Attribute
                           </Button>
@@ -810,10 +819,11 @@ const EditEntityStandalone: React.FC = () => {
 
                   <Group justify="flex-end" mt="md">
                     <Button
-                      variant="outline"
+                      variant="light"
                       onClick={handleUpdate}
                       loading={submitting}
-                      size="md"
+                      size="sm"
+                      color="blue"
                     >
                       Save Product Configuration
                     </Button>
@@ -834,11 +844,8 @@ const EditEntityStandalone: React.FC = () => {
                 leftSection={<IconCheck size={16} />}
                 onClick={handleUseThisEntity}
                 loading={submitting}
-                size="lg"
-                style={{
-                  background:
-                    "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                }}
+                size="md"
+                color="blue"
               >
                 Use This Entity
               </Button>
