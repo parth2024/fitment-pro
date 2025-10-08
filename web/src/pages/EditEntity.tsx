@@ -563,18 +563,6 @@ const EditEntity: React.FC = () => {
               >
                 Products
               </Tabs.Tab>
-              <Tabs.Tab
-                value="apply-fitment"
-                leftSection={<IconCar size={16} />}
-              >
-                Apply Fitment
-              </Tabs.Tab>
-              <Tabs.Tab
-                value="history"
-                leftSection={<IconDatabase size={16} />}
-              >
-                History
-              </Tabs.Tab>
             </Tabs.List>
 
             <Tabs.Panel value="basic" pt="md">
