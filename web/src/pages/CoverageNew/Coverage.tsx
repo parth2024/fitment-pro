@@ -237,7 +237,7 @@ const Coverage: React.FC<CoverageProps> = (props) => {
 
   return (
     <div style={{ padding: "24px 0" }}>
-      <Stack gap="lg">
+      <Stack>
         <CoverageYearsRange
           values={yearValues}
           options={props.yearOptions}

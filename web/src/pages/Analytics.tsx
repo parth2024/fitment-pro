@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Card,
   Grid,
@@ -12,9 +12,12 @@ import {
   RingProgress,
   Paper,
   Skeleton,
-  Divider,
   Button,
   Center,
+  Table,
+  ScrollArea,
+  ActionIcon,
+  Tooltip,
 } from "@mantine/core";
 import {
   IconChartBar,
@@ -27,13 +30,15 @@ import {
   IconRobot,
   IconChevronRight,
   IconBuilding,
-  IconRefresh,
+  IconEye,
+  IconCheck,
+  IconX,
+  IconClock,
 } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/client";
 import { useEntity } from "../hooks/useEntity";
 import CoverageWrapper from "./CoverageNew/CoverageWrapper";
-import MultiEntitySelector from "../components/MultiEntitySelector";
 
 interface AnalyticsData {
   totalFitments: number;
@@ -46,6 +51,7 @@ interface AnalyticsData {
   inactiveFitments: number;
   successRate: number;
   coveragePercentage: number;
+  pendingReviewCount: number;
   topMakes: Array<{ makeName: string; count: number }>;
   yearlyStats: Array<{ year: number; count: number }>;
   lastUpdated: string;
@@ -54,6 +60,18 @@ interface AnalyticsData {
     name: string;
     slug: string;
   };
+}
+
+interface PendingFitment {
+  hash: string;
+  partId: string;
+  year: number;
+  makeName: string;
+  modelName: string;
+  subModelName: string;
+  fitmentType: string;
+  createdAt: string;
+  status: string;
 }
 
 interface NavigationShortcut {
@@ -68,94 +86,131 @@ interface NavigationShortcut {
 const Analytics: React.FC = () => {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedEntities, setSelectedEntities] = useState<string[]>([]);
-  const [dataFetched, setDataFetched] = useState(false);
   const navigate = useNavigate();
   const { currentEntity, loading: entityLoading } = useEntity();
+  const selectedEntityIds = currentEntity ? [currentEntity.id] : [];
+
+  // Hardcoded pending fitments data for display
+  const hardcodedPendingFitments: PendingFitment[] = [
+    {
+      hash: "pending-1",
+      partId: "BRK-2024-001",
+      year: 2024,
+      makeName: "Toyota",
+      modelName: "Camry",
+      subModelName: "XLE",
+      fitmentType: "ai_fitment",
+      createdAt: new Date(Date.now() - 1 * 86400000).toISOString(),
+      status: "pending",
+    },
+    {
+      hash: "pending-2",
+      partId: "ENG-2023-045",
+      year: 2023,
+      makeName: "Honda",
+      modelName: "Accord",
+      subModelName: "Sport",
+      fitmentType: "manual_fitment",
+      createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+      status: "pending",
+    },
+    {
+      hash: "pending-3",
+      partId: "SUS-2022-128",
+      year: 2022,
+      makeName: "Ford",
+      modelName: "F-150",
+      subModelName: "Lariat",
+      fitmentType: "ai_fitment",
+      createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+      status: "pending",
+    },
+    {
+      hash: "pending-4",
+      partId: "WHL-2021-089",
+      year: 2021,
+      makeName: "Chevrolet",
+      modelName: "Silverado",
+      subModelName: "",
+      fitmentType: "manual_fitment",
+      createdAt: new Date(Date.now() - 4 * 86400000).toISOString(),
+      status: "pending",
+    },
+    {
+      hash: "pending-5",
+      partId: "INT-2020-234",
+      year: 2020,
+      makeName: "BMW",
+      modelName: "3 Series",
+      subModelName: "M Sport",
+      fitmentType: "ai_fitment",
+      createdAt: new Date(Date.now() - 5 * 86400000).toISOString(),
+      status: "pending",
+    },
+  ];
 
   const navigationShortcuts: NavigationShortcut[] = [
     {
-      title: "Entity Management",
-      description: "Manage entities and their settings",
-      icon: IconBuilding,
-      color: "gray",
-      value: "/entities",
+      title: "Apply Fitments",
+      description: "Upload and apply new fitments",
+      icon: IconCar,
+      color: "green",
+      value: "/bulk-upload",
     },
-    // {
-    //   title: "Upload Data",
-    //   description: "Map uploaded data to vehicles",
-    //   icon: IconDatabase,
-    //   color: "cyan",
-    //   value: "/upload-data",
-    // },
-    // {
-    //   title: "Apply Fitments",
-    //   description: "Upload and apply new fitments",
-    //   icon: IconCar,
-    //   color: "green",
-    //   value: "/apply-fitments",
-    // },
     {
-      title: "Manage Fitments",
-      description: "View and edit existing fitments",
+      title: "Fitments Management",
+      description: "View and manage existing fitments",
       icon: IconTable,
       color: "teal",
       value: "/fitments",
     },
-    // {
-    //   title: "Bulk Fitments Upload",
-    //   description: "Upload multiple fitments at once",
-    //   icon: IconUpload,
-    //   color: "orange",
-    //   value: "/bulk-upload",
-    // },
-
-    // {
-    //   title: "Mistmatches",
-    //   description: "Find mistmatches between fitments and vehicles",
-    //   icon: IconAlertTriangle,
-    //   color: "red",
-    //   value: "/mismatches",
-    // },
-    // {
-    //   title: "Coverage Analytics",
-    //   description: "Vehicle coverage analysis",
-    //   icon: IconChartBar,
-    //   color: "cyan",
-    //   value: "/coverage",
-    // },
     {
-      title: "Potential Fitments",
-      description: "AI-suggested fitment opportunities",
-      icon: IconBulb,
-      color: "yellow",
+      title: "Bulk Upload",
+      description: "Upload and apply new fitments",
+      icon: IconCar,
+      color: "green",
+      value: "/bulk-upload",
+    },
+    {
+      title: "Potential Fitment",
+      description: "View potential fitment opportunities",
+      icon: IconTrendingUp,
+      color: "orange",
       value: "/potential-fitments",
     },
-
-    // {
-    //   title: "Settings",
-    //   description: "Configure field mappings and validation rules",
-    //   icon: IconSettings,
-    //   color: "gray",
-    //   value: "/settings",
-    // },
+    {
+      title: "Products",
+      description: "Manage product catalog",
+      icon: IconDatabase,
+      color: "blue",
+      value: "/products",
+    },
+    {
+      title: "Settings",
+      description: "Application settings and preferences",
+      icon: IconBuilding,
+      color: "gray",
+      value: "/settings",
+    },
   ];
 
-  const fetchAnalyticsData = async (entityIds?: string[]) => {
+  const fetchAnalyticsData = useCallback(async () => {
     try {
       setLoading(true);
 
       // Fetch analytics data from the new endpoint with entity filtering
-      const params =
-        entityIds && entityIds.length > 0
-          ? { entity_ids: entityIds.join(",") }
-          : {};
+      const params = currentEntity ? { entity_ids: currentEntity.id } : {};
 
+      console.log(
+        "Fetching analytics data for entity:",
+        currentEntity?.name,
+        currentEntity?.id
+      );
       const response = await api.get("/api/analytics/dashboard/", { params });
       const analyticsData = response.data;
 
+      console.log("Analytics data received:", analyticsData);
       setData(analyticsData);
-      setDataFetched(true);
     } catch (error) {
       console.error("Failed to fetch analytics data:", error);
       // Set fallback data
@@ -170,42 +225,36 @@ const Analytics: React.FC = () => {
         inactiveFitments: 0,
         successRate: 0,
         coveragePercentage: 0,
+        pendingReviewCount: 0,
         topMakes: [],
         yearlyStats: [],
         lastUpdated: new Date().toISOString(),
       });
-      setDataFetched(true);
     } finally {
       setLoading(false);
     }
-  };
-
-  // Entity selection handlers
-  const handleEntitySelectionChange = (entityIds: string[]) => {
-    setSelectedEntities(entityIds);
-  };
-
-  const handleDataFetch = async (entityIds: string[]) => {
-    await fetchAnalyticsData(entityIds);
-  };
+  }, [currentEntity]);
 
   // Initialize with current entity if available and fetch data automatically
   useEffect(() => {
-    if (currentEntity) {
-      // Always set the current entity and fetch data when component mounts or entity changes
-      setSelectedEntities([currentEntity.id]);
-      setDataFetched(true);
-      fetchAnalyticsData([currentEntity.id]);
+    if (currentEntity && !entityLoading) {
+      console.log(
+        "useEffect triggered - fetching analytics for entity:",
+        currentEntity.name
+      );
+      // Always fetch data when component mounts or entity changes
+      fetchAnalyticsData();
     }
-  }, [currentEntity]);
+  }, [currentEntity, entityLoading, fetchAnalyticsData]);
 
   // Listen for entity change events from EntitySelector
   useEffect(() => {
     const handleEntityChange = () => {
-      console.log("Entity changed, refreshing Analytics data...");
-      if (currentEntity) {
-        setSelectedEntities([currentEntity.id]);
-        fetchAnalyticsData([currentEntity.id]);
+      console.log(
+        "Entity changed event received, refreshing Analytics data..."
+      );
+      if (currentEntity && !entityLoading) {
+        fetchAnalyticsData();
       }
     };
 
@@ -216,7 +265,7 @@ const Analytics: React.FC = () => {
     return () => {
       window.removeEventListener("entityChanged", handleEntityChange);
     };
-  }, [currentEntity]);
+  }, [currentEntity, entityLoading, fetchAnalyticsData]);
 
   const handleNavigationClick = (path: string) => {
     // Navigate to the specified route
@@ -244,51 +293,21 @@ const Analytics: React.FC = () => {
     );
   }
 
-  // Show entity selection only if no current entity and no data fetched
-  if (!currentEntity || (!dataFetched && selectedEntities.length === 0)) {
+  // If no entity is selected globally, show an informative placeholder
+  if (!currentEntity) {
     return (
       <div style={{ minHeight: "100vh" }}>
         <Stack gap="xl">
-          {/* Welcome Header */}
-          <Card
-            style={{
-              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-              border: "none",
-              color: "white",
-            }}
-            p="xl"
-          >
-            <Group justify="space-between" align="center">
-              <div>
-                <Title order={1} c="white" mb="sm">
-                  Analytics Dashboard
-                </Title>
-                <Text size="lg" c="rgba(255, 255, 255, 0.9)" mb="md">
-                  Get insights into your fitments and vehicle coverage across
-                  multiple entities
+          <Card withBorder p="xl" radius="md">
+            <Center py="xl">
+              <Stack align="center" gap="md">
+                <Title order={3}>No entity selected</Title>
+                <Text size="sm" c="#64748b">
+                  Please select an entity to view analytics.
                 </Text>
-                <Group gap="sm">
-                  <Badge variant="white" color="blue" size="lg">
-                    Multi-Entity Analytics
-                  </Badge>
-                  <Badge variant="white" color="green" size="lg">
-                    Real-time Data
-                  </Badge>
-                </Group>
-              </div>
-              <IconChartBar size={64} color="rgba(255, 255, 255, 0.8)" />
-            </Group>
+              </Stack>
+            </Center>
           </Card>
-
-          {/* Entity Selection */}
-          <MultiEntitySelector
-            selectedEntities={selectedEntities}
-            onEntitySelectionChange={handleEntitySelectionChange}
-            onDataFetch={handleDataFetch}
-            title="Select Entities for Analytics"
-            description="Choose one or more entities to view their analytics data. You can select multiple entities to compare their performance."
-            showStats={true}
-          />
         </Stack>
       </div>
     );
@@ -447,74 +466,8 @@ const Analytics: React.FC = () => {
       }}
     >
       <Stack gap="xl">
-        {/* Entity Selection Header */}
-        <Card
-          style={{
-            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            border: "none",
-            color: "white",
-          }}
-          p="md"
-        >
-          <Group justify="space-between" align="center">
-            <Group gap="md">
-              <IconBuilding size={24} />
-              <div>
-                <Text size="lg" fw={600} c="white">
-                  Analytics Dashboard
-                </Text>
-                <Text size="sm" c="rgba(255, 255, 255, 0.8)">
-                  {selectedEntities.length === 1
-                    ? `Data for selected entity`
-                    : `Data for ${selectedEntities.length} selected entities`}
-                </Text>
-              </div>
-            </Group>
-            <Group gap="sm">
-              <Badge variant="white" color="blue" size="lg">
-                {data?.totalFitments || 0} fitments
-              </Badge>
-              <Button
-                variant="white"
-                color="blue"
-                size="sm"
-                leftSection={<IconRefresh size={16} />}
-                onClick={() => handleDataFetch(selectedEntities)}
-              >
-                Refresh Data
-              </Button>
-            </Group>
-          </Group>
-        </Card>
-
-        {/* Entity Selection Controls */}
-        <Card withBorder p="md" radius="md">
-          <Group justify="space-between" align="center">
-            <div>
-              <Text size="sm" fw={600} c="#1e293b">
-                Selected Entities
-              </Text>
-              <Text size="xs" c="#64748b">
-                {selectedEntities.length} entities selected
-              </Text>
-            </div>
-            <Button
-              variant="light"
-              color="blue"
-              size="sm"
-              onClick={() => {
-                setDataFetched(false);
-                setData(null);
-                setSelectedEntities([]);
-              }}
-            >
-              Change Selection
-            </Button>
-          </Group>
-        </Card>
-
         {/* Key Metrics Cards */}
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="lg">
           <Card
             style={{
               background: "#ffffff",
@@ -530,7 +483,7 @@ const Analytics: React.FC = () => {
                   Total Fitments
                 </Text>
                 <Title order={2} c="#1e293b" mt="xs">
-                  {data?.totalFitments?.toLocaleString() || "0"}
+                  {data?.totalFitments?.toLocaleString()}
                 </Title>
               </div>
               <ThemeIcon size={48} radius="md" variant="light" color="blue">
@@ -554,7 +507,7 @@ const Analytics: React.FC = () => {
                   Total Parts
                 </Text>
                 <Title order={2} c="#1e293b" mt="xs">
-                  {data?.totalParts?.toLocaleString() || "0"}
+                  {data?.totalParts?.toLocaleString()}
                 </Title>
               </div>
               <ThemeIcon size={48} radius="md" variant="light" color="green">
@@ -575,10 +528,10 @@ const Analytics: React.FC = () => {
             <Group justify="space-between">
               <div>
                 <Text size="sm" c="#64748b" fw={500}>
-                  VCDB Configs
+                  Total VCDB
                 </Text>
                 <Title order={2} c="#1e293b" mt="xs">
-                  {data?.totalVcdbConfigs?.toLocaleString() || "0"}
+                  {data?.totalVcdbConfigs?.toLocaleString()}
                 </Title>
               </div>
               <ThemeIcon size={48} radius="md" variant="light" color="orange">
@@ -587,29 +540,40 @@ const Analytics: React.FC = () => {
             </Group>
           </Card>
 
-          {/* <Card
+          <Card
             style={{
               background: "#ffffff",
               border: "1px solid #e2e8f0",
               borderRadius: "12px",
               boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+              cursor: "pointer",
+              transition: "all 0.2s ease",
             }}
             p="lg"
+            onClick={() => {
+              // Scroll to pending fitments section
+              const section = document.getElementById(
+                "pending-fitments-section"
+              );
+              section?.scrollIntoView({ behavior: "smooth" });
+            }}
+            className="pending-review-card"
           >
             <Group justify="space-between">
               <div>
                 <Text size="sm" c="#64748b" fw={500}>
-                  Recent Activity
+                  Fitments Pending for Review
                 </Text>
                 <Title order={2} c="#1e293b" mt="xs">
-                  {data?.recentActivity?.toLocaleString() || "0"}
+                  {hardcodedPendingFitments.length}
+                  {/* {data?.pendingReviewCount?.toLocaleString()} */}
                 </Title>
               </div>
-              <ThemeIcon size={48} radius="md" variant="light" color="purple">
-                <IconTrendingUp size={20} />
+              <ThemeIcon size={48} radius="md" variant="light" color="yellow">
+                <IconBulb size={20} />
               </ThemeIcon>
             </Group>
-          </Card> */}
+          </Card>
         </SimpleGrid>
 
         {/* Fitments Breakdown */}
@@ -842,6 +806,32 @@ const Analytics: React.FC = () => {
           </Grid.Col>
         </Grid>
 
+        {/* Coverage Section */}
+        <Card
+          style={{
+            background: "#ffffff",
+            border: "1px solid #e2e8f0",
+            borderRadius: "12px",
+            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+          }}
+          p="lg"
+        >
+          <Stack>
+            <Group justify="space-between">
+              <div>
+                <Text size="xl" fw={700} c="#1e293b">
+                  Coverage Analytics
+                </Text>
+                <Text size="sm" c="#64748b">
+                  Vehicle coverage analysis and fitment statistics
+                </Text>
+              </div>
+            </Group>
+            {/* Coverage Component */}
+            <CoverageWrapper selectedEntities={selectedEntityIds} />
+          </Stack>
+        </Card>
+
         {/* Navigation Shortcuts */}
         <Card
           style={{
@@ -858,14 +848,9 @@ const Analytics: React.FC = () => {
                 <Text size="xl" fw={700} c="#1e293b">
                   Quick Navigation
                 </Text>
-                {data?.lastUpdated && (
-                  <Text size="xs" c="#64748b" mt="xs">
-                    Last updated: {new Date(data.lastUpdated).toLocaleString()}
-                  </Text>
-                )}
               </div>
               <Badge variant="light" color="blue" size="lg">
-                3 Modules
+                {navigationShortcuts.length} Modules
               </Badge>
             </Group>
 
@@ -916,8 +901,9 @@ const Analytics: React.FC = () => {
           </Stack>
         </Card>
 
-        {/* Coverage Section */}
+        {/* Fitments Pending for Review Section */}
         <Card
+          id="pending-fitments-section"
           style={{
             background: "#ffffff",
             border: "1px solid #e2e8f0",
@@ -927,24 +913,132 @@ const Analytics: React.FC = () => {
           p="lg"
         >
           <Stack gap="lg">
-            <Group justify="space-between">
+            <Group gap="sm">
+              <IconClock size={24} color="#f59e0b" />
               <div>
                 <Text size="xl" fw={700} c="#1e293b">
-                  Coverage Analytics
+                  Fitments Pending for Review
                 </Text>
-                <Text size="sm" c="#64748b" mt="xs">
-                  Vehicle coverage analysis and fitment statistics
+                <Text size="sm" c="#64748b">
+                  Review and approve fitments waiting for validation
                 </Text>
               </div>
-              <Badge variant="light" color="cyan" size="lg">
-                Coverage
-              </Badge>
             </Group>
 
-            <Divider />
+            <ScrollArea mt="xs">
+              <Table
+                striped
+                highlightOnHover
+                style={{
+                  minWidth: 800,
+                }}
+              >
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Part ID</Table.Th>
+                    <Table.Th>Vehicle</Table.Th>
+                    <Table.Th>Type</Table.Th>
+                    <Table.Th>Created</Table.Th>
+                    <Table.Th>Status</Table.Th>
+                    <Table.Th style={{ textAlign: "right" }}>Actions</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {hardcodedPendingFitments.map((fitment) => (
+                    <Table.Tr key={fitment.hash}>
+                      <Table.Td>
+                        <Text size="sm" fw={600} c="#1e293b">
+                          {fitment.partId}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm" c="#64748b">
+                          {fitment.year} {fitment.makeName} {fitment.modelName}
+                          {fitment.subModelName && ` ${fitment.subModelName}`}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Badge
+                          variant="light"
+                          color={
+                            fitment.fitmentType === "ai_fitment"
+                              ? "violet"
+                              : "blue"
+                          }
+                          size="sm"
+                        >
+                          {fitment.fitmentType === "ai_fitment"
+                            ? "AI"
+                            : "Manual"}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="xs" c="#64748b">
+                          {new Date(fitment.createdAt).toLocaleDateString()}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Badge variant="light" color="yellow" size="sm">
+                          {fitment.status}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td>
+                        <Group gap="xs" justify="flex-end">
+                          <Tooltip label="View Details">
+                            <ActionIcon
+                              variant="light"
+                              color="blue"
+                              size="sm"
+                              onClick={() =>
+                                navigate(`/fitments?id=${fitment.hash}`)
+                              }
+                            >
+                              <IconEye size={16} />
+                            </ActionIcon>
+                          </Tooltip>
+                          <Tooltip label="Approve">
+                            <ActionIcon
+                              variant="light"
+                              color="green"
+                              size="sm"
+                              onClick={() => {
+                                // TODO: Implement approve action
+                                console.log("Approve fitment:", fitment.hash);
+                              }}
+                            >
+                              <IconCheck size={16} />
+                            </ActionIcon>
+                          </Tooltip>
+                          <Tooltip label="Reject">
+                            <ActionIcon
+                              variant="light"
+                              color="red"
+                              size="sm"
+                              onClick={() => {
+                                // TODO: Implement reject action
+                                console.log("Reject fitment:", fitment.hash);
+                              }}
+                            >
+                              <IconX size={16} />
+                            </ActionIcon>
+                          </Tooltip>
+                        </Group>
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </ScrollArea>
 
-            {/* Coverage Component */}
-            <CoverageWrapper selectedEntities={selectedEntities} />
+            <Group justify="center" mt="md">
+              <Button
+                variant="light"
+                color="blue"
+                onClick={() => navigate("/fitments?status=pending")}
+              >
+                View All Pending Fitments
+              </Button>
+            </Group>
           </Stack>
         </Card>
       </Stack>
@@ -955,6 +1049,11 @@ const Analytics: React.FC = () => {
           transform: translateY(-1px);
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
           border-color: #e2e8f0 !important;
+        }
+        .pending-review-card:hover {
+          background: #fffbeb !important;
+          border-color: #fbbf24 !important;
+          box-shadow: 0 4px 12px rgba(251, 191, 36, 0.15);
         }
       `}</style>
     </div>

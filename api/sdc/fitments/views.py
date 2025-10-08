@@ -2108,6 +2108,11 @@ def analytics_dashboard(request):
         active_fitments = tenant_fitments.filter(itemStatus='Active').count()
         inactive_fitments = tenant_fitments.filter(itemStatus='Inactive').count()
         
+        # Get pending review count (fitments with status 'pending' or 'review')
+        pending_review_count = tenant_fitments.filter(
+            Q(itemStatus__iexact='pending') | Q(itemStatus__iexact='review')
+        ).count()
+        
         # Get fitments by make (top 5)
         top_makes = tenant_fitments.values('makeName').annotate(
             count=Count('hash')
@@ -2141,6 +2146,7 @@ def analytics_dashboard(request):
             'inactiveFitments': inactive_fitments,
             'successRate': success_rate,
             'coveragePercentage': coverage_percentage,
+            'pendingReviewCount': pending_review_count,
             'topMakes': list(top_makes),
             'yearlyStats': yearly_stats,
             'lastUpdated': timezone.now().isoformat(),

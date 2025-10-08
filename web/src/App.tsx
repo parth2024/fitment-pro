@@ -16,7 +16,8 @@ import {
   IconDashboard,
   IconBulb,
   IconBuilding,
-  IconDatabase,
+  IconUpload,
+  IconFile,
 } from "@tabler/icons-react";
 import {
   Routes,
@@ -56,18 +57,18 @@ import "react-toastify/dist/ReactToastify.css";
 // Base navigation items that are always available
 const baseNavigationItems = [
   {
-    label: "Entity Management",
-    value: "entities",
-    path: "/",
-    icon: IconBuilding,
-    color: "violet",
-  },
-  {
     label: "Analytics",
     value: "analytics",
     path: "/analytics",
     icon: IconDashboard,
     color: "blue",
+  },
+  {
+    label: "Apply Fitments",
+    value: "apply-fitments",
+    path: "/apply-fitments",
+    icon: IconCar,
+    color: "green",
   },
   {
     label: "Fitments",
@@ -77,23 +78,45 @@ const baseNavigationItems = [
     color: "teal",
   },
   {
+    label: "Bulk Upload",
+    value: "bulk-upload",
+    path: "/bulk-upload",
+    icon: IconUpload,
+    color: "orange",
+  },
+  {
     label: "Potential Fitments",
     value: "potential",
     path: "/potential-fitments",
     icon: IconBulb,
     color: "yellow",
   },
+  {
+    label: "Products",
+    value: "products",
+    path: "/products",
+    icon: IconFile,
+    color: "purple",
+  },
+
+  {
+    label: "Settings",
+    value: "entities",
+    path: "/entities",
+    icon: IconBuilding,
+    color: "violet",
+  },
 ];
 
 // Admin-only navigation items
-const adminNavigationItems = [
-  {
-    label: "VCDB Data",
-    value: "vcdb-data",
-    path: "/vcdb-data",
-    icon: IconDatabase,
-    color: "cyan",
-  },
+const adminNavigationItems: any = [
+  // {
+  //   label: "VCDB Data",
+  //   value: "vcdb-data",
+  //   path: "/vcdb-data",
+  //   icon: IconDatabase,
+  //   color: "cyan",
+  // },
 ];
 
 // Function to get navigation items based on user role
@@ -155,7 +178,7 @@ function App() {
   const renderContent = () => {
     return (
       <Routes>
-        <Route path="/" element={<EntityManagement />} />
+        <Route path="/" element={<Analytics />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/upload-data" element={<UploadData />} />
         <Route path="/apply-fitments" element={<ApplyFitments />} />

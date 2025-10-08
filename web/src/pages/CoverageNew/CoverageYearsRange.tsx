@@ -47,8 +47,11 @@ const CoverageYearsRange: React.FC<CoverageYearsRangeProps> = (props) => {
   );
 
   return (
-    <Container className="PropertyContainer YearSliderContainer">
-      <Text mb={"md"}>Year Range</Text>
+    <Container
+      className="PropertyContainer YearSliderContainer"
+      style={{ margin: "0" }}
+    >
+      <Text mb={"sm"}>Year Range</Text>
       <Slider
         min={props.options["year-from"] || 1986}
         max={props.options["year-to"] || 2025}
