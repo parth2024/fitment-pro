@@ -87,18 +87,48 @@ export const useEntity = (): UseEntityReturn => {
   }, []);
 
   const fetchCurrentEntity = useCallback(async () => {
-    // Check cache first
+    // Check localStorage first (prioritize over cache)
+    const storedEntity = localStorage.getItem(ENTITY_STORAGE_KEY);
+    if (storedEntity) {
+      try {
+        const entity = JSON.parse(storedEntity);
+        setCurrentEntity(entity);
+        currentEntityCache = entity; // Update cache to match localStorage
+        console.log(
+          "fetchCurrentEntity: Using entity from localStorage:",
+          entity.name,
+          entity.id
+        );
+        return entity;
+      } catch (err) {
+        console.warn("Invalid entity data in localStorage");
+        localStorage.removeItem(ENTITY_STORAGE_KEY);
+      }
+    }
+
+    // Then check cache
     if (currentEntityCache) {
       setCurrentEntity(currentEntityCache);
+      console.log(
+        "fetchCurrentEntity: Using cached entity:",
+        currentEntityCache.name,
+        currentEntityCache.id
+      );
       return currentEntityCache;
     }
 
+    // Finally, fetch from API
     try {
       setError(null);
       const response = await apiClient.get("/api/tenants/current/");
       const entity = response.data;
       setCurrentEntity(entity);
       currentEntityCache = entity;
+      console.log(
+        "fetchCurrentEntity: Fetched entity from API:",
+        entity.name,
+        entity.id
+      );
       return entity;
     } catch (err) {
       console.error("Failed to fetch current entity:", err);
@@ -117,8 +147,14 @@ export const useEntity = (): UseEntityReturn => {
         const entity = entities.find((e) => e.id === entityId);
         if (entity) {
           setCurrentEntity(entity);
+          currentEntityCache = entity; // Update cache immediately
           // Only save to localStorage when explicitly switching via selector
           localStorage.setItem(ENTITY_STORAGE_KEY, JSON.stringify(entity));
+          console.log(
+            "switchEntity: Updated entity to:",
+            entity.name,
+            entity.id
+          );
         } else {
           // Refresh entities if not found
           await refreshEntities();

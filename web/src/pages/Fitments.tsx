@@ -895,8 +895,8 @@ export default function Fitments() {
           <div>
             <Stack gap="lg">
               <div>
-                <Group justify="space-between" align="flex-end">
-                  <Group gap="md" style={{ flex: 1 }}>
+                <Group justify="space-between" align="flex-end" wrap="nowrap">
+                  <Group gap="xs" style={{ flex: 1 }} wrap="nowrap">
                     <TextInput
                       placeholder="Search by Part ID, Make, Model..."
                       leftSection={<IconSearch size={16} color="#64748b" />}
@@ -905,33 +905,9 @@ export default function Fitments() {
                         setSearchTerm(event.currentTarget.value)
                       }
                       styles={{
-                        root: { flex: 1, minWidth: 320 },
-                        label: {
-                          fontWeight: 600,
-                          fontSize: "13px",
-                          color: "#374151",
-                          marginBottom: "8px",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.5px",
-                        },
-                        input: {
-                          borderRadius: "10px",
-                          border: "2px solid #e2e8f0",
-                          fontSize: "14px",
-                          height: "48px",
-                          paddingLeft: "40px",
-                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                          "&:focus": {
-                            borderColor: "#3b82f6",
-                            boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                            backgroundColor: "#ffffff",
-                          },
-                          "&:hover": {
-                            borderColor: "#cbd5e1",
-                            backgroundColor: "#ffffff",
-                          },
-                        },
+                        root: { flex: 1, minWidth: 200, maxWidth: 300 },
                       }}
+                      size="sm"
                     />
 
                     <Select
@@ -950,33 +926,9 @@ export default function Fitments() {
                       ]}
                       leftSection={<IconFilter size={16} color="#64748b" />}
                       styles={{
-                        root: { minWidth: 160 },
-                        label: {
-                          fontWeight: 600,
-                          fontSize: "13px",
-                          color: "#374151",
-                          marginBottom: "8px",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.5px",
-                        },
-                        input: {
-                          borderRadius: "10px",
-                          border: "2px solid #e2e8f0",
-                          fontSize: "14px",
-                          height: "48px",
-                          paddingLeft: "40px",
-                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                          "&:focus": {
-                            borderColor: "#3b82f6",
-                            boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                            backgroundColor: "#ffffff",
-                          },
-                          "&:hover": {
-                            borderColor: "#cbd5e1",
-                            backgroundColor: "#ffffff",
-                          },
-                        },
+                        root: { minWidth: 140 },
                       }}
+                      size="sm"
                     />
 
                     <Select
@@ -989,32 +941,9 @@ export default function Fitments() {
                         { value: "desc", label: "Descending" },
                       ]}
                       styles={{
-                        root: { minWidth: 140 },
-                        label: {
-                          fontWeight: 600,
-                          fontSize: "13px",
-                          color: "#374151",
-                          marginBottom: "8px",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.5px",
-                        },
-                        input: {
-                          borderRadius: "10px",
-                          border: "2px solid #e2e8f0",
-                          fontSize: "14px",
-                          height: "48px",
-                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                          "&:focus": {
-                            borderColor: "#3b82f6",
-                            boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                            backgroundColor: "#ffffff",
-                          },
-                          "&:hover": {
-                            borderColor: "#cbd5e1",
-                            backgroundColor: "#ffffff",
-                          },
-                        },
+                        root: { minWidth: 120 },
                       }}
+                      size="sm"
                     />
 
                     <Select
@@ -1030,32 +959,9 @@ export default function Fitments() {
                       ]}
                       clearable
                       styles={{
-                        root: { minWidth: 160 },
-                        label: {
-                          fontWeight: 600,
-                          fontSize: "13px",
-                          color: "#374151",
-                          marginBottom: "8px",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.5px",
-                        },
-                        input: {
-                          borderRadius: "10px",
-                          border: "2px solid #e2e8f0",
-                          fontSize: "14px",
-                          height: "48px",
-                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                          "&:focus": {
-                            borderColor: "#3b82f6",
-                            boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                            backgroundColor: "#ffffff",
-                          },
-                          "&:hover": {
-                            borderColor: "#cbd5e1",
-                            backgroundColor: "#ffffff",
-                          },
-                        },
+                        root: { minWidth: 140 },
                       }}
+                      size="sm"
                     />
 
                     <Button
@@ -1066,27 +972,11 @@ export default function Fitments() {
                           <IconChevronDown size={16} />
                         )
                       }
-                      variant="outline"
+                      variant="light"
                       onClick={() =>
                         setShowAdvancedFilters(!showAdvancedFilters)
                       }
-                      styles={{
-                        root: {
-                          borderRadius: "10px",
-                          fontWeight: 600,
-                          fontSize: "14px",
-                          height: "48px",
-                          padding: "0 20px",
-                          border: "2px solid #e2e8f0",
-                          color: "#374151",
-                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                          "&:hover": {
-                            backgroundColor: "#f8fafc",
-                            borderColor: "#cbd5e1",
-                            transform: "translateY(-1px)",
-                          },
-                        },
-                      }}
+                      size="sm"
                     >
                       Advanced Filters
                     </Button>
@@ -1113,52 +1003,18 @@ export default function Fitments() {
                                         <Button
                                           leftSection={<IconCheck size={16} />}
                                           color="green"
-                                          variant="outline"
+                                          variant="light"
                                           onClick={handleApproveAIFitments}
-                                          styles={{
-                                            root: {
-                                              borderRadius: "10px",
-                                              fontWeight: 600,
-                                              fontSize: "14px",
-                                              height: "48px",
-                                              padding: "0 20px",
-                                              border: "2px solid #10b981",
-                                              color: "#10b981",
-                                              transition:
-                                                "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                              "&:hover": {
-                                                backgroundColor: "#f0fdf4",
-                                                borderColor: "#059669",
-                                                transform: "translateY(-1px)",
-                                              },
-                                            },
-                                          }}
+                                          size="sm"
                                         >
                                           Approve AI Fitments
                                         </Button>
                                         <Button
                                           leftSection={<IconX size={16} />}
                                           color="red"
-                                          variant="outline"
+                                          variant="light"
                                           onClick={handleRejectAIFitments}
-                                          styles={{
-                                            root: {
-                                              borderRadius: "10px",
-                                              fontWeight: 600,
-                                              fontSize: "14px",
-                                              height: "48px",
-                                              padding: "0 20px",
-                                              border: "2px solid #ef4444",
-                                              color: "#ef4444",
-                                              transition:
-                                                "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                              "&:hover": {
-                                                backgroundColor: "#fef2f2",
-                                                borderColor: "#dc2626",
-                                                transform: "translateY(-1px)",
-                                              },
-                                            },
-                                          }}
+                                          size="sm"
                                         >
                                           Reject AI Fitments
                                         </Button>
@@ -1167,26 +1023,9 @@ export default function Fitments() {
                                     <Button
                                       leftSection={<IconTrash size={16} />}
                                       color="red"
-                                      variant="outline"
+                                      variant="light"
                                       onClick={() => setDeleteModalOpen(true)}
-                                      styles={{
-                                        root: {
-                                          borderRadius: "10px",
-                                          fontWeight: 600,
-                                          fontSize: "14px",
-                                          height: "48px",
-                                          padding: "0 20px",
-                                          border: "2px solid #ef4444",
-                                          color: "#ef4444",
-                                          transition:
-                                            "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                          "&:hover": {
-                                            backgroundColor: "#fef2f2",
-                                            borderColor: "#dc2626",
-                                            transform: "translateY(-1px)",
-                                          },
-                                        },
-                                      }}
+                                      size="sm"
                                     >
                                       Delete ({selectedFitments.length})
                                     </Button>
@@ -1203,29 +1042,10 @@ export default function Fitments() {
                       <Menu.Target>
                         <Button
                           leftSection={<IconDownload size={16} />}
-                          variant="filled"
+                          variant="light"
                           loading={exportLoading}
-                          styles={{
-                            root: {
-                              borderRadius: "10px",
-                              fontWeight: 600,
-                              fontSize: "14px",
-                              height: "48px",
-                              padding: "0 24px",
-                              background:
-                                "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-                              border: "none",
-                              transition:
-                                "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                              boxShadow:
-                                "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)",
-                              "&:hover": {
-                                transform: "translateY(-2px)",
-                                boxShadow:
-                                  "0 8px 25px -5px rgba(59, 130, 246, 0.3), 0 4px 6px -1px rgba(59, 130, 246, 0.1)",
-                              },
-                            },
-                          }}
+                          size="sm"
+                          color="blue"
                         >
                           Export
                         </Button>
@@ -2730,10 +2550,19 @@ export default function Fitments() {
             undone.
           </Text>
           <Group justify="flex-end">
-            <Button variant="light" onClick={() => setDeleteModalOpen(false)}>
+            <Button
+              variant="light"
+              onClick={() => setDeleteModalOpen(false)}
+              size="sm"
+            >
               Cancel
             </Button>
-            <Button color="red" onClick={handleBulkDelete}>
+            <Button
+              color="red"
+              onClick={handleBulkDelete}
+              size="sm"
+              variant="light"
+            >
               Delete Fitments
             </Button>
           </Group>
@@ -2756,10 +2585,16 @@ export default function Fitments() {
             <Button
               variant="light"
               onClick={() => setSingleDeleteModalOpen(false)}
+              size="sm"
             >
               Cancel
             </Button>
-            <Button color="red" onClick={confirmDeleteFitment}>
+            <Button
+              color="red"
+              onClick={confirmDeleteFitment}
+              size="sm"
+              variant="light"
+            >
               Delete Fitment
             </Button>
           </Group>
