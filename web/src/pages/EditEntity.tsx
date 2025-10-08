@@ -516,7 +516,7 @@ const EditEntity: React.FC = () => {
   }
 
   return (
-    <Container size="xl" py="xl">
+    <Container size="xl">
       <Stack gap="md">
         {/* Header */}
         <Group justify="space-between" align="center">
@@ -532,7 +532,7 @@ const EditEntity: React.FC = () => {
             </Button> */}
           </Group>
 
-          <Group>
+          {/* <Group>
             <Badge color={entity.is_active ? "green" : "red"} size="lg">
               {entity.is_active ? "Active" : "Inactive"}
             </Badge>
@@ -541,7 +541,7 @@ const EditEntity: React.FC = () => {
                 Default
               </Badge>
             )}
-          </Group>
+          </Group> */}
         </Group>
 
         {/* Edit Form with Tabs */}
@@ -559,13 +559,13 @@ const EditEntity: React.FC = () => {
                 Basic Info
               </Tabs.Tab>
               <Tabs.Tab value="fitments" leftSection={<IconCar size={16} />}>
-                Fitments
+                VCDB Configuration
               </Tabs.Tab>
               <Tabs.Tab
                 value="products"
                 leftSection={<IconDatabase size={16} />}
               >
-                Products
+                Products Configuration
               </Tabs.Tab>
             </Tabs.List>
 

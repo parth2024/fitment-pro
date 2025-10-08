@@ -1,5 +1,13 @@
 from rest_framework import serializers
-from .models import DataUploadSession, FileValidationLog, DataProcessingLog, AIFitmentResult, AppliedFitment
+from .models import (
+    DataUploadSession, 
+    FileValidationLog, 
+    DataProcessingLog, 
+    AIFitmentResult, 
+    AppliedFitment,
+    AiFitmentJob,
+    AiGeneratedFitment,
+)
 
 
 class FileValidationLogSerializer(serializers.ModelSerializer):
@@ -100,3 +108,71 @@ class ApplyFitmentsRequestSerializer(serializers.Serializer):
         allow_empty=False
     )
     tenant_id = serializers.UUIDField(required=False, allow_null=True)
+
+
+class AiFitmentJobSerializer(serializers.ModelSerializer):
+    """Serializer for AI fitment jobs"""
+    pending_review_count = serializers.ReadOnlyField()
+    
+    class Meta:
+        model = AiFitmentJob
+        fields = [
+            'id', 'job_type', 'product_file_name', 'product_count',
+            'fitments_count', 'approved_count', 'rejected_count',
+            'status', 'error_message', 'created_at', 'created_by',
+            'updated_at', 'completed_at', 'pending_review_count'
+        ]
+        read_only_fields = [
+            'id', 'product_count', 'fitments_count', 'approved_count',
+            'rejected_count', 'created_at', 'updated_at', 'completed_at'
+        ]
+
+
+class AiGeneratedFitmentSerializer(serializers.ModelSerializer):
+    """Serializer for AI generated fitments"""
+    class Meta:
+        model = AiGeneratedFitment
+        fields = [
+            'id', 'part_id', 'part_description', 'year', 'make', 'model',
+            'submodel', 'drive_type', 'fuel_type', 'num_doors', 'body_type',
+            'position', 'quantity', 'confidence', 'confidence_explanation',
+            'ai_reasoning', 'dynamic_fields', 'status', 'reviewed_at',
+            'reviewed_by', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class CreateAiFitmentJobSerializer(serializers.Serializer):
+    """Serializer for creating AI fitment jobs"""
+    job_type = serializers.ChoiceField(choices=['upload', 'selection'])
+    product_file = serializers.FileField(required=False, allow_null=True)
+    product_ids = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        allow_empty=False
+    )
+    
+    def validate(self, data):
+        job_type = data.get('job_type')
+        
+        if job_type == 'upload' and not data.get('product_file'):
+            raise serializers.ValidationError({
+                'product_file': 'Product file is required for upload-type jobs'
+            })
+        
+        if job_type == 'selection' and not data.get('product_ids'):
+            raise serializers.ValidationError({
+                'product_ids': 'Product IDs are required for selection-type jobs'
+            })
+        
+        return data
+
+
+class ApproveRejectFitmentsSerializer(serializers.Serializer):
+    """Serializer for approving/rejecting fitments"""
+    fitment_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False,
+        allow_empty=True,
+        help_text="If not provided, applies to all pending fitments"
+    )

@@ -42,4 +42,12 @@ urlpatterns = [
     # Job management
     path('job-history/', views.get_job_history, name='get_job_history'),
     path('job-status/<uuid:job_id>/', views.get_job_status, name='get_job_status'),
+    
+    # AI Fitment Jobs Management
+    path('ai-fitment-jobs/', views.AiFitmentJobView.as_view(), name='ai_fitment_jobs'),
+    path('ai-fitment-jobs/<uuid:job_id>/', views.AiFitmentJobDetailView.as_view(), name='ai_fitment_job_detail'),
+    path('ai-fitment-jobs/<uuid:job_id>/fitments/', views.get_job_fitments, name='get_job_fitments'),
+    path('ai-fitment-jobs/<uuid:job_id>/approve/', views.approve_fitments, name='approve_fitments'),
+    path('ai-fitment-jobs/<uuid:job_id>/reject/', views.reject_fitments, name='reject_fitments'),
+    path('ai-fitment-jobs/<uuid:job_id>/fitments/<uuid:fitment_id>/', views.update_fitment, name='update_fitment'),
 ]

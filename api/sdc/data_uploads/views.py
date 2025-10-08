@@ -20,6 +20,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from fitment_uploads.azure_ai_service import azure_ai_service
+from tenants.models import Tenant
 from .models import (
     DataUploadSession, 
     FileValidationLog, 
@@ -28,6 +29,8 @@ from .models import (
     AppliedFitment,
     VCDBData,
     ProductData,
+    AiFitmentJob,
+    AiGeneratedFitment,
     LiftHeight,
     WheelType,
     TireDiameter,
@@ -1777,6 +1780,408 @@ def get_job_status(request, job_id):
         logger.error(f"Failed to get job status: {str(e)}", exc_info=True)
         return Response(
             {'error': f'Failed to get job status: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+# =============================================================================
+# AI FITMENT JOBS API ENDPOINTS
+# =============================================================================
+
+from .serializers import (
+    AiFitmentJobSerializer,
+    AiGeneratedFitmentSerializer,
+    CreateAiFitmentJobSerializer,
+    ApproveRejectFitmentsSerializer,
+)
+
+
+class AiFitmentJobView(APIView):
+    """API view for managing AI fitment jobs"""
+    permission_classes = [AllowAny]
+    
+    def get(self, request):
+        """List all AI fitment jobs for current tenant"""
+        try:
+            tenant_id = request.headers.get('X-Tenant-ID')
+            status_filter = request.query_params.get('status')
+            
+            # Build queryset
+            jobs = AiFitmentJob.objects.all()
+            
+            if tenant_id:
+                try:
+                    tenant = Tenant.objects.get(id=tenant_id)
+                    jobs = jobs.filter(tenant=tenant)
+                except Tenant.DoesNotExist:
+                    return Response(
+                        {"error": "Invalid tenant ID"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            if status_filter:
+                jobs = jobs.filter(status=status_filter)
+            
+            serializer = AiFitmentJobSerializer(jobs, many=True)
+            return Response(serializer.data)
+            
+        except Exception as e:
+            logger.error(f"Failed to list AI fitment jobs: {str(e)}", exc_info=True)
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def post(self, request):
+        """Create new AI fitment job"""
+        try:
+            tenant_id = request.headers.get('X-Tenant-ID')
+            tenant = None
+            
+            if tenant_id:
+                try:
+                    tenant = Tenant.objects.get(id=tenant_id)
+                except Tenant.DoesNotExist:
+                    return Response(
+                        {"error": "Invalid tenant ID"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            serializer = CreateAiFitmentJobSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(
+                    serializer.errors,
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            job_type = serializer.validated_data['job_type']
+            
+            # Create job
+            job = AiFitmentJob.objects.create(
+                tenant=tenant,
+                job_type=job_type,
+                created_by=request.user.email if request.user.is_authenticated else 'anonymous',
+                status='in_progress'
+            )
+            
+            # Process based on job type
+            if job_type == 'upload':
+                product_file = serializer.validated_data['product_file']
+                job.product_file = product_file
+                job.product_file_name = product_file.name
+                job.save()
+                
+                # Process product file and generate fitments
+                from .ai_fitment_processor import process_product_file_for_ai_fitments
+                success, message = process_product_file_for_ai_fitments(job)
+                
+                if not success:
+                    job.status = 'failed'
+                    job.error_message = message
+                    job.save()
+                    return Response(
+                        {'error': message},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            elif job_type == 'selection':
+                product_ids = serializer.validated_data['product_ids']
+                job.product_ids = product_ids
+                job.product_count = len(product_ids)
+                job.save()
+                
+                # Generate fitments for selected products
+                from .ai_fitment_processor import process_selected_products_for_ai_fitments
+                success, message = process_selected_products_for_ai_fitments(job)
+                
+                if not success:
+                    job.status = 'failed'
+                    job.error_message = message
+                    job.save()
+                    return Response(
+                        {'error': message},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            # Job created successfully
+            job.status = 'review_required'
+            job.save()
+            
+            response_serializer = AiFitmentJobSerializer(job)
+            return Response(
+                {
+                    'job_id': str(job.id),
+                    'status': job.status,
+                    'message': 'AI fitment job created successfully',
+                    'job': response_serializer.data
+                },
+                status=status.HTTP_201_CREATED
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to create AI fitment job: {str(e)}", exc_info=True)
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class AiFitmentJobDetailView(APIView):
+    """API view for specific AI fitment job operations"""
+    permission_classes = [AllowAny]
+    
+    def get(self, request, job_id):
+        """Get specific AI fitment job details"""
+        try:
+            job = AiFitmentJob.objects.get(id=job_id)
+            serializer = AiFitmentJobSerializer(job)
+            return Response(serializer.data)
+            
+        except AiFitmentJob.DoesNotExist:
+            return Response(
+                {'error': 'Job not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Failed to get job details: {str(e)}", exc_info=True)
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_job_fitments(request, job_id):
+    """Get all fitments for a specific job (for review)"""
+    try:
+        job = AiFitmentJob.objects.get(id=job_id)
+        
+        # Get pagination params
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 100))
+        
+        # Get fitments (only pending ones for review)
+        fitments = job.generated_fitments.filter(status='pending')
+        
+        # Paginate
+        start = (page - 1) * page_size
+        end = start + page_size
+        paginated_fitments = fitments[start:end]
+        
+        serializer = AiGeneratedFitmentSerializer(paginated_fitments, many=True)
+        
+        return Response({
+            'fitments': serializer.data,
+            'total': fitments.count(),
+            'page': page,
+            'page_size': page_size,
+            'job': AiFitmentJobSerializer(job).data
+        })
+        
+    except AiFitmentJob.DoesNotExist:
+        return Response(
+            {'error': 'Job not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger.error(f"Failed to get job fitments: {str(e)}", exc_info=True)
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def approve_fitments(request, job_id):
+    """Approve selected fitments and move them to Fitment table"""
+    try:
+        job = AiFitmentJob.objects.get(id=job_id)
+        
+        serializer = ApproveRejectFitmentsSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        fitment_ids = serializer.validated_data.get('fitment_ids', [])
+        
+        # Get fitments to approve
+        if fitment_ids:
+            fitments_to_approve = job.generated_fitments.filter(
+                id__in=fitment_ids,
+                status='pending'
+            )
+        else:
+            # Approve all pending fitments
+            fitments_to_approve = job.generated_fitments.filter(status='pending')
+        
+        approved_count = 0
+        
+        # Approve each fitment and create Fitment record
+        for fitment in fitments_to_approve:
+            # Approve the AI generated fitment
+            fitment.approve(reviewed_by=request.user.email if request.user.is_authenticated else 'anonymous')
+            
+            # Create actual Fitment record
+            Fitment.objects.create(
+                tenant=job.tenant,
+                hash=f"{fitment.part_id}_{fitment.year}_{fitment.make}_{fitment.model}_{uuid.uuid4().hex[:8]}",
+                partId=fitment.part_id,
+                itemStatus='Active',
+                itemStatusCode=1,
+                baseVehicleId=f"BV_{fitment.year}_{fitment.make}_{fitment.model}",
+                year=fitment.year,
+                makeName=fitment.make,
+                modelName=fitment.model,
+                subModelName=fitment.submodel,
+                driveTypeName=fitment.drive_type,
+                fuelTypeName=fitment.fuel_type,
+                bodyNumDoors=fitment.num_doors or 0,
+                bodyTypeName=fitment.body_type,
+                ptid=fitment.part_id,
+                partTypeDescriptor=fitment.part_description,
+                uom='EA',
+                quantity=fitment.quantity,
+                fitmentTitle=f"AI Fitment - {fitment.part_id}",
+                fitmentDescription=fitment.part_description,
+                fitmentNotes=fitment.ai_reasoning,
+                position=fitment.position or 'Front',
+                positionId=0,
+                fitmentType='ai_fitment',
+                confidenceScore=fitment.confidence,
+                aiDescription=fitment.confidence_explanation,
+                dynamicFields=fitment.dynamic_fields,
+                createdBy=request.user.email if request.user.is_authenticated else 'AI System',
+                updatedBy=request.user.email if request.user.is_authenticated else 'AI System',
+            )
+            
+            approved_count += 1
+        
+        # Check if all fitments are reviewed
+        total_fitments = job.generated_fitments.count()
+        reviewed_fitments = job.generated_fitments.exclude(status='pending').count()
+        
+        if reviewed_fitments == total_fitments:
+            job.status = 'completed'
+            job.completed_at = timezone.now()
+            job.save()
+        
+        return Response({
+            'approved_count': approved_count,
+            'message': f'Successfully approved {approved_count} fitments',
+            'job_status': job.status
+        })
+        
+    except AiFitmentJob.DoesNotExist:
+        return Response(
+            {'error': 'Job not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger.error(f"Failed to approve fitments: {str(e)}", exc_info=True)
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def reject_fitments(request, job_id):
+    """Reject selected fitments"""
+    try:
+        job = AiFitmentJob.objects.get(id=job_id)
+        
+        serializer = ApproveRejectFitmentsSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        fitment_ids = serializer.validated_data.get('fitment_ids', [])
+        
+        if not fitment_ids:
+            return Response(
+                {'error': 'fitment_ids required for rejection'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get fitments to reject
+        fitments_to_reject = job.generated_fitments.filter(
+            id__in=fitment_ids,
+            status='pending'
+        )
+        
+        rejected_count = 0
+        
+        for fitment in fitments_to_reject:
+            fitment.reject(reviewed_by=request.user.email if request.user.is_authenticated else 'anonymous')
+            rejected_count += 1
+        
+        return Response({
+            'rejected_count': rejected_count,
+            'message': f'Successfully rejected {rejected_count} fitments'
+        })
+        
+    except AiFitmentJob.DoesNotExist:
+        return Response(
+            {'error': 'Job not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger.error(f"Failed to reject fitments: {str(e)}", exc_info=True)
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['PUT'])
+@permission_classes([AllowAny])
+def update_fitment(request, job_id, fitment_id):
+    """Update a specific AI generated fitment before approval"""
+    try:
+        job = AiFitmentJob.objects.get(id=job_id)
+        fitment = job.generated_fitments.get(id=fitment_id, status='pending')
+        
+        # Update allowed fields
+        allowed_fields = [
+            'part_id', 'part_description', 'year', 'make', 'model', 'submodel',
+            'drive_type', 'fuel_type', 'num_doors', 'body_type', 'position',
+            'quantity', 'confidence', 'confidence_explanation', 'ai_reasoning',
+            'dynamic_fields'
+        ]
+        
+        for field in allowed_fields:
+            if field in request.data:
+                setattr(fitment, field, request.data[field])
+        
+        fitment.save()
+        
+        serializer = AiGeneratedFitmentSerializer(fitment)
+        return Response({
+            'message': 'Fitment updated successfully',
+            'fitment': serializer.data
+        })
+        
+    except AiFitmentJob.DoesNotExist:
+        return Response(
+            {'error': 'Job not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except AiGeneratedFitment.DoesNotExist:
+        return Response(
+            {'error': 'Fitment not found or already reviewed'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger.error(f"Failed to update fitment: {str(e)}", exc_info=True)
+        return Response(
+            {'error': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 

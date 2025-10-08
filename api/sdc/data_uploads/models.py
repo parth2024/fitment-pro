@@ -335,3 +335,178 @@ class Backspacing(models.Model):
 
     def __str__(self):
         return self.value
+
+
+class AiFitmentJob(models.Model):
+    """Model to track AI fitment generation jobs"""
+    STATUS_CHOICES = [
+        ('in_progress', 'In Progress'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('review_required', 'Review Required'),
+    ]
+    
+    JOB_TYPE_CHOICES = [
+        ('upload', 'Product File Upload'),
+        ('selection', 'Product Selection'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant, 
+        on_delete=models.CASCADE, 
+        related_name='ai_fitment_jobs', 
+        null=True, 
+        blank=True
+    )
+    
+    # Job metadata
+    job_type = models.CharField(
+        max_length=20,
+        choices=JOB_TYPE_CHOICES,
+        help_text="How products were provided for this job"
+    )
+    product_file = models.FileField(
+        upload_to='ai_fitment_jobs/products/',
+        null=True,
+        blank=True,
+        help_text="Product file for upload-type jobs"
+    )
+    product_file_name = models.CharField(max_length=255, blank=True)
+    product_ids = models.JSONField(
+        default=list, 
+        blank=True,
+        help_text="Product IDs for selection-type jobs"
+    )
+    
+    # Counts
+    product_count = models.IntegerField(default=0)
+    fitments_count = models.IntegerField(default=0)
+    approved_count = models.IntegerField(default=0)
+    rejected_count = models.IntegerField(default=0)
+    
+    # Status and error tracking
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='in_progress'
+    )
+    error_message = models.TextField(blank=True, null=True)
+    
+    # Timestamps and user tracking
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.CharField(max_length=255, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "AI Fitment Job"
+        verbose_name_plural = "AI Fitment Jobs"
+        indexes = [
+            models.Index(fields=['tenant', 'status']),
+            models.Index(fields=['created_at']),
+        ]
+    
+    def __str__(self):
+        return f"AI Job {self.id} - {self.status} ({self.product_count} products)"
+    
+    @property
+    def pending_review_count(self):
+        """Number of fitments still pending review"""
+        return self.fitments_count - self.approved_count - self.rejected_count
+
+
+class AiGeneratedFitment(models.Model):
+    """Model to store AI-generated fitments pending review and approval"""
+    STATUS_CHOICES = [
+        ('pending', 'Pending Review'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    job = models.ForeignKey(
+        AiFitmentJob,
+        on_delete=models.CASCADE,
+        related_name='generated_fitments'
+    )
+    
+    # Product information
+    part_id = models.CharField(max_length=100)
+    part_description = models.TextField(blank=True)
+    
+    # Vehicle information
+    year = models.IntegerField()
+    make = models.CharField(max_length=100)
+    model = models.CharField(max_length=100)
+    submodel = models.CharField(max_length=100, blank=True)
+    drive_type = models.CharField(max_length=50, blank=True)
+    fuel_type = models.CharField(max_length=50, blank=True)
+    num_doors = models.IntegerField(null=True, blank=True)
+    body_type = models.CharField(max_length=100, blank=True)
+    
+    # Fitment details
+    position = models.CharField(max_length=100, blank=True)
+    quantity = models.IntegerField(default=1)
+    
+    # AI analysis
+    confidence = models.FloatField(default=0.0, help_text="AI confidence score (0-1)")
+    confidence_explanation = models.TextField(blank=True)
+    ai_reasoning = models.TextField(blank=True)
+    
+    # Dynamic fields for extensibility
+    dynamic_fields = models.JSONField(default=dict, blank=True)
+    
+    # Review status
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.CharField(max_length=255, blank=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-confidence', 'created_at']
+        verbose_name = "AI Generated Fitment"
+        verbose_name_plural = "AI Generated Fitments"
+        indexes = [
+            models.Index(fields=['job', 'status']),
+            models.Index(fields=['confidence']),
+        ]
+    
+    def __str__(self):
+        return f"{self.part_id} -> {self.year} {self.make} {self.model} ({self.confidence:.2f})"
+    
+    def approve(self, reviewed_by=None):
+        """Approve this fitment and create actual fitment record"""
+        self.status = 'approved'
+        self.reviewed_at = timezone.now()
+        if reviewed_by:
+            self.reviewed_by = reviewed_by
+        self.save()
+        
+        # Update job counts
+        self.job.approved_count = self.job.generated_fitments.filter(status='approved').count()
+        self.job.save()
+        
+        return self
+    
+    def reject(self, reviewed_by=None):
+        """Reject this fitment"""
+        self.status = 'rejected'
+        self.reviewed_at = timezone.now()
+        if reviewed_by:
+            self.reviewed_by = reviewed_by
+        self.save()
+        
+        # Update job counts
+        self.job.rejected_count = self.job.generated_fitments.filter(status='rejected').count()
+        self.job.save()
+        
+        return self

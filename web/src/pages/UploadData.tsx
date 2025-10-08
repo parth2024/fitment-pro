@@ -1185,23 +1185,6 @@ export default function UploadData() {
 
   return (
     <div style={{ minHeight: "100vh" }}>
-      {/* CSS Animations for AI Card Effects */}
-      <style>{`
-        @keyframes pulse {
-          0% {
-            transform: translate(-50%, -50%) scale(1);
-            opacity: 0.7;
-          }
-          50% {
-            transform: translate(-50%, -50%) scale(1.1);
-            opacity: 0.3;
-          }
-          100% {
-            transform: translate(-50%, -50%) scale(1);
-            opacity: 0.7;
-          }
-        }
-      `}</style>
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Stack gap="xl">
           {/* Header */}
@@ -2874,35 +2857,12 @@ export default function UploadData() {
                                     size="md"
                                     leftSection={<IconArrowLeft size={16} />}
                                     onClick={() => setManualStep(1)}
-                                    styles={{
-                                      root: {
-                                        borderRadius: "10px",
-                                        fontWeight: 600,
-                                        fontSize: "14px",
-                                        height: "48px",
-                                        padding: "0 24px",
-                                        border: "2px solid #e2e8f0",
-                                        color: "#64748b",
-                                        transition:
-                                          "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                        "&:hover": {
-                                          borderColor: "#cbd5e1",
-                                          backgroundColor: "#f8fafc",
-                                          transform: "translateY(-1px)",
-                                        },
-                                      },
-                                    }}
                                   >
                                     Back
                                   </Button>
                                   <Button
                                     onClick={() => setManualStep(3)}
                                     disabled={selectedVehicles.length === 0}
-                                    style={{
-                                      background:
-                                        "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                                      border: "none",
-                                    }}
                                   >
                                     Continue ({selectedVehicles.length}{" "}
                                     selected)
@@ -3600,24 +3560,6 @@ export default function UploadData() {
                                     size="md"
                                     leftSection={<IconArrowLeft size={16} />}
                                     onClick={() => setManualStep(2)}
-                                    styles={{
-                                      root: {
-                                        borderRadius: "10px",
-                                        fontWeight: 600,
-                                        fontSize: "14px",
-                                        height: "48px",
-                                        padding: "0 24px",
-                                        border: "2px solid #e2e8f0",
-                                        color: "#64748b",
-                                        transition:
-                                          "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                        "&:hover": {
-                                          borderColor: "#cbd5e1",
-                                          backgroundColor: "#f8fafc",
-                                          transform: "translateY(-1px)",
-                                        },
-                                      },
-                                    }}
                                   >
                                     Back
                                   </Button>
@@ -3632,34 +3574,6 @@ export default function UploadData() {
                                       !fitmentDetails.title ||
                                       selectedVehicles.length === 0
                                     }
-                                    style={{
-                                      borderRadius: "10px",
-                                      fontWeight: 600,
-                                      fontSize: "14px",
-                                      height: "48px",
-                                      padding: "0 32px",
-                                      background:
-                                        "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-                                      border: "none",
-                                      transition:
-                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      boxShadow:
-                                        "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)",
-                                    }}
-                                    onMouseEnter={(e) => {
-                                      if (!e.currentTarget.disabled) {
-                                        e.currentTarget.style.transform =
-                                          "translateY(-2px)";
-                                        e.currentTarget.style.boxShadow =
-                                          "0 8px 25px -5px rgba(59, 130, 246, 0.3), 0 4px 6px -1px rgba(59, 130, 246, 0.1)";
-                                      }
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      e.currentTarget.style.transform =
-                                        "translateY(0)";
-                                      e.currentTarget.style.boxShadow =
-                                        "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)";
-                                    }}
                                   >
                                     Create Fitments ({selectedVehicles.length})
                                   </Button>
@@ -4198,51 +4112,10 @@ export default function UploadData() {
               onClick={() => setEditModalOpen(false)}
               disabled={savingEdit}
               size="md"
-              styles={{
-                root: {
-                  borderRadius: "10px",
-                  fontWeight: 600,
-                  fontSize: "14px",
-                  height: "44px",
-                  padding: "0 24px",
-                  border: "2px solid #e2e8f0",
-                  color: "#64748b",
-                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                  "&:hover": {
-                    borderColor: "#cbd5e1",
-                    backgroundColor: "#f8fafc",
-                    transform: "translateY(-1px)",
-                  },
-                },
-              }}
             >
               Cancel
             </Button>
-            <Button
-              onClick={handleSaveEdit}
-              loading={savingEdit}
-              size="md"
-              styles={{
-                root: {
-                  borderRadius: "10px",
-                  fontWeight: 600,
-                  fontSize: "14px",
-                  height: "44px",
-                  padding: "0 24px",
-                  background:
-                    "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-                  border: "none",
-                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                  boxShadow:
-                    "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)",
-                  "&:hover": {
-                    transform: "translateY(-2px)",
-                    boxShadow:
-                      "0 8px 25px -5px rgba(59, 130, 246, 0.3), 0 4px 6px -1px rgba(59, 130, 246, 0.1)",
-                  },
-                },
-              }}
-            >
+            <Button onClick={handleSaveEdit} loading={savingEdit} size="md">
               Save Changes
             </Button>
           </Group>

@@ -624,6 +624,59 @@ export const dataUploadService = {
     }),
   getJobStatus: (jobId: string) =>
     apiClient.get(`/api/data-uploads/job-status/${jobId}/`),
+
+  // AI Fitment Jobs Management
+  getAiFitmentJobs: (params?: { status?: string; tenant_id?: string }) =>
+    apiClient.get("/api/data-uploads/ai-fitment-jobs/", { params }),
+
+  getAiFitmentJob: (jobId: string) =>
+    apiClient.get(`/api/data-uploads/ai-fitment-jobs/${jobId}/`),
+
+  createAiFitmentJob: (data: {
+    product_file?: File;
+    product_ids?: string[];
+    job_type: "upload" | "selection";
+  }) => {
+    const formData = new FormData();
+    if (data.product_file) {
+      formData.append("product_file", data.product_file);
+    }
+    if (data.product_ids) {
+      formData.append("product_ids", JSON.stringify(data.product_ids));
+    }
+    formData.append("job_type", data.job_type);
+    return apiClient.post("/api/data-uploads/ai-fitment-jobs/", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 180000, // 3 minutes for AI processing
+    });
+  },
+
+  reviewAiFitmentJob: (
+    jobId: string,
+    params?: {
+      page?: number;
+      page_size?: number;
+    }
+  ) =>
+    apiClient.get(`/api/data-uploads/ai-fitment-jobs/${jobId}/fitments/`, {
+      params,
+    }),
+
+  approveAiFitments: (jobId: string, fitmentIds?: string[]) =>
+    apiClient.post(`/api/data-uploads/ai-fitment-jobs/${jobId}/approve/`, {
+      fitment_ids: fitmentIds, // If not provided, approves all
+    }),
+
+  rejectAiFitments: (jobId: string, fitmentIds: string[]) =>
+    apiClient.post(`/api/data-uploads/ai-fitment-jobs/${jobId}/reject/`, {
+      fitment_ids: fitmentIds,
+    }),
+
+  updateAiFitment: (jobId: string, fitmentId: string, data: any) =>
+    apiClient.put(
+      `/api/data-uploads/ai-fitment-jobs/${jobId}/fitments/${fitmentId}/`,
+      data
+    ),
 };
 
 // Export all services as a single object

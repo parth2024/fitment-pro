@@ -352,13 +352,13 @@ const NewEntitySettings: React.FC = () => {
                 Basic Info
               </Tabs.Tab>
               <Tabs.Tab value="fitments" leftSection={<IconCar size={16} />}>
-                Fitments
+                VCDB Configuration
               </Tabs.Tab>
               <Tabs.Tab
                 value="products"
                 leftSection={<IconDatabase size={16} />}
               >
-                Products
+                Products Configuration
               </Tabs.Tab>
             </Tabs.List>
 
