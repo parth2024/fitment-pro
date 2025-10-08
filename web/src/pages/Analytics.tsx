@@ -1034,6 +1034,7 @@ const Analytics: React.FC = () => {
               <Button
                 variant="light"
                 color="blue"
+                size="md"
                 onClick={() => navigate("/fitments?status=pending")}
               >
                 View All Pending Fitments

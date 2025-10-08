@@ -106,10 +106,15 @@ const EntityManagement: React.FC = () => {
               leftSection={<IconRefresh size={16} />}
               variant="outline"
               onClick={refreshEntities}
+              size="md"
             >
               Refresh
             </Button>
-            <Button leftSection={<IconPlus size={16} />} onClick={handleCreate}>
+            <Button
+              leftSection={<IconPlus size={16} />}
+              onClick={handleCreate}
+              size="md"
+            >
               Create Entity
             </Button>
           </Group>

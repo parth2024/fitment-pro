@@ -467,6 +467,7 @@ const Settings = () => {
                     leftSection={<IconPlus size={16} />}
                     onClick={() => handleCreateField("vcdb")}
                     loading={loading}
+                    size="md"
                   >
                     Add VCDB Field
                   </Button>
@@ -490,6 +491,7 @@ const Settings = () => {
                     leftSection={<IconPlus size={16} />}
                     onClick={() => handleCreateField("product")}
                     loading={loading}
+                    size="md"
                   >
                     Add Product Field
                   </Button>

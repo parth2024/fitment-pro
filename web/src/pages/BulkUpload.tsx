@@ -357,24 +357,8 @@ export default function BulkUpload() {
             <Button
               leftSection={<IconDownload size={16} />}
               variant="light"
+              size="md"
               onClick={downloadTemplate}
-              styles={{
-                root: {
-                  borderRadius: "10px",
-                  fontWeight: 600,
-                  fontSize: "14px",
-                  height: "40px",
-                  padding: "0 20px",
-                  border: "2px solid #e2e8f0",
-                  color: "#64748b",
-                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                  "&:hover": {
-                    backgroundColor: "#f8fafc",
-                    borderColor: "#cbd5e1",
-                    transform: "translateY(-1px)",
-                  },
-                },
-              }}
             >
               Download Template
             </Button>
@@ -507,26 +491,8 @@ export default function BulkUpload() {
                           <Button
                             leftSection={<IconArrowRight size={16} />}
                             onClick={() => setCurrentStep(1)}
-                            size="lg"
-                            styles={{
-                              root: {
-                                borderRadius: "10px",
-                                fontWeight: 600,
-                                fontSize: "16px",
-                                height: "48px",
-                                padding: "0 32px",
-                                background:
-                                  "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                                border: "none",
-                                transition:
-                                  "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                "&:hover": {
-                                  transform: "translateY(-2px)",
-                                  boxShadow:
-                                    "0 8px 25px -5px rgba(16, 185, 129, 0.3)",
-                                },
-                              },
-                            }}
+                            size="md"
+                            color="green"
                           >
                             Next Step
                           </Button>
@@ -554,26 +520,8 @@ export default function BulkUpload() {
                         onClick={validateFile}
                         loading={validating}
                         disabled={!file}
-                        size="lg"
-                        styles={{
-                          root: {
-                            borderRadius: "10px",
-                            fontWeight: 600,
-                            fontSize: "16px",
-                            height: "48px",
-                            padding: "0 32px",
-                            background:
-                              "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-                            border: "none",
-                            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                            boxShadow: "0 4px 6px -1px rgba(59, 130, 246, 0.2)",
-                            "&:hover": {
-                              transform: "translateY(-2px)",
-                              boxShadow:
-                                "0 8px 25px -5px rgba(59, 130, 246, 0.3)",
-                            },
-                          },
-                        }}
+                        size="md"
+                        color="blue"
                       >
                         {validating ? "Validating..." : "Start Validation"}
                       </Button>
@@ -748,28 +696,8 @@ export default function BulkUpload() {
                         onClick={submitFitments}
                         loading={submitting}
                         disabled={validation.validRows === 0}
-                        size="lg"
-                        styles={{
-                          root: {
-                            borderRadius: "10px",
-                            fontWeight: 600,
-                            fontSize: "16px",
-                            height: "48px",
-                            padding: "0 32px",
-                            background:
-                              validation.validRows > 0
-                                ? "linear-gradient(135deg, #10b981 0%, #059669 100%)"
-                                : "#9ca3af",
-                            border: "none",
-                            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                            "&:hover": {
-                              transform:
-                                validation.validRows > 0
-                                  ? "translateY(-2px)"
-                                  : "none",
-                            },
-                          },
-                        }}
+                        size="md"
+                        color="green"
                       >
                         Import {validation.validRows} Fitments
                       </Button>
@@ -845,23 +773,7 @@ export default function BulkUpload() {
                         leftSection={<IconRefresh size={16} />}
                         onClick={resetUpload}
                         variant="light"
-                        styles={{
-                          root: {
-                            borderRadius: "10px",
-                            fontWeight: 600,
-                            fontSize: "16px",
-                            height: "48px",
-                            padding: "0 32px",
-                            border: "2px solid #e2e8f0",
-                            color: "#64748b",
-                            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                            "&:hover": {
-                              backgroundColor: "#f8fafc",
-                              borderColor: "#cbd5e1",
-                              transform: "translateY(-1px)",
-                            },
-                          },
-                        }}
+                        size="md"
                       >
                         Upload Another File
                       </Button>

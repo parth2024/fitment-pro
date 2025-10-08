@@ -92,6 +92,7 @@ const CreateEntity: React.FC = () => {
               leftSection={<IconArrowLeft size={16} />}
               variant="outline"
               onClick={() => navigate("/entities")}
+              size="md"
             >
               Back to Entities
             </Button>
@@ -215,10 +216,11 @@ const CreateEntity: React.FC = () => {
               variant="outline"
               onClick={() => navigate("/entities")}
               disabled={submitting}
+              size="md"
             >
               Cancel
             </Button>
-            <Button onClick={handleCreate} loading={submitting}>
+            <Button onClick={handleCreate} loading={submitting} size="md">
               Create Entity
             </Button>
           </Group>

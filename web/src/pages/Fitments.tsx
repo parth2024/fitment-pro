@@ -891,32 +891,6 @@ export default function Fitments() {
             </Group>
           </Group>
 
-          {/* Entity Selection Header */}
-          <Card withBorder p="md" radius="md">
-            <Group justify="space-between" align="center">
-              <div>
-                <Text size="sm" fw={600} c="#1e293b">
-                  Selected Entities
-                </Text>
-                <Text size="xs" c="#64748b">
-                  {selectedEntities.length} entities selected
-                </Text>
-              </div>
-              <Button
-                variant="light"
-                color="green"
-                size="sm"
-                onClick={() => {
-                  setDataFetched(false);
-                  setSelectedFitments([]);
-                  setSelectedEntities([]);
-                }}
-              >
-                Change Selection
-              </Button>
-            </Group>
-          </Card>
-
           {/* Professional Filters and Actions */}
           <div>
             <Stack gap="lg">
