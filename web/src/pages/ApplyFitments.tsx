@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   Title,
@@ -16,13 +16,15 @@ import {
   SimpleGrid,
   Stepper,
   Textarea,
-  Transition,
   Table,
   Progress,
   Tooltip,
   ActionIcon,
   Modal,
-  Divider,
+  Tabs,
+  Paper,
+  ThemeIcon,
+  Center,
 } from "@mantine/core";
 import {
   IconBrain,
@@ -41,17 +43,35 @@ import {
   IconHash,
   IconFileText,
   IconEdit,
+  IconCheck,
+  IconX,
+  IconEye,
+  IconClock,
+  IconAlertCircle,
+  IconCheckbox,
+  IconCloudUpload,
+  IconFileCheck,
 } from "@tabler/icons-react";
-import {
-  dataUploadService,
-  fitmentUploadService,
-  type FieldConfiguration,
-} from "../api/services";
+import { dataUploadService, fitmentUploadService } from "../api/services";
 import { useAsyncOperation, useApi } from "../hooks/useApi";
 import { useProfessionalToast } from "../hooks/useProfessionalToast";
 import { useFieldConfiguration } from "../hooks/useFieldConfiguration";
 import DynamicFormField from "../components/DynamicFormField";
 import { useEntity } from "../hooks/useEntity";
+
+// AI Fitment Job interface
+interface AiFitmentJob {
+  id: string;
+  created_at: string;
+  created_by: string;
+  product_file_name?: string;
+  product_count: number;
+  status: "in_progress" | "completed" | "failed" | "review_required";
+  fitments_count: number;
+  approved_count: number;
+  rejected_count: number;
+  job_type: "upload" | "selection";
+}
 
 export default function ApplyFitments() {
   // Professional toast hook
@@ -75,10 +95,22 @@ export default function ApplyFitments() {
     []
   ) as any;
 
+  // AI Fitment Jobs API
+  const { data: aiFitmentJobsResponse, refetch: refetchJobs } = useApi(
+    () => dataUploadService.getAiFitmentJobs({ tenant_id: currentEntity?.id }),
+    []
+  ) as any;
+
+  // Extract jobs array from API response
+  const aiFitmentJobs = Array.isArray(aiFitmentJobsResponse?.data)
+    ? aiFitmentJobsResponse.data
+    : Array.isArray(aiFitmentJobsResponse)
+    ? aiFitmentJobsResponse
+    : [];
+
   // Set the latest session ID when sessions data is available
   useEffect(() => {
     if (sessionsData && sessionsData.length > 0) {
-      // Get the most recent session (first in the list since they're ordered by created_at desc)
       const latestSession = sessionsData[0];
       setSessionId(latestSession.id);
     }
@@ -88,377 +120,75 @@ export default function ApplyFitments() {
   useEffect(() => {
     const handleEntityChange = async () => {
       console.log("Entity changed, refreshing ApplyFitments...");
-      await Promise.all([refetchSessions(), refetchDataStatus()]);
+      await Promise.all([
+        refetchSessions(),
+        refetchDataStatus(),
+        refetchJobs(),
+      ]);
     };
 
-    // Listen for custom entity change events
     window.addEventListener("entityChanged", handleEntityChange);
 
-    // Cleanup listener on unmount
     return () => {
       window.removeEventListener("entityChanged", handleEntityChange);
     };
-  }, [refetchSessions, refetchDataStatus]);
+  }, [refetchSessions, refetchDataStatus, refetchJobs]);
 
-  // Step management for UI flow
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1); // 1 = Choose Method, 2 = Manual Method, 3 = AI Method (disabled)
-
-  // Navigation handlers
-  const handleBackToMethodSelection = () => {
-    setCurrentStep(1);
-    setSelectedMethod(null);
-    // Reset AI-related states
-    setAiProcessing(false);
-    setAiProgress(0);
-    setAiLogs([]);
-    setAiFitments([]);
-    setSelectedAiFitments([]);
-    setApplyingAiFitment(false);
-  };
-
-  // Helper functions to check data availability
-  const isVcdbDataAvailable = () => {
-    return dataStatus?.vcdb?.exists && dataStatus?.vcdb?.record_count > 0;
-  };
-
-  const isProductDataAvailable = () => {
-    return (
-      dataStatus?.products?.exists && dataStatus?.products?.record_count > 0
-    );
-  };
-
-  const isManualMethodAvailable = () => {
-    return isVcdbDataAvailable() && isProductDataAvailable();
-  };
-
-  const isAiMethodAvailable = () => {
-    return isVcdbDataAvailable() && isProductDataAvailable();
-  };
-
-  const handleManualMethodClick = async () => {
-    if (!isManualMethodAvailable()) {
-      showError("VCDB and Product data are required for manual fitment method");
-      return;
+  // Auto-select AI method if redirected from Products page
+  useEffect(() => {
+    const autoSelectAi = sessionStorage.getItem("autoSelectAiMethod");
+    if (autoSelectAi === "true") {
+      setSelectedMethod("ai");
+      sessionStorage.removeItem("autoSelectAiMethod");
     }
+  }, []);
 
-    setSelectedMethod("manual");
-    setCurrentStep(2);
-
-    // Fetch dropdown data from VCDBData and ProductData tables
-    setLoadingDropdownData(true);
-    try {
-      // Refresh field configurations to get latest values
-      if (refreshVcdbFields && refreshProductFields) {
-        await Promise.all([refreshVcdbFields(), refreshProductFields()]);
-      }
-
-      const [dropdownResult, lookupResult] = await Promise.all([
-        fetchDropdownData(() => dataUploadService.getNewDataDropdownData()),
-        fetchLookupData(() => dataUploadService.getLookupData()),
-      ]);
-
-      if (dropdownResult && dropdownResult.data) {
-        setDropdownData(dropdownResult.data);
-
-        // VCDB data structure loaded successfully
-      } else {
-        showError("Failed to load vehicle and product data");
-      }
-
-      if (lookupResult && lookupResult.data) {
-        setLookupData(lookupResult.data);
-      } else {
-        showError("Failed to load lookup data");
-      }
-    } catch (error) {
-      console.error("Failed to fetch data:", error);
-      showError("Failed to load data");
-    } finally {
-      setLoadingDropdownData(false);
-    }
-  };
-
-  const handleAiMethodClick = async () => {
-    if (!isAiMethodAvailable()) {
-      showError("VCDB and Product data are required for AI fitment method");
-      return;
-    }
-
-    setSelectedMethod("ai");
-    setCurrentStep(3);
-  };
-
-  const handleDirectAiFitment = async () => {
-    setAiProcessing(true);
-    setAiProgress(0);
-    setAiLogs([]);
-    setAiFitments([]);
-    setSelectedAiFitments([]);
-
-    // Simulate professional AI processing with realistic logs
-    const logs = [
-      "🔍 Initializing AI Fitment Engine...",
-      "📊 Analyzing VCDB vehicle configurations...",
-      "🔧 Processing product specifications...",
-      "🧠 Running compatibility algorithms...",
-      "⚡ Applying machine learning models...",
-      "🎯 Calculating fitment probabilities...",
-      "📈 Optimizing recommendation scores...",
-      "🔍 Checking for potential conflicts...",
-      "🔬 Cross-referencing OEM specifications...",
-      "📋 Validating part compatibility matrices...",
-      "🌐 Querying manufacturer databases...",
-      "🔍 Scanning for alternative configurations...",
-      "📊 Computing confidence intervals...",
-      "🎨 Applying design pattern recognition...",
-      "⚙️ Optimizing fitment algorithms...",
-      "🔍 Detecting edge cases and exceptions...",
-      "📈 Analyzing historical fitment data...",
-      "🧪 Running compatibility stress tests...",
-      "🔍 Performing quality assurance checks...",
-      "📊 Generating performance metrics...",
-      "🎯 Refining recommendation accuracy...",
-      "🔍 Validating against industry standards...",
-      "📋 Compiling fitment documentation...",
-      "✅ Generating fitment suggestions...",
-    ];
-
-    // Progressive log updates
-    const logInterval = setInterval(() => {
-      setAiLogs((prev) => {
-        const nextIndex = prev.length;
-        if (nextIndex < logs.length) {
-          return [...prev, logs[nextIndex]];
-        }
-        return prev;
-      });
-      setAiProgress((prev) => Math.min(prev + 12, 95));
-    }, 800);
-
-    try {
-      // Call the new direct AI fitment API
-      const result: any = await fitmentUploadService.processDirectAiFitment();
-
-      clearInterval(logInterval);
-      setAiProgress(100);
-      setAiLogs((prev) => [...prev, "🎉 AI fitment generation completed!"]);
-
-      console.log("Full API result:", result);
-      console.log("Result data:", result?.data);
-      console.log("Result fitments:", result?.fitments);
-      console.log("Result data fitments:", result?.data?.fitments);
-
-      // Check different possible response structures
-      const fitments =
-        result?.fitments ||
-        result?.data?.fitments ||
-        result?.data?.data?.fitments;
-
-      if (fitments && Array.isArray(fitments) && fitments.length > 0) {
-        console.log("Setting fitments:", fitments);
-
-        // Add unique IDs to fitments for proper selection handling
-        const fitmentsWithIds = fitments.map((fitment: any, index: number) => ({
-          ...fitment,
-          id: fitment.id || `fitment_${index}`,
-          part_name:
-            fitment.partDescription || fitment.part_name || "Unknown Part",
-          part_description:
-            fitment.partDescription || "No description available",
-        }));
-
-        setAiFitments(fitmentsWithIds);
-        // Auto-select all fitments by default
-        setSelectedAiFitments(
-          fitmentsWithIds.map((fitment: any) => fitment.id)
-        );
-        showSuccess(
-          `AI generated ${fitments.length} fitment suggestions!`,
-          5000
-        );
-      } else {
-        console.log("No fitments found in response structure");
-        console.log("Available keys in result:", Object.keys(result || {}));
-        if (result?.data) {
-          console.log(
-            "Available keys in result.data:",
-            Object.keys(result.data)
-          );
-        }
-        showError(
-          "No fitments were generated. Please check your VCDB and Product data and try again."
-        );
-      }
-    } catch (error) {
-      clearInterval(logInterval);
-      console.error("AI fitment error:", error);
-      setAiLogs((prev) => [
-        ...prev,
-        "❌ AI processing failed. Please try again.",
-      ]);
-      showError("Failed to process AI fitment");
-    } finally {
-      setAiProcessing(false);
-    }
-  };
-
-  const handleApplyDirectAiFitments = async () => {
-    if (selectedAiFitments.length === 0) {
-      showError("Please select fitments to apply");
-      return;
-    }
-
-    setApplyingAiFitment(true);
-    try {
-      // Get the selected fitments with their dynamic fields
-      const selectedFitmentsData = aiFitments
-        .filter((fitment) => selectedAiFitments.includes(fitment.id))
-        .map((fitment) => ({
-          id: fitment.id,
-          part_id: fitment.part_id,
-          part_description: fitment.part_description,
-          year: fitment.year,
-          make: fitment.make,
-          model: fitment.model,
-          submodel: fitment.submodel,
-          drive_type: fitment.drive_type,
-          position: fitment.position,
-          quantity: fitment.quantity,
-          confidence: fitment.confidence,
-          confidence_explanation: fitment.confidence_explanation,
-          ai_reasoning: fitment.ai_reasoning,
-          dynamicFields: fitment.dynamicFields || {}, // Include dynamic fields
-          tenant_id: currentEntity?.id || null, // Add tenant ID for multi-tenant support
-        }));
-
-      const result: any = await fitmentUploadService.applyDirectAiFitments(
-        selectedFitmentsData
-      );
-
-      if (result) {
-        showSuccess(
-          `Successfully applied ${result.applied_count} AI fitments to the database!`,
-          5000
-        );
-        setSelectedAiFitments([]);
-        setAiFitments([]);
-        handleBackToMethodSelection();
-      }
-    } catch (error) {
-      showError("Failed to apply AI fitments");
-    } finally {
-      setApplyingAiFitment(false);
-    }
-  };
-
-  const handleEditFitment = (fitment: any) => {
-    setEditingFitment(fitment);
-    setEditFormData({
-      part_id: fitment.part_id,
-      part_description: fitment.part_description,
-      year: fitment.year,
-      make: fitment.make,
-      model: fitment.model,
-      submodel: fitment.submodel,
-      drive_type: fitment.drive_type,
-      position: fitment.position,
-      quantity: fitment.quantity,
-      confidence: fitment.confidence,
-      confidence_explanation: fitment.confidence_explanation,
-      ai_reasoning: fitment.ai_reasoning,
-      dynamicFields: fitment.dynamicFields || {}, // Include dynamic fields
-    });
-    setEditModalOpen(true);
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editingFitment) return;
-
-    setSavingEdit(true);
-    try {
-      // Update the fitment in the local state
-      setAiFitments((prev) =>
-        prev.map((fitment) =>
-          fitment.id === editingFitment.id
-            ? { ...fitment, ...editFormData }
-            : fitment
-        )
-      );
-
-      setEditModalOpen(false);
-      setEditingFitment(null);
-      showSuccess("Fitment updated successfully");
-    } catch (error: any) {
-      showError("Failed to update fitment");
-    } finally {
-      setSavingEdit(false);
-    }
-  };
-
-  const handleExportDirectAiFitments = async (
-    format: "csv" | "xlsx" | "json"
-  ) => {
-    try {
-      // Export only selected AI fitments if any are selected, otherwise export all AI fitments
-      const fitmentIds =
-        selectedAiFitments.length > 0 ? selectedAiFitments : undefined;
-
-      const response = await fitmentUploadService.exportAiFitments(
-        format,
-        "", // No session ID needed for direct export
-        fitmentIds
-      );
-
-      // Create blob and download
-      const blob = new Blob([response.data], {
-        type:
-          format === "csv"
-            ? "text/csv"
-            : format === "xlsx"
-            ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            : "application/json",
-      });
-
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-
-      // Generate filename based on selection
-      const selectionSuffix = fitmentIds
-        ? `_selected_${fitmentIds.length}`
-        : "_all";
-      link.download = `ai_fitments${selectionSuffix}.${format}`;
-
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      const exportMessage = fitmentIds
-        ? `${
-            fitmentIds.length
-          } selected AI fitments exported as ${format.toUpperCase()}`
-        : `All AI fitments exported as ${format.toUpperCase()}`;
-
-      showSuccess(exportMessage);
-    } catch (error) {
-      console.error("Export error:", error);
-      showError(`Failed to export AI fitments as ${format.toUpperCase()}`);
-    }
-  };
-
-  // Fitment method selection
-  const [selectedMethod, setSelectedMethod] = useState<"manual" | "ai" | null>(
+  // Main method selection
+  const [selectedMethod, setSelectedMethod] = useState<"ai" | "manual" | null>(
     null
   );
 
-  // Manual fitment states (existing logic) - removed unused filters
+  // AI Fitments sub-option selection
+  const [aiSubOption, setAiSubOption] = useState<
+    "upload" | "selection" | "jobs" | null
+  >(null);
 
-  // Session dropdown data states
+  // AI Upload Product states
+  const [productFile, setProductFile] = useState<File | null>(null);
+  const [uploadingProduct, setUploadingProduct] = useState(false);
+  const [processingAiFitment, setProcessingAiFitment] = useState(false);
+  const [aiProgress, setAiProgress] = useState(0);
+  const [aiLogs, setAiLogs] = useState<string[]>([]);
+
+  // AI Product Selection states
+  const { data: productsResponse } = useApi(
+    () => dataUploadService.getProductData(),
+    []
+  ) as any;
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Extract products array from API response
+  const productsData = productsResponse?.data || [];
+
+  // AI Fitment Jobs Review states
+  const [selectedJobForReview, setSelectedJobForReview] = useState<
+    string | null
+  >(null);
+  const [jobFitments, setJobFitments] = useState<any[]>([]);
+  const [selectedJobFitments, setSelectedJobFitments] = useState<string[]>([]);
+  const [loadingJobFitments, setLoadingJobFitments] = useState(false);
+  const [approvingFitments, setApprovingFitments] = useState(false);
+
+  // Edit fitment states
+  const [editingFitment, setEditingFitment] = useState<any>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState<any>({});
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // Manual fitment states
   const [dropdownData, setDropdownData] = useState<any>(null);
   const [loadingDropdownData, setLoadingDropdownData] = useState(false);
-
-  // Manual Method Stepper State
   const [manualStep, setManualStep] = useState(1);
   const [formKey, setFormKey] = useState(0);
   const [vehicleFilters, setVehicleFilters] = useState({
@@ -484,34 +214,7 @@ export default function ApplyFitments() {
     liftHeight: "",
     wheelType: "",
   });
-
-  // Wheel parameters state
-  const [wheelParameters, setWheelParameters] = useState([
-    { tireDiameter: "", wheelDiameter: "", backspacing: "" },
-    { tireDiameter: "", wheelDiameter: "", backspacing: "" },
-    { tireDiameter: "", wheelDiameter: "", backspacing: "" },
-  ]);
-
-  // Lookup data state
-  const [lookupData, setLookupData] = useState<any>(null);
   const [applyingManualFitment, setApplyingManualFitment] = useState(false);
-
-  // AI fitment states
-  const [aiFitments, setAiFitments] = useState<any[]>([]);
-  const [aiProcessing, setAiProcessing] = useState(false);
-  const [selectedAiFitments, setSelectedAiFitments] = useState<string[]>([]);
-  const [aiProgress, setAiProgress] = useState(0);
-  const [aiLogs, setAiLogs] = useState<string[]>([]);
-  const [applyingAiFitment, setApplyingAiFitment] = useState(false);
-
-  // Edit fitment states
-  const [editingFitment, setEditingFitment] = useState<any>(null);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [editFormData, setEditFormData] = useState<any>({});
-  const [savingEdit, setSavingEdit] = useState(false);
-
-  // Ref for auto-scrolling logs
-  const logsScrollAreaRef = useRef<HTMLDivElement>(null);
 
   // Dynamic field configurations
   const {
@@ -534,264 +237,306 @@ export default function ApplyFitments() {
     Record<string, any>
   >({});
 
-  // Dynamic field handling for edit modal
-  const handleDynamicFieldChange = (
-    fieldConfig: FieldConfiguration,
-    value: any
-  ) => {
-    setEditFormData((prev: any) => {
-      const newDynamicFields = { ...prev.dynamicFields };
-
-      // Find existing field data or create new
-      const existingKey = Object.keys(newDynamicFields).find((key) => {
-        const fieldData = newDynamicFields[key];
-        return fieldData.field_config_id === fieldConfig.id;
-      });
-
-      if (existingKey) {
-        // Update existing field
-        newDynamicFields[existingKey] = {
-          ...newDynamicFields[existingKey],
-          value: value,
-        };
-      } else {
-        // Create new field entry
-        newDynamicFields[String(fieldConfig.id)] = {
-          value: value,
-          field_name: fieldConfig.name,
-          field_config_id: fieldConfig.id,
-          field_config_name: fieldConfig.name,
-          field_config_display_name: fieldConfig.display_name,
-        };
-      }
-
-      return {
-        ...prev,
-        dynamicFields: newDynamicFields,
-      };
-    });
-  };
-
-  // Combine all field configurations for edit modal
-  const allFieldConfigs = [
-    ...(vcdbFormFields || []),
-    ...(productFormFields || []),
-  ];
-
-  // Filter field configs that should be shown in the edit modal
-  const dynamicFieldConfigs = allFieldConfigs.filter((config) => {
-    // Show all enabled field configs that should be shown in forms
-    return config.is_enabled && config.show_in_forms;
-  });
-
-  // Fallback: Create field configs for dynamic fields that don't have matching field configurations
-  const fallbackFieldConfigs = Object.values(editFormData.dynamicFields || {})
-    .filter((fieldData: any) => {
-      // Check if this field data doesn't have a matching field config
-      return !allFieldConfigs.some(
-        (config) => config.id === fieldData.field_config_id
-      );
-    })
-    .map((fieldData: any) => ({
-      id: fieldData.field_config_id,
-      name: fieldData.field_config_name,
-      display_name: fieldData.field_config_display_name,
-      description: "",
-      field_type: "string" as const,
-      reference_type: "both" as const,
-      requirement_level: "optional" as const,
-      is_enabled: true,
-      is_unique: false,
-      enum_options: [],
-      default_value: "",
-      display_order: 0,
-      show_in_filters: true,
-      show_in_forms: true,
-      validation_rules: {},
-      created_at: "",
-      updated_at: "",
-    }));
-
-  // Combine field configs with fallback configs
-  const allDynamicFieldConfigs = [
-    ...dynamicFieldConfigs,
-    ...fallbackFieldConfigs,
-  ];
-
-  // Render dynamic field based on field configuration
-  const renderDynamicField = (fieldConfig: FieldConfiguration) => {
-    // Find the dynamic field data for this field config
-    const dynamicFieldData = Object.values(
-      editFormData.dynamicFields || {}
-    ).find(
-      (fieldData: any) => fieldData.field_config_id === fieldConfig.id
-    ) as any;
-
-    const fieldValue =
-      dynamicFieldData?.value || fieldConfig.default_value || "";
-    const isRequired = fieldConfig.requirement_level === "required";
-    const isDisabled =
-      fieldConfig.requirement_level === "disabled" || !fieldConfig.is_enabled;
-
-    const commonProps = {
-      label: fieldConfig.display_name,
-      placeholder: `Enter ${fieldConfig.display_name.toLowerCase()}`,
-      value: fieldValue,
-      required: isRequired,
-      disabled: isDisabled,
-      description: fieldConfig.description,
-      styles: {
-        label: {
-          fontWeight: 600,
-          fontSize: "13px",
-          color: "#374151",
-          marginBottom: "8px",
-          textTransform: "uppercase" as const,
-          letterSpacing: "0.5px",
-        },
-        input: {
-          borderRadius: "10px",
-          border: "2px solid #e2e8f0",
-          fontSize: "14px",
-          height: "48px",
-          paddingLeft: "12px",
-          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          backgroundColor: "#fafafa",
-          "&:focus": {
-            borderColor: "#3b82f6",
-            boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)",
-            backgroundColor: "#ffffff",
-          },
-          "&:hover": {
-            borderColor: "#cbd5e1",
-            backgroundColor: "#ffffff",
-          },
-        },
-      },
-    };
-
-    const fieldElement = (() => {
-      switch (fieldConfig.field_type) {
-        case "string":
-        case "text":
-          return (
-            <TextInput
-              {...commonProps}
-              onChange={(event) =>
-                handleDynamicFieldChange(fieldConfig, event.currentTarget.value)
-              }
-              minLength={fieldConfig.min_length}
-              maxLength={fieldConfig.max_length}
-            />
-          );
-
-        case "number":
-        case "decimal":
-        case "integer":
-          return (
-            <NumberInput
-              {...commonProps}
-              onChange={(value) => handleDynamicFieldChange(fieldConfig, value)}
-              min={fieldConfig.min_value}
-              max={fieldConfig.max_value}
-              decimalScale={fieldConfig.field_type === "decimal" ? 2 : 0}
-            />
-          );
-
-        case "boolean":
-          return (
-            <Checkbox
-              label={fieldConfig.display_name}
-              checked={Boolean(fieldValue)}
-              onChange={(event) =>
-                handleDynamicFieldChange(
-                  fieldConfig,
-                  event.currentTarget.checked
-                )
-              }
-              disabled={isDisabled}
-              description={fieldConfig.description}
-            />
-          );
-
-        case "enum":
-          return (
-            <Select
-              {...commonProps}
-              onChange={(value) =>
-                handleDynamicFieldChange(fieldConfig, value || "")
-              }
-              data={fieldConfig.enum_options.map((option) => ({
-                value: option,
-                label: option,
-              }))}
-              searchable
-            />
-          );
-
-        case "date":
-          return (
-            <TextInput
-              {...commonProps}
-              type="date"
-              onChange={(event) =>
-                handleDynamicFieldChange(fieldConfig, event.currentTarget.value)
-              }
-            />
-          );
-
-        default:
-          return (
-            <TextInput
-              {...commonProps}
-              onChange={(event) =>
-                handleDynamicFieldChange(fieldConfig, event.currentTarget.value)
-              }
-            />
-          );
-      }
-    })();
-
-    // Wrap with tooltip if description exists
-    if (fieldConfig.description) {
-      return (
-        <Tooltip label={fieldConfig.description} position="top-start" multiline>
-          <div>{fieldElement}</div>
-        </Tooltip>
-      );
-    }
-
-    return fieldElement;
-  };
-
-  // Refresh field configurations when component mounts or session changes
-  useEffect(() => {
-    // Refresh field configurations to get the latest values
-    if (refreshVcdbFields && refreshProductFields) {
-      refreshVcdbFields();
-      refreshProductFields();
-    }
-  }, [sessionId, refreshVcdbFields, refreshProductFields]);
-
-  // Auto-scroll logs to bottom when new logs are added
-  useEffect(() => {
-    if (logsScrollAreaRef.current && aiLogs.length > 0) {
-      const scrollArea = logsScrollAreaRef.current.querySelector(
-        "[data-radix-scroll-area-viewport]"
-      );
-      if (scrollArea) {
-        scrollArea.scrollTop = scrollArea.scrollHeight;
-      }
-    }
-  }, [aiLogs]);
-
-  // Configurable columns state (removed unused variables)
-
   // API hooks
   const { execute: fetchDropdownData } = useAsyncOperation();
   const { execute: fetchFilteredVehicles } = useAsyncOperation();
-  const { execute: fetchLookupData } = useAsyncOperation();
   const { execute: createFitment } = useAsyncOperation();
+
+  // Helper functions
+  const isVcdbDataAvailable = () => {
+    return dataStatus?.vcdb?.exists && dataStatus?.vcdb?.record_count > 0;
+  };
+
+  const isProductDataAvailable = () => {
+    return (
+      dataStatus?.products?.exists && dataStatus?.products?.record_count > 0
+    );
+  };
+
+  const isAiMethodAvailable = () => {
+    return isVcdbDataAvailable();
+  };
+
+  const isManualMethodAvailable = () => {
+    return isVcdbDataAvailable() && isProductDataAvailable();
+  };
+
+  // Navigation handlers
+  const handleBackToMethodSelection = () => {
+    setSelectedMethod(null);
+    setAiSubOption(null);
+    setProductFile(null);
+    setSelectedProducts([]);
+    setSearchQuery("");
+    setManualStep(1);
+  };
+
+  const handleBackToAiOptions = () => {
+    setAiSubOption(null);
+    setProductFile(null);
+    setSelectedProducts([]);
+    setSearchQuery("");
+    setProcessingAiFitment(false);
+    setAiProgress(0);
+    setAiLogs([]);
+  };
+
+  // AI Fitment: Upload Product Data handler
+  const handleUploadProductForAi = async () => {
+    if (!productFile) {
+      showError("Please select a product file to upload");
+      return;
+    }
+
+    setUploadingProduct(true);
+    setProcessingAiFitment(true);
+    setAiProgress(0);
+    setAiLogs([]);
+
+    try {
+      // Create AI fitment job with product file upload
+      const result: any = await dataUploadService.createAiFitmentJob({
+        product_file: productFile,
+        job_type: "upload",
+      });
+
+      if (result && result.data) {
+        const jobId = result.data.job_id || result.data.id;
+
+        // Simulate progress logs
+        const logs = [
+          "📦 Uploading product file...",
+          "✅ Product file validated successfully",
+          "🔍 Analyzing product specifications...",
+          "🧠 Initializing AI matching engine...",
+          "🎯 Processing fitment recommendations...",
+          "✅ AI fitment job created successfully!",
+        ];
+
+        for (let i = 0; i < logs.length; i++) {
+          setAiLogs((prev) => [...prev, logs[i]]);
+          setAiProgress((i + 1) * (100 / logs.length));
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+
+        showSuccess(
+          `AI fitment job created! Job ID: ${jobId}. You can review it in the Jobs tab.`,
+          5000
+        );
+
+        // Refresh jobs list
+        await refetchJobs();
+
+        // Navigate to jobs tab
+        setAiSubOption("jobs");
+      }
+    } catch (error: any) {
+      console.error("AI fitment job creation error:", error);
+      setAiLogs((prev) => [...prev, "❌ Failed to create AI fitment job"]);
+      showError(
+        error.response?.data?.error || "Failed to create AI fitment job"
+      );
+    } finally {
+      setUploadingProduct(false);
+      setProcessingAiFitment(false);
+    }
+  };
+
+  // AI Fitment: Select Products handler
+  const handleSelectProductsForAi = async () => {
+    if (selectedProducts.length === 0) {
+      showError("Please select at least one product");
+      return;
+    }
+
+    setProcessingAiFitment(true);
+    setAiProgress(0);
+    setAiLogs([]);
+
+    try {
+      // Create AI fitment job from product selection
+      const result: any = await dataUploadService.createAiFitmentJob({
+        product_ids: selectedProducts,
+        job_type: "selection",
+      });
+
+      if (result && result.data) {
+        const jobId = result.data.job_id || result.data.id;
+
+        const logs = [
+          `🔍 Processing ${selectedProducts.length} selected products...`,
+          "🧠 Initializing AI matching engine...",
+          "🎯 Generating fitment recommendations...",
+          "✅ AI fitment job created successfully!",
+        ];
+
+        for (let i = 0; i < logs.length; i++) {
+          setAiLogs((prev) => [...prev, logs[i]]);
+          setAiProgress((i + 1) * (100 / logs.length));
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+
+        showSuccess(
+          `AI fitment job created! Job ID: ${jobId}. You can review it in the Jobs tab.`,
+          5000
+        );
+
+        await refetchJobs();
+        setAiSubOption("jobs");
+      }
+    } catch (error: any) {
+      console.error("AI fitment job creation error:", error);
+      setAiLogs((prev) => [...prev, "❌ Failed to create AI fitment job"]);
+      showError(
+        error.response?.data?.error || "Failed to create AI fitment job"
+      );
+    } finally {
+      setProcessingAiFitment(false);
+    }
+  };
+
+  // Review AI Fitment Job
+  const handleReviewJob = async (jobId: string) => {
+    setSelectedJobForReview(jobId);
+    setLoadingJobFitments(true);
+
+    try {
+      // Review AI fitment job
+      const result: any = await dataUploadService.reviewAiFitmentJob(jobId);
+
+      if (result && result.data) {
+        const fitments = result.data.fitments || result.data || [];
+        setJobFitments(fitments);
+        setSelectedJobFitments(fitments.map((f: any) => f.id));
+        showSuccess(`Loaded ${fitments.length} fitments for review`);
+      }
+    } catch (error: any) {
+      console.error("Failed to load job fitments:", error);
+      showError("Failed to load job fitments for review");
+    } finally {
+      setLoadingJobFitments(false);
+    }
+  };
+
+  // Approve AI Fitments
+  const handleApproveJobFitments = async () => {
+    if (!selectedJobForReview) return;
+
+    if (selectedJobFitments.length === 0) {
+      showError("Please select fitments to approve");
+      return;
+    }
+
+    setApprovingFitments(true);
+
+    try {
+      // Approve AI fitments
+      await dataUploadService.approveAiFitments(
+        selectedJobForReview,
+        selectedJobFitments
+      );
+
+      showSuccess(
+        `Successfully approved ${selectedJobFitments.length} fitments! They are now in Fitment Management.`,
+        5000
+      );
+
+      await refetchJobs();
+
+      setSelectedJobForReview(null);
+      setJobFitments([]);
+      setSelectedJobFitments([]);
+    } catch (error: any) {
+      console.error("Failed to approve fitments:", error);
+      showError("Failed to approve fitments");
+    } finally {
+      setApprovingFitments(false);
+    }
+  };
+
+  // Manual fitment handler
+  const handleManualMethodClick = async () => {
+    if (!isManualMethodAvailable()) {
+      showError("VCDB and Product data are required for manual fitment method");
+      return;
+    }
+
+    setSelectedMethod("manual");
+    setLoadingDropdownData(true);
+
+    try {
+      if (refreshVcdbFields && refreshProductFields) {
+        await Promise.all([refreshVcdbFields(), refreshProductFields()]);
+      }
+
+      const dropdownResult = await fetchDropdownData(() =>
+        dataUploadService.getNewDataDropdownData()
+      );
+
+      if (dropdownResult && dropdownResult.data) {
+        setDropdownData(dropdownResult.data);
+      } else {
+        showError("Failed to load vehicle and product data");
+      }
+    } catch (error) {
+      console.error("Failed to fetch data:", error);
+      showError("Failed to load data");
+    } finally {
+      setLoadingDropdownData(false);
+    }
+  };
+
+  // Edit fitment handler
+  const handleEditFitment = (fitment: any) => {
+    setEditingFitment(fitment);
+    setEditFormData({
+      part_id: fitment.part_id,
+      part_description: fitment.part_description,
+      year: fitment.year,
+      make: fitment.make,
+      model: fitment.model,
+      submodel: fitment.submodel,
+      drive_type: fitment.drive_type,
+      position: fitment.position,
+      quantity: fitment.quantity,
+      confidence: fitment.confidence,
+      confidence_explanation: fitment.confidence_explanation,
+      ai_reasoning: fitment.ai_reasoning,
+      dynamicFields: fitment.dynamicFields || {},
+    });
+    setEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingFitment || !selectedJobForReview) return;
+
+    setSavingEdit(true);
+    try {
+      // Update AI fitment
+      await dataUploadService.updateAiFitment(
+        selectedJobForReview,
+        editingFitment.id,
+        editFormData
+      );
+
+      // Update local state
+      setJobFitments((prev) =>
+        prev.map((fitment) =>
+          fitment.id === editingFitment.id
+            ? { ...fitment, ...editFormData }
+            : fitment
+        )
+      );
+
+      setEditModalOpen(false);
+      setEditingFitment(null);
+      showSuccess("Fitment updated successfully");
+    } catch (error: any) {
+      showError("Failed to update fitment");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   // Helper functions for dynamic fields
   const updateDynamicVcdbField = (fieldName: string, value: any) => {
@@ -809,7 +554,6 @@ export default function ApplyFitments() {
   };
 
   const getFieldData = (fieldConfig: any) => {
-    // For enum fields, use the enum_options from field config
     if (fieldConfig.field_type === "enum" && fieldConfig.enum_options) {
       return fieldConfig.enum_options.map((option: string) => ({
         value: option,
@@ -817,10 +561,8 @@ export default function ApplyFitments() {
       }));
     }
 
-    // For other fields, try to get data from dropdown data based on field name
     const fieldName = fieldConfig.name.toLowerCase();
     if (dropdownData) {
-      // Map common field names to dropdown data properties
       const dataMapping: Record<string, string> = {
         year: "years",
         make: "makes",
@@ -846,3518 +588,1818 @@ export default function ApplyFitments() {
     return [];
   };
 
+  // Render job status badge
+  const renderStatusBadge = (status: string) => {
+    const statusConfig: Record<
+      string,
+      { color: string; label: string; icon: any }
+    > = {
+      in_progress: {
+        color: "blue",
+        label: "In Progress",
+        icon: <IconClock size={14} />,
+      },
+      completed: {
+        color: "green",
+        label: "Completed",
+        icon: <IconCheck size={14} />,
+      },
+      failed: {
+        color: "red",
+        label: "Failed",
+        icon: <IconX size={14} />,
+      },
+      review_required: {
+        color: "orange",
+        label: "Review Required",
+        icon: <IconAlertCircle size={14} />,
+      },
+    };
+
+    const config = statusConfig[status] || statusConfig.in_progress;
+
+    return (
+      <Badge color={config.color} variant="light" leftSection={config.icon}>
+        {config.label}
+      </Badge>
+    );
+  };
+
+  // Filter products based on search
+  const filteredProducts = Array.isArray(productsData)
+    ? productsData.filter((product: any) => {
+        if (!searchQuery) return true;
+        const query = searchQuery.toLowerCase();
+        return (
+          product.id?.toLowerCase().includes(query) ||
+          product.description?.toLowerCase().includes(query) ||
+          product.category?.toLowerCase().includes(query)
+        );
+      })
+    : [];
+
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-      }}
-    >
-      {/* CSS Animations for AI Card Effects */}
-      <style>{`
-        @keyframes pulse {
-          0% {
-            transform: translate(-50%, -50%) scale(1);
-            opacity: 0.7;
-          }
-          50% {
-            transform: translate(-50%, -50%) scale(1.1);
-            opacity: 0.3;
-          }
-          100% {
-            transform: translate(-50%, -50%) scale(1);
-            opacity: 0.7;
-          }
-        }
-        
-        @keyframes shimmer {
-          0% {
-            left: -100%;
-          }
-          100% {
-            left: 100%;
-          }
-        }
-        
-        @keyframes progress {
-          0% {
-            width: 0%;
-          }
-          50% {
-            width: 45%;
-          }
-          100% {
-            width: 0%;
-          }
-        }
-      `}</style>
+    <div style={{ minHeight: "100vh" }}>
       <Stack gap="xl">
-        {/* Step 1: Method Selection Section */}
-        <Transition
-          mounted={currentStep === 1}
-          transition="slide-left"
-          duration={400}
-          timingFunction="ease"
-        >
-          {(styles) => (
-            <div style={styles}>
-              {currentStep === 1 && (
+        {/* Step 1: Method Selection */}
+        {!selectedMethod && (
+          <Card
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "12px",
+              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+            }}
+            p="xl"
+          >
+            <Stack gap="xl">
+              <div>
+                <Title order={2} c="#1e293b" fw={600} mb="xs">
+                  Choose Fitment Method
+                </Title>
+                <Text size="md" c="#64748b" mb="md">
+                  Select how you want to apply fitments to your vehicle
+                  configurations
+                </Text>
+
+                {/* Data Status Indicators */}
+                <Group gap="lg" mb="lg">
+                  <Group gap="xs">
+                    <Badge
+                      color={isVcdbDataAvailable() ? "green" : "red"}
+                      variant="light"
+                      size="sm"
+                    >
+                      VCDB Data
+                    </Badge>
+                    <Text size="xs" c="dimmed">
+                      {isVcdbDataAvailable()
+                        ? `${dataStatus?.vcdb?.record_count || 0} records`
+                        : "Not available"}
+                    </Text>
+                  </Group>
+                  <Group gap="xs">
+                    <Badge
+                      color={isProductDataAvailable() ? "green" : "red"}
+                      variant="light"
+                      size="sm"
+                    >
+                      Product Data
+                    </Badge>
+                    <Text size="xs" c="dimmed">
+                      {isProductDataAvailable()
+                        ? `${dataStatus?.products?.record_count || 0} records`
+                        : "Not available"}
+                    </Text>
+                  </Group>
+                </Group>
+              </div>
+
+              <SimpleGrid cols={2} spacing="xl">
+                {/* AI Method Card */}
                 <Card
                   style={{
-                    background: "#ffffff",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "12px",
-                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                    background:
+                      selectedMethod === "ai"
+                        ? "#f0f9ff"
+                        : !isAiMethodAvailable()
+                        ? "#f8f9fa"
+                        : "#ffffff",
+                    border:
+                      selectedMethod === "ai"
+                        ? "2px solid #3b82f6"
+                        : "1px solid #e2e8f0",
+                    borderRadius: "8px",
+                    cursor: isAiMethodAvailable() ? "pointer" : "not-allowed",
+                    opacity: isAiMethodAvailable() ? 1 : 0.6,
                   }}
                   p="xl"
+                  onClick={() => {
+                    if (isAiMethodAvailable()) {
+                      setSelectedMethod("ai");
+                    }
+                  }}
                 >
-                  <Stack gap="xl">
-                    <div>
-                      <Title order={2} c="#1e293b" fw={600} mb="xs">
-                        Choose Fitment Method
-                      </Title>
-                      <Text size="md" c="#64748b" mb="md">
-                        Select how you want to apply fitments to your vehicle
-                        configurations
-                      </Text>
-
-                      {/* Data Status Indicators */}
-                      <Group gap="lg" mb="lg">
-                        <Group gap="xs">
-                          <Badge
-                            color={isVcdbDataAvailable() ? "green" : "red"}
-                            variant="light"
-                            size="sm"
-                          >
-                            VCDB Data
-                          </Badge>
-                          <Text size="xs" c="dimmed">
-                            {isVcdbDataAvailable()
-                              ? `${dataStatus?.vcdb?.record_count || 0} records`
-                              : "Not available"}
-                          </Text>
-                        </Group>
-                        <Group gap="xs">
-                          <Badge
-                            color={isProductDataAvailable() ? "green" : "red"}
-                            variant="light"
-                            size="sm"
-                          >
-                            Product Data
-                          </Badge>
-                          <Text size="xs" c="dimmed">
-                            {isProductDataAvailable()
-                              ? `${
-                                  dataStatus?.products?.record_count || 0
-                                } records`
-                              : "Not available"}
-                          </Text>
-                        </Group>
-                      </Group>
+                  <Stack align="center" gap="lg">
+                    <div
+                      style={{
+                        background: isAiMethodAvailable()
+                          ? "#eff6ff"
+                          : "#f1f3f4",
+                        borderRadius: "50%",
+                        padding: "20px",
+                        marginBottom: "8px",
+                      }}
+                    >
+                      <IconBrain
+                        size={28}
+                        color={isAiMethodAvailable() ? "#3b82f6" : "#9ca3af"}
+                      />
                     </div>
 
-                    <SimpleGrid cols={2} spacing="xl">
-                      {/* Manual Method Card */}
-                      <Card
-                        style={{
-                          background:
-                            selectedMethod === "manual"
-                              ? "#f0f9ff"
-                              : !isManualMethodAvailable()
-                              ? "#f8f9fa"
-                              : "#fefefe",
-                          border:
-                            selectedMethod === "manual"
-                              ? "2px solid #3b82f6"
-                              : !isManualMethodAvailable()
-                              ? "2px solid #e9ecef"
-                              : "2px solid #f1f5f9",
-                          borderRadius: "12px",
-                          cursor: isManualMethodAvailable()
-                            ? "pointer"
-                            : "not-allowed",
-                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                          boxShadow:
-                            selectedMethod === "manual"
-                              ? "0 4px 12px rgba(59, 130, 246, 0.15)"
-                              : "0 2px 4px rgba(0, 0, 0, 0.05)",
-                          transform: "translateY(0)",
-                          opacity: isManualMethodAvailable() ? 1 : 0.6,
-                        }}
-                        onMouseEnter={(e) => {
-                          if (
-                            selectedMethod !== "manual" &&
-                            isManualMethodAvailable()
-                          ) {
-                            e.currentTarget.style.transform =
-                              "translateY(-4px)";
-                            e.currentTarget.style.boxShadow =
-                              "0 8px 25px rgba(0, 0, 0, 0.1)";
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (selectedMethod !== "manual") {
-                            e.currentTarget.style.transform = "translateY(0)";
-                            e.currentTarget.style.boxShadow =
-                              "0 2px 4px rgba(0, 0, 0, 0.05)";
-                          }
-                        }}
-                        p="xl"
-                        onClick={
-                          isManualMethodAvailable()
-                            ? handleManualMethodClick
-                            : undefined
-                        }
+                    <div style={{ textAlign: "center" }}>
+                      <Text
+                        fw={700}
+                        size="xl"
+                        c={isAiMethodAvailable() ? "#1e293b" : "#9ca3af"}
+                        mb="xs"
                       >
-                        <Stack align="center" gap="lg">
-                          <div
-                            style={{
-                              background: isManualMethodAvailable()
-                                ? "#f8fafc"
-                                : "#f1f3f4",
-                              borderRadius: "12px",
-                              padding: "16px",
-                              marginBottom: "8px",
-                            }}
-                          >
-                            <IconUsers
-                              size={32}
-                              color={
-                                isManualMethodAvailable()
-                                  ? "#3b82f6"
-                                  : "#9ca3af"
-                              }
-                            />
-                          </div>
-
-                          <div style={{ textAlign: "center" }}>
-                            <Text
-                              fw={700}
-                              size="xl"
-                              c={
-                                isManualMethodAvailable()
-                                  ? "#1e293b"
-                                  : "#9ca3af"
-                              }
-                              mb="xs"
-                            >
-                              Manual Method
-                            </Text>
-                            <Text
-                              size="sm"
-                              c={
-                                isManualMethodAvailable()
-                                  ? "#64748b"
-                                  : "#9ca3af"
-                              }
-                              ta="center"
-                            >
-                              {isManualMethodAvailable()
-                                ? "Apply fitments manually with full control over each configuration"
-                                : "VCDB and Product data required"}
-                            </Text>
-                          </div>
-
-                          {selectedMethod === "manual" && (
-                            <Badge variant="light" color="blue" size="lg">
-                              Selected
-                            </Badge>
-                          )}
-
-                          {!isManualMethodAvailable() && (
-                            <Badge variant="light" color="red" size="lg">
-                              Disabled
-                            </Badge>
-                          )}
-                        </Stack>
-                      </Card>
-
-                      {/* AI Method Card */}
-                      <Card
-                        style={{
-                          background:
-                            selectedMethod === "ai"
-                              ? "#f0f9ff"
-                              : !isAiMethodAvailable()
-                              ? "#f8f9fa"
-                              : "#fefefe",
-                          border:
-                            selectedMethod === "ai"
-                              ? "2px solid #3b82f6"
-                              : !isAiMethodAvailable()
-                              ? "2px solid #e9ecef"
-                              : "2px solid #f1f5f9",
-                          borderRadius: "12px",
-                          cursor: isAiMethodAvailable()
-                            ? "pointer"
-                            : "not-allowed",
-                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                          boxShadow:
-                            selectedMethod === "ai"
-                              ? "0 4px 12px rgba(59, 130, 246, 0.15)"
-                              : "0 2px 4px rgba(0, 0, 0, 0.05)",
-                          transform: "translateY(0)",
-                          opacity: isAiMethodAvailable() ? 1 : 0.6,
-                        }}
-                        onMouseEnter={(e) => {
-                          if (
-                            selectedMethod !== "ai" &&
-                            isAiMethodAvailable()
-                          ) {
-                            e.currentTarget.style.transform =
-                              "translateY(-4px)";
-                            e.currentTarget.style.boxShadow =
-                              "0 8px 25px rgba(0, 0, 0, 0.1)";
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (selectedMethod !== "ai") {
-                            e.currentTarget.style.transform = "translateY(0)";
-                            e.currentTarget.style.boxShadow =
-                              "0 2px 4px rgba(0, 0, 0, 0.05)";
-                          }
-                        }}
-                        p="xl"
-                        onClick={
-                          isAiMethodAvailable()
-                            ? handleAiMethodClick
-                            : undefined
-                        }
+                        AI Fitments
+                      </Text>
+                      <Text
+                        size="sm"
+                        c={isAiMethodAvailable() ? "#64748b" : "#9ca3af"}
+                        ta="center"
                       >
-                        <Stack align="center" gap="lg">
-                          <div
-                            style={{
-                              background: isAiMethodAvailable()
-                                ? "linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)"
-                                : "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)",
-                              borderRadius: "12px",
-                              padding: "16px",
-                              marginBottom: "8px",
-                              position: "relative",
-                            }}
-                          >
-                            <IconBrain
-                              size={32}
-                              color={
-                                isAiMethodAvailable() ? "#6366f1" : "#9ca3af"
-                              }
-                            />
-                            {/* Subtle pulse effect - only when available */}
-                            {isAiMethodAvailable() && (
-                              <div
-                                style={{
-                                  position: "absolute",
-                                  top: "50%",
-                                  left: "50%",
-                                  transform: "translate(-50%, -50%)",
-                                  width: "60px",
-                                  height: "60px",
-                                  borderRadius: "50%",
-                                  background: "rgba(99, 102, 241, 0.1)",
-                                  animation: "pulse 2s infinite",
-                                }}
-                              />
-                            )}
-                          </div>
+                        {isAiMethodAvailable()
+                          ? "Upload products or select products to generate AI fitments"
+                          : "VCDB data required"}
+                      </Text>
+                    </div>
 
-                          <div style={{ textAlign: "center" }}>
-                            <Text
-                              fw={700}
-                              size="xl"
-                              c={isAiMethodAvailable() ? "#1e293b" : "#9ca3af"}
-                              mb="xs"
-                            >
-                              AI Method
-                            </Text>
-                            <Text
-                              size="sm"
-                              c={isAiMethodAvailable() ? "#64748b" : "#9ca3af"}
-                              ta="center"
-                            >
-                              {isAiMethodAvailable()
-                                ? "Let AI automatically generate and apply fitments based on your VCDB and Product data"
-                                : "VCDB and Product data required"}
-                            </Text>
-                          </div>
+                    {selectedMethod === "ai" && (
+                      <Badge variant="light" color="blue" size="lg">
+                        Selected
+                      </Badge>
+                    )}
 
-                          {selectedMethod === "ai" && (
-                            <Badge variant="light" color="blue" size="lg">
-                              Selected
-                            </Badge>
-                          )}
-
-                          {!isAiMethodAvailable() && (
-                            <Badge variant="light" color="red" size="lg">
-                              Disabled
-                            </Badge>
-                          )}
-                        </Stack>
-                      </Card>
-                    </SimpleGrid>
-
-                    {/* Help message when both methods are disabled */}
-                    {!isManualMethodAvailable() && !isAiMethodAvailable() && (
-                      <Alert color="orange" variant="light" mt="lg">
-                        <Text size="sm">
-                          <strong>Data Required:</strong> Both VCDB and Product
-                          data must be uploaded before you can apply fitments.
-                          Please go to the <strong>Upload Data</strong> page to
-                          upload your vehicle and product data files.
-                        </Text>
-                      </Alert>
+                    {!isAiMethodAvailable() && (
+                      <Badge variant="light" color="red" size="lg">
+                        Disabled
+                      </Badge>
                     )}
                   </Stack>
                 </Card>
-              )}
-            </div>
-          )}
-        </Transition>
 
-        {/* Step 2: Manual Method Page */}
-        <Transition
-          mounted={currentStep === 2}
-          transition="slide-up"
-          duration={400}
-          timingFunction="ease"
-        >
-          {(styles) => (
-            <div style={styles}>
-              {currentStep === 2 && (
+                {/* Manual Method Card */}
                 <Card
                   style={{
-                    background: "#ffffff",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "12px",
-                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                    background:
+                      selectedMethod === "manual"
+                        ? "#f0f9ff"
+                        : !isManualMethodAvailable()
+                        ? "#f8f9fa"
+                        : "#ffffff",
+                    border:
+                      selectedMethod === "manual"
+                        ? "2px solid #3b82f6"
+                        : "1px solid #e2e8f0",
+                    borderRadius: "8px",
+                    cursor: isManualMethodAvailable()
+                      ? "pointer"
+                      : "not-allowed",
+                    opacity: isManualMethodAvailable() ? 1 : 0.6,
                   }}
                   p="xl"
+                  onClick={
+                    isManualMethodAvailable()
+                      ? handleManualMethodClick
+                      : undefined
+                  }
                 >
-                  <Stack gap="xl">
-                    {/* Back Button */}
-                    <Group>
-                      <Button
-                        variant="subtle"
-                        leftSection={<IconArrowLeft size={16} />}
-                        onClick={handleBackToMethodSelection}
-                        style={{
-                          color: "#64748b",
-                          fontWeight: 500,
-                        }}
-                      >
-                        Back to Method Selection
-                      </Button>
-                    </Group>
+                  <Stack align="center" gap="lg">
+                    <div
+                      style={{
+                        background: isManualMethodAvailable()
+                          ? "#eff6ff"
+                          : "#f1f3f4",
+                        borderRadius: "50%",
+                        padding: "20px",
+                        marginBottom: "8px",
+                      }}
+                    >
+                      <IconUsers
+                        size={28}
+                        color={
+                          isManualMethodAvailable() ? "#3b82f6" : "#9ca3af"
+                        }
+                      />
+                    </div>
 
-                    <div style={{ marginBottom: "15px" }}>
-                      <Title order={2} c="#1e293b" fw={600}>
-                        Manual Fitment Configuration
-                      </Title>
-                      <Text size="md" c="#64748b">
-                        Configure fitments manually with full control over each
-                        setting
+                    <div style={{ textAlign: "center" }}>
+                      <Text
+                        fw={700}
+                        size="xl"
+                        c={isManualMethodAvailable() ? "#1e293b" : "#9ca3af"}
+                        mb="xs"
+                      >
+                        Manual Fitment
+                      </Text>
+                      <Text
+                        size="sm"
+                        c={isManualMethodAvailable() ? "#64748b" : "#9ca3af"}
+                        ta="center"
+                      >
+                        {isManualMethodAvailable()
+                          ? "Apply fitments manually with full control"
+                          : "VCDB and Product data required"}
                       </Text>
                     </div>
 
-                    {/* Manual Method Stepper */}
-                    <Stepper
-                      active={manualStep - 1}
-                      onStepClick={setManualStep}
-                      allowNextStepsSelect={false}
-                      styles={{
-                        stepBody: {
-                          transition: "all 0.3s ease",
-                        },
-                        stepIcon: {
-                          transition: "all 0.3s ease",
-                        },
-                        stepLabel: {
-                          transition: "all 0.3s ease",
-                        },
-                      }}
+                    {selectedMethod === "manual" && (
+                      <Badge variant="light" color="blue" size="lg">
+                        Selected
+                      </Badge>
+                    )}
+
+                    {!isManualMethodAvailable() && (
+                      <Badge variant="light" color="red" size="lg">
+                        Disabled
+                      </Badge>
+                    )}
+                  </Stack>
+                </Card>
+              </SimpleGrid>
+
+              {/* Help message when both methods are disabled */}
+              {!isManualMethodAvailable() && !isAiMethodAvailable() && (
+                <Alert color="orange" variant="light" mt="lg">
+                  <Text size="sm">
+                    <strong>Data Required:</strong> Both VCDB and Product data
+                    must be uploaded before you can apply fitments. Please go to
+                    the <strong>Upload Data</strong> page to upload your vehicle
+                    and product data files.
+                  </Text>
+                </Alert>
+              )}
+            </Stack>
+          </Card>
+        )}
+
+        {/* AI Fitments Section */}
+        {selectedMethod === "ai" && (
+          <Card
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "12px",
+              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+            }}
+            p="xl"
+          >
+            <Stack gap="xl">
+              {/* Back Button */}
+              <Group>
+                <Button
+                  variant="subtle"
+                  leftSection={<IconArrowLeft size={16} />}
+                  onClick={
+                    aiSubOption
+                      ? handleBackToAiOptions
+                      : handleBackToMethodSelection
+                  }
+                >
+                  {aiSubOption
+                    ? "Back to AI Options"
+                    : "Back to Method Selection"}
+                </Button>
+              </Group>
+
+              <div>
+                <Title order={2} c="#1e293b" fw={600} mb="xs">
+                  AI Fitments
+                </Title>
+                <Text size="md" c="#64748b">
+                  Automate fitment generation using AI
+                </Text>
+              </div>
+
+              {/* AI Sub-options Tabs */}
+              {!aiSubOption && (
+                <Tabs defaultValue="upload" variant="pills">
+                  <Tabs.List mb="xl">
+                    <Tabs.Tab
+                      value="upload"
+                      leftSection={<IconCloudUpload size={16} />}
                     >
-                      <Stepper.Step
-                        label="Specify Vehicle Configurations"
-                        description="Specify vehicle criteria"
-                        icon={<IconCar size={18} />}
+                      Upload Product Data
+                    </Tabs.Tab>
+                    <Tabs.Tab
+                      value="selection"
+                      leftSection={<IconCheckbox size={16} />}
+                    >
+                      Select Products
+                    </Tabs.Tab>
+                    <Tabs.Tab
+                      value="jobs"
+                      leftSection={<IconFileCheck size={16} />}
+                      rightSection={
+                        aiFitmentJobs?.filter(
+                          (j: any) => j.status === "review_required"
+                        ).length > 0 && (
+                          <Badge size="xs" variant="filled" color="orange">
+                            {
+                              aiFitmentJobs.filter(
+                                (j: any) => j.status === "review_required"
+                              ).length
+                            }
+                          </Badge>
+                        )
+                      }
+                    >
+                      AI Jobs & Progress
+                    </Tabs.Tab>
+                  </Tabs.List>
+
+                  {/* Upload Product Data Tab */}
+                  <Tabs.Panel value="upload">
+                    <Stack gap="lg">
+                      <div>
+                        <Title order={3} c="#1e293b" fw={600} mb="xs">
+                          Upload Product Data for AI Fitments
+                        </Title>
+                        <Text size="sm" c="#64748b">
+                          Upload a product file and let AI generate fitments
+                          automatically
+                        </Text>
+                      </div>
+
+                      {/* File Upload Area */}
+                      <Paper
+                        style={{
+                          minHeight: "200px",
+                          border: `2px dashed ${
+                            productFile ? "#22c55e" : "#cbd5e1"
+                          }`,
+                          borderRadius: "16px",
+                          backgroundColor: productFile ? "#f0fdf4" : "#fafafa",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => {
+                          const input = document.createElement("input");
+                          input.type = "file";
+                          input.accept = ".csv,.xlsx,.xls,.json";
+                          input.onchange = (e) => {
+                            const file = (e.target as HTMLInputElement)
+                              .files?.[0];
+                            if (file) setProductFile(file);
+                          };
+                          input.click();
+                        }}
                       >
-                        <div>
-                          <Stack gap="md" mt={20}>
-                            <div style={{ marginBottom: "15px" }}>
-                              <Title order={3} c="#1e293b" fw={700}>
-                                Vehicle Search Criteria
-                              </Title>
-                              <Text size="sm" c="#64748b">
-                                Refine your search with specific vehicle
-                                attributes to find the perfect fitments
+                        <Center style={{ height: "100%", padding: "24px" }}>
+                          <Stack align="center" gap="md">
+                            <ThemeIcon
+                              size="xl"
+                              variant="light"
+                              color={productFile ? "green" : "blue"}
+                              radius="xl"
+                            >
+                              {productFile ? (
+                                <IconCheck size={28} />
+                              ) : (
+                                <IconCloudUpload size={28} />
+                              )}
+                            </ThemeIcon>
+
+                            <Stack align="center" gap="xs">
+                              <Text fw={600} size="lg" c="dark">
+                                {productFile
+                                  ? productFile.name
+                                  : "Product Data"}
                               </Text>
-                              {loadingDropdownData && (
-                                <Alert
-                                  icon={<IconRefresh size={16} />}
-                                  color="blue"
-                                  radius="md"
-                                  mt="md"
-                                >
-                                  <Text size="sm">
-                                    Loading vehicle data from uploaded files...
-                                  </Text>
-                                </Alert>
+                              <Text size="sm" c="dimmed" ta="center">
+                                {productFile
+                                  ? "Click to change file"
+                                  : "Click to upload product file (CSV, XLSX, XLS, JSON)"}
+                              </Text>
+                              {productFile && (
+                                <Badge color="green" variant="light" size="sm">
+                                  Ready to process
+                                </Badge>
                               )}
-                            </div>
-
-                            <div key={formKey}>
-                              <SimpleGrid
-                                cols={{ base: 1, sm: 2, lg: 3 }}
-                                spacing="xl"
-                              >
-                                <Select
-                                  label="Year From"
-                                  placeholder="Select year from"
-                                  data={dropdownData?.years || []}
-                                  value={vehicleFilters.yearFrom}
-                                  onChange={(value) => {
-                                    setVehicleFilters((prev) => {
-                                      const newYearFrom = value || "";
-                                      // Clear yearTo if it's not greater than the new yearFrom
-                                      let newYearTo = prev.yearTo;
-                                      if (
-                                        newYearFrom &&
-                                        prev.yearTo &&
-                                        parseInt(prev.yearTo) <=
-                                          parseInt(newYearFrom)
-                                      ) {
-                                        newYearTo = "";
-                                      }
-                                      return {
-                                        ...prev,
-                                        yearFrom: newYearFrom,
-                                        yearTo: newYearTo,
-                                      };
-                                    });
-                                  }}
-                                  searchable
-                                  disabled={loadingDropdownData}
-                                  leftSection={
-                                    <IconCalendar size={16} color="#64748b" />
-                                  }
-                                  styles={{
-                                    label: {
-                                      fontWeight: 600,
-                                      fontSize: "13px",
-                                      color: "#374151",
-                                      marginBottom: "8px",
-                                      textTransform: "uppercase",
-                                      letterSpacing: "0.5px",
-                                    },
-                                    input: {
-                                      borderRadius: "10px",
-                                      border: "2px solid #e2e8f0",
-                                      fontSize: "14px",
-                                      height: "48px",
-                                      paddingLeft: "40px",
-                                      transition:
-                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      backgroundColor: "#fafafa",
-                                      "&:focus": {
-                                        borderColor: "#3b82f6",
-                                        boxShadow:
-                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                                        backgroundColor: "#ffffff",
-                                      },
-                                      "&:hover": {
-                                        borderColor: "#cbd5e1",
-                                        backgroundColor: "#ffffff",
-                                      },
-                                    },
-                                  }}
-                                />
-                                <Select
-                                  label="Year To"
-                                  placeholder="Select year to"
-                                  data={
-                                    dropdownData?.years
-                                      ? dropdownData.years.filter(
-                                          (year: string) => {
-                                            if (!vehicleFilters.yearFrom)
-                                              return true;
-                                            return (
-                                              parseInt(year) >
-                                              parseInt(vehicleFilters.yearFrom)
-                                            );
-                                          }
-                                        )
-                                      : []
-                                  }
-                                  value={vehicleFilters.yearTo}
-                                  onChange={(value) =>
-                                    setVehicleFilters((prev) => ({
-                                      ...prev,
-                                      yearTo: value || "",
-                                    }))
-                                  }
-                                  searchable
-                                  disabled={loadingDropdownData}
-                                  leftSection={
-                                    <IconCalendar size={16} color="#64748b" />
-                                  }
-                                  styles={{
-                                    label: {
-                                      fontWeight: 600,
-                                      fontSize: "13px",
-                                      color: "#374151",
-                                      marginBottom: "8px",
-                                      textTransform: "uppercase",
-                                      letterSpacing: "0.5px",
-                                    },
-                                    input: {
-                                      borderRadius: "10px",
-                                      border: "2px solid #e2e8f0",
-                                      fontSize: "14px",
-                                      height: "48px",
-                                      paddingLeft: "40px",
-                                      transition:
-                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      backgroundColor: "#fafafa",
-                                      "&:focus": {
-                                        borderColor: "#3b82f6",
-                                        boxShadow:
-                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                                        backgroundColor: "#ffffff",
-                                      },
-                                      "&:hover": {
-                                        borderColor: "#cbd5e1",
-                                        backgroundColor: "#ffffff",
-                                      },
-                                    },
-                                  }}
-                                />
-                                <Select
-                                  label="Make"
-                                  placeholder="Select make"
-                                  data={dropdownData?.makes || []}
-                                  value={vehicleFilters.make}
-                                  onChange={(value) =>
-                                    setVehicleFilters((prev) => ({
-                                      ...prev,
-                                      make: value || "",
-                                    }))
-                                  }
-                                  searchable
-                                  disabled={loadingDropdownData}
-                                  leftSection={
-                                    <IconCar size={16} color="#64748b" />
-                                  }
-                                  styles={{
-                                    label: {
-                                      fontWeight: 600,
-                                      fontSize: "13px",
-                                      color: "#374151",
-                                      marginBottom: "8px",
-                                      textTransform: "uppercase",
-                                      letterSpacing: "0.5px",
-                                    },
-                                    input: {
-                                      borderRadius: "10px",
-                                      border: "2px solid #e2e8f0",
-                                      fontSize: "14px",
-                                      height: "48px",
-                                      paddingLeft: "40px",
-                                      transition:
-                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      backgroundColor: "#fafafa",
-                                      "&:focus": {
-                                        borderColor: "#3b82f6",
-                                        boxShadow:
-                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                                        backgroundColor: "#ffffff",
-                                      },
-                                      "&:hover": {
-                                        borderColor: "#cbd5e1",
-                                        backgroundColor: "#ffffff",
-                                      },
-                                    },
-                                  }}
-                                />
-                                <Select
-                                  label="Model"
-                                  placeholder="Select model"
-                                  data={dropdownData?.models || []}
-                                  value={vehicleFilters.model}
-                                  onChange={(value) =>
-                                    setVehicleFilters((prev) => ({
-                                      ...prev,
-                                      model: value || "",
-                                    }))
-                                  }
-                                  searchable
-                                  disabled={loadingDropdownData}
-                                  leftSection={
-                                    <IconCar size={16} color="#64748b" />
-                                  }
-                                  styles={{
-                                    label: {
-                                      fontWeight: 600,
-                                      fontSize: "13px",
-                                      color: "#374151",
-                                      marginBottom: "8px",
-                                      textTransform: "uppercase",
-                                      letterSpacing: "0.5px",
-                                    },
-                                    input: {
-                                      borderRadius: "10px",
-                                      border: "2px solid #e2e8f0",
-                                      fontSize: "14px",
-                                      height: "48px",
-                                      paddingLeft: "40px",
-                                      transition:
-                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      backgroundColor: "#fafafa",
-                                      "&:focus": {
-                                        borderColor: "#3b82f6",
-                                        boxShadow:
-                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                                        backgroundColor: "#ffffff",
-                                      },
-                                      "&:hover": {
-                                        borderColor: "#cbd5e1",
-                                        backgroundColor: "#ffffff",
-                                      },
-                                    },
-                                  }}
-                                />
-                                <Select
-                                  label="Submodel"
-                                  placeholder="Select submodel"
-                                  data={dropdownData?.submodels || []}
-                                  value={vehicleFilters.submodel}
-                                  onChange={(value) =>
-                                    setVehicleFilters((prev) => ({
-                                      ...prev,
-                                      submodel: value || "",
-                                    }))
-                                  }
-                                  searchable
-                                  disabled={loadingDropdownData}
-                                  leftSection={
-                                    <IconCar size={16} color="#64748b" />
-                                  }
-                                  styles={{
-                                    label: {
-                                      fontWeight: 600,
-                                      fontSize: "13px",
-                                      color: "#374151",
-                                      marginBottom: "8px",
-                                      textTransform: "uppercase",
-                                      letterSpacing: "0.5px",
-                                    },
-                                    input: {
-                                      borderRadius: "10px",
-                                      border: "2px solid #e2e8f0",
-                                      fontSize: "14px",
-                                      height: "48px",
-                                      paddingLeft: "40px",
-                                      transition:
-                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      backgroundColor: "#fafafa",
-                                      "&:focus": {
-                                        borderColor: "#3b82f6",
-                                        boxShadow:
-                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                                        backgroundColor: "#ffffff",
-                                      },
-                                      "&:hover": {
-                                        borderColor: "#cbd5e1",
-                                        backgroundColor: "#ffffff",
-                                      },
-                                    },
-                                  }}
-                                />
-                                <Select
-                                  label="Fuel Type"
-                                  placeholder="Select fuel type"
-                                  data={dropdownData?.fuel_types || []}
-                                  value={vehicleFilters.fuelType}
-                                  onChange={(value) =>
-                                    setVehicleFilters((prev) => ({
-                                      ...prev,
-                                      fuelType: value || "",
-                                    }))
-                                  }
-                                  searchable
-                                  disabled={loadingDropdownData}
-                                  leftSection={
-                                    <IconGasStation size={16} color="#64748b" />
-                                  }
-                                  styles={{
-                                    label: {
-                                      fontWeight: 600,
-                                      fontSize: "13px",
-                                      color: "#374151",
-                                      marginBottom: "8px",
-                                      textTransform: "uppercase",
-                                      letterSpacing: "0.5px",
-                                    },
-                                    input: {
-                                      borderRadius: "10px",
-                                      border: "2px solid #e2e8f0",
-                                      fontSize: "14px",
-                                      height: "48px",
-                                      paddingLeft: "40px",
-                                      transition:
-                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      backgroundColor: "#fafafa",
-                                      "&:focus": {
-                                        borderColor: "#3b82f6",
-                                        boxShadow:
-                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                                        backgroundColor: "#ffffff",
-                                      },
-                                      "&:hover": {
-                                        borderColor: "#cbd5e1",
-                                        backgroundColor: "#ffffff",
-                                      },
-                                    },
-                                  }}
-                                />
-                                <Select
-                                  label="Number of Doors"
-                                  placeholder="Select doors"
-                                  data={dropdownData?.num_doors || []}
-                                  value={vehicleFilters.numDoors}
-                                  onChange={(value) =>
-                                    setVehicleFilters((prev) => ({
-                                      ...prev,
-                                      numDoors: value || "",
-                                    }))
-                                  }
-                                  searchable
-                                  disabled={loadingDropdownData}
-                                  leftSection={
-                                    <IconDoor size={16} color="#64748b" />
-                                  }
-                                  styles={{
-                                    label: {
-                                      fontWeight: 600,
-                                      fontSize: "13px",
-                                      color: "#374151",
-                                      marginBottom: "8px",
-                                      textTransform: "uppercase",
-                                      letterSpacing: "0.5px",
-                                    },
-                                    input: {
-                                      borderRadius: "10px",
-                                      border: "2px solid #e2e8f0",
-                                      fontSize: "14px",
-                                      height: "48px",
-                                      paddingLeft: "40px",
-                                      transition:
-                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      backgroundColor: "#fafafa",
-                                      "&:focus": {
-                                        borderColor: "#3b82f6",
-                                        boxShadow:
-                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                                        backgroundColor: "#ffffff",
-                                      },
-                                      "&:hover": {
-                                        borderColor: "#cbd5e1",
-                                        backgroundColor: "#ffffff",
-                                      },
-                                    },
-                                  }}
-                                />
-                                <Select
-                                  label="Drive Type"
-                                  placeholder="Select drive type"
-                                  data={dropdownData?.drive_types || []}
-                                  value={vehicleFilters.driveType}
-                                  onChange={(value) =>
-                                    setVehicleFilters((prev) => ({
-                                      ...prev,
-                                      driveType: value || "",
-                                    }))
-                                  }
-                                  searchable
-                                  disabled={loadingDropdownData}
-                                  leftSection={
-                                    <IconSettings size={16} color="#64748b" />
-                                  }
-                                  styles={{
-                                    label: {
-                                      fontWeight: 600,
-                                      fontSize: "13px",
-                                      color: "#374151",
-                                      marginBottom: "8px",
-                                      textTransform: "uppercase",
-                                      letterSpacing: "0.5px",
-                                    },
-                                    input: {
-                                      borderRadius: "10px",
-                                      border: "2px solid #e2e8f0",
-                                      fontSize: "14px",
-                                      height: "48px",
-                                      paddingLeft: "40px",
-                                      transition:
-                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      backgroundColor: "#fafafa",
-                                      "&:focus": {
-                                        borderColor: "#3b82f6",
-                                        boxShadow:
-                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                                        backgroundColor: "#ffffff",
-                                      },
-                                      "&:hover": {
-                                        borderColor: "#cbd5e1",
-                                        backgroundColor: "#ffffff",
-                                      },
-                                    },
-                                  }}
-                                />
-                                <Select
-                                  label="Body Type"
-                                  placeholder="Select body type"
-                                  data={dropdownData?.body_types || []}
-                                  value={vehicleFilters.bodyType}
-                                  onChange={(value) =>
-                                    setVehicleFilters((prev) => ({
-                                      ...prev,
-                                      bodyType: value || "",
-                                    }))
-                                  }
-                                  searchable
-                                  disabled={loadingDropdownData}
-                                  leftSection={
-                                    <IconCar size={16} color="#64748b" />
-                                  }
-                                  styles={{
-                                    label: {
-                                      fontWeight: 600,
-                                      fontSize: "13px",
-                                      color: "#374151",
-                                      marginBottom: "8px",
-                                      textTransform: "uppercase",
-                                      letterSpacing: "0.5px",
-                                    },
-                                    input: {
-                                      borderRadius: "10px",
-                                      border: "2px solid #e2e8f0",
-                                      fontSize: "14px",
-                                      height: "48px",
-                                      paddingLeft: "40px",
-                                      transition:
-                                        "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                      backgroundColor: "#fafafa",
-                                      "&:focus": {
-                                        borderColor: "#3b82f6",
-                                        boxShadow:
-                                          "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                                        backgroundColor: "#ffffff",
-                                      },
-                                      "&:hover": {
-                                        borderColor: "#cbd5e1",
-                                        backgroundColor: "#ffffff",
-                                      },
-                                    },
-                                  }}
-                                />
-                              </SimpleGrid>
-
-                              {/* Dynamic VCDB Fields for Vehicle Search */}
-                              {vcdbFormFields.length > 0 && (
-                                <div style={{ marginTop: "24px" }}>
-                                  <Group
-                                    justify="space-between"
-                                    align="center"
-                                    mb="md"
-                                  >
-                                    <div>
-                                      <Title
-                                        order={4}
-                                        c="#1e293b"
-                                        fw={600}
-                                        mb="xs"
-                                      >
-                                        Additional Vehicle Search Fields
-                                      </Title>
-                                      <Text size="sm" c="#64748b">
-                                        Additional vehicle fields configured in
-                                        Settings for more precise filtering
-                                      </Text>
-                                    </div>
-                                    <Button
-                                      variant="outline"
-                                      size="xs"
-                                      leftSection={<IconRefresh size={14} />}
-                                      onClick={() => {
-                                        if (refreshVcdbFields) {
-                                          refreshVcdbFields();
-                                        }
-                                      }}
-                                      loading={vcdbFieldsLoading}
-                                      styles={{
-                                        root: {
-                                          borderRadius: "8px",
-                                          fontSize: "12px",
-                                          height: "32px",
-                                          padding: "0 12px",
-                                        },
-                                      }}
-                                    >
-                                      Refresh Fields
-                                    </Button>
-                                  </Group>
-
-                                  <SimpleGrid
-                                    cols={{ base: 1, sm: 2, lg: 3 }}
-                                    spacing="lg"
-                                  >
-                                    {vcdbFormFields.map((fieldConfig) => {
-                                      return (
-                                        fieldConfig.show_in_filters &&
-                                        fieldConfig.is_enabled &&
-                                        fieldConfig.reference_type ===
-                                          "vcdb" && (
-                                          <DynamicFormField
-                                            key={`search-${fieldConfig.id}`}
-                                            fieldConfig={fieldConfig}
-                                            value={
-                                              dynamicVcdbFields[
-                                                fieldConfig.name
-                                              ]
-                                            }
-                                            onChange={(value) =>
-                                              updateDynamicVcdbField(
-                                                fieldConfig.name,
-                                                value
-                                              )
-                                            }
-                                            data={getFieldData(fieldConfig)}
-                                            disabled={
-                                              loadingDropdownData ||
-                                              vcdbFieldsLoading ||
-                                              fieldConfig.requirement_level ===
-                                                "disabled"
-                                            }
-                                          />
-                                        )
-                                      );
-                                    })}
-                                  </SimpleGrid>
-                                </div>
-                              )}
-                            </div>
-
-                            <Group justify="space-between" mt="xl">
-                              <Button
-                                variant="outline"
-                                size="md"
-                                leftSection={<IconRefresh size={16} />}
-                                onClick={() => {
-                                  console.log("Clearing filters...");
-
-                                  // Clear all vehicle filters
-                                  setVehicleFilters({
-                                    yearFrom: "",
-                                    yearTo: "",
-                                    make: "",
-                                    model: "",
-                                    submodel: "",
-                                    fuelType: "",
-                                    numDoors: "",
-                                    driveType: "",
-                                    bodyType: "",
-                                  });
-
-                                  // Clear vehicle selection results
-                                  setFilteredVehicles([]);
-                                  setSelectedVehicles([]);
-
-                                  // Clear fitment details
-                                  setFitmentDetails({
-                                    partId: "",
-                                    position: "",
-                                    quantity: 1,
-                                    title: "",
-                                    description: "",
-                                    notes: "",
-                                    liftHeight: "",
-                                    wheelType: "",
-                                  });
-
-                                  // Clear wheel parameters
-                                  setWheelParameters([
-                                    {
-                                      tireDiameter: "",
-                                      wheelDiameter: "",
-                                      backspacing: "",
-                                    },
-                                    {
-                                      tireDiameter: "",
-                                      wheelDiameter: "",
-                                      backspacing: "",
-                                    },
-                                    {
-                                      tireDiameter: "",
-                                      wheelDiameter: "",
-                                      backspacing: "",
-                                    },
-                                  ]);
-
-                                  // Clear dynamic fields
-                                  setDynamicVcdbFields({});
-                                  setDynamicProductFields({});
-
-                                  // Reset to first step
-                                  setManualStep(1);
-
-                                  // Force form re-render
-                                  setFormKey((prev) => prev + 1);
-
-                                  console.log("Filters cleared!");
-                                }}
-                                styles={{
-                                  root: {
-                                    borderRadius: "10px",
-                                    fontWeight: 600,
-                                    fontSize: "14px",
-                                    height: "48px",
-                                    padding: "0 24px",
-                                    border: "2px solid #e2e8f0",
-                                    color: "#64748b",
-                                    transition:
-                                      "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                    "&:hover": {
-                                      borderColor: "#cbd5e1",
-                                      backgroundColor: "#f8fafc",
-                                      transform: "translateY(-1px)",
-                                    },
-                                  },
-                                }}
-                              >
-                                Clear Filters
-                              </Button>
-
-                              <Button
-                                size="md"
-                                leftSection={<IconSearch size={16} />}
-                                style={{
-                                  borderRadius: "10px",
-                                  fontWeight: 600,
-                                  fontSize: "14px",
-                                  height: "48px",
-                                  padding: "0 32px",
-                                  background:
-                                    "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-                                  border: "none",
-                                  transition:
-                                    "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                  boxShadow:
-                                    "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)",
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.transform =
-                                    "translateY(-2px)";
-                                  e.currentTarget.style.boxShadow =
-                                    "0 8px 25px -5px rgba(59, 130, 246, 0.3), 0 4px 6px -1px rgba(59, 130, 246, 0.1)";
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.transform =
-                                    "translateY(0)";
-                                  e.currentTarget.style.boxShadow =
-                                    "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)";
-                                }}
-                                onClick={async () => {
-                                  // Validate required fields
-                                  if (
-                                    !vehicleFilters.yearFrom ||
-                                    !vehicleFilters.yearTo
-                                  ) {
-                                    showError(
-                                      "Please select both 'Year From' and 'Year To' before searching for vehicles."
-                                    );
-                                    return;
-                                  }
-
-                                  // Validate year range
-                                  const yearFrom = parseInt(
-                                    vehicleFilters.yearFrom
-                                  );
-                                  const yearTo = parseInt(
-                                    vehicleFilters.yearTo
-                                  );
-
-                                  if (yearFrom >= yearTo) {
-                                    showError(
-                                      "Year To must be greater than Year From. Please select a valid year range."
-                                    );
-                                    return;
-                                  }
-
-                                  try {
-                                    // Combine standard vehicle filters with dynamic VCDB fields
-                                    const searchCriteria = {
-                                      ...vehicleFilters,
-                                      ...dynamicVcdbFields,
-                                    };
-
-                                    const result: any =
-                                      await fetchFilteredVehicles(() =>
-                                        fitmentUploadService.getFilteredVehicles(
-                                          sessionId || "",
-                                          searchCriteria
-                                        )
-                                      );
-
-                                    if (
-                                      result &&
-                                      result.data &&
-                                      result.data.vehicles
-                                    ) {
-                                      if (result.data.vehicles.length === 0) {
-                                        showError(
-                                          "No vehicles found matching your criteria. Please adjust your search filters and try again."
-                                        );
-                                        return;
-                                      }
-
-                                      setFilteredVehicles(result.data.vehicles);
-                                      setManualStep(2);
-                                      showSuccess(
-                                        `Found ${result.data.vehicles.length} vehicles`,
-                                        3000
-                                      );
-                                    } else {
-                                      showError("Failed to search vehicles");
-                                    }
-                                  } catch (error) {
-                                    console.error(
-                                      "Vehicle search error:",
-                                      error
-                                    );
-                                    showError("Failed to search vehicles");
-                                  }
-                                }}
-                                loading={false}
-                              >
-                                Search Vehicles
-                              </Button>
-                            </Group>
+                            </Stack>
                           </Stack>
-                        </div>
-                      </Stepper.Step>
+                        </Center>
+                      </Paper>
 
-                      <Stepper.Step
-                        label="Vehicle Selection"
-                        description="Choose specific vehicles"
-                        icon={<IconList size={18} />}
-                      >
-                        <div
-                          style={{
-                            marginTop: "20px",
-                            boxShadow: "none",
-                          }}
-                        >
+                      {/* Processing Progress */}
+                      {processingAiFitment && (
+                        <Card withBorder p="lg">
                           <Stack gap="md">
                             <Group justify="space-between">
-                              <Text size="lg" fw={600} c="#1e293b">
-                                Step 2: Select Vehicles (
-                                {filteredVehicles.length} found)
+                              <Text fw={600} size="sm">
+                                Processing AI Fitments...
                               </Text>
-                              <Group gap="sm">
-                                <Button
-                                  variant="light"
-                                  size="sm"
-                                  onClick={() =>
-                                    setSelectedVehicles(
-                                      filteredVehicles.map((v: any) => v.id)
-                                    )
-                                  }
-                                >
-                                  Select All
-                                </Button>
-                                <Button
-                                  variant="light"
-                                  size="sm"
-                                  onClick={() => setSelectedVehicles([])}
-                                >
-                                  Clear All
-                                </Button>
-                              </Group>
+                              <Badge color="blue" variant="light">
+                                {Math.round(aiProgress)}%
+                              </Badge>
                             </Group>
-
-                            <ScrollArea h={400}>
+                            <Progress value={aiProgress} size="lg" animated />
+                            <ScrollArea h={200}>
                               <Stack gap="xs">
-                                {filteredVehicles.map((vehicle) => (
-                                  <Card
-                                    key={vehicle.id}
-                                    p="md"
+                                {aiLogs.map((log, index) => (
+                                  <Text
+                                    key={index}
+                                    size="sm"
+                                    c="#374151"
                                     style={{
-                                      background: selectedVehicles.includes(
-                                        vehicle.id
-                                      )
-                                        ? "#eff6ff"
-                                        : "#ffffff",
-                                      border: selectedVehicles.includes(
-                                        vehicle.id
-                                      )
-                                        ? "2px solid #3b82f6"
-                                        : "1px solid #e2e8f0",
-                                      borderRadius: "8px",
-                                      cursor: "pointer",
-                                    }}
-                                    onClick={() => {
-                                      const vehicleId = vehicle.id;
-                                      setSelectedVehicles((prev) =>
-                                        prev.includes(vehicleId)
-                                          ? prev.filter(
-                                              (id) => id !== vehicleId
-                                            )
-                                          : [...prev, vehicleId]
-                                      );
+                                      fontFamily: "monospace",
+                                      background: "#f8fafc",
+                                      padding: "8px 12px",
+                                      borderRadius: "6px",
+                                      border: "1px solid #e2e8f0",
                                     }}
                                   >
-                                    <Group gap={40}>
-                                      <Checkbox
-                                        checked={selectedVehicles.includes(
-                                          vehicle.id
-                                        )}
-                                        onChange={() => {}}
-                                      />
-                                      <div>
-                                        <Text fw={600} size="sm" c="#1e293b">
-                                          {vehicle.year} {vehicle.make}{" "}
-                                          {vehicle.model}
-                                        </Text>
-                                        <Text size="xs" c="#64748b">
-                                          {vehicle.submodel} •{" "}
-                                          {vehicle.driveType} •{" "}
-                                          {vehicle.fuelType} •{" "}
-                                          {vehicle.bodyType}
-                                        </Text>
-                                      </div>
-                                    </Group>
-                                  </Card>
+                                    {log}
+                                  </Text>
                                 ))}
                               </Stack>
                             </ScrollArea>
-
-                            <Group justify="space-between" mt="lg">
-                              <Button
-                                variant="outline"
-                                size="md"
-                                leftSection={<IconArrowLeft size={16} />}
-                                onClick={() => setManualStep(1)}
-                                styles={{
-                                  root: {
-                                    borderRadius: "10px",
-                                    fontWeight: 600,
-                                    fontSize: "14px",
-                                    height: "48px",
-                                    padding: "0 24px",
-                                    border: "2px solid #e2e8f0",
-                                    color: "#64748b",
-                                    transition:
-                                      "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                    "&:hover": {
-                                      borderColor: "#cbd5e1",
-                                      backgroundColor: "#f8fafc",
-                                      transform: "translateY(-1px)",
-                                    },
-                                  },
-                                }}
-                              >
-                                Back
-                              </Button>
-                              <Button
-                                onClick={() => setManualStep(3)}
-                                disabled={selectedVehicles.length === 0}
-                                style={{
-                                  background:
-                                    "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                                  border: "none",
-                                }}
-                              >
-                                Continue ({selectedVehicles.length} selected)
-                              </Button>
-                            </Group>
                           </Stack>
-                        </div>
-                      </Stepper.Step>
+                        </Card>
+                      )}
 
-                      <Stepper.Step
-                        label="Fitment Details"
-                        description="Configure fitment settings"
-                        icon={<IconSettings size={18} />}
-                      >
-                        <div>
-                          <Stack gap="xl">
-                            <div>
-                              <Title order={3} c="#1e293b" fw={700} mb="xs">
-                                Fitment Details
-                              </Title>
-                              <Text size="sm" c="#64748b">
-                                Configure the specific details for your fitment
-                                application
-                              </Text>
-                            </div>
+                      {/* Upload Button */}
+                      <Center>
+                        <Button
+                          size="lg"
+                          leftSection={<IconBrain size={20} />}
+                          onClick={handleUploadProductForAi}
+                          loading={uploadingProduct}
+                          disabled={!productFile || uploadingProduct}
+                        >
+                          Generate AI Fitments from Upload
+                        </Button>
+                      </Center>
+                    </Stack>
+                  </Tabs.Panel>
 
-                            <div>
-                              {/* Core Fitment Fields */}
-                              <div style={{ marginBottom: "32px" }}>
-                                <Text fw={600} size="md" c="#1e293b" mb="md">
-                                  Core Fitment Information
-                                </Text>
-                                <SimpleGrid
-                                  cols={{ base: 1, sm: 2, lg: 3 }}
-                                  spacing="lg"
-                                >
-                                  <Select
-                                    label="Part Type"
-                                    placeholder={
-                                      loadingDropdownData
-                                        ? "Loading parts..."
-                                        : "Select a part"
-                                    }
-                                    data={dropdownData?.parts || []}
-                                    value={fitmentDetails.partId}
-                                    onChange={(value) =>
-                                      setFitmentDetails((prev) => ({
-                                        ...prev,
-                                        partId: value || "",
-                                      }))
-                                    }
-                                    searchable
-                                    disabled={loadingDropdownData}
-                                    required
-                                    leftSection={
-                                      <IconPackage size={16} color="#64748b" />
-                                    }
-                                    styles={{
-                                      label: {
-                                        fontWeight: 600,
-                                        fontSize: "13px",
-                                        color: "#374151",
-                                        marginBottom: "8px",
-                                        textTransform: "uppercase",
-                                        letterSpacing: "0.5px",
-                                      },
-                                      input: {
-                                        borderRadius: "10px",
-                                        border: "2px solid #e2e8f0",
-                                        fontSize: "14px",
-                                        height: "48px",
-                                        paddingLeft: "40px",
-                                        transition:
-                                          "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                        backgroundColor: "#fafafa",
-                                        "&:focus": {
-                                          borderColor: "#3b82f6",
-                                          boxShadow:
-                                            "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                                          backgroundColor: "#ffffff",
-                                        },
-                                        "&:hover": {
-                                          borderColor: "#cbd5e1",
-                                          backgroundColor: "#ffffff",
-                                        },
-                                      },
-                                    }}
-                                  />
-                                  <Select
-                                    label="Position"
-                                    placeholder="Select position"
-                                    data={dropdownData?.positions || []}
-                                    value={fitmentDetails.position}
-                                    onChange={(value) =>
-                                      setFitmentDetails((prev) => ({
-                                        ...prev,
-                                        position: value || "",
-                                      }))
-                                    }
-                                    searchable
-                                    disabled={loadingDropdownData}
-                                    required
-                                    leftSection={
-                                      <IconMapPin size={16} color="#64748b" />
-                                    }
-                                    styles={{
-                                      label: {
-                                        fontWeight: 600,
-                                        fontSize: "13px",
-                                        color: "#374151",
-                                        marginBottom: "8px",
-                                        textTransform: "uppercase",
-                                        letterSpacing: "0.5px",
-                                      },
-                                      input: {
-                                        borderRadius: "10px",
-                                        border: "2px solid #e2e8f0",
-                                        fontSize: "14px",
-                                        height: "48px",
-                                        paddingLeft: "40px",
-                                        transition:
-                                          "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                        backgroundColor: "#fafafa",
-                                        "&:focus": {
-                                          borderColor: "#3b82f6",
-                                          boxShadow:
-                                            "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                                          backgroundColor: "#ffffff",
-                                        },
-                                        "&:hover": {
-                                          borderColor: "#cbd5e1",
-                                          backgroundColor: "#ffffff",
-                                        },
-                                      },
-                                    }}
-                                  />
-                                  <NumberInput
-                                    label="Quantity"
-                                    placeholder="1"
-                                    min={1}
-                                    value={fitmentDetails.quantity}
-                                    onChange={(value) =>
-                                      setFitmentDetails((prev) => ({
-                                        ...prev,
-                                        quantity: Number(value) || 1,
-                                      }))
-                                    }
-                                    leftSection={
-                                      <IconHash size={16} color="#64748b" />
-                                    }
-                                    styles={{
-                                      label: {
-                                        fontWeight: 600,
-                                        fontSize: "13px",
-                                        color: "#374151",
-                                        marginBottom: "8px",
-                                        textTransform: "uppercase",
-                                        letterSpacing: "0.5px",
-                                      },
-                                      input: {
-                                        borderRadius: "10px",
-                                        border: "2px solid #e2e8f0",
-                                        fontSize: "14px",
-                                        height: "48px",
-                                        paddingLeft: "40px",
-                                        transition:
-                                          "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                        backgroundColor: "#fafafa",
-                                        "&:focus": {
-                                          borderColor: "#3b82f6",
-                                          boxShadow:
-                                            "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                                          backgroundColor: "#ffffff",
-                                        },
-                                        "&:hover": {
-                                          borderColor: "#cbd5e1",
-                                          backgroundColor: "#ffffff",
-                                        },
-                                      },
-                                    }}
-                                  />
-                                </SimpleGrid>
-                              </div>
+                  {/* Select Products Tab */}
+                  <Tabs.Panel value="selection">
+                    <Stack gap="lg">
+                      <div>
+                        <Title order={3} c="#1e293b" fw={600} mb="xs">
+                          Select Products for AI Fitments
+                        </Title>
+                        <Text size="sm" c="#64748b">
+                          Choose specific products to generate AI fitments
+                        </Text>
+                      </div>
 
-                              {/* Optional Configuration Fields */}
-                              <div style={{ marginBottom: "32px" }}>
-                                <Text fw={600} size="md" c="#1e293b" mb="md">
-                                  Optional Configuration
-                                </Text>
-                                <SimpleGrid
-                                  cols={{ base: 1, sm: 2, lg: 3 }}
-                                  spacing="lg"
-                                >
-                                  <Select
-                                    label="Lift Height"
-                                    placeholder="Select lift height"
-                                    data={
-                                      lookupData?.lift_heights?.map(
-                                        (item: any) => ({
-                                          value: item.value,
-                                          label: item.value,
-                                        })
-                                      ) || []
-                                    }
-                                    value={fitmentDetails.liftHeight}
-                                    onChange={(value) =>
-                                      setFitmentDetails((prev) => ({
-                                        ...prev,
-                                        liftHeight: value || "",
-                                      }))
-                                    }
-                                    searchable
-                                    disabled={loadingDropdownData}
-                                    leftSection={
-                                      <IconCar size={16} color="#64748b" />
-                                    }
-                                    styles={{
-                                      label: {
-                                        fontWeight: 600,
-                                        fontSize: "13px",
-                                        color: "#374151",
-                                        marginBottom: "8px",
-                                        textTransform: "uppercase",
-                                        letterSpacing: "0.5px",
-                                      },
-                                      input: {
-                                        borderRadius: "10px",
-                                        border: "2px solid #e2e8f0",
-                                        fontSize: "14px",
-                                        height: "48px",
-                                        paddingLeft: "40px",
-                                        transition:
-                                          "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                        backgroundColor: "#fafafa",
-                                        "&:focus": {
-                                          borderColor: "#3b82f6",
-                                          boxShadow:
-                                            "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                                          backgroundColor: "#ffffff",
-                                        },
-                                        "&:hover": {
-                                          borderColor: "#cbd5e1",
-                                          backgroundColor: "#ffffff",
-                                        },
-                                      },
-                                    }}
-                                  />
-                                  <Select
-                                    label="Wheel Type"
-                                    placeholder="Select wheel type"
-                                    data={
-                                      lookupData?.wheel_types?.map(
-                                        (item: any) => ({
-                                          value: item.value,
-                                          label: item.value,
-                                        })
-                                      ) || []
-                                    }
-                                    value={fitmentDetails.wheelType}
-                                    onChange={(value) =>
-                                      setFitmentDetails((prev) => ({
-                                        ...prev,
-                                        wheelType: value || "",
-                                      }))
-                                    }
-                                    searchable
-                                    disabled={loadingDropdownData}
-                                    leftSection={
-                                      <IconCar size={16} color="#64748b" />
-                                    }
-                                    styles={{
-                                      label: {
-                                        fontWeight: 600,
-                                        fontSize: "13px",
-                                        color: "#374151",
-                                        marginBottom: "8px",
-                                        textTransform: "uppercase",
-                                        letterSpacing: "0.5px",
-                                      },
-                                      input: {
-                                        borderRadius: "10px",
-                                        border: "2px solid #e2e8f0",
-                                        fontSize: "14px",
-                                        height: "48px",
-                                        paddingLeft: "40px",
-                                        transition:
-                                          "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                        backgroundColor: "#fafafa",
-                                        "&:focus": {
-                                          borderColor: "#3b82f6",
-                                          boxShadow:
-                                            "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                                          backgroundColor: "#ffffff",
-                                        },
-                                        "&:hover": {
-                                          borderColor: "#cbd5e1",
-                                          backgroundColor: "#ffffff",
-                                        },
-                                      },
-                                    }}
-                                  />
-                                </SimpleGrid>
-                              </div>
+                      {/* Search Bar */}
+                      <TextInput
+                        placeholder="Search products by ID, description, or category..."
+                        leftSection={<IconSearch size={16} />}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.currentTarget.value)}
+                      />
 
-                              {/* Fitment Details Section */}
-                              <div style={{ marginBottom: "32px" }}>
-                                <Text fw={600} size="md" c="#1e293b" mb="md">
-                                  Fitment Details
-                                </Text>
-                                <Stack gap="lg">
-                                  <TextInput
-                                    label="Fitment Title"
-                                    placeholder="Enter fitment title"
-                                    value={fitmentDetails.title}
-                                    onChange={(e) =>
-                                      setFitmentDetails((prev) => ({
-                                        ...prev,
-                                        title: e.target.value,
-                                      }))
+                      {/* Products Table */}
+                      <Card withBorder>
+                        <Group justify="space-between" mb="md">
+                          <Text fw={600} size="sm">
+                            Available Products ({filteredProducts.length})
+                          </Text>
+                          <Group gap="xs">
+                            <Button
+                              variant="light"
+                              size="xs"
+                              onClick={() =>
+                                setSelectedProducts(
+                                  filteredProducts.map((p: any) => p.id)
+                                )
+                              }
+                            >
+                              Select All
+                            </Button>
+                            <Button
+                              variant="light"
+                              size="xs"
+                              onClick={() => setSelectedProducts([])}
+                            >
+                              Clear All
+                            </Button>
+                          </Group>
+                        </Group>
+
+                        <ScrollArea h={400}>
+                          <Table striped highlightOnHover>
+                            <Table.Thead>
+                              <Table.Tr>
+                                <Table.Th style={{ width: "50px" }}>
+                                  <Checkbox
+                                    checked={
+                                      selectedProducts.length ===
+                                        filteredProducts.length &&
+                                      filteredProducts.length > 0
                                     }
-                                    required
-                                    leftSection={
-                                      <IconFileText size={16} color="#64748b" />
+                                    indeterminate={
+                                      selectedProducts.length > 0 &&
+                                      selectedProducts.length <
+                                        filteredProducts.length
                                     }
-                                    styles={{
-                                      label: {
-                                        fontWeight: 600,
-                                        fontSize: "13px",
-                                        color: "#374151",
-                                        marginBottom: "8px",
-                                        textTransform: "uppercase",
-                                        letterSpacing: "0.5px",
-                                      },
-                                      input: {
-                                        borderRadius: "10px",
-                                        border: "2px solid #e2e8f0",
-                                        fontSize: "14px",
-                                        height: "48px",
-                                        paddingLeft: "40px",
-                                        transition:
-                                          "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                        backgroundColor: "#fafafa",
-                                        "&:focus": {
-                                          borderColor: "#3b82f6",
-                                          boxShadow:
-                                            "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                                          backgroundColor: "#ffffff",
-                                        },
-                                        "&:hover": {
-                                          borderColor: "#cbd5e1",
-                                          backgroundColor: "#ffffff",
-                                        },
-                                      },
+                                    onChange={(event) => {
+                                      if (event.currentTarget.checked) {
+                                        setSelectedProducts(
+                                          filteredProducts.map((p: any) => p.id)
+                                        );
+                                      } else {
+                                        setSelectedProducts([]);
+                                      }
                                     }}
                                   />
-
-                                  <Textarea
-                                    label="Description"
-                                    placeholder="Enter fitment description"
-                                    rows={3}
-                                    value={fitmentDetails.description}
-                                    onChange={(e) =>
-                                      setFitmentDetails((prev) => ({
-                                        ...prev,
-                                        description: e.target.value,
-                                      }))
-                                    }
-                                    styles={{
-                                      label: {
-                                        fontWeight: 600,
-                                        fontSize: "13px",
-                                        color: "#374151",
-                                        marginBottom: "8px",
-                                        textTransform: "uppercase",
-                                        letterSpacing: "0.5px",
-                                      },
-                                      input: {
-                                        borderRadius: "10px",
-                                        border: "2px solid #e2e8f0",
-                                        fontSize: "14px",
-                                        padding: "12px 16px",
-                                        transition:
-                                          "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                        backgroundColor: "#fafafa",
-                                        "&:focus": {
-                                          borderColor: "#3b82f6",
-                                          boxShadow:
-                                            "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                                          backgroundColor: "#ffffff",
-                                        },
-                                        "&:hover": {
-                                          borderColor: "#cbd5e1",
-                                          backgroundColor: "#ffffff",
-                                        },
-                                      },
-                                    }}
-                                  />
-
-                                  <Textarea
-                                    label="Notes (Optional)"
-                                    placeholder="Additional notes or installation instructions"
-                                    rows={2}
-                                    value={fitmentDetails.notes}
-                                    onChange={(e) =>
-                                      setFitmentDetails((prev) => ({
-                                        ...prev,
-                                        notes: e.target.value,
-                                      }))
-                                    }
-                                    styles={{
-                                      label: {
-                                        fontWeight: 600,
-                                        fontSize: "13px",
-                                        color: "#374151",
-                                        marginBottom: "8px",
-                                        textTransform: "uppercase",
-                                        letterSpacing: "0.5px",
-                                      },
-                                      input: {
-                                        borderRadius: "10px",
-                                        border: "2px solid #e2e8f0",
-                                        fontSize: "14px",
-                                        padding: "12px 16px",
-                                        transition:
-                                          "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                        backgroundColor: "#fafafa",
-                                        "&:focus": {
-                                          borderColor: "#3b82f6",
-                                          boxShadow:
-                                            "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                                          backgroundColor: "#ffffff",
-                                        },
-                                        "&:hover": {
-                                          borderColor: "#cbd5e1",
-                                          backgroundColor: "#ffffff",
-                                        },
-                                      },
-                                    }}
-                                  />
-                                </Stack>
-                              </div>
-
-                              {/* Dynamic Product Fields */}
-                              {productFormFields.length > 0 && (
-                                <div style={{ marginTop: "24px" }}>
-                                  <Group
-                                    justify="space-between"
-                                    align="center"
-                                    mb="md"
-                                  >
-                                    <div>
-                                      <Title
-                                        order={4}
-                                        c="#1e293b"
-                                        fw={600}
-                                        mb="xs"
-                                      >
-                                        Product Configuration Fields
-                                      </Title>
-                                      <Text size="sm" c="#64748b">
-                                        Additional product configuration fields
-                                        configured in Settings
-                                      </Text>
-                                    </div>
-                                    <Button
-                                      variant="outline"
-                                      size="xs"
-                                      leftSection={<IconRefresh size={14} />}
-                                      onClick={() => {
-                                        if (refreshProductFields) {
-                                          refreshProductFields();
+                                </Table.Th>
+                                <Table.Th>Product ID</Table.Th>
+                                <Table.Th>Description</Table.Th>
+                                <Table.Th>Category</Table.Th>
+                              </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                              {filteredProducts.map((product: any) => (
+                                <Table.Tr key={product.id}>
+                                  <Table.Td>
+                                    <Checkbox
+                                      checked={selectedProducts.includes(
+                                        product.id
+                                      )}
+                                      onChange={(event) => {
+                                        if (event.currentTarget.checked) {
+                                          setSelectedProducts((prev) => [
+                                            ...prev,
+                                            product.id,
+                                          ]);
+                                        } else {
+                                          setSelectedProducts((prev) =>
+                                            prev.filter(
+                                              (id) => id !== product.id
+                                            )
+                                          );
                                         }
                                       }}
-                                      loading={productFieldsLoading}
-                                      styles={{
-                                        root: {
-                                          borderRadius: "8px",
-                                          fontSize: "12px",
-                                          height: "32px",
-                                          padding: "0 12px",
-                                        },
-                                      }}
-                                    >
-                                      Refresh Fields
-                                    </Button>
-                                  </Group>
+                                    />
+                                  </Table.Td>
+                                  <Table.Td>
+                                    <Text size="sm" fw={600} c="#3b82f6">
+                                      {product.id}
+                                    </Text>
+                                  </Table.Td>
+                                  <Table.Td>
+                                    <Text size="sm">
+                                      {product.description || "N/A"}
+                                    </Text>
+                                  </Table.Td>
+                                  <Table.Td>
+                                    <Badge variant="light" size="sm">
+                                      {product.category || "Uncategorized"}
+                                    </Badge>
+                                  </Table.Td>
+                                </Table.Tr>
+                              ))}
+                            </Table.Tbody>
+                          </Table>
+                        </ScrollArea>
+                      </Card>
 
-                                  <SimpleGrid
-                                    cols={{ base: 1, sm: 2 }}
-                                    spacing="lg"
-                                  >
-                                    {productFormFields.map((fieldConfig) => {
-                                      return (
-                                        fieldConfig.show_in_forms &&
-                                        fieldConfig.is_enabled &&
-                                        fieldConfig.reference_type ===
-                                          "product" && (
-                                          <DynamicFormField
-                                            key={fieldConfig.id}
-                                            fieldConfig={fieldConfig}
-                                            value={
-                                              dynamicProductFields[
-                                                fieldConfig.name
-                                              ]
-                                            }
-                                            onChange={(value) =>
-                                              updateDynamicProductField(
-                                                fieldConfig.name,
-                                                value
-                                              )
-                                            }
-                                            data={getFieldData(fieldConfig)}
-                                            disabled={
-                                              loadingDropdownData ||
-                                              productFieldsLoading ||
-                                              fieldConfig.requirement_level ===
-                                                "disabled"
-                                            }
-                                          />
-                                        )
-                                      );
-                                    })}
-                                  </SimpleGrid>
-                                </div>
-                              )}
-
-                              {/* Wheel Parameters Section */}
-                              <div style={{ marginTop: "24px" }}>
-                                <Title order={4} c="#1e293b" fw={600} mb="md">
-                                  Wheel Parameters
-                                </Title>
-                                <Text size="sm" c="#64748b" mb="lg">
-                                  Configure tire diameter, wheel diameter, and
-                                  backspacing for each wheel position
-                                </Text>
-
-                                <SimpleGrid cols={3} spacing="lg">
-                                  {wheelParameters.map((param, index) => (
-                                    <Card
-                                      key={index}
-                                      withBorder
-                                      p="md"
-                                      style={{ backgroundColor: "#f8fafc" }}
-                                    >
-                                      <Stack gap="sm">
-                                        <Text size="sm" fw={600} c="#374151">
-                                          Position {index + 1}
-                                        </Text>
-
-                                        <Select
-                                          label="Tire Diameter"
-                                          placeholder="Select diameter"
-                                          data={
-                                            lookupData?.tire_diameters?.map(
-                                              (item: any) => ({
-                                                value: item.value,
-                                                label: item.value,
-                                              })
-                                            ) || []
-                                          }
-                                          value={param.tireDiameter}
-                                          onChange={(value) => {
-                                            const newParams = [
-                                              ...wheelParameters,
-                                            ];
-                                            newParams[index].tireDiameter =
-                                              value || "";
-                                            setWheelParameters(newParams);
-                                          }}
-                                          searchable
-                                          disabled={loadingDropdownData}
-                                          size="sm"
-                                        />
-
-                                        <Select
-                                          label="Wheel Diameter"
-                                          placeholder="Select diameter"
-                                          data={
-                                            lookupData?.wheel_diameters?.map(
-                                              (item: any) => ({
-                                                value: item.value,
-                                                label: item.value,
-                                              })
-                                            ) || []
-                                          }
-                                          value={param.wheelDiameter}
-                                          onChange={(value) => {
-                                            const newParams = [
-                                              ...wheelParameters,
-                                            ];
-                                            newParams[index].wheelDiameter =
-                                              value || "";
-                                            setWheelParameters(newParams);
-                                          }}
-                                          searchable
-                                          disabled={loadingDropdownData}
-                                          size="sm"
-                                        />
-
-                                        <Select
-                                          label="Backspacing"
-                                          placeholder="Select backspacing"
-                                          data={
-                                            lookupData?.backspacing?.map(
-                                              (item: any) => ({
-                                                value: item.value,
-                                                label: item.value,
-                                              })
-                                            ) || []
-                                          }
-                                          value={param.backspacing}
-                                          onChange={(value) => {
-                                            const newParams = [
-                                              ...wheelParameters,
-                                            ];
-                                            newParams[index].backspacing =
-                                              value || "";
-                                            setWheelParameters(newParams);
-                                          }}
-                                          searchable
-                                          disabled={loadingDropdownData}
-                                          size="sm"
-                                        />
-                                      </Stack>
-                                    </Card>
-                                  ))}
-                                </SimpleGrid>
-                              </div>
-                            </div>
-
-                            <Group justify="space-between" mt="xl">
-                              <Button
-                                variant="outline"
-                                size="md"
-                                leftSection={<IconArrowLeft size={16} />}
-                                onClick={() => setManualStep(2)}
-                                styles={{
-                                  root: {
-                                    borderRadius: "10px",
-                                    fontWeight: 600,
-                                    fontSize: "14px",
-                                    height: "48px",
-                                    padding: "0 24px",
-                                    border: "2px solid #e2e8f0",
-                                    color: "#64748b",
-                                    transition:
-                                      "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                    "&:hover": {
-                                      borderColor: "#cbd5e1",
-                                      backgroundColor: "#f8fafc",
-                                      transform: "translateY(-1px)",
-                                    },
-                                  },
-                                }}
-                              >
-                                Back
-                              </Button>
-
-                              <Button
-                                size="md"
-                                leftSection={<IconSettings size={16} />}
-                                onClick={async () => {
-                                  if (!sessionId) {
-                                    showError("Session not found");
-                                    return;
-                                  }
-
-                                  if (!fitmentDetails.partId) {
-                                    showError("Please select a part type");
-                                    return;
-                                  }
-
-                                  if (!fitmentDetails.position) {
-                                    showError("Please select a position");
-                                    return;
-                                  }
-
-                                  if (!fitmentDetails.title) {
-                                    showError("Please enter a fitment title");
-                                    return;
-                                  }
-
-                                  // Validate required dynamic fields
-                                  const requiredVcdbFields =
-                                    vcdbFormFields.filter(
-                                      (field) =>
-                                        field.requirement_level ===
-                                          "required" &&
-                                        field.is_enabled &&
-                                        field.show_in_filters
-                                    );
-
-                                  const requiredProductFields =
-                                    productFormFields.filter(
-                                      (field) =>
-                                        field.requirement_level ===
-                                          "required" &&
-                                        field.is_enabled &&
-                                        field.show_in_forms
-                                    );
-
-                                  for (const field of requiredVcdbFields) {
-                                    if (!dynamicVcdbFields[field.name]) {
-                                      showError(
-                                        `Please fill in the required field: ${field.display_name}`
-                                      );
-                                      return;
-                                    }
-                                  }
-
-                                  for (const field of requiredProductFields) {
-                                    if (!dynamicProductFields[field.name]) {
-                                      showError(
-                                        `Please fill in the required field: ${field.display_name}`
-                                      );
-                                      return;
-                                    }
-                                  }
-
-                                  if (selectedVehicles.length === 0) {
-                                    showError(
-                                      "Please select at least one vehicle"
-                                    );
-                                    return;
-                                  }
-
-                                  setApplyingManualFitment(true);
-                                  try {
-                                    // Create fitments for each selected vehicle
-                                    const fitmentsData = selectedVehicles.map(
-                                      (vehicleId) => {
-                                        const vehicle = filteredVehicles.find(
-                                          (v) => v.id === vehicleId
-                                        );
-                                        return {
-                                          partId: fitmentDetails.partId,
-                                          title: fitmentDetails.title,
-                                          description:
-                                            fitmentDetails.description,
-                                          notes: fitmentDetails.notes,
-                                          quantity: fitmentDetails.quantity,
-                                          position: fitmentDetails.position,
-                                          liftHeight: fitmentDetails.liftHeight,
-                                          wheelType: fitmentDetails.wheelType,
-                                          fitmentType: "manual_fitment",
-                                          // Tenant ID for multi-tenant support
-                                          tenantId: currentEntity?.id || null,
-                                          // Vehicle data
-                                          year: vehicle?.year || 0,
-                                          make: vehicle?.make || "",
-                                          model: vehicle?.model || "",
-                                          submodel: vehicle?.submodel || "",
-                                          driveType: vehicle?.driveType || "",
-                                          fuelType: vehicle?.fuelType || "",
-                                          numDoors: vehicle?.numDoors || 0,
-                                          bodyType: vehicle?.bodyType || "",
-                                          baseVehicleId: vehicleId,
-                                          partTypeId: fitmentDetails.partId,
-                                          partTypeDescriptor:
-                                            fitmentDetails.title,
-                                          positionId: 0,
-                                          // Dynamic VCDB fields
-                                          ...dynamicVcdbFields,
-                                          // Dynamic Product fields
-                                          ...dynamicProductFields,
-                                        };
-                                      }
-                                    );
-
-                                    const result: any = await createFitment(
-                                      () =>
-                                        dataUploadService.createFitment(
-                                          fitmentsData
-                                        )
-                                    );
-
-                                    if (result && result.data) {
-                                      showSuccess(
-                                        `Successfully created ${result.data.created} fitments!`,
-                                        5000
-                                      );
-                                      handleBackToMethodSelection();
-                                    } else {
-                                      showError("Failed to create fitments");
-                                    }
-                                  } catch (error) {
-                                    console.error(
-                                      "Create fitment error:",
-                                      error
-                                    );
-                                    showError("Failed to create fitments");
-                                  } finally {
-                                    setApplyingManualFitment(false);
-                                  }
-                                }}
-                                loading={applyingManualFitment}
-                                disabled={
-                                  !fitmentDetails.partId ||
-                                  !fitmentDetails.position ||
-                                  !fitmentDetails.title ||
-                                  selectedVehicles.length === 0
-                                }
-                                style={{
-                                  borderRadius: "10px",
-                                  fontWeight: 600,
-                                  fontSize: "14px",
-                                  height: "48px",
-                                  padding: "0 32px",
-                                  background:
-                                    "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-                                  border: "none",
-                                  transition:
-                                    "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                                  boxShadow:
-                                    "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)",
-                                }}
-                                onMouseEnter={(e) => {
-                                  if (!e.currentTarget.disabled) {
-                                    e.currentTarget.style.transform =
-                                      "translateY(-2px)";
-                                    e.currentTarget.style.boxShadow =
-                                      "0 8px 25px -5px rgba(59, 130, 246, 0.3), 0 4px 6px -1px rgba(59, 130, 246, 0.1)";
-                                  }
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.transform =
-                                    "translateY(0)";
-                                  e.currentTarget.style.boxShadow =
-                                    "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)";
-                                }}
-                              >
-                                Apply Fitment
-                              </Button>
+                      {/* Processing Progress */}
+                      {processingAiFitment && (
+                        <Card withBorder p="lg">
+                          <Stack gap="md">
+                            <Group justify="space-between">
+                              <Text fw={600} size="sm">
+                                Processing AI Fitments...
+                              </Text>
+                              <Badge color="blue" variant="light">
+                                {Math.round(aiProgress)}%
+                              </Badge>
                             </Group>
+                            <Progress value={aiProgress} size="lg" animated />
+                            <ScrollArea h={200}>
+                              <Stack gap="xs">
+                                {aiLogs.map((log, index) => (
+                                  <Text
+                                    key={index}
+                                    size="sm"
+                                    c="#374151"
+                                    style={{
+                                      fontFamily: "monospace",
+                                      background: "#f8fafc",
+                                      padding: "8px 12px",
+                                      borderRadius: "6px",
+                                      border: "1px solid #e2e8f0",
+                                    }}
+                                  >
+                                    {log}
+                                  </Text>
+                                ))}
+                              </Stack>
+                            </ScrollArea>
                           </Stack>
-                        </div>
-                      </Stepper.Step>
-                    </Stepper>
-                  </Stack>
-                </Card>
-              )}
-            </div>
-          )}
-        </Transition>
+                        </Card>
+                      )}
 
-        {/* Step 3: AI Method Page */}
-        <Transition
-          mounted={currentStep === 3}
-          transition="fade"
-          duration={400}
-          timingFunction="ease"
-        >
-          {(styles) => (
-            <div style={styles}>
-              {currentStep === 3 &&
-                !aiProcessing &&
-                aiFitments.length === 0 && (
-                  <Card
-                    style={{
-                      background: "#ffffff",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "12px",
-                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                    }}
-                    p="xl"
-                  >
-                    <Stack gap="xl">
-                      {/* Back Button */}
-                      <Group>
+                      {/* Generate Button */}
+                      <Center>
                         <Button
-                          variant="subtle"
-                          leftSection={<IconArrowLeft size={16} />}
-                          onClick={handleBackToMethodSelection}
-                          style={{
-                            color: "#64748b",
-                            fontWeight: 500,
-                          }}
+                          size="lg"
+                          leftSection={<IconBrain size={20} />}
+                          onClick={handleSelectProductsForAi}
+                          loading={processingAiFitment}
+                          disabled={
+                            selectedProducts.length === 0 || processingAiFitment
+                          }
                         >
-                          Back to Method Selection
+                          Generate AI Fitments ({selectedProducts.length}{" "}
+                          products)
+                        </Button>
+                      </Center>
+                    </Stack>
+                  </Tabs.Panel>
+
+                  {/* AI Jobs & Progress Tab */}
+                  <Tabs.Panel value="jobs">
+                    <Stack gap="lg">
+                      <Group justify="space-between">
+                        <div>
+                          <Title order={3} c="#1e293b" fw={600} mb="xs">
+                            AI Fitment Jobs
+                          </Title>
+                          <Text size="sm" c="#64748b">
+                            Track and review your AI fitment generation jobs
+                          </Text>
+                        </div>
+                        <Button
+                          variant="light"
+                          size="sm"
+                          leftSection={<IconRefresh size={14} />}
+                          onClick={() => refetchJobs()}
+                        >
+                          Refresh
                         </Button>
                       </Group>
 
-                      <div>
-                        <Title order={2} c="#1e293b" fw={600}>
-                          AI Fitment Generation
-                        </Title>
-                        <Text size="sm" c="#64748b" mb="lg">
-                          Let our AI automatically generate optimal fitments
-                          based on your VCDB and Product data
-                        </Text>
-
-                        {/* Generate Fitment Button */}
-                        <div style={{ textAlign: "center", marginTop: "40px" }}>
-                          <Button
-                            size="xl"
-                            leftSection={<IconBrain size={24} />}
-                            onClick={handleDirectAiFitment}
-                            loading={aiProcessing}
-                            disabled={aiProcessing}
-                            style={{
-                              borderRadius: "12px",
-                              fontWeight: 700,
-                              fontSize: "18px",
-                              height: "60px",
-                              padding: "0 48px",
-                              background:
-                                "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-                              border: "none",
-                              transition:
-                                "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                              boxShadow:
-                                "0 8px 25px -5px rgba(99, 102, 241, 0.3), 0 4px 6px -1px rgba(99, 102, 241, 0.1)",
-                            }}
-                            onMouseEnter={(e) => {
-                              if (!e.currentTarget.disabled) {
-                                e.currentTarget.style.transform =
-                                  "translateY(-3px)";
-                                e.currentTarget.style.boxShadow =
-                                  "0 12px 35px -5px rgba(99, 102, 241, 0.4), 0 8px 10px -1px rgba(99, 102, 241, 0.1)";
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.transform = "translateY(0)";
-                              e.currentTarget.style.boxShadow =
-                                "0 8px 25px -5px rgba(99, 102, 241, 0.3), 0 4px 6px -1px rgba(99, 102, 241, 0.1)";
-                            }}
-                          >
-                            {aiProcessing
-                              ? "Generating Fitments..."
-                              : "Generate AI Fitments"}
-                          </Button>
-
-                          <Text
-                            size="sm"
-                            c="#64748b"
-                            mt="md"
-                            style={{ maxWidth: "500px", margin: "16px auto 0" }}
-                          >
-                            Click the button above to start the AI fitment
-                            generation process. Our advanced algorithms will
-                            analyze your VCDB and Product data to create optimal
-                            fitment recommendations.
+                      {/* Jobs Table */}
+                      {!aiFitmentJobs || aiFitmentJobs.length === 0 ? (
+                        <Alert color="blue" variant="light">
+                          <Text size="sm">
+                            No AI fitment jobs yet. Upload products or select
+                            products to generate AI fitments.
                           </Text>
-                        </div>
-                      </div>
+                        </Alert>
+                      ) : (
+                        <Card withBorder>
+                          <ScrollArea h={500}>
+                            <Table striped highlightOnHover>
+                              <Table.Thead>
+                                <Table.Tr>
+                                  <Table.Th>Date</Table.Th>
+                                  <Table.Th>Created By</Table.Th>
+                                  <Table.Th>Source</Table.Th>
+                                  <Table.Th>Products</Table.Th>
+                                  <Table.Th>Fitments</Table.Th>
+                                  <Table.Th>Status</Table.Th>
+                                  <Table.Th>Actions</Table.Th>
+                                </Table.Tr>
+                              </Table.Thead>
+                              <Table.Tbody>
+                                {aiFitmentJobs.map((job: AiFitmentJob) => (
+                                  <Table.Tr key={job.id}>
+                                    <Table.Td>
+                                      <Text size="sm">
+                                        {new Date(
+                                          job.created_at
+                                        ).toLocaleDateString()}
+                                      </Text>
+                                      <Text size="xs" c="dimmed">
+                                        {new Date(
+                                          job.created_at
+                                        ).toLocaleTimeString()}
+                                      </Text>
+                                    </Table.Td>
+                                    <Table.Td>
+                                      <Text size="sm">
+                                        {job.created_by || "System"}
+                                      </Text>
+                                    </Table.Td>
+                                    <Table.Td>
+                                      {job.job_type === "upload" ? (
+                                        <Tooltip label={job.product_file_name}>
+                                          <Badge variant="light" color="blue">
+                                            File Upload
+                                          </Badge>
+                                        </Tooltip>
+                                      ) : (
+                                        <Badge variant="light" color="green">
+                                          Product Selection
+                                        </Badge>
+                                      )}
+                                    </Table.Td>
+                                    <Table.Td>
+                                      <Text size="sm" fw={600}>
+                                        {job.product_count}
+                                      </Text>
+                                    </Table.Td>
+                                    <Table.Td>
+                                      <Group gap="xs">
+                                        <Text size="sm" fw={600}>
+                                          {job.fitments_count}
+                                        </Text>
+                                        {job.status === "review_required" && (
+                                          <>
+                                            <Text size="xs" c="dimmed">
+                                              ({job.approved_count} approved,{" "}
+                                              {job.rejected_count} rejected)
+                                            </Text>
+                                          </>
+                                        )}
+                                      </Group>
+                                    </Table.Td>
+                                    <Table.Td>
+                                      {renderStatusBadge(job.status)}
+                                    </Table.Td>
+                                    <Table.Td>
+                                      {job.status === "review_required" && (
+                                        <Button
+                                          variant="light"
+                                          size="xs"
+                                          leftSection={<IconEye size={14} />}
+                                          onClick={() =>
+                                            handleReviewJob(job.id)
+                                          }
+                                        >
+                                          Review
+                                        </Button>
+                                      )}
+                                      {job.status === "completed" && (
+                                        <Badge color="green" variant="light">
+                                          Approved
+                                        </Badge>
+                                      )}
+                                    </Table.Td>
+                                  </Table.Tr>
+                                ))}
+                              </Table.Tbody>
+                            </Table>
+                          </ScrollArea>
+                        </Card>
+                      )}
                     </Stack>
-                  </Card>
-                )}
+                  </Tabs.Panel>
+                </Tabs>
+              )}
+            </Stack>
+          </Card>
+        )}
 
-              {/* AI Progress Display */}
-              {currentStep === 3 && aiProcessing && (
-                <Card
-                  style={{
-                    background: "#ffffff",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "12px",
-                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                  }}
-                  h={800}
-                  mt={30}
-                  p="xl"
+        {/* Manual Fitment Section */}
+        {selectedMethod === "manual" && (
+          <Card
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "12px",
+              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+            }}
+            p="xl"
+          >
+            <Stack gap="xl">
+              {/* Back Button */}
+              <Group>
+                <Button
+                  variant="subtle"
+                  leftSection={<IconArrowLeft size={16} />}
+                  onClick={handleBackToMethodSelection}
                 >
-                  <Stack gap="lg">
-                    {/* Back Button at the top */}
-                    <Group>
-                      <Button
-                        variant="subtle"
-                        leftSection={<IconArrowLeft size={16} />}
-                        onClick={() => {
-                          // Reset AI states but stay on AI method
-                          setAiProcessing(false);
-                          setAiProgress(0);
-                          setAiLogs([]);
-                          setAiFitments([]);
-                          setSelectedAiFitments([]);
-                          setApplyingAiFitment(false);
-                        }}
-                        style={{
-                          color: "#64748b",
-                          fontWeight: 500,
-                        }}
-                      >
-                        Back
-                      </Button>
-                    </Group>
+                  Back to Method Selection
+                </Button>
+              </Group>
 
-                    <div>
-                      <Title order={3} c="#1e293b" fw={600}>
-                        🧠 AI Fitment Generation in Progress
+              <div style={{ marginBottom: "15px" }}>
+                <Title order={2} c="#1e293b" fw={600}>
+                  Manual Fitment Configuration
+                </Title>
+                <Text size="md" c="#64748b">
+                  Configure fitments manually with full control over each
+                  setting
+                </Text>
+              </div>
+
+              {/* Manual Method Stepper */}
+              <Stepper
+                active={manualStep - 1}
+                onStepClick={(step) => setManualStep(step + 1)}
+                allowNextStepsSelect={false}
+              >
+                <Stepper.Step
+                  label="Specify Vehicle Configurations"
+                  description="Specify vehicle criteria"
+                  icon={<IconCar size={18} />}
+                >
+                  <Stack gap="md" mt={20}>
+                    <div style={{ marginBottom: "15px" }}>
+                      <Title order={3} c="#1e293b" fw={700}>
+                        Vehicle Search Criteria
                       </Title>
                       <Text size="sm" c="#64748b">
-                        Our AI is analyzing your VCDB and Product data to
-                        generate optimal fitments
+                        Refine your search with specific vehicle attributes
                       </Text>
+                      {loadingDropdownData && (
+                        <Alert
+                          icon={<IconRefresh size={16} />}
+                          color="blue"
+                          radius="md"
+                          mt="md"
+                        >
+                          <Text size="sm">
+                            Loading vehicle data from uploaded files...
+                          </Text>
+                        </Alert>
+                      )}
                     </div>
 
-                    <Progress
-                      value={aiProgress}
-                      size="lg"
-                      radius="md"
-                      styles={{
-                        root: {
-                          background: "#f1f5f9",
-                        },
-                        section: {
-                          background:
-                            "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                        },
-                      }}
-                      animated
-                      style={{ marginBottom: "16px" }}
-                    />
+                    <div key={formKey}>
+                      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="xl">
+                        <Select
+                          label="Year From"
+                          placeholder="Select year from"
+                          data={dropdownData?.years || []}
+                          value={vehicleFilters.yearFrom}
+                          onChange={(value) => {
+                            setVehicleFilters((prev) => {
+                              const newYearFrom = value || "";
+                              let newYearTo = prev.yearTo;
+                              if (
+                                newYearFrom &&
+                                prev.yearTo &&
+                                parseInt(prev.yearTo) <= parseInt(newYearFrom)
+                              ) {
+                                newYearTo = "";
+                              }
+                              return {
+                                ...prev,
+                                yearFrom: newYearFrom,
+                                yearTo: newYearTo,
+                              };
+                            });
+                          }}
+                          searchable
+                          disabled={loadingDropdownData}
+                          leftSection={
+                            <IconCalendar size={16} color="#64748b" />
+                          }
+                        />
+                        <Select
+                          label="Year To"
+                          placeholder="Select year to"
+                          data={
+                            dropdownData?.years
+                              ? dropdownData.years.filter((year: string) => {
+                                  if (!vehicleFilters.yearFrom) return true;
+                                  return (
+                                    parseInt(year) >
+                                    parseInt(vehicleFilters.yearFrom)
+                                  );
+                                })
+                              : []
+                          }
+                          value={vehicleFilters.yearTo}
+                          onChange={(value) =>
+                            setVehicleFilters((prev) => ({
+                              ...prev,
+                              yearTo: value || "",
+                            }))
+                          }
+                          searchable
+                          disabled={loadingDropdownData}
+                          leftSection={
+                            <IconCalendar size={16} color="#64748b" />
+                          }
+                        />
+                        <Select
+                          label="Make"
+                          placeholder="Select make"
+                          data={dropdownData?.makes || []}
+                          value={vehicleFilters.make}
+                          onChange={(value) =>
+                            setVehicleFilters((prev) => ({
+                              ...prev,
+                              make: value || "",
+                            }))
+                          }
+                          searchable
+                          disabled={loadingDropdownData}
+                          leftSection={<IconCar size={16} color="#64748b" />}
+                        />
+                        <Select
+                          label="Model"
+                          placeholder="Select model"
+                          data={dropdownData?.models || []}
+                          value={vehicleFilters.model}
+                          onChange={(value) =>
+                            setVehicleFilters((prev) => ({
+                              ...prev,
+                              model: value || "",
+                            }))
+                          }
+                          searchable
+                          disabled={loadingDropdownData}
+                          leftSection={<IconCar size={16} color="#64748b" />}
+                        />
+                        <Select
+                          label="Submodel"
+                          placeholder="Select submodel"
+                          data={dropdownData?.submodels || []}
+                          value={vehicleFilters.submodel}
+                          onChange={(value) =>
+                            setVehicleFilters((prev) => ({
+                              ...prev,
+                              submodel: value || "",
+                            }))
+                          }
+                          searchable
+                          disabled={loadingDropdownData}
+                          leftSection={<IconCar size={16} color="#64748b" />}
+                        />
+                        <Select
+                          label="Fuel Type"
+                          placeholder="Select fuel type"
+                          data={dropdownData?.fuel_types || []}
+                          value={vehicleFilters.fuelType}
+                          onChange={(value) =>
+                            setVehicleFilters((prev) => ({
+                              ...prev,
+                              fuelType: value || "",
+                            }))
+                          }
+                          searchable
+                          disabled={loadingDropdownData}
+                          leftSection={
+                            <IconGasStation size={16} color="#64748b" />
+                          }
+                        />
+                        <Select
+                          label="Number of Doors"
+                          placeholder="Select doors"
+                          data={dropdownData?.num_doors || []}
+                          value={vehicleFilters.numDoors}
+                          onChange={(value) =>
+                            setVehicleFilters((prev) => ({
+                              ...prev,
+                              numDoors: value || "",
+                            }))
+                          }
+                          searchable
+                          disabled={loadingDropdownData}
+                          leftSection={<IconDoor size={16} color="#64748b" />}
+                        />
+                        <Select
+                          label="Drive Type"
+                          placeholder="Select drive type"
+                          data={dropdownData?.drive_types || []}
+                          value={vehicleFilters.driveType}
+                          onChange={(value) =>
+                            setVehicleFilters((prev) => ({
+                              ...prev,
+                              driveType: value || "",
+                            }))
+                          }
+                          searchable
+                          disabled={loadingDropdownData}
+                          leftSection={
+                            <IconSettings size={16} color="#64748b" />
+                          }
+                        />
+                        <Select
+                          label="Body Type"
+                          placeholder="Select body type"
+                          data={dropdownData?.body_types || []}
+                          value={vehicleFilters.bodyType}
+                          onChange={(value) =>
+                            setVehicleFilters((prev) => ({
+                              ...prev,
+                              bodyType: value || "",
+                            }))
+                          }
+                          searchable
+                          disabled={loadingDropdownData}
+                          leftSection={<IconCar size={16} color="#64748b" />}
+                        />
+                      </SimpleGrid>
 
-                    <ScrollArea h={600} ref={logsScrollAreaRef}>
+                      {/* Dynamic VCDB Fields */}
+                      {vcdbFormFields.length > 0 && (
+                        <div style={{ marginTop: "24px" }}>
+                          <Group justify="space-between" align="center" mb="md">
+                            <div>
+                              <Title order={4} c="#1e293b" fw={600} mb="xs">
+                                Additional Vehicle Search Fields
+                              </Title>
+                              <Text size="sm" c="#64748b">
+                                Additional vehicle fields configured in Settings
+                              </Text>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="xs"
+                              leftSection={<IconRefresh size={14} />}
+                              onClick={() => {
+                                if (refreshVcdbFields) {
+                                  refreshVcdbFields();
+                                }
+                              }}
+                              loading={vcdbFieldsLoading}
+                            >
+                              Refresh Fields
+                            </Button>
+                          </Group>
+
+                          <SimpleGrid
+                            cols={{ base: 1, sm: 2, lg: 3 }}
+                            spacing="lg"
+                          >
+                            {vcdbFormFields.map((fieldConfig) => {
+                              return (
+                                fieldConfig.show_in_filters &&
+                                fieldConfig.is_enabled &&
+                                fieldConfig.reference_type === "vcdb" && (
+                                  <DynamicFormField
+                                    key={`search-${fieldConfig.id}`}
+                                    fieldConfig={fieldConfig}
+                                    value={dynamicVcdbFields[fieldConfig.name]}
+                                    onChange={(value) =>
+                                      updateDynamicVcdbField(
+                                        fieldConfig.name,
+                                        value
+                                      )
+                                    }
+                                    data={getFieldData(fieldConfig)}
+                                    disabled={
+                                      loadingDropdownData ||
+                                      vcdbFieldsLoading ||
+                                      fieldConfig.requirement_level ===
+                                        "disabled"
+                                    }
+                                  />
+                                )
+                              );
+                            })}
+                          </SimpleGrid>
+                        </div>
+                      )}
+                    </div>
+
+                    <Group justify="space-between" mt="xl">
+                      <Button
+                        variant="outline"
+                        size="md"
+                        leftSection={<IconRefresh size={16} />}
+                        onClick={() => {
+                          setVehicleFilters({
+                            yearFrom: "",
+                            yearTo: "",
+                            make: "",
+                            model: "",
+                            submodel: "",
+                            fuelType: "",
+                            numDoors: "",
+                            driveType: "",
+                            bodyType: "",
+                          });
+                          setFilteredVehicles([]);
+                          setSelectedVehicles([]);
+                          setFitmentDetails({
+                            partId: "",
+                            position: "",
+                            quantity: 1,
+                            title: "",
+                            description: "",
+                            notes: "",
+                            liftHeight: "",
+                            wheelType: "",
+                          });
+                          setDynamicVcdbFields({});
+                          setDynamicProductFields({});
+                          setManualStep(1);
+                          setFormKey((prev) => prev + 1);
+                        }}
+                      >
+                        Clear Filters
+                      </Button>
+
+                      <Button
+                        size="md"
+                        leftSection={<IconSearch size={16} />}
+                        onClick={async () => {
+                          if (
+                            !vehicleFilters.yearFrom ||
+                            !vehicleFilters.yearTo
+                          ) {
+                            showError(
+                              "Please select both 'Year From' and 'Year To'"
+                            );
+                            return;
+                          }
+
+                          const yearFrom = parseInt(vehicleFilters.yearFrom);
+                          const yearTo = parseInt(vehicleFilters.yearTo);
+
+                          if (yearFrom >= yearTo) {
+                            showError("Year To must be greater than Year From");
+                            return;
+                          }
+
+                          try {
+                            const searchCriteria = {
+                              ...vehicleFilters,
+                              ...dynamicVcdbFields,
+                            };
+
+                            const result: any = await fetchFilteredVehicles(
+                              () =>
+                                fitmentUploadService.getFilteredVehicles(
+                                  sessionId || "",
+                                  searchCriteria
+                                )
+                            );
+
+                            if (result && result.data && result.data.vehicles) {
+                              if (result.data.vehicles.length === 0) {
+                                showError(
+                                  "No vehicles found matching your criteria"
+                                );
+                                return;
+                              }
+
+                              setFilteredVehicles(result.data.vehicles);
+                              setManualStep(2);
+                              showSuccess(
+                                `Found ${result.data.vehicles.length} vehicles`,
+                                3000
+                              );
+                            } else {
+                              showError("Failed to search vehicles");
+                            }
+                          } catch (error) {
+                            console.error("Vehicle search error:", error);
+                            showError("Failed to search vehicles");
+                          }
+                        }}
+                      >
+                        Search Vehicles
+                      </Button>
+                    </Group>
+                  </Stack>
+                </Stepper.Step>
+
+                <Stepper.Step
+                  label="Vehicle Selection"
+                  description="Choose specific vehicles"
+                  icon={<IconList size={18} />}
+                >
+                  <Stack gap="md" mt={20}>
+                    <Group justify="space-between">
+                      <Text size="lg" fw={600} c="#1e293b">
+                        Step 2: Select Vehicles ({filteredVehicles.length}{" "}
+                        found)
+                      </Text>
+                      <Group gap="sm">
+                        <Button
+                          variant="light"
+                          size="sm"
+                          onClick={() =>
+                            setSelectedVehicles(
+                              filteredVehicles.map((v: any) => v.id)
+                            )
+                          }
+                        >
+                          Select All
+                        </Button>
+                        <Button
+                          variant="light"
+                          size="sm"
+                          onClick={() => setSelectedVehicles([])}
+                        >
+                          Clear All
+                        </Button>
+                      </Group>
+                    </Group>
+
+                    <ScrollArea h={400}>
                       <Stack gap="xs">
-                        {aiLogs.map((log, index) => (
-                          <Text
-                            key={index}
-                            size="sm"
-                            c="#374151"
+                        {filteredVehicles.map((vehicle) => (
+                          <Card
+                            key={vehicle.id}
+                            p="md"
                             style={{
-                              fontFamily:
-                                "'Monaco', 'Menlo', 'Ubuntu Mono', monospace",
-                              background: "#f8fafc",
-                              padding: "8px 12px",
-                              borderRadius: "6px",
-                              border: "1px solid #e2e8f0",
+                              background: selectedVehicles.includes(vehicle.id)
+                                ? "#eff6ff"
+                                : "#ffffff",
+                              border: selectedVehicles.includes(vehicle.id)
+                                ? "2px solid #3b82f6"
+                                : "1px solid #e2e8f0",
+                              borderRadius: "8px",
+                              cursor: "pointer",
+                            }}
+                            onClick={() => {
+                              const vehicleId = vehicle.id;
+                              setSelectedVehicles((prev) =>
+                                prev.includes(vehicleId)
+                                  ? prev.filter((id) => id !== vehicleId)
+                                  : [...prev, vehicleId]
+                              );
                             }}
                           >
-                            {log}
-                          </Text>
+                            <Group gap={40}>
+                              <Checkbox
+                                checked={selectedVehicles.includes(vehicle.id)}
+                                onChange={() => {}}
+                              />
+                              <div>
+                                <Text fw={600} size="sm" c="#1e293b">
+                                  {vehicle.year} {vehicle.make} {vehicle.model}
+                                </Text>
+                                <Text size="xs" c="#64748b">
+                                  {vehicle.submodel} • {vehicle.driveType} •{" "}
+                                  {vehicle.fuelType} • {vehicle.bodyType}
+                                </Text>
+                              </div>
+                            </Group>
+                          </Card>
                         ))}
                       </Stack>
                     </ScrollArea>
-                  </Stack>
-                </Card>
-              )}
 
-              {/* AI Fitments Results */}
-              {currentStep === 3 && aiFitments.length > 0 && (
-                <Card
-                  style={{
-                    background: "#ffffff",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "12px",
-                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                  }}
-                  h={800}
-                  p="xl"
-                >
-                  <Stack gap="lg">
-                    {/* Back Button at the top */}
-                    <Group>
+                    <Group justify="space-between" mt="lg">
                       <Button
-                        variant="subtle"
+                        variant="outline"
+                        size="md"
                         leftSection={<IconArrowLeft size={16} />}
-                        onClick={() => {
-                          // Reset AI states but stay on AI method
-                          setAiProcessing(false);
-                          setAiProgress(0);
-                          setAiLogs([]);
-                          setAiFitments([]);
-                          setSelectedAiFitments([]);
-                          setApplyingAiFitment(false);
-                        }}
-                        style={{
-                          color: "#64748b",
-                          fontWeight: 500,
-                        }}
+                        onClick={() => setManualStep(1)}
                       >
                         Back
                       </Button>
+                      <Button
+                        onClick={() => setManualStep(3)}
+                        disabled={selectedVehicles.length === 0}
+                      >
+                        Continue ({selectedVehicles.length} selected)
+                      </Button>
                     </Group>
+                  </Stack>
+                </Stepper.Step>
 
-                    <Group justify="space-between">
+                <Stepper.Step
+                  label="Fitment Details"
+                  description="Configure fitment settings"
+                  icon={<IconSettings size={18} />}
+                >
+                  <Stack gap="xl" mt={20}>
+                    <div>
+                      <Title order={3} c="#1e293b" fw={700} mb="xs">
+                        Fitment Details
+                      </Title>
+                      <Text size="sm" c="#64748b">
+                        Configure the specific details for your fitment
+                        application
+                      </Text>
+                    </div>
+
+                    <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
+                      <Select
+                        label="Part Type"
+                        placeholder="Select a part"
+                        data={dropdownData?.parts || []}
+                        value={fitmentDetails.partId}
+                        onChange={(value) =>
+                          setFitmentDetails((prev) => ({
+                            ...prev,
+                            partId: value || "",
+                          }))
+                        }
+                        searchable
+                        disabled={loadingDropdownData}
+                        required
+                        leftSection={<IconPackage size={16} color="#64748b" />}
+                      />
+                      <Select
+                        label="Position"
+                        placeholder="Select position"
+                        data={dropdownData?.positions || []}
+                        value={fitmentDetails.position}
+                        onChange={(value) =>
+                          setFitmentDetails((prev) => ({
+                            ...prev,
+                            position: value || "",
+                          }))
+                        }
+                        searchable
+                        disabled={loadingDropdownData}
+                        required
+                        leftSection={<IconMapPin size={16} color="#64748b" />}
+                      />
+                      <NumberInput
+                        label="Quantity"
+                        placeholder="1"
+                        min={1}
+                        value={fitmentDetails.quantity}
+                        onChange={(value) =>
+                          setFitmentDetails((prev) => ({
+                            ...prev,
+                            quantity: Number(value) || 1,
+                          }))
+                        }
+                        leftSection={<IconHash size={16} color="#64748b" />}
+                      />
+                    </SimpleGrid>
+
+                    <TextInput
+                      label="Fitment Title"
+                      placeholder="Enter fitment title"
+                      value={fitmentDetails.title}
+                      onChange={(e) =>
+                        setFitmentDetails((prev) => ({
+                          ...prev,
+                          title: e.target.value,
+                        }))
+                      }
+                      required
+                      leftSection={<IconFileText size={16} color="#64748b" />}
+                    />
+
+                    <Textarea
+                      label="Description"
+                      placeholder="Enter fitment description"
+                      rows={3}
+                      value={fitmentDetails.description}
+                      onChange={(e) =>
+                        setFitmentDetails((prev) => ({
+                          ...prev,
+                          description: e.target.value,
+                        }))
+                      }
+                    />
+
+                    <Textarea
+                      label="Notes (Optional)"
+                      placeholder="Additional notes or installation instructions"
+                      rows={2}
+                      value={fitmentDetails.notes}
+                      onChange={(e) =>
+                        setFitmentDetails((prev) => ({
+                          ...prev,
+                          notes: e.target.value,
+                        }))
+                      }
+                    />
+
+                    {/* Dynamic Product Fields */}
+                    {productFormFields.length > 0 && (
                       <div>
-                        <Title order={3} c="#1e293b" fw={600}>
-                          AI Generated Fitments
-                        </Title>
-                        <Text size="sm" c="#64748b">
-                          Review and select fitments to apply
-                        </Text>
-                      </div>
-                      <Group gap="sm">
-                        <Group gap="xs">
+                        <Group justify="space-between" align="center" mb="md">
+                          <div>
+                            <Title order={4} c="#1e293b" fw={600} mb="xs">
+                              Product Configuration Fields
+                            </Title>
+                            <Text size="sm" c="#64748b">
+                              Additional product fields configured in Settings
+                            </Text>
+                          </div>
                           <Button
                             variant="outline"
-                            size="sm"
-                            onClick={() => handleExportDirectAiFitments("csv")}
+                            size="xs"
+                            leftSection={<IconRefresh size={14} />}
+                            onClick={() => {
+                              if (refreshProductFields) {
+                                refreshProductFields();
+                              }
+                            }}
+                            loading={productFieldsLoading}
                           >
-                            CSV
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleExportDirectAiFitments("xlsx")}
-                          >
-                            XLSX
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleExportDirectAiFitments("json")}
-                          >
-                            JSON
+                            Refresh Fields
                           </Button>
                         </Group>
-                        <Button
-                          variant="filled"
-                          color="green"
-                          size="sm"
-                          onClick={handleApplyDirectAiFitments}
-                          disabled={selectedAiFitments.length === 0}
-                          loading={applyingAiFitment}
-                        >
-                          Apply Selected ({selectedAiFitments.length})
-                        </Button>
-                      </Group>
-                    </Group>
 
-                    <div style={{ position: "relative" }}>
-                      {/* Static Table Header */}
-                      <Table striped highlightOnHover>
-                        <Table.Thead>
-                          <Table.Tr>
-                            <Table.Th
-                              style={{
-                                textAlign: "center",
-                                verticalAlign: "middle",
-                                width: "60px",
-                              }}
-                            >
-                              <Checkbox
-                                checked={
-                                  selectedAiFitments.length ===
-                                  aiFitments.length
-                                }
-                                indeterminate={
-                                  selectedAiFitments.length > 0 &&
-                                  selectedAiFitments.length < aiFitments.length
-                                }
-                                onChange={(event) => {
-                                  if (event.currentTarget.checked) {
-                                    setSelectedAiFitments(
-                                      aiFitments.map((fitment) => fitment.id)
-                                    );
-                                  } else {
-                                    setSelectedAiFitments([]);
+                        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
+                          {productFormFields.map((fieldConfig) => {
+                            return (
+                              fieldConfig.show_in_forms &&
+                              fieldConfig.is_enabled &&
+                              fieldConfig.reference_type === "product" && (
+                                <DynamicFormField
+                                  key={fieldConfig.id}
+                                  fieldConfig={fieldConfig}
+                                  value={dynamicProductFields[fieldConfig.name]}
+                                  onChange={(value) =>
+                                    updateDynamicProductField(
+                                      fieldConfig.name,
+                                      value
+                                    )
                                   }
-                                }}
-                                ml={7}
-                              />
-                            </Table.Th>
-                            <Table.Th style={{ width: "130px" }}>
-                              Part ID
-                            </Table.Th>
-                            <Table.Th style={{ width: "80px" }}>Year</Table.Th>
-                            <Table.Th style={{ width: "100px" }}>Make</Table.Th>
-                            <Table.Th style={{ width: "120px" }}>
-                              Model
-                            </Table.Th>
-                            <Table.Th style={{ width: "100px" }}>
-                              Submodel
-                            </Table.Th>
-                            <Table.Th style={{ width: "100px" }}>
-                              Position
-                            </Table.Th>
-                            <Table.Th style={{ width: "100px" }}>
-                              Confidence
-                            </Table.Th>
-                            <Table.Th style={{ width: "80px" }}>
-                              Actions
-                            </Table.Th>
-                          </Table.Tr>
-                        </Table.Thead>
-                      </Table>
+                                  data={getFieldData(fieldConfig)}
+                                  disabled={
+                                    loadingDropdownData ||
+                                    productFieldsLoading ||
+                                    fieldConfig.requirement_level === "disabled"
+                                  }
+                                />
+                              )
+                            );
+                          })}
+                        </SimpleGrid>
+                      </div>
+                    )}
 
-                      {/* Scrollable Table Body */}
-                      <ScrollArea h={600} style={{ marginTop: "-1px" }}>
-                        <Table striped highlightOnHover>
-                          <Table.Tbody>
-                            {aiFitments.map((fitment) => (
-                              <Table.Tr key={fitment.id}>
-                                <Table.Td
-                                  style={{
-                                    textAlign: "center",
-                                    verticalAlign: "middle",
-                                    width: "60px",
-                                  }}
-                                >
-                                  <Checkbox
-                                    checked={selectedAiFitments.includes(
-                                      fitment.id
-                                    )}
-                                    onChange={(event) => {
-                                      if (event.currentTarget.checked) {
-                                        setSelectedAiFitments((prev) => [
-                                          ...prev,
-                                          fitment.id,
-                                        ]);
-                                      } else {
-                                        setSelectedAiFitments((prev) =>
-                                          prev.filter((id) => id !== fitment.id)
-                                        );
-                                      }
-                                    }}
-                                  />
-                                </Table.Td>
-                                <Table.Td style={{ width: "120px" }}>
-                                  <Text size="sm" fw={600} c="#3b82f6">
-                                    {fitment.part_id}
-                                  </Text>
-                                </Table.Td>
-                                <Table.Td style={{ width: "80px" }}>
-                                  <Text size="sm">{fitment.year}</Text>
-                                </Table.Td>
-                                <Table.Td style={{ width: "100px" }}>
-                                  <Text size="sm" fw={500}>
-                                    {fitment.make}
-                                  </Text>
-                                </Table.Td>
-                                <Table.Td style={{ width: "120px" }}>
-                                  <Text size="sm">{fitment.model}</Text>
-                                </Table.Td>
-                                <Table.Td style={{ width: "100px" }}>
-                                  <Text size="sm" c="#64748b">
-                                    {fitment.submodel || "-"}
-                                  </Text>
-                                </Table.Td>
-                                <Table.Td style={{ width: "100px" }}>
-                                  <Badge variant="light" size="sm" color="blue">
-                                    {fitment.position}
-                                  </Badge>
-                                </Table.Td>
-                                <Table.Td style={{ width: "100px" }}>
-                                  <Tooltip
-                                    label={
-                                      fitment.ai_reasoning ||
-                                      "No explanation available"
-                                    }
-                                    multiline
-                                    w={300}
-                                    withArrow
-                                  >
-                                    <Badge
-                                      variant="light"
-                                      color={
-                                        fitment.confidence > 0.8
-                                          ? "green"
-                                          : fitment.confidence > 0.6
-                                          ? "orange"
-                                          : "red"
-                                      }
-                                      size="sm"
-                                      style={{ cursor: "help" }}
-                                    >
-                                      {Math.round(fitment.confidence * 100)}%
-                                    </Badge>
-                                  </Tooltip>
-                                </Table.Td>
-                                <Table.Td style={{ width: "80px" }}>
-                                  <ActionIcon
-                                    variant="subtle"
-                                    color="blue"
-                                    onClick={() => handleEditFitment(fitment)}
-                                    size="sm"
-                                  >
-                                    <IconEdit size={16} />
-                                  </ActionIcon>
-                                </Table.Td>
-                              </Table.Tr>
-                            ))}
-                          </Table.Tbody>
-                        </Table>
-                      </ScrollArea>
-                    </div>
+                    <Group justify="space-between" mt="xl">
+                      <Button
+                        variant="outline"
+                        size="md"
+                        leftSection={<IconArrowLeft size={16} />}
+                        onClick={() => setManualStep(2)}
+                      >
+                        Back
+                      </Button>
+
+                      <Button
+                        size="md"
+                        leftSection={<IconSettings size={16} />}
+                        onClick={async () => {
+                          if (!sessionId) {
+                            showError("Session not found");
+                            return;
+                          }
+
+                          if (!fitmentDetails.partId) {
+                            showError("Please select a part type");
+                            return;
+                          }
+
+                          if (!fitmentDetails.position) {
+                            showError("Please select a position");
+                            return;
+                          }
+
+                          if (!fitmentDetails.title) {
+                            showError("Please enter a fitment title");
+                            return;
+                          }
+
+                          if (selectedVehicles.length === 0) {
+                            showError("Please select at least one vehicle");
+                            return;
+                          }
+
+                          setApplyingManualFitment(true);
+                          try {
+                            const fitmentsData = selectedVehicles.map(
+                              (vehicleId) => {
+                                const vehicle = filteredVehicles.find(
+                                  (v) => v.id === vehicleId
+                                );
+                                return {
+                                  partId: fitmentDetails.partId,
+                                  title: fitmentDetails.title,
+                                  description: fitmentDetails.description,
+                                  notes: fitmentDetails.notes,
+                                  quantity: fitmentDetails.quantity,
+                                  position: fitmentDetails.position,
+                                  liftHeight: fitmentDetails.liftHeight,
+                                  wheelType: fitmentDetails.wheelType,
+                                  fitmentType: "manual_fitment",
+                                  tenantId: currentEntity?.id || null,
+                                  year: vehicle?.year || 0,
+                                  make: vehicle?.make || "",
+                                  model: vehicle?.model || "",
+                                  submodel: vehicle?.submodel || "",
+                                  driveType: vehicle?.driveType || "",
+                                  fuelType: vehicle?.fuelType || "",
+                                  numDoors: vehicle?.numDoors || 0,
+                                  bodyType: vehicle?.bodyType || "",
+                                  baseVehicleId: vehicleId,
+                                  partTypeId: fitmentDetails.partId,
+                                  partTypeDescriptor: fitmentDetails.title,
+                                  positionId: 0,
+                                  ...dynamicVcdbFields,
+                                  ...dynamicProductFields,
+                                };
+                              }
+                            );
+
+                            const result: any = await createFitment(() =>
+                              dataUploadService.createFitment(fitmentsData)
+                            );
+
+                            if (result && result.data) {
+                              showSuccess(
+                                `Successfully created ${result.data.created} fitments!`,
+                                5000
+                              );
+                              handleBackToMethodSelection();
+                            } else {
+                              showError("Failed to create fitments");
+                            }
+                          } catch (error) {
+                            console.error("Create fitment error:", error);
+                            showError("Failed to create fitments");
+                          } finally {
+                            setApplyingManualFitment(false);
+                          }
+                        }}
+                        loading={applyingManualFitment}
+                        disabled={
+                          !fitmentDetails.partId ||
+                          !fitmentDetails.position ||
+                          !fitmentDetails.title ||
+                          selectedVehicles.length === 0
+                        }
+                      >
+                        Apply Fitment
+                      </Button>
+                    </Group>
                   </Stack>
-                </Card>
-              )}
-            </div>
-          )}
-        </Transition>
-
-        {/* AI Progress Display (legacy - only show when NOT using new steps)
-        {/* {currentStep !== 4 && selectedMethod === "ai" && aiProcessing && (
-          <Card
-            style={{
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "12px",
-              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-            }}
-            p="xl"
-          >
-            <Stack gap="lg">
-              <Group justify="space-between">
-                <div>
-                  <Title order={3} c="#1e293b" fw={600}>
-                    🧠 AI Fitment Generation in Progress
-                  </Title>
-                  <Text size="sm" c="#64748b">
-                    Our AI is analyzing your data to generate optimal fitments
-                  </Text>
-                </div>
-              </Group>
-
-              <Progress
-                value={aiProgress}
-                size="lg"
-                radius="md"
-                color="green"
-                animated
-                style={{ marginBottom: "16px" }}
-              />
-
-              <ScrollArea h={200}>
-                <Stack gap="xs">
-                  {aiLogs.map((log, index) => (
-                    <Text
-                      key={index}
-                      size="sm"
-                      c="#374151"
-                      style={{
-                        fontFamily:
-                          "'Monaco', 'Menlo', 'Ubuntu Mono', monospace",
-                        background: "#f8fafc",
-                        padding: "8px 12px",
-                        borderRadius: "6px",
-                        border: "1px solid #e2e8f0",
-                      }}
-                    >
-                      {log}
-                    </Text>
-                  ))}
-                </Stack>
-              </ScrollArea>
+                </Stepper.Step>
+              </Stepper>
             </Stack>
           </Card>
-        )} */}
+        )}
+      </Stack>
 
-        {/* AI Fitments Results */}
-        {/* {selectedMethod === "ai" && aiFitments.length > 0 && (
-          <Card
-            style={{
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "12px",
-              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-            }}
-            h={800}
-            p="xl"
-          >
-            <Stack gap="lg">
+      {/* Review & Approve Modal */}
+      <Modal
+        opened={!!selectedJobForReview}
+        onClose={() => {
+          setSelectedJobForReview(null);
+          setJobFitments([]);
+          setSelectedJobFitments([]);
+        }}
+        size="xl"
+        title={
+          <div>
+            <Text fw={700} size="xl" c="#1e293b">
+              Review AI Fitments
+            </Text>
+            <Text size="sm" c="#64748b" mt={4}>
+              Review and approve fitments before moving them to Fitment
+              Management
+            </Text>
+          </div>
+        }
+        styles={{
+          header: {
+            padding: "24px 24px 16px 24px",
+            borderBottom: "1px solid #e2e8f0",
+          },
+          body: {
+            padding: "24px",
+          },
+          content: {
+            borderRadius: "12px",
+          },
+        }}
+      >
+        <Stack gap="lg">
+          {loadingJobFitments ? (
+            <Center p="xl">
+              <Stack align="center" gap="md">
+                <Progress value={100} size="lg" w="100%" animated />
+                <Text size="sm" c="dimmed">
+                  Loading fitments for review...
+                </Text>
+              </Stack>
+            </Center>
+          ) : (
+            <>
               <Group justify="space-between">
-                <div>
-                  <Title order={3} c="#1e293b" fw={600}>
-                    AI Generated Fitments
-                  </Title>
-                  <Text size="sm" c="#64748b">
-                    Review and select fitments to apply
-                  </Text>
-                </div>
-                <Group gap="sm">
-                  <Group gap="xs">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleExportFitments("csv")}
-                    >
-                      CSV
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleExportFitments("xlsx")}
-                    >
-                      XLSX
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleExportFitments("json")}
-                    >
-                      JSON
-                    </Button>
-                  </Group>
-                  <Button
-                    variant="filled"
-                    color="green"
-                    size="sm"
-                    onClick={handleApplyAiFitments}
-                    disabled={selectedAiFitments.length === 0}
-                    loading={applyingFitment}
-                  >
-                    Apply Selected ({selectedAiFitments.length})
-                  </Button>
-                </Group>
-              </Group>
-        )} */}
-
-        {/* <div style={{ position: "relative" }}> */}
-        {/* Static Table Header */}
-        {/* <Table striped highlightOnHover>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th
-                  style={{
-                    textAlign: "center",
-                    verticalAlign: "middle",
-                    width: "60px",
-                  }}
-                >
+                <Group gap="xs">
                   <Checkbox
-                    checked={selectedAiFitments.length === aiFitments.length}
+                    checked={
+                      selectedJobFitments.length === jobFitments.length &&
+                      jobFitments.length > 0
+                    }
                     indeterminate={
-                      selectedAiFitments.length > 0 &&
-                      selectedAiFitments.length < aiFitments.length
+                      selectedJobFitments.length > 0 &&
+                      selectedJobFitments.length < jobFitments.length
                     }
                     onChange={(event) => {
                       if (event.currentTarget.checked) {
-                        setSelectedAiFitments(
-                          aiFitments.map((fitment) => fitment.id)
+                        setSelectedJobFitments(
+                          jobFitments.map((f: any) => f.id)
                         );
                       } else {
-                        setSelectedAiFitments([]);
+                        setSelectedJobFitments([]);
                       }
                     }}
-                    ml={7}
+                    label={
+                      <Text size="sm" fw={600}>
+                        Select All ({selectedJobFitments.length}/
+                        {jobFitments.length})
+                      </Text>
+                    }
                   />
-                </Table.Th>
-                <Table.Th style={{ width: "130px" }}>Part ID</Table.Th>
-                <Table.Th style={{ width: "80px" }}>Year</Table.Th>
-                <Table.Th style={{ width: "100px" }}>Make</Table.Th>
-                <Table.Th style={{ width: "120px" }}>Model</Table.Th>
-                <Table.Th style={{ width: "100px" }}>Submodel</Table.Th>
-                <Table.Th style={{ width: "100px" }}>Position</Table.Th>
-                <Table.Th style={{ width: "100px" }}>Confidence</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-          </Table> */}
+                </Group>
+                <Button
+                  variant="filled"
+                  color="green"
+                  size="sm"
+                  leftSection={<IconCheck size={16} />}
+                  onClick={handleApproveJobFitments}
+                  disabled={selectedJobFitments.length === 0}
+                  loading={approvingFitments}
+                >
+                  Approve Selected ({selectedJobFitments.length})
+                </Button>
+              </Group>
 
-        {/* Scrollable Table Body */}
-        {/* <ScrollArea h={600} style={{ marginTop: "-1px" }}>
-            <Table striped highlightOnHover>
-              <Table.Tbody>
-                {aiFitments.map((fitment) => (
-                  <Table.Tr key={fitment.id}>
-                    <Table.Td
-                      style={{
-                        textAlign: "center",
-                        verticalAlign: "middle",
-                        width: "60px",
-                      }}
-                    >
-                      <Checkbox
-                        checked={selectedAiFitments.includes(fitment.id)}
-                        onChange={(event) => {
-                          if (event.currentTarget.checked) {
-                            setSelectedAiFitments((prev) => [
-                              ...prev,
-                              fitment.id,
-                            ]);
-                          } else {
-                            setSelectedAiFitments((prev) =>
-                              prev.filter((id) => id !== fitment.id)
-                            );
+              <ScrollArea h={500}>
+                <Table striped highlightOnHover>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th style={{ width: "50px" }}>
+                        <Checkbox
+                          checked={
+                            selectedJobFitments.length === jobFitments.length
                           }
-                        }}
-                      />
-                    </Table.Td>
-                    <Table.Td style={{ width: "120px" }}>
-                      <Text size="sm" fw={600} c="#3b82f6">
-                        {fitment.part_id}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td style={{ width: "80px" }}>
-                      <Text size="sm">{fitment.year}</Text>
-                    </Table.Td>
-                    <Table.Td style={{ width: "100px" }}>
-                      <Text size="sm" fw={500}>
-                        {fitment.make}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td style={{ width: "120px" }}>
-                      <Text size="sm">{fitment.model}</Text>
-                    </Table.Td>
-                    <Table.Td style={{ width: "100px" }}>
-                      <Text size="sm" c="#64748b">
-                        {fitment.submodel || "-"}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td style={{ width: "100px" }}>
-                      <Badge variant="light" size="sm" color="blue">
-                        {fitment.position}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td style={{ width: "100px" }}>
-                      <Badge
-                        variant="light"
-                        color={
-                          fitment.confidence > 0.8
-                            ? "green"
-                            : fitment.confidence > 0.6
-                            ? "orange"
-                            : "red"
-                        }
-                        size="sm"
-                      >
-                        {Math.round(fitment.confidence * 100)}%
-                      </Badge>
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </ScrollArea> */}
-        {/* </div> */}
+                          indeterminate={
+                            selectedJobFitments.length > 0 &&
+                            selectedJobFitments.length < jobFitments.length
+                          }
+                          onChange={(event) => {
+                            if (event.currentTarget.checked) {
+                              setSelectedJobFitments(
+                                jobFitments.map((f: any) => f.id)
+                              );
+                            } else {
+                              setSelectedJobFitments([]);
+                            }
+                          }}
+                        />
+                      </Table.Th>
+                      <Table.Th>Part ID</Table.Th>
+                      <Table.Th>Year</Table.Th>
+                      <Table.Th>Make</Table.Th>
+                      <Table.Th>Model</Table.Th>
+                      <Table.Th>Confidence</Table.Th>
+                      <Table.Th>Actions</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {jobFitments.map((fitment: any) => (
+                      <Table.Tr key={fitment.id}>
+                        <Table.Td>
+                          <Checkbox
+                            checked={selectedJobFitments.includes(fitment.id)}
+                            onChange={(event) => {
+                              if (event.currentTarget.checked) {
+                                setSelectedJobFitments((prev) => [
+                                  ...prev,
+                                  fitment.id,
+                                ]);
+                              } else {
+                                setSelectedJobFitments((prev) =>
+                                  prev.filter((id) => id !== fitment.id)
+                                );
+                              }
+                            }}
+                          />
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm" fw={600} c="#3b82f6">
+                            {fitment.part_id}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm">{fitment.year}</Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm">{fitment.make}</Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm">{fitment.model}</Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Badge
+                            variant="light"
+                            color={
+                              fitment.confidence > 0.8
+                                ? "green"
+                                : fitment.confidence > 0.6
+                                ? "orange"
+                                : "red"
+                            }
+                          >
+                            {Math.round(fitment.confidence * 100)}%
+                          </Badge>
+                        </Table.Td>
+                        <Table.Td>
+                          <ActionIcon
+                            variant="subtle"
+                            color="blue"
+                            onClick={() => handleEditFitment(fitment)}
+                          >
+                            <IconEdit size={16} />
+                          </ActionIcon>
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </ScrollArea>
+            </>
+          )}
+        </Stack>
+      </Modal>
 
-        {/* Edit Fitment Modal */}
-        <Modal
-          opened={editModalOpen}
-          onClose={() => setEditModalOpen(false)}
-          title={
-            <div>
-              <Text fw={700} size="xl" c="#1e293b">
-                Edit AI Fitment
-              </Text>
-              <Text size="sm" c="#64748b" mt={4}>
-                Modify the fitment details below. Changes will be applied to the
-                selected fitment.
-              </Text>
-            </div>
-          }
-          size="xl"
-          styles={{
-            header: {
-              padding: "24px 24px 16px 24px",
-              borderBottom: "1px solid #e2e8f0",
-            },
-            body: {
-              padding: "24px",
-            },
-            content: {
-              borderRadius: "12px",
-              boxShadow:
-                "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
-            },
-          }}
-        >
-          <Stack gap="xl">
-            {/* Basic Information Section */}
-            <div>
-              <Text fw={600} size="lg" c="#1e293b" mb="md">
-                Basic Information
-              </Text>
-              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
-                <TextInput
-                  label="Part ID"
-                  placeholder="Enter part ID"
-                  value={editFormData.part_id || ""}
-                  onChange={(e) =>
-                    setEditFormData({
-                      ...editFormData,
-                      part_id: e.target.value,
-                    })
-                  }
-                  leftSection={<IconPackage size={16} color="#64748b" />}
-                  styles={{
-                    label: {
-                      fontWeight: 600,
-                      fontSize: "13px",
-                      color: "#374151",
-                      marginBottom: "8px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                    },
-                    input: {
-                      borderRadius: "10px",
-                      border: "2px solid #e2e8f0",
-                      fontSize: "14px",
-                      height: "48px",
-                      paddingLeft: "40px",
-                      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                      backgroundColor: "#fafafa",
-                      "&:focus": {
-                        borderColor: "#3b82f6",
-                        boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                        backgroundColor: "#ffffff",
-                      },
-                      "&:hover": {
-                        borderColor: "#cbd5e1",
-                        backgroundColor: "#ffffff",
-                      },
-                    },
-                  }}
-                />
-                <NumberInput
-                  label="Year"
-                  placeholder="Enter year"
-                  value={editFormData.year || 2020}
-                  onChange={(value) =>
-                    setEditFormData({ ...editFormData, year: value })
-                  }
-                  min={1900}
-                  max={2030}
-                  leftSection={<IconCalendar size={16} color="#64748b" />}
-                  styles={{
-                    label: {
-                      fontWeight: 600,
-                      fontSize: "13px",
-                      color: "#374151",
-                      marginBottom: "8px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                    },
-                    input: {
-                      borderRadius: "10px",
-                      border: "2px solid #e2e8f0",
-                      fontSize: "14px",
-                      height: "48px",
-                      paddingLeft: "40px",
-                      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                      backgroundColor: "#fafafa",
-                      "&:focus": {
-                        borderColor: "#3b82f6",
-                        boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                        backgroundColor: "#ffffff",
-                      },
-                      "&:hover": {
-                        borderColor: "#cbd5e1",
-                        backgroundColor: "#ffffff",
-                      },
-                    },
-                  }}
-                />
-              </SimpleGrid>
-            </div>
+      {/* Edit Fitment Modal */}
+      <Modal
+        opened={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        title={
+          <div>
+            <Text fw={700} size="xl" c="#1e293b">
+              Edit Fitment
+            </Text>
+            <Text size="sm" c="#64748b" mt={4}>
+              Modify the fitment details before approval
+            </Text>
+          </div>
+        }
+        size="lg"
+      >
+        <Stack gap="lg">
+          <SimpleGrid cols={2} spacing="lg">
+            <TextInput
+              label="Part ID"
+              value={editFormData.part_id || ""}
+              onChange={(e) =>
+                setEditFormData({ ...editFormData, part_id: e.target.value })
+              }
+            />
+            <NumberInput
+              label="Year"
+              value={editFormData.year || 2020}
+              onChange={(value) =>
+                setEditFormData({ ...editFormData, year: value })
+              }
+            />
+            <TextInput
+              label="Make"
+              value={editFormData.make || ""}
+              onChange={(e) =>
+                setEditFormData({ ...editFormData, make: e.target.value })
+              }
+            />
+            <TextInput
+              label="Model"
+              value={editFormData.model || ""}
+              onChange={(e) =>
+                setEditFormData({ ...editFormData, model: e.target.value })
+              }
+            />
+          </SimpleGrid>
 
-            {/* Vehicle Information Section */}
-            <div>
-              <Text fw={600} size="lg" c="#1e293b" mb="md">
-                Vehicle Information
-              </Text>
-              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
-                <TextInput
-                  label="Make"
-                  placeholder="Enter make"
-                  value={editFormData.make || ""}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, make: e.target.value })
-                  }
-                  leftSection={<IconCar size={16} color="#64748b" />}
-                  styles={{
-                    label: {
-                      fontWeight: 600,
-                      fontSize: "13px",
-                      color: "#374151",
-                      marginBottom: "8px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                    },
-                    input: {
-                      borderRadius: "10px",
-                      border: "2px solid #e2e8f0",
-                      fontSize: "14px",
-                      height: "48px",
-                      paddingLeft: "40px",
-                      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                      backgroundColor: "#fafafa",
-                      "&:focus": {
-                        borderColor: "#3b82f6",
-                        boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                        backgroundColor: "#ffffff",
-                      },
-                      "&:hover": {
-                        borderColor: "#cbd5e1",
-                        backgroundColor: "#ffffff",
-                      },
-                    },
-                  }}
-                />
-                <TextInput
-                  label="Model"
-                  placeholder="Enter model"
-                  value={editFormData.model || ""}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, model: e.target.value })
-                  }
-                  leftSection={<IconCar size={16} color="#64748b" />}
-                  styles={{
-                    label: {
-                      fontWeight: 600,
-                      fontSize: "13px",
-                      color: "#374151",
-                      marginBottom: "8px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                    },
-                    input: {
-                      borderRadius: "10px",
-                      border: "2px solid #e2e8f0",
-                      fontSize: "14px",
-                      height: "48px",
-                      paddingLeft: "40px",
-                      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                      backgroundColor: "#fafafa",
-                      "&:focus": {
-                        borderColor: "#3b82f6",
-                        boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                        backgroundColor: "#ffffff",
-                      },
-                      "&:hover": {
-                        borderColor: "#cbd5e1",
-                        backgroundColor: "#ffffff",
-                      },
-                    },
-                  }}
-                />
-                <TextInput
-                  label="Submodel"
-                  placeholder="Enter submodel"
-                  value={editFormData.submodel || ""}
-                  onChange={(e) =>
-                    setEditFormData({
-                      ...editFormData,
-                      submodel: e.target.value,
-                    })
-                  }
-                  leftSection={<IconCar size={16} color="#64748b" />}
-                  styles={{
-                    label: {
-                      fontWeight: 600,
-                      fontSize: "13px",
-                      color: "#374151",
-                      marginBottom: "8px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                    },
-                    input: {
-                      borderRadius: "10px",
-                      border: "2px solid #e2e8f0",
-                      fontSize: "14px",
-                      height: "48px",
-                      paddingLeft: "40px",
-                      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                      backgroundColor: "#fafafa",
-                      "&:focus": {
-                        borderColor: "#3b82f6",
-                        boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                        backgroundColor: "#ffffff",
-                      },
-                      "&:hover": {
-                        borderColor: "#cbd5e1",
-                        backgroundColor: "#ffffff",
-                      },
-                    },
-                  }}
-                />
-                <TextInput
-                  label="Drive Type"
-                  placeholder="Enter drive type"
-                  value={editFormData.drive_type || ""}
-                  onChange={(e) =>
-                    setEditFormData({
-                      ...editFormData,
-                      drive_type: e.target.value,
-                    })
-                  }
-                  leftSection={<IconSettings size={16} color="#64748b" />}
-                  styles={{
-                    label: {
-                      fontWeight: 600,
-                      fontSize: "13px",
-                      color: "#374151",
-                      marginBottom: "8px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                    },
-                    input: {
-                      borderRadius: "10px",
-                      border: "2px solid #e2e8f0",
-                      fontSize: "14px",
-                      height: "48px",
-                      paddingLeft: "40px",
-                      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                      backgroundColor: "#fafafa",
-                      "&:focus": {
-                        borderColor: "#3b82f6",
-                        boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                        backgroundColor: "#ffffff",
-                      },
-                      "&:hover": {
-                        borderColor: "#cbd5e1",
-                        backgroundColor: "#ffffff",
-                      },
-                    },
-                  }}
-                />
-              </SimpleGrid>
-            </div>
-
-            {/* Fitment Details Section */}
-            <div>
-              <Text fw={600} size="lg" c="#1e293b" mb="md">
-                Fitment Details
-              </Text>
-              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
-                <TextInput
-                  label="Position"
-                  placeholder="Enter position"
-                  value={editFormData.position || ""}
-                  onChange={(e) =>
-                    setEditFormData({
-                      ...editFormData,
-                      position: e.target.value,
-                    })
-                  }
-                  leftSection={<IconMapPin size={16} color="#64748b" />}
-                  styles={{
-                    label: {
-                      fontWeight: 600,
-                      fontSize: "13px",
-                      color: "#374151",
-                      marginBottom: "8px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                    },
-                    input: {
-                      borderRadius: "10px",
-                      border: "2px solid #e2e8f0",
-                      fontSize: "14px",
-                      height: "48px",
-                      paddingLeft: "40px",
-                      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                      backgroundColor: "#fafafa",
-                      "&:focus": {
-                        borderColor: "#3b82f6",
-                        boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                        backgroundColor: "#ffffff",
-                      },
-                      "&:hover": {
-                        borderColor: "#cbd5e1",
-                        backgroundColor: "#ffffff",
-                      },
-                    },
-                  }}
-                />
-                <NumberInput
-                  label="Quantity"
-                  placeholder="Enter quantity"
-                  value={editFormData.quantity || 1}
-                  onChange={(value) =>
-                    setEditFormData({ ...editFormData, quantity: value })
-                  }
-                  min={1}
-                  max={10}
-                  leftSection={<IconHash size={16} color="#64748b" />}
-                  styles={{
-                    label: {
-                      fontWeight: 600,
-                      fontSize: "13px",
-                      color: "#374151",
-                      marginBottom: "8px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                    },
-                    input: {
-                      borderRadius: "10px",
-                      border: "2px solid #e2e8f0",
-                      fontSize: "14px",
-                      height: "48px",
-                      paddingLeft: "40px",
-                      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                      backgroundColor: "#fafafa",
-                      "&:focus": {
-                        borderColor: "#3b82f6",
-                        boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                        backgroundColor: "#ffffff",
-                      },
-                      "&:hover": {
-                        borderColor: "#cbd5e1",
-                        backgroundColor: "#ffffff",
-                      },
-                    },
-                  }}
-                />
-              </SimpleGrid>
-            </div>
-
-            {/* AI Analysis Section */}
-            <div>
-              <Text fw={600} size="lg" c="#1e293b" mb="md">
-                AI Analysis
-              </Text>
-              <Stack gap="lg">
-                <NumberInput
-                  label="Confidence Score"
-                  placeholder="Enter confidence score"
-                  value={editFormData.confidence || 0}
-                  onChange={(value) =>
-                    setEditFormData({ ...editFormData, confidence: value })
-                  }
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  decimalScale={2}
-                  leftSection={<IconBrain size={16} color="#64748b" />}
-                  styles={{
-                    label: {
-                      fontWeight: 600,
-                      fontSize: "13px",
-                      color: "#374151",
-                      marginBottom: "8px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                    },
-                    input: {
-                      borderRadius: "10px",
-                      border: "2px solid #e2e8f0",
-                      fontSize: "14px",
-                      height: "48px",
-                      paddingLeft: "40px",
-                      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                      backgroundColor: "#fafafa",
-                      "&:focus": {
-                        borderColor: "#3b82f6",
-                        boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                        backgroundColor: "#ffffff",
-                      },
-                      "&:hover": {
-                        borderColor: "#cbd5e1",
-                        backgroundColor: "#ffffff",
-                      },
-                    },
-                  }}
-                />
-
-                <Textarea
-                  label="Part Description"
-                  placeholder="Enter part description"
-                  value={editFormData.part_description || ""}
-                  onChange={(e) =>
-                    setEditFormData({
-                      ...editFormData,
-                      part_description: e.target.value,
-                    })
-                  }
-                  rows={3}
-                  styles={{
-                    label: {
-                      fontWeight: 600,
-                      fontSize: "13px",
-                      color: "#374151",
-                      marginBottom: "8px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                    },
-                    input: {
-                      borderRadius: "10px",
-                      border: "2px solid #e2e8f0",
-                      fontSize: "14px",
-                      padding: "12px 16px",
-                      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                      backgroundColor: "#fafafa",
-                      "&:focus": {
-                        borderColor: "#3b82f6",
-                        boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                        backgroundColor: "#ffffff",
-                      },
-                      "&:hover": {
-                        borderColor: "#cbd5e1",
-                        backgroundColor: "#ffffff",
-                      },
-                    },
-                  }}
-                />
-
-                <Textarea
-                  label="Confidence Explanation"
-                  placeholder="Enter confidence explanation"
-                  value={editFormData.confidence_explanation || ""}
-                  onChange={(e) =>
-                    setEditFormData({
-                      ...editFormData,
-                      confidence_explanation: e.target.value,
-                    })
-                  }
-                  rows={3}
-                  styles={{
-                    label: {
-                      fontWeight: 600,
-                      fontSize: "13px",
-                      color: "#374151",
-                      marginBottom: "8px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                    },
-                    input: {
-                      borderRadius: "10px",
-                      border: "2px solid #e2e8f0",
-                      fontSize: "14px",
-                      padding: "12px 16px",
-                      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                      backgroundColor: "#fafafa",
-                      "&:focus": {
-                        borderColor: "#3b82f6",
-                        boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                        backgroundColor: "#ffffff",
-                      },
-                      "&:hover": {
-                        borderColor: "#cbd5e1",
-                        backgroundColor: "#ffffff",
-                      },
-                    },
-                  }}
-                />
-
-                <Textarea
-                  label="AI Reasoning"
-                  placeholder="Enter AI reasoning"
-                  value={editFormData.ai_reasoning || ""}
-                  onChange={(e) =>
-                    setEditFormData({
-                      ...editFormData,
-                      ai_reasoning: e.target.value,
-                    })
-                  }
-                  rows={4}
-                  styles={{
-                    label: {
-                      fontWeight: 600,
-                      fontSize: "13px",
-                      color: "#374151",
-                      marginBottom: "8px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                    },
-                    input: {
-                      borderRadius: "10px",
-                      border: "2px solid #e2e8f0",
-                      fontSize: "14px",
-                      padding: "12px 16px",
-                      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                      backgroundColor: "#fafafa",
-                      "&:focus": {
-                        borderColor: "#3b82f6",
-                        boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)",
-                        backgroundColor: "#ffffff",
-                      },
-                      "&:hover": {
-                        borderColor: "#cbd5e1",
-                        backgroundColor: "#ffffff",
-                      },
-                    },
-                  }}
-                />
-              </Stack>
-            </div>
-
-            {/* Dynamic Fields Section */}
-            {allDynamicFieldConfigs.length > 0 ? (
-              <div>
-                <Divider
-                  label={
-                    <Group gap="sm">
-                      <Text fw={600} size="lg" c="#1e293b">
-                        Dynamic Fields
-                      </Text>
-                      <Tooltip label="Fields configured based on VCDB and Product field configurations">
-                        <IconFileText size={16} color="#64748b" />
-                      </Tooltip>
-                    </Group>
-                  }
-                  labelPosition="center"
-                  my="lg"
-                  styles={{
-                    label: {
-                      padding: "0 16px",
-                    },
-                  }}
-                />
-                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
-                  {allDynamicFieldConfigs.map((fieldConfig) => (
-                    <div key={fieldConfig.id}>
-                      {renderDynamicField(fieldConfig)}
-                    </div>
-                  ))}
-                </SimpleGrid>
-              </div>
-            ) : (
-              <div>
-                <Divider
-                  label={
-                    <Group gap="sm">
-                      <Text fw={600} size="lg" c="#1e293b">
-                        Dynamic Fields
-                      </Text>
-                      <Tooltip label="Fields configured based on VCDB and Product field configurations">
-                        <IconFileText size={16} color="#64748b" />
-                      </Tooltip>
-                    </Group>
-                  }
-                  labelPosition="center"
-                  my="lg"
-                  styles={{
-                    label: {
-                      padding: "0 16px",
-                    },
-                  }}
-                />
-                <Alert color="blue" variant="light" mt="md">
-                  <Text size="sm">
-                    <strong>No Dynamic Fields Available:</strong> No field
-                    configurations have been set up yet. Go to{" "}
-                    <strong>Settings</strong> to configure additional fields for
-                    VCDB and Product data.
-                  </Text>
-                </Alert>
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <Group
-              justify="flex-end"
-              gap="md"
-              mt="xl"
-              pt="lg"
-              style={{ borderTop: "1px solid #e2e8f0" }}
+          <Group justify="flex-end" gap="md" mt="lg">
+            <Button
+              variant="outline"
+              onClick={() => setEditModalOpen(false)}
+              disabled={savingEdit}
             >
-              <Button
-                variant="outline"
-                onClick={() => setEditModalOpen(false)}
-                disabled={savingEdit}
-                size="md"
-                styles={{
-                  root: {
-                    borderRadius: "10px",
-                    fontWeight: 600,
-                    fontSize: "14px",
-                    height: "44px",
-                    padding: "0 24px",
-                    border: "2px solid #e2e8f0",
-                    color: "#64748b",
-                    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                    "&:hover": {
-                      borderColor: "#cbd5e1",
-                      backgroundColor: "#f8fafc",
-                      transform: "translateY(-1px)",
-                    },
-                  },
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSaveEdit}
-                loading={savingEdit}
-                size="md"
-                styles={{
-                  root: {
-                    borderRadius: "10px",
-                    fontWeight: 600,
-                    fontSize: "14px",
-                    height: "44px",
-                    padding: "0 24px",
-                    background:
-                      "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
-                    border: "none",
-                    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                    boxShadow:
-                      "0 4px 6px -1px rgba(59, 130, 246, 0.2), 0 2px 4px -1px rgba(59, 130, 246, 0.1)",
-                    "&:hover": {
-                      transform: "translateY(-2px)",
-                      boxShadow:
-                        "0 8px 25px -5px rgba(59, 130, 246, 0.3), 0 4px 6px -1px rgba(59, 130, 246, 0.1)",
-                    },
-                  },
-                }}
-              >
-                Save Changes
-              </Button>
-            </Group>
-          </Stack>
-        </Modal>
-      </Stack>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit} loading={savingEdit}>
+              Save Changes
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </div>
   );
 }

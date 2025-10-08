@@ -118,8 +118,6 @@ export const UserRoleToggle: React.FC<UserRoleToggleProps> = ({
             </div>
           </Group>
 
-          <Divider />
-
           {/* <Group gap="xs">
             <IconUser size={16} />
             <div style={{ flex: 1 }}>
@@ -168,7 +166,7 @@ export const UserRoleToggle: React.FC<UserRoleToggleProps> = ({
             </>
           )}
 
-          <Divider />
+          {/* <Divider /> */}
 
           <Button
             variant="subtle"

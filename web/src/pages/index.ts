@@ -6,3 +6,4 @@ export { default as PotentialFitments } from "./PotentialFitments";
 export { default as Admin } from "./Admin";
 export { default as UploadMap } from "./UploadMap";
 export { default as ReviewPublish } from "./ReviewPublish";
+export { default as Products } from "./Products";

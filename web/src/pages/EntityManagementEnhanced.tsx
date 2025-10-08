@@ -643,13 +643,13 @@ const EntityManagementEnhanced: React.FC = () => {
                 value="fitments"
                 leftSection={<IconDatabase size={16} />}
               >
-                Fitments
+                VCDB Configuration
               </Tabs.Tab>
               <Tabs.Tab
                 value="products"
                 leftSection={<IconFileText size={16} />}
               >
-                Products
+                Products Configuration
               </Tabs.Tab>
             </Tabs.List>
 

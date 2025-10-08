@@ -18,6 +18,7 @@ import {
   IconBuilding,
   IconUpload,
   IconFile,
+  IconDatabase,
 } from "@tabler/icons-react";
 import {
   Routes,
@@ -39,6 +40,7 @@ import Admin from "./pages/Admin";
 import UploadMap from "./pages/UploadMap";
 import ReviewPublish from "./pages/ReviewPublish";
 import UploadData from "./pages/UploadData";
+import Products from "./pages/Products";
 import ManualFitment from "./pages/ManualFitment";
 import AIFitment from "./pages/AIFitment";
 import SettingsWrapper from "./pages/SettingsWrapper";
@@ -111,13 +113,13 @@ const baseNavigationItems = [
 
 // Admin-only navigation items
 const adminNavigationItems: any = [
-  // {
-  //   label: "VCDB Data",
-  //   value: "vcdb-data",
-  //   path: "/vcdb-data",
-  //   icon: IconDatabase,
-  //   color: "cyan",
-  // },
+  {
+    label: "VCDB Data",
+    value: "vcdb-data",
+    path: "/vcdb-data",
+    icon: IconDatabase,
+    color: "cyan",
+  },
 ];
 
 // Function to get navigation items based on user role
@@ -233,7 +235,7 @@ function App() {
         />
         <Route path="/admin" element={<Admin />} />
         <Route path="/mismatches" element={<Mismatches />} />
-        <Route path="/products" element={<UploadData />} />
+        <Route path="/products" element={<Products />} />
         <Route path="/settings" element={<SettingsWrapper />} />
         <Route path="/edit-entity/:id" element={<EditEntity />} />
         <Route
