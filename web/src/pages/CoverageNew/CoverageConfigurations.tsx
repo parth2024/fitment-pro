@@ -169,7 +169,7 @@ const CoverageConfigurations: React.FC<CoverageConfigurationsProps> = (
 
   return (
     <div className="CoverageConfigurations">
-      <Card shadow="sm" padding="lg" radius="md" withBorder>
+      <Card shadow="sm" padding="lg" radius="md">
         <Stack gap="md">
           <Title order={3}>
             Vehicle Configurations - {props.selectedMake.make}

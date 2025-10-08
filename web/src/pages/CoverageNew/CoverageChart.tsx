@@ -118,7 +118,7 @@ const CoverageChart: React.FC<CoverageChartProps> = (props) => {
   };
 
   return (
-    <div className="CoverageChart">
+    <div className="CoverageChart" style={{ margin: "0", boxShadow: "none" }}>
       <div className="chart-container">
         <Bar
           ref={chartRef}
