@@ -178,7 +178,35 @@ function App() {
     const currentNav = navigationItems.find(
       (item) => item.path === location.pathname
     );
-    return currentNav ? currentNav.value : "analytics";
+    if (currentNav) return currentNav.value;
+
+    // Handle edit entity routes - these should be considered settings
+    if (location.pathname.startsWith("/edit-entity/")) {
+      return "settings";
+    }
+
+    // Handle create entity route - these should be considered settings
+    if (location.pathname === "/create-entity") {
+      return "settings";
+    }
+
+    // Handle new entity settings route - these should be considered settings
+    if (location.pathname.startsWith("/new-entity-settings/")) {
+      return "settings";
+    }
+
+    // Handle manage entities route - these should be considered settings
+    if (location.pathname === "/manage-entities") {
+      return "settings";
+    }
+
+    // Handle edit entity standalone route - these should be considered settings
+    if (location.pathname.startsWith("/edit-entity-standalone/")) {
+      return "settings";
+    }
+
+    // Default to analytics for other routes
+    return "analytics";
   };
 
   const renderContent = () => {
