@@ -57,6 +57,30 @@ export const EntitySelector: React.FC<EntitySelectorProps> = ({
   const [menuOpened, setMenuOpened] = useState(false);
   const [createModalOpened, setCreateModalOpened] = useState(false);
 
+  // Check localStorage on every render to ensure sync
+  const checkLocalStorageEntity = () => {
+    const storedEntity = localStorage.getItem("current_entity");
+    if (storedEntity) {
+      try {
+        const entity = JSON.parse(storedEntity);
+        // If current entity is different from stored entity, update it
+        if (!currentEntity || currentEntity.id !== entity.id) {
+          console.log(
+            "DEBUG: Force updating entity from localStorage on render:",
+            entity.name,
+            entity.id
+          );
+          setCurrentEntity(entity);
+        }
+      } catch (err) {
+        console.warn("Invalid entity data in localStorage on render check");
+      }
+    }
+  };
+
+  // Run localStorage check on every render
+  checkLocalStorageEntity();
+
   const fetchEntities = async () => {
     try {
       setLoading(true);
@@ -95,13 +119,14 @@ export const EntitySelector: React.FC<EntitySelectorProps> = ({
   const fetchCurrentEntity = async () => {
     try {
       console.log("DEBUG: fetchCurrentEntity called");
+      console.log("DEBUG: Available entities:", entities.length);
 
       // Check URL parameters first (for entity switching)
       const urlParams = new URLSearchParams(window.location.search);
       const entityIdFromUrl = urlParams.get("entity");
       console.log("DEBUG: entityIdFromUrl:", entityIdFromUrl);
 
-      if (entityIdFromUrl) {
+      if (entityIdFromUrl && entities.length > 0) {
         // Find the entity in our entities list
         const entityFromUrl = entities.find((e) => e.id === entityIdFromUrl);
         if (entityFromUrl) {
@@ -120,20 +145,27 @@ export const EntitySelector: React.FC<EntitySelectorProps> = ({
         }
       }
 
-      // First check localStorage for the current entity
+      // Check localStorage for the current entity
       const storedEntity = localStorage.getItem("current_entity");
       console.log("DEBUG: storedEntity from localStorage:", storedEntity);
 
-      if (storedEntity) {
+      if (storedEntity && entities.length > 0) {
         try {
           const entity = JSON.parse(storedEntity);
-          setCurrentEntity(entity);
-          console.log(
-            "DEBUG: Using entity from localStorage:",
-            entity.name,
-            entity.id
-          );
-          return;
+          // Verify the entity exists in our entities list
+          const entityExists = entities.find((e) => e.id === entity.id);
+          if (entityExists) {
+            setCurrentEntity(entityExists);
+            console.log(
+              "DEBUG: Using entity from localStorage:",
+              entityExists.name,
+              entityExists.id
+            );
+            return;
+          } else {
+            console.warn("DEBUG: Stored entity not found in entities list");
+            localStorage.removeItem("current_entity");
+          }
         } catch (err) {
           console.warn(
             "Invalid entity data in localStorage, fetching from API"
@@ -143,13 +175,20 @@ export const EntitySelector: React.FC<EntitySelectorProps> = ({
       }
 
       // Fallback to API if localStorage is empty or invalid
+      if (entities.length === 0) {
+        console.log("DEBUG: No entities loaded yet, waiting...");
+        return;
+      }
+
       console.log("DEBUG: Fetching entity from API...");
       const response = await apiClient.get("/api/tenants/current/");
-      setCurrentEntity(response.data);
+      const apiEntity = response.data;
+      setCurrentEntity(apiEntity);
+      localStorage.setItem("current_entity", JSON.stringify(apiEntity));
       console.log(
         "DEBUG: Fetched entity from API:",
-        response.data.name,
-        response.data.id
+        apiEntity.name,
+        apiEntity.id
       );
     } catch (err) {
       console.error("Failed to fetch current entity:", err);
@@ -163,8 +202,60 @@ export const EntitySelector: React.FC<EntitySelectorProps> = ({
     }
   }, [entities]);
 
+  // Force check localStorage if current entity doesn't match
+  useEffect(() => {
+    const checkLocalStorageSync = () => {
+      const storedEntity = localStorage.getItem("current_entity");
+      if (storedEntity) {
+        try {
+          const entity = JSON.parse(storedEntity);
+          // If current entity is null or doesn't match stored entity, update it
+          if (!currentEntity || currentEntity.id !== entity.id) {
+            console.log(
+              "DEBUG: Syncing current entity with localStorage:",
+              entity.name,
+              entity.id
+            );
+            setCurrentEntity(entity);
+          }
+        } catch (err) {
+          console.warn("Invalid entity data in localStorage during sync check");
+        }
+      }
+    };
+
+    // Run check immediately
+    checkLocalStorageSync();
+
+    // Also run on a small delay to catch any race conditions
+    const timeoutId = setTimeout(checkLocalStorageSync, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [currentEntity]);
+
   useEffect(() => {
     fetchEntities();
+  }, []);
+
+  // Immediate localStorage check on mount
+  useEffect(() => {
+    console.log(
+      "DEBUG: EntitySelector mounted, checking localStorage immediately"
+    );
+    const storedEntity = localStorage.getItem("current_entity");
+    if (storedEntity) {
+      try {
+        const entity = JSON.parse(storedEntity);
+        console.log(
+          "DEBUG: Setting initial entity from localStorage:",
+          entity.name,
+          entity.id
+        );
+        setCurrentEntity(entity);
+      } catch (err) {
+        console.warn("Invalid entity data in localStorage on mount");
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -173,7 +264,7 @@ export const EntitySelector: React.FC<EntitySelectorProps> = ({
     }
   }, [currentEntityId]);
 
-  // Listen for entity change events
+  // Listen for entity change events and window focus
   useEffect(() => {
     const handleEntityChanged = (event: CustomEvent) => {
       const { entity } = event.detail;
@@ -187,18 +278,44 @@ export const EntitySelector: React.FC<EntitySelectorProps> = ({
       }
     };
 
+    const handleWindowFocus = () => {
+      console.log(
+        "DEBUG: Window focused, checking localStorage for entity updates"
+      );
+      const storedEntity = localStorage.getItem("current_entity");
+      if (storedEntity) {
+        try {
+          const entity = JSON.parse(storedEntity);
+          // Only update if different from current
+          if (!currentEntity || currentEntity.id !== entity.id) {
+            console.log(
+              "DEBUG: Updating entity from localStorage on focus:",
+              entity.name,
+              entity.id
+            );
+            setCurrentEntity(entity);
+          }
+        } catch (err) {
+          console.warn("Invalid entity data in localStorage on focus");
+        }
+      }
+    };
+
     window.addEventListener(
       "entityChanged",
       handleEntityChanged as EventListener
     );
+
+    window.addEventListener("focus", handleWindowFocus);
 
     return () => {
       window.removeEventListener(
         "entityChanged",
         handleEntityChanged as EventListener
       );
+      window.removeEventListener("focus", handleWindowFocus);
     };
-  }, []);
+  }, [currentEntity]);
 
   const handleEntityChange = async (entityId: string) => {
     try {

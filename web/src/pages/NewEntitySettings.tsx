@@ -300,10 +300,12 @@ const NewEntitySettings: React.FC = () => {
           {error || "Entity not found"}
         </Alert>
         <Button
-          leftSection={<IconArrowLeft size={16} />}
+          leftSection={<IconArrowLeft size={14} />}
           onClick={() => navigate("/entities")}
           mt="md"
-          size="md"
+          size="sm"
+          variant="subtle"
+          style={{ fontSize: "14px" }}
         >
           Back to Entities
         </Button>

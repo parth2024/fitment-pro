@@ -1,0 +1,18 @@
+{
+  "name": "fitmentpro-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FitmentPro - Mass Fitment Tool",
+  "scripts": {
+    "build:web": "cd web && npm ci && npm run build",
+    "install:web": "cd web && npm ci",
+    "dev:web": "cd web && npm run dev",
+    "lint:web": "cd web && npm run lint"
+  },
+  "workspaces": [
+    "web"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

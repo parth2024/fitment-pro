@@ -18,7 +18,6 @@ import {
 } from "@mantine/core";
 import {
   IconPlus,
-  IconEdit,
   IconTrash,
   IconRefresh,
   IconInfoCircle,
@@ -75,14 +74,10 @@ const ManageEntitiesStandalone: React.FC = () => {
     fetchEntities();
   }, []);
 
-  const handleEdit = (entity: Entity) => {
-    // Navigate to standalone edit page
-    window.location.href = `/edit-entity-standalone/${entity.id}`;
-  };
-
   const handleSettings = (entity: Entity) => {
     // Navigate to standalone edit page (same as edit)
-    window.location.href = `/edit-entity-standalone/${entity.id}`;
+    // Add 'from' parameter to indicate we came from manage entities
+    window.location.href = `/edit-entity-standalone/${entity.id}?from=manage`;
   };
 
   const handleSelectEntity = async (entity: Entity) => {
@@ -187,56 +182,62 @@ const ManageEntitiesStandalone: React.FC = () => {
       <Container size="xl">
         <Stack gap="xl">
           {/* Header */}
-          <Group justify="space-between" align="center">
-            <div>
-              <Group gap="md" mb="xs">
-                <Button
-                  leftSection={<IconArrowLeft size={16} />}
-                  variant="subtle"
-                  onClick={handleBackToApp}
-                >
-                  Back to App
-                </Button>
-                <Title order={1}>Entity Management</Title>
-              </Group>
-              <Text size="sm" c="dimmed">
-                Manage all your entities, configure settings, and switch between
-                them
-              </Text>
-            </div>
+          <Stack gap="md">
+            {/* Back Button - Top Left */}
             <Group>
               <Button
-                leftSection={<IconRefresh size={16} />}
-                variant="outline"
-                onClick={fetchEntities}
-                size="md"
+                leftSection={<IconArrowLeft size={16} />}
+                variant="subtle"
+                onClick={handleBackToApp}
+                size="sm"
+                style={{ fontSize: "14px" }}
               >
-                Refresh
-              </Button>
-              <Button
-                leftSection={<IconPlus size={16} />}
-                onClick={() => setCreateModalOpened(true)}
-                size="md"
-                style={{
-                  background:
-                    "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                }}
-              >
-                Create New Entity
+                Back to App
               </Button>
             </Group>
-          </Group>
+
+            {/* Title and Actions - Second Line */}
+            <Group justify="space-between" align="flex-start">
+              <div>
+                <Title order={3}>Entity Management</Title>
+                <Text size="sm" c="dimmed">
+                  Manage all your entities, configure settings, and switch
+                  between them
+                </Text>
+              </div>
+              <Group>
+                <Button
+                  leftSection={<IconRefresh size={16} />}
+                  variant="light"
+                  onClick={fetchEntities}
+                  size="sm"
+                >
+                  Refresh
+                </Button>
+                <Button
+                  leftSection={<IconPlus size={16} />}
+                  onClick={() => setCreateModalOpened(true)}
+                  size="sm"
+                  color="blue"
+                >
+                  Create Entity
+                </Button>
+              </Group>
+            </Group>
+          </Stack>
 
           {/* Entities List */}
           <Card shadow="sm" padding="xl" radius="md" withBorder>
             <Table striped highlightOnHover verticalSpacing="md">
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>Name</Table.Th>
-                  <Table.Th>URL</Table.Th>
-                  <Table.Th>Status</Table.Th>
-                  <Table.Th>Created</Table.Th>
-                  <Table.Th style={{ textAlign: "right" }}>Actions</Table.Th>
+                  <Table.Th style={{ width: "30%" }}>Name</Table.Th>
+                  <Table.Th style={{ width: "15%" }}>URL</Table.Th>
+                  <Table.Th style={{ width: "20%" }}>Status</Table.Th>
+                  <Table.Th style={{ width: "15%" }}>Created</Table.Th>
+                  <Table.Th style={{ width: "20%", textAlign: "right" }}>
+                    Actions
+                  </Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -252,7 +253,7 @@ const ManageEntitiesStandalone: React.FC = () => {
                 ) : (
                   entities.map((entity) => (
                     <Table.Tr key={entity.id}>
-                      <Table.Td>
+                      <Table.Td style={{ verticalAlign: "top" }}>
                         <Group gap="xs">
                           <IconBuilding size={18} color="#3b82f6" />
                           <div>
@@ -267,12 +268,16 @@ const ManageEntitiesStandalone: React.FC = () => {
                           </div>
                         </Group>
                       </Table.Td>
-                      <Table.Td>
+                      <Table.Td
+                        style={{ verticalAlign: "top", paddingTop: "8px" }}
+                      >
                         <Text size="sm" c="dimmed">
                           {entity.slug || "-"}
                         </Text>
                       </Table.Td>
-                      <Table.Td>
+                      <Table.Td
+                        style={{ verticalAlign: "top", paddingTop: "6px" }}
+                      >
                         <Group gap="xs">
                           <Badge
                             color={entity.is_active ? "green" : "red"}
@@ -287,51 +292,50 @@ const ManageEntitiesStandalone: React.FC = () => {
                           )}
                         </Group>
                       </Table.Td>
-                      <Table.Td>
+                      <Table.Td
+                        style={{ verticalAlign: "top", paddingTop: "8px" }}
+                      >
                         <Text size="sm" c="dimmed">
                           {new Date(entity.created_at).toLocaleDateString()}
                         </Text>
                       </Table.Td>
-                      <Table.Td>
+                      <Table.Td
+                        style={{
+                          verticalAlign: "top",
+                          textAlign: "right",
+                          paddingTop: "6px",
+                        }}
+                      >
                         <Group gap="xs" justify="flex-end">
                           <Tooltip label="Select & Use Entity">
                             <ActionIcon
                               color="blue"
-                              variant="light"
+                              variant="subtle"
                               onClick={() => handleSelectEntity(entity)}
-                              size="lg"
+                              size="sm"
                             >
-                              <IconCheck size={18} />
+                              <IconCheck size={16} />
                             </ActionIcon>
                           </Tooltip>
                           <Tooltip label="Entity Settings">
                             <ActionIcon
-                              color="violet"
-                              variant="light"
+                              color="gray"
+                              variant="subtle"
                               onClick={() => handleSettings(entity)}
-                              size="lg"
+                              size="sm"
                             >
-                              <IconSettings size={18} />
+                              <IconSettings size={16} />
                             </ActionIcon>
                           </Tooltip>
-                          <Tooltip label="Edit Entity">
-                            <ActionIcon
-                              color="orange"
-                              variant="light"
-                              onClick={() => handleEdit(entity)}
-                              size="lg"
-                            >
-                              <IconEdit size={18} />
-                            </ActionIcon>
-                          </Tooltip>
+
                           <Tooltip label="Delete Entity">
                             <ActionIcon
                               color="red"
-                              variant="light"
+                              variant="subtle"
                               onClick={() => openDeleteModal(entity)}
-                              size="lg"
+                              size="sm"
                             >
-                              <IconTrash size={18} />
+                              <IconTrash size={16} />
                             </ActionIcon>
                           </Tooltip>
                         </Group>
@@ -377,23 +381,26 @@ const ManageEntitiesStandalone: React.FC = () => {
                 />
                 <Group justify="flex-end" mt="md">
                   <Button
-                    variant="outline"
+                    variant="subtle"
                     onClick={() => {
                       setDeleteModalOpen(false);
                       setEntityToDelete(null);
                       setConfirmText("");
                     }}
                     disabled={deleting}
+                    size="sm"
                   >
                     Cancel
                   </Button>
                   <Button
                     color="red"
+                    variant="subtle"
                     onClick={handleDelete}
                     loading={deleting}
                     disabled={confirmText !== entityToDelete.name}
+                    size="sm"
                   >
-                    Delete Entity
+                    Delete
                   </Button>
                 </Group>
               </>

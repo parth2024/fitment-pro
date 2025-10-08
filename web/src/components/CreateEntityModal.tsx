@@ -159,8 +159,15 @@ const CreateEntityModal: React.FC<CreateEntityModalProps> = ({
       centered
       closeOnClickOutside={!submitting}
       closeOnEscape={!submitting}
+      styles={{
+        title: {
+          fontWeight: 600,
+          paddingLeft: "var(--mantine-spacing-sm)",
+          paddingRight: "var(--mantine-spacing-sm)",
+        },
+      }}
     >
-      <Stack gap="md">
+      <Stack gap="md" px="sm">
         <Alert color="blue" icon={<IconAlertCircle size={16} />}>
           <Text size="sm">
             Fill in the basic information below. You can configure additional
@@ -291,15 +298,19 @@ const CreateEntityModal: React.FC<CreateEntityModalProps> = ({
         </Group>
 
         <Group justify="flex-end" mt="md">
-          <Button variant="outline" onClick={handleClose} disabled={submitting}>
+          <Button
+            variant="light"
+            onClick={handleClose}
+            disabled={submitting}
+            size="sm"
+          >
             Cancel
           </Button>
           <Button
             onClick={handleCreate}
             loading={submitting}
-            style={{
-              background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-            }}
+            color="blue"
+            size="sm"
           >
             Create Entity
           </Button>
