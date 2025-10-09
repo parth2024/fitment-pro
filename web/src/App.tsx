@@ -16,7 +16,7 @@ import {
   IconDashboard,
   IconBulb,
   IconBuilding,
-  IconUpload,
+  // IconUpload,
   IconFile,
   IconDatabase,
 } from "@tabler/icons-react";
@@ -80,13 +80,13 @@ const baseNavigationItems = [
     icon: IconTable,
     color: "teal",
   },
-  {
-    label: "Bulk Upload",
-    value: "bulk-upload",
-    path: "/bulk-upload",
-    icon: IconUpload,
-    color: "orange",
-  },
+  // {
+  //   label: "Bulk Upload",
+  //   value: "bulk-upload",
+  //   path: "/bulk-upload",
+  //   icon: IconUpload,
+  //   color: "orange",
+  // },
   {
     label: "Potential Fitments",
     value: "potential",

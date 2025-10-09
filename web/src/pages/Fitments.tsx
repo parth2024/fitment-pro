@@ -52,7 +52,6 @@ import {
   fitmentUploadService,
   type FlattenedAppliedFitment,
 } from "../api/services";
-import apiClient from "../api/client";
 import { notifications } from "@mantine/notifications";
 import MultiEntitySelector from "../components/MultiEntitySelector";
 
@@ -600,10 +599,10 @@ export default function Fitments() {
         return;
       }
 
-      // Call API to approve AI fitments
-      await apiClient.post("/api/vcdb-categories/ai-fitments/bulk_approve/", {
-        fitment_ids: aiFitmentsToApprove.map((f) => f.hash),
-      });
+      // Call API to approve AI fitments using bulk operation
+      await fitmentsService.approveFitments(
+        aiFitmentsToApprove.map((f) => f.hash)
+      );
 
       notifications.show({
         title: "Success",
@@ -649,10 +648,10 @@ export default function Fitments() {
         return;
       }
 
-      // Call API to reject AI fitments
-      await apiClient.post("/api/vcdb-categories/ai-fitments/bulk_reject/", {
-        fitment_ids: aiFitmentsToReject.map((f) => f.hash),
-      });
+      // Call API to reject AI fitments using bulk operation
+      await fitmentsService.rejectFitments(
+        aiFitmentsToReject.map((f) => f.hash)
+      );
 
       notifications.show({
         title: "Success",
@@ -984,58 +983,15 @@ export default function Fitments() {
 
                   <Group gap="sm">
                     {selectedFitments.length > 0 && (
-                      <>
-                        {(() => {
-                          return (
-                            <>
-                              {(() => {
-                                const selectedFitmentsData = fitments.filter(
-                                  (f) => selectedFitments.includes(f.hash)
-                                );
-                                const hasAIFitments = selectedFitmentsData.some(
-                                  (f) => f.fitmentType === "ai_fitment"
-                                );
-
-                                return (
-                                  <>
-                                    {hasAIFitments && (
-                                      <>
-                                        <Button
-                                          leftSection={<IconCheck size={16} />}
-                                          color="green"
-                                          variant="light"
-                                          onClick={handleApproveAIFitments}
-                                          size="sm"
-                                        >
-                                          Approve AI Fitments
-                                        </Button>
-                                        <Button
-                                          leftSection={<IconX size={16} />}
-                                          color="red"
-                                          variant="light"
-                                          onClick={handleRejectAIFitments}
-                                          size="sm"
-                                        >
-                                          Reject AI Fitments
-                                        </Button>
-                                      </>
-                                    )}
-                                    <Button
-                                      leftSection={<IconTrash size={16} />}
-                                      color="red"
-                                      variant="light"
-                                      onClick={() => setDeleteModalOpen(true)}
-                                      size="sm"
-                                    >
-                                      Delete ({selectedFitments.length})
-                                    </Button>
-                                  </>
-                                );
-                              })()}
-                            </>
-                          );
-                        })()}
-                      </>
+                      <Button
+                        leftSection={<IconTrash size={16} />}
+                        color="red"
+                        variant="light"
+                        onClick={() => setDeleteModalOpen(true)}
+                        size="sm"
+                      >
+                        Delete ({selectedFitments.length})
+                      </Button>
                     )}
 
                     <Menu shadow="md" width={200}>
@@ -1747,6 +1703,114 @@ export default function Fitments() {
               </Collapse>
             </Stack>
           </div>
+
+          {/* AI Fitment Actions */}
+          {selectedFitments.length > 0 &&
+            (() => {
+              const selectedFitmentsData = fitments.filter((f) =>
+                selectedFitments.includes(f.hash)
+              );
+              // Only show approve/reject buttons if ALL selected fitments are AI fitments with readyToApprove status
+              const hasAIReadyToApprove =
+                selectedFitmentsData.length > 0 &&
+                selectedFitmentsData.every(
+                  (f) =>
+                    f.fitmentType === "ai_fitment" &&
+                    f.itemStatus === "ReadyToApprove"
+                );
+
+              return hasAIReadyToApprove ? (
+                <div
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
+                    borderRadius: "12px",
+                    border: "1px solid #f59e0b",
+                    padding: "16px 20px",
+                    boxShadow: "0 2px 4px rgba(245, 158, 11, 0.1)",
+                    marginBottom: "16px",
+                  }}
+                >
+                  <Group justify="space-between" align="center">
+                    <Group gap="sm">
+                      <div
+                        style={{
+                          width: "8px",
+                          height: "8px",
+                          borderRadius: "50%",
+                          backgroundColor: "#f59e0b",
+                        }}
+                      />
+                      <Text size="sm" fw={600} c="#92400e">
+                        AI Fitments Ready for Review
+                      </Text>
+                      <Text size="xs" c="#a16207">
+                        {
+                          selectedFitmentsData.filter(
+                            (f) =>
+                              f.fitmentType === "ai_fitment" &&
+                              f.itemStatus === "readyToApprove"
+                          ).length
+                        }{" "}
+                        fitments need approval
+                      </Text>
+                    </Group>
+                    <Group gap="xs">
+                      <Button
+                        leftSection={<IconCheck size={14} />}
+                        color="green"
+                        variant="default"
+                        onClick={handleApproveAIFitments}
+                        size="xs"
+                        styles={{
+                          root: {
+                            fontWeight: 600,
+                            borderRadius: "6px",
+                            border: "1px solid #22c55e",
+                            backgroundColor: "#f0fdf4",
+                            color: "#166534",
+                            transition: "all 0.2s ease",
+                            "&:hover": {
+                              backgroundColor: "#dcfce7",
+                              borderColor: "#16a34a",
+                              transform: "translateY(-1px)",
+                              boxShadow: "0 2px 4px rgba(34, 197, 94, 0.2)",
+                            },
+                          },
+                        }}
+                      >
+                        Approve AI Fitments
+                      </Button>
+                      <Button
+                        leftSection={<IconX size={14} />}
+                        color="red"
+                        variant="default"
+                        onClick={handleRejectAIFitments}
+                        size="xs"
+                        styles={{
+                          root: {
+                            fontWeight: 600,
+                            borderRadius: "6px",
+                            border: "1px solid #ef4444",
+                            backgroundColor: "#fef2f2",
+                            color: "#dc2626",
+                            transition: "all 0.2s ease",
+                            "&:hover": {
+                              backgroundColor: "#fee2e2",
+                              borderColor: "#dc2626",
+                              transform: "translateY(-1px)",
+                              boxShadow: "0 2px 4px rgba(239, 68, 68, 0.2)",
+                            },
+                          },
+                        }}
+                      >
+                        Reject AI Fitments
+                      </Button>
+                    </Group>
+                  </Group>
+                </div>
+              ) : null;
+            })()}
 
           {/* Professional Selection Summary */}
           {selectedFitments.length > 0 && (
@@ -2540,7 +2604,11 @@ export default function Fitments() {
       <Modal
         opened={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
-        title="Confirm Bulk Deletion"
+        title={
+          <Text fw={600} size="lg">
+            Confirm Bulk Deletion
+          </Text>
+        }
         centered
       >
         <Stack gap="md">
@@ -2557,12 +2625,7 @@ export default function Fitments() {
             >
               Cancel
             </Button>
-            <Button
-              color="red"
-              onClick={handleBulkDelete}
-              size="sm"
-              variant="light"
-            >
+            <Button bg="red" onClick={handleBulkDelete} size="sm">
               Delete Fitments
             </Button>
           </Group>
@@ -2573,7 +2636,11 @@ export default function Fitments() {
       <Modal
         opened={singleDeleteModalOpen}
         onClose={() => setSingleDeleteModalOpen(false)}
-        title="Confirm Deletion"
+        title={
+          <Text fw={600} size="lg">
+            Confirm Deletion
+          </Text>
+        }
         centered
       >
         <Stack gap="md">
@@ -2589,12 +2656,7 @@ export default function Fitments() {
             >
               Cancel
             </Button>
-            <Button
-              color="red"
-              onClick={confirmDeleteFitment}
-              size="sm"
-              variant="light"
-            >
+            <Button color="red" onClick={confirmDeleteFitment} size="sm">
               Delete Fitment
             </Button>
           </Group>
