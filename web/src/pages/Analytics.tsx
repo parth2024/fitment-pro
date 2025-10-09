@@ -16,8 +16,8 @@ import {
   Center,
   Table,
   ScrollArea,
-  ActionIcon,
-  Tooltip,
+  // ActionIcon,
+  // Tooltip,
 } from "@mantine/core";
 import {
   IconChartBar,
@@ -30,9 +30,9 @@ import {
   IconRobot,
   IconChevronRight,
   IconBuilding,
-  IconEye,
-  IconCheck,
-  IconX,
+  // IconEye,
+  // IconCheck,
+  // IconX,
   IconClock,
 } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
@@ -71,7 +71,7 @@ interface PendingFitment {
   subModelName: string;
   fitmentType: string;
   createdAt: string;
-  status: string;
+  itemStatus: string; // API uses itemStatus, not status
 }
 
 interface NavigationShortcut {
@@ -86,69 +86,13 @@ interface NavigationShortcut {
 const Analytics: React.FC = () => {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingFitments, setPendingFitments] = useState<PendingFitment[]>([]);
+  const [pendingFitmentsLoading, setPendingFitmentsLoading] = useState(true);
+  const [totalPendingCount, setTotalPendingCount] = useState(0);
   const navigate = useNavigate();
   const { currentEntity, loading: entityLoading } = useEntity();
   const selectedEntityIds = currentEntity ? [currentEntity.id] : [];
   const hasCheckedUrlParam = React.useRef(false);
-
-  // Hardcoded pending fitments data for display
-  const hardcodedPendingFitments: PendingFitment[] = [
-    {
-      hash: "pending-1",
-      partId: "BRK-2024-001",
-      year: 2024,
-      makeName: "Toyota",
-      modelName: "Camry",
-      subModelName: "XLE",
-      fitmentType: "ai_fitment",
-      createdAt: new Date(Date.now() - 1 * 86400000).toISOString(),
-      status: "pending",
-    },
-    {
-      hash: "pending-2",
-      partId: "ENG-2023-045",
-      year: 2023,
-      makeName: "Honda",
-      modelName: "Accord",
-      subModelName: "Sport",
-      fitmentType: "manual_fitment",
-      createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-      status: "pending",
-    },
-    {
-      hash: "pending-3",
-      partId: "SUS-2022-128",
-      year: 2022,
-      makeName: "Ford",
-      modelName: "F-150",
-      subModelName: "Lariat",
-      fitmentType: "ai_fitment",
-      createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
-      status: "pending",
-    },
-    {
-      hash: "pending-4",
-      partId: "WHL-2021-089",
-      year: 2021,
-      makeName: "Chevrolet",
-      modelName: "Silverado",
-      subModelName: "",
-      fitmentType: "manual_fitment",
-      createdAt: new Date(Date.now() - 4 * 86400000).toISOString(),
-      status: "pending",
-    },
-    {
-      hash: "pending-5",
-      partId: "INT-2020-234",
-      year: 2020,
-      makeName: "BMW",
-      modelName: "3 Series",
-      subModelName: "M Sport",
-      fitmentType: "ai_fitment",
-      createdAt: new Date(Date.now() - 5 * 86400000).toISOString(),
-      status: "pending",
-    },
-  ];
 
   const navigationShortcuts: NavigationShortcut[] = [
     {
@@ -165,13 +109,13 @@ const Analytics: React.FC = () => {
       color: "teal",
       value: "/fitments",
     },
-    {
-      title: "Bulk Upload",
-      description: "Upload and apply new fitments",
-      icon: IconCar,
-      color: "green",
-      value: "/bulk-upload",
-    },
+    // {
+    //   title: "Bulk Upload",
+    //   description: "Upload and apply new fitments",
+    //   icon: IconCar,
+    //   color: "green",
+    //   value: "/bulk-upload",
+    // },
     {
       title: "Potential Fitment",
       description: "View potential fitment opportunities",
@@ -194,6 +138,43 @@ const Analytics: React.FC = () => {
       value: "/settings",
     },
   ];
+
+  const fetchPendingFitments = useCallback(async () => {
+    try {
+      setPendingFitmentsLoading(true);
+
+      const params: any = {
+        fitmentType: "ai_fitment",
+        itemStatus: "ReadyToApprove", // Note: API uses lowercase
+        page_size: 5, // Fetch only 5 fitments for display
+      };
+
+      if (currentEntity) {
+        params.entity_ids = currentEntity.id;
+      }
+
+      console.log("Fetching pending fitments with params:", params);
+      const response = await api.get("/api/fitments/", { params });
+
+      // Get total count from response
+      const totalCount =
+        response.data.totalCount || response.data.fitments?.length || 0;
+      const fitments = response.data.fitments || [];
+
+      console.log("Pending fitments received:", fitments);
+      console.log("Total pending count:", totalCount);
+
+      // Ensure we only display the first 5 fitments
+      setPendingFitments(fitments.slice(0, 5));
+      setTotalPendingCount(totalCount);
+    } catch (error) {
+      console.error("Failed to fetch pending fitments:", error);
+      setPendingFitments([]);
+      setTotalPendingCount(0);
+    } finally {
+      setPendingFitmentsLoading(false);
+    }
+  }, [currentEntity]);
 
   const fetchAnalyticsData = useCallback(async () => {
     try {
@@ -262,12 +243,13 @@ const Analytics: React.FC = () => {
         currentEntity.id
       );
       fetchAnalyticsData();
+      fetchPendingFitments();
     } else if (!entityLoading && !currentEntity) {
       console.log("No entity available after loading");
     } else if (entityLoading) {
       console.log("Still loading entity...");
     }
-  }, [currentEntity, entityLoading, fetchAnalyticsData]);
+  }, [currentEntity, entityLoading, fetchAnalyticsData, fetchPendingFitments]);
 
   // Listen for entity change events from EntitySelector
   useEffect(() => {
@@ -277,6 +259,7 @@ const Analytics: React.FC = () => {
       );
       if (currentEntity && !entityLoading) {
         fetchAnalyticsData();
+        fetchPendingFitments();
       }
     };
 
@@ -287,7 +270,7 @@ const Analytics: React.FC = () => {
     return () => {
       window.removeEventListener("entityChanged", handleEntityChange);
     };
-  }, [currentEntity, entityLoading, fetchAnalyticsData]);
+  }, [currentEntity, entityLoading, fetchAnalyticsData, fetchPendingFitments]);
 
   const handleNavigationClick = (path: string) => {
     // Navigate to the specified route
@@ -587,8 +570,7 @@ const Analytics: React.FC = () => {
                   Fitments Pending for Review
                 </Text>
                 <Title order={2} c="#1e293b" mt="xs">
-                  {hardcodedPendingFitments.length}
-                  {/* {data?.pendingReviewCount?.toLocaleString()} */}
+                  {totalPendingCount.toLocaleString()}
                 </Title>
               </div>
               <ThemeIcon size={48} radius="md" variant="light" color="yellow">
@@ -947,121 +929,119 @@ const Analytics: React.FC = () => {
               </div>
             </Group>
 
-            <ScrollArea mt="xs">
-              <Table
-                striped
-                highlightOnHover
-                style={{
-                  minWidth: 800,
-                }}
-              >
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>Part ID</Table.Th>
-                    <Table.Th>Vehicle</Table.Th>
-                    <Table.Th>Type</Table.Th>
-                    <Table.Th>Created</Table.Th>
-                    <Table.Th>Status</Table.Th>
-                    <Table.Th style={{ textAlign: "right" }}>Actions</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {hardcodedPendingFitments.map((fitment) => (
-                    <Table.Tr key={fitment.hash}>
-                      <Table.Td>
-                        <Text size="sm" fw={600} c="#1e293b">
-                          {fitment.partId}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm" c="#64748b">
-                          {fitment.year} {fitment.makeName} {fitment.modelName}
-                          {fitment.subModelName && ` ${fitment.subModelName}`}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Badge
-                          variant="light"
-                          color={
-                            fitment.fitmentType === "ai_fitment"
-                              ? "violet"
-                              : "blue"
-                          }
-                          size="sm"
-                        >
-                          {fitment.fitmentType === "ai_fitment"
-                            ? "AI"
-                            : "Manual"}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="xs" c="#64748b">
-                          {new Date(fitment.createdAt).toLocaleDateString()}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Badge variant="light" color="yellow" size="sm">
-                          {fitment.status}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td>
-                        <Group gap="xs" justify="flex-end">
-                          <Tooltip label="View Details">
-                            <ActionIcon
-                              variant="light"
-                              color="blue"
-                              size="sm"
-                              onClick={() =>
-                                navigate(`/fitments?id=${fitment.hash}`)
-                              }
-                            >
-                              <IconEye size={16} />
-                            </ActionIcon>
-                          </Tooltip>
-                          <Tooltip label="Approve">
-                            <ActionIcon
-                              variant="light"
-                              color="green"
-                              size="sm"
-                              onClick={() => {
-                                // TODO: Implement approve action
-                                console.log("Approve fitment:", fitment.hash);
-                              }}
-                            >
-                              <IconCheck size={16} />
-                            </ActionIcon>
-                          </Tooltip>
-                          <Tooltip label="Reject">
-                            <ActionIcon
-                              variant="light"
-                              color="red"
-                              size="sm"
-                              onClick={() => {
-                                // TODO: Implement reject action
-                                console.log("Reject fitment:", fitment.hash);
-                              }}
-                            >
-                              <IconX size={16} />
-                            </ActionIcon>
-                          </Tooltip>
-                        </Group>
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-            </ScrollArea>
+            {pendingFitmentsLoading ? (
+              <Stack gap="md">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <Group key={index} justify="space-between" p="md">
+                    <div style={{ flex: 1 }}>
+                      <Skeleton height={16} width="30%" mb="xs" />
+                      <Skeleton height={12} width="60%" />
+                    </div>
+                    <Skeleton height={24} width={80} />
+                  </Group>
+                ))}
+              </Stack>
+            ) : (
+              <>
+                <ScrollArea mt="xs">
+                  <Table
+                    striped
+                    highlightOnHover
+                    style={{
+                      minWidth: 800,
+                    }}
+                  >
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Part ID</Table.Th>
+                        <Table.Th>Vehicle</Table.Th>
+                        <Table.Th>Type</Table.Th>
+                        <Table.Th>Created</Table.Th>
+                        <Table.Th>Status</Table.Th>
+                        {/* <Table.Th style={{ textAlign: "right" }}>
+                          Actions
+                        </Table.Th> */}
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {pendingFitments.length > 0 ? (
+                        pendingFitments.map((fitment) => (
+                          <Table.Tr key={fitment.hash}>
+                            <Table.Td>
+                              <Text size="sm" fw={600} c="#1e293b">
+                                {fitment.partId}
+                              </Text>
+                            </Table.Td>
+                            <Table.Td>
+                              <Text size="sm" c="#64748b">
+                                {fitment.year} {fitment.makeName}{" "}
+                                {fitment.modelName}
+                                {fitment.subModelName &&
+                                  ` ${fitment.subModelName}`}
+                              </Text>
+                            </Table.Td>
+                            <Table.Td>
+                              <Badge
+                                variant="light"
+                                color={
+                                  fitment.fitmentType === "ai_fitment"
+                                    ? "violet"
+                                    : "blue"
+                                }
+                                size="sm"
+                              >
+                                {fitment.fitmentType === "ai_fitment"
+                                  ? "AI"
+                                  : "Manual"}
+                              </Badge>
+                            </Table.Td>
+                            <Table.Td>
+                              <Text size="xs" c="#64748b">
+                                {new Date(
+                                  fitment.createdAt
+                                ).toLocaleDateString()}
+                              </Text>
+                            </Table.Td>
+                            <Table.Td>
+                              <Badge variant="light" color="yellow" size="sm">
+                                {fitment.itemStatus}
+                              </Badge>
+                            </Table.Td>
+                          </Table.Tr>
+                        ))
+                      ) : (
+                        <Table.Tr>
+                          <Table.Td colSpan={6}>
+                            <Center py="xl">
+                              <Text size="sm" c="#64748b">
+                                No pending fitments for review
+                              </Text>
+                            </Center>
+                          </Table.Td>
+                        </Table.Tr>
+                      )}
+                    </Table.Tbody>
+                  </Table>
+                </ScrollArea>
 
-            <Group justify="center" mt="md">
-              <Button
-                variant="light"
-                color="blue"
-                size="md"
-                onClick={() => navigate("/fitments?status=pending")}
-              >
-                View All Pending Fitments
-              </Button>
-            </Group>
+                {pendingFitments.length > 0 && (
+                  <Group justify="center" mt="md">
+                    <Button
+                      variant="light"
+                      color="blue"
+                      size="sm"
+                      onClick={() =>
+                        navigate(
+                          "/fitments?fitmentType=ai_fitment&itemStatus=readyToApprove"
+                        )
+                      }
+                    >
+                      View All Pending Fitments ({totalPendingCount})
+                    </Button>
+                  </Group>
+                )}
+              </>
+            )}
           </Stack>
         </Card>
       </Stack>

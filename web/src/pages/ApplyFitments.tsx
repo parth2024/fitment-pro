@@ -45,7 +45,7 @@ import {
   IconEdit,
   IconCheck,
   IconX,
-  IconEye,
+  // IconEye,
   IconClock,
   IconAlertCircle,
   IconCheckbox,
@@ -148,10 +148,8 @@ export default function ApplyFitments() {
     null
   );
 
-  // AI Fitments sub-option selection
-  const [aiSubOption, setAiSubOption] = useState<
-    "upload" | "selection" | "jobs" | null
-  >(null);
+  // Active tab for AI Fitments
+  const [activeTab, setActiveTab] = useState<string>("upload");
 
   // AI Upload Product states
   const [productFile, setProductFile] = useState<File | null>(null);
@@ -267,21 +265,11 @@ export default function ApplyFitments() {
   // Navigation handlers
   const handleBackToMethodSelection = () => {
     setSelectedMethod(null);
-    setAiSubOption(null);
+    setActiveTab("upload"); // Reset to upload tab
     setProductFile(null);
     setSelectedProducts([]);
     setSearchQuery("");
     setManualStep(1);
-  };
-
-  const handleBackToAiOptions = () => {
-    setAiSubOption(null);
-    setProductFile(null);
-    setSelectedProducts([]);
-    setSearchQuery("");
-    setProcessingAiFitment(false);
-    setAiProgress(0);
-    setAiLogs([]);
   };
 
   // Poll job status until completion
@@ -335,7 +323,7 @@ export default function ApplyFitments() {
 
           // Auto-navigate to jobs tab
           setTimeout(() => {
-            setAiSubOption("jobs");
+            setActiveTab("jobs");
           }, 2000);
         } else if (job?.status === "failed") {
           // Job failed
@@ -749,9 +737,11 @@ export default function ApplyFitments() {
         if (!searchQuery) return true;
         const query = searchQuery.toLowerCase();
         return (
-          product.id?.toLowerCase().includes(query) ||
-          product.description?.toLowerCase().includes(query) ||
-          product.category?.toLowerCase().includes(query)
+          String(product.id || product.part_id || "")
+            .toLowerCase()
+            .includes(query) ||
+          (product.description || "").toLowerCase().includes(query) ||
+          (product.category || "").toLowerCase().includes(query)
         );
       })
     : [];
@@ -1000,31 +990,30 @@ export default function ApplyFitments() {
               <Group>
                 <Button
                   variant="subtle"
+                  size="xs"
                   leftSection={<IconArrowLeft size={16} />}
-                  onClick={
-                    aiSubOption
-                      ? handleBackToAiOptions
-                      : handleBackToMethodSelection
-                  }
+                  onClick={handleBackToMethodSelection}
                 >
-                  {aiSubOption
-                    ? "Back to AI Options"
-                    : "Back to Method Selection"}
+                  Back to Method Selection
                 </Button>
               </Group>
 
-              <div>
-                <Title order={2} c="#1e293b" fw={600} mb="xs">
+              {/* <div>
+                <Title order={2} c="#1e293b" fw={600}>
                   AI Fitments
                 </Title>
                 <Text size="md" c="#64748b">
                   Automate fitment generation using AI
                 </Text>
-              </div>
+              </div> */}
 
               {/* AI Sub-options Tabs */}
-              {!aiSubOption && (
-                <Tabs defaultValue="upload" variant="pills">
+              {
+                <Tabs
+                  value={activeTab}
+                  onChange={(value) => setActiveTab(value || "upload")}
+                  variant="pills"
+                >
                   <Tabs.List mb="xl">
                     <Tabs.Tab
                       value="upload"
@@ -1063,7 +1052,7 @@ export default function ApplyFitments() {
                   <Tabs.Panel value="upload">
                     <Stack gap="lg">
                       <div>
-                        <Title order={3} c="#1e293b" fw={600} mb="xs">
+                        <Title order={3} c="#1e293b" fw={600}>
                           Upload Product Data for AI Fitments
                         </Title>
                         <Text size="sm" c="#64748b">
@@ -1171,13 +1160,12 @@ export default function ApplyFitments() {
                       {/* Upload Button */}
                       <Center>
                         <Button
-                          size="lg"
-                          leftSection={<IconBrain size={20} />}
+                          size="md"
                           onClick={handleUploadProductForAi}
                           loading={uploadingProduct}
                           disabled={!productFile || uploadingProduct}
                         >
-                          Generate AI Fitments from Upload
+                          Generate Fitments
                         </Button>
                       </Center>
                     </Stack>
@@ -1187,7 +1175,7 @@ export default function ApplyFitments() {
                   <Tabs.Panel value="selection">
                     <Stack gap="lg">
                       <div>
-                        <Title order={3} c="#1e293b" fw={600} mb="xs">
+                        <Title order={3} c="#1e293b" fw={600}>
                           Select Products for AI Fitments
                         </Title>
                         <Text size="sm" c="#64748b">
@@ -1210,8 +1198,8 @@ export default function ApplyFitments() {
                             Available Products ({filteredProducts.length})
                           </Text>
                           <Group gap="xs">
-                            <Button
-                              variant="light"
+                            {/* <Button
+                              variant="subtle"
                               size="xs"
                               onClick={() =>
                                 setSelectedProducts(
@@ -1220,20 +1208,27 @@ export default function ApplyFitments() {
                               }
                             >
                               Select All
-                            </Button>
+                            </Button> */}
                             <Button
-                              variant="light"
+                              variant="subtle"
                               size="xs"
                               onClick={() => setSelectedProducts([])}
                             >
-                              Clear All
+                              Clear
                             </Button>
                           </Group>
                         </Group>
 
                         <ScrollArea h={400}>
                           <Table striped highlightOnHover>
-                            <Table.Thead>
+                            <Table.Thead
+                              style={{
+                                position: "sticky",
+                                top: 0,
+                                backgroundColor: "white",
+                                zIndex: 1,
+                              }}
+                            >
                               <Table.Tr>
                                 <Table.Th style={{ width: "50px" }}>
                                   <Checkbox
@@ -1349,16 +1344,14 @@ export default function ApplyFitments() {
                       {/* Generate Button */}
                       <Center>
                         <Button
-                          size="lg"
-                          leftSection={<IconBrain size={20} />}
+                          size="md"
                           onClick={handleSelectProductsForAi}
                           loading={processingAiFitment}
                           disabled={
                             selectedProducts.length === 0 || processingAiFitment
                           }
                         >
-                          Generate AI Fitments ({selectedProducts.length}{" "}
-                          products)
+                          Generate Fitments
                         </Button>
                       </Center>
                     </Stack>
@@ -1369,7 +1362,7 @@ export default function ApplyFitments() {
                     <Stack gap="lg">
                       <Group justify="space-between">
                         <div>
-                          <Title order={3} c="#1e293b" fw={600} mb="xs">
+                          <Title order={3} c="#1e293b" fw={600}>
                             AI Fitment Jobs
                           </Title>
                           <Text size="sm" c="#64748b">
@@ -1377,9 +1370,8 @@ export default function ApplyFitments() {
                           </Text>
                         </div>
                         <Button
-                          variant="light"
-                          size="sm"
-                          leftSection={<IconRefresh size={14} />}
+                          variant="subtle"
+                          size="xs"
                           onClick={() => refetchJobs()}
                         >
                           Refresh
@@ -1398,7 +1390,14 @@ export default function ApplyFitments() {
                         <Card withBorder>
                           <ScrollArea h={500}>
                             <Table striped highlightOnHover>
-                              <Table.Thead>
+                              <Table.Thead
+                                style={{
+                                  position: "sticky",
+                                  top: 0,
+                                  backgroundColor: "white",
+                                  zIndex: 1,
+                                }}
+                              >
                                 <Table.Tr>
                                   <Table.Th>Date</Table.Th>
                                   <Table.Th>Created By</Table.Th>
@@ -1468,9 +1467,8 @@ export default function ApplyFitments() {
                                     <Table.Td>
                                       {job.status === "review_required" && (
                                         <Button
-                                          variant="light"
+                                          variant="default"
                                           size="xs"
-                                          leftSection={<IconEye size={14} />}
                                           onClick={() =>
                                             handleReviewJob(job.id)
                                           }
@@ -1479,8 +1477,12 @@ export default function ApplyFitments() {
                                         </Button>
                                       )}
                                       {job.status === "completed" && (
-                                        <Badge color="green" variant="light">
-                                          Approved
+                                        <Badge
+                                          color="green"
+                                          variant="dot"
+                                          size="sm"
+                                        >
+                                          Done
                                         </Badge>
                                       )}
                                     </Table.Td>
@@ -1494,7 +1496,7 @@ export default function ApplyFitments() {
                     </Stack>
                   </Tabs.Panel>
                 </Tabs>
-              )}
+              }
             </Stack>
           </Card>
         )}
@@ -1514,6 +1516,7 @@ export default function ApplyFitments() {
               {/* Back Button */}
               <Group>
                 <Button
+                  size="xs"
                   variant="subtle"
                   leftSection={<IconArrowLeft size={16} />}
                   onClick={handleBackToMethodSelection}
@@ -1543,12 +1546,12 @@ export default function ApplyFitments() {
                   description="Specify vehicle criteria"
                   icon={<IconCar size={18} />}
                 >
-                  <Stack gap="md" mt={20}>
+                  <Stack gap="md" mt={30}>
                     <div style={{ marginBottom: "15px" }}>
-                      <Title order={3} c="#1e293b" fw={700}>
+                      <Title order={4} c="#1e293b" fw={700}>
                         Vehicle Search Criteria
                       </Title>
-                      <Text size="sm" c="#64748b">
+                      <Text size="xs" c="#64748b">
                         Refine your search with specific vehicle attributes
                       </Text>
                       {loadingDropdownData && (
@@ -1799,7 +1802,7 @@ export default function ApplyFitments() {
                     <Group justify="space-between" mt="xl">
                       <Button
                         variant="outline"
-                        size="md"
+                        size="sm"
                         leftSection={<IconRefresh size={16} />}
                         onClick={() => {
                           setVehicleFilters({
@@ -1835,7 +1838,7 @@ export default function ApplyFitments() {
                       </Button>
 
                       <Button
-                        size="md"
+                        size="sm"
                         leftSection={<IconSearch size={16} />}
                         onClick={async () => {
                           if (
@@ -1910,10 +1913,10 @@ export default function ApplyFitments() {
                         Step 2: Select Vehicles ({filteredVehicles.length}{" "}
                         found)
                       </Text>
-                      <Group gap="sm">
+                      <Group gap="xs">
                         <Button
-                          variant="light"
-                          size="sm"
+                          variant="subtle"
+                          size="xs"
                           onClick={() =>
                             setSelectedVehicles(
                               filteredVehicles.map((v: any) => v.id)
@@ -1923,11 +1926,11 @@ export default function ApplyFitments() {
                           Select All
                         </Button>
                         <Button
-                          variant="light"
-                          size="sm"
+                          variant="subtle"
+                          size="xs"
                           onClick={() => setSelectedVehicles([])}
                         >
-                          Clear All
+                          Clear
                         </Button>
                       </Group>
                     </Group>
@@ -1980,13 +1983,14 @@ export default function ApplyFitments() {
                     <Group justify="space-between" mt="lg">
                       <Button
                         variant="outline"
-                        size="md"
+                        size="sm"
                         leftSection={<IconArrowLeft size={16} />}
                         onClick={() => setManualStep(1)}
                       >
                         Back
                       </Button>
                       <Button
+                        size="sm"
                         onClick={() => setManualStep(3)}
                         disabled={selectedVehicles.length === 0}
                       >
@@ -2160,7 +2164,7 @@ export default function ApplyFitments() {
                     <Group justify="space-between" mt="xl">
                       <Button
                         variant="outline"
-                        size="md"
+                        size="sm"
                         leftSection={<IconArrowLeft size={16} />}
                         onClick={() => setManualStep(2)}
                       >
@@ -2168,8 +2172,7 @@ export default function ApplyFitments() {
                       </Button>
 
                       <Button
-                        size="md"
-                        leftSection={<IconSettings size={16} />}
+                        size="sm"
                         onClick={async () => {
                           if (!sessionId) {
                             showError("Session not found");
@@ -2285,7 +2288,7 @@ export default function ApplyFitments() {
             <Text fw={700} size="xl" c="#1e293b">
               Review AI Fitments
             </Text>
-            <Text size="sm" c="#64748b" mt={4}>
+            <Text size="sm" c="#64748b">
               Review and approve fitments before moving them to Fitment
               Management
             </Text>
@@ -2314,65 +2317,93 @@ export default function ApplyFitments() {
                 </Text>
               </Stack>
             </Center>
+          ) : jobFitments.length === 0 ? (
+            <Center p="xl">
+              <Stack align="center" gap="md">
+                <div
+                  style={{
+                    width: "64px",
+                    height: "64px",
+                    borderRadius: "50%",
+                    backgroundColor: "#f1f5f9",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <IconCheck size={32} color="#64748b" />
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <Text size="lg" fw={600} c="#1e293b" mb="xs">
+                    No Fitments to Review
+                  </Text>
+                  <Text size="sm" c="#64748b">
+                    All fitments from this AI job have already been reviewed and
+                    processed.
+                  </Text>
+                </div>
+              </Stack>
+            </Center>
           ) : (
             <>
-              <Group justify="space-between">
+              <Group justify="space-between" mb="md">
+                <Text size="sm" c="dimmed">
+                  {selectedJobFitments.length} of {jobFitments.length} selected
+                </Text>
                 <Group gap="xs">
-                  <Checkbox
-                    checked={
-                      selectedJobFitments.length === jobFitments.length &&
-                      jobFitments.length > 0
-                    }
-                    indeterminate={
-                      selectedJobFitments.length > 0 &&
-                      selectedJobFitments.length < jobFitments.length
-                    }
-                    onChange={(event) => {
-                      if (event.currentTarget.checked) {
-                        setSelectedJobFitments(
-                          jobFitments.map((f: any) => f.id)
-                        );
-                      } else {
-                        setSelectedJobFitments([]);
-                      }
-                    }}
-                    label={
-                      <Text size="sm" fw={600}>
-                        Select All ({selectedJobFitments.length}/
-                        {jobFitments.length})
-                      </Text>
-                    }
-                  />
-                </Group>
-                <Group gap="sm">
                   <Button
-                    variant="light"
-                    color="red"
-                    size="sm"
-                    leftSection={<IconX size={16} />}
+                    bg={"red"}
+                    size="xs"
                     onClick={handleRejectJobFitments}
                     disabled={selectedJobFitments.length === 0}
                     loading={approvingFitments}
+                    styles={{
+                      root: {
+                        "&:disabled": {
+                          backgroundColor: "#f1f5f9",
+                          color: "#94a3b8",
+                          borderColor: "#e2e8f0",
+                        },
+                      },
+                    }}
                   >
-                    Reject Selected ({selectedJobFitments.length})
+                    Reject
+                    {selectedJobFitments.length > 0 &&
+                      ` (${selectedJobFitments.length})`}
                   </Button>
                   <Button
-                    variant="filled"
-                    color="green"
-                    size="sm"
-                    leftSection={<IconCheck size={16} />}
+                    size="xs"
+                    bg={"green"}
                     onClick={handleApproveJobFitments}
                     disabled={selectedJobFitments.length === 0}
                     loading={approvingFitments}
+                    styles={{
+                      root: {
+                        "&:disabled": {
+                          backgroundColor: "#f1f5f9",
+                          color: "#94a3b8",
+                          borderColor: "#e2e8f0",
+                        },
+                      },
+                    }}
                   >
-                    Approve Selected ({selectedJobFitments.length})
+                    Approve
+                    {selectedJobFitments.length > 0 &&
+                      ` (${selectedJobFitments.length})`}
                   </Button>
                 </Group>
               </Group>
 
               <ScrollArea h={500}>
                 <Table striped highlightOnHover>
-                  <Table.Thead>
+                  <Table.Thead
+                    style={{
+                      position: "sticky",
+                      top: 0,
+                      backgroundColor: "white",
+                      zIndex: 1,
+                    }}
+                  >
                     <Table.Tr>
                       <Table.Th style={{ width: "50px" }}>
                         <Checkbox

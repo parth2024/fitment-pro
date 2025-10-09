@@ -2394,10 +2394,11 @@ def approve_fitments(request):
             )
         
         # Filter fitments by tenant and provided hashes
+        # Handle both 'readyToApprove' and 'ReadyToApprove' status values
         fitments = Fitment.objects.filter(
             hash__in=fitment_hashes,
             tenant_id=tenant_id,
-            itemStatus='readyToApprove'
+            itemStatus__in=['readyToApprove', 'ReadyToApprove']
         )
         
         if not fitments.exists():
@@ -2500,10 +2501,11 @@ def reject_fitments(request):
             )
         
         # Filter fitments by tenant and provided hashes
+        # Handle both 'readyToApprove' and 'ReadyToApprove' status values
         fitments = Fitment.objects.filter(
             hash__in=fitment_hashes,
             tenant_id=tenant_id,
-            itemStatus='readyToApprove'
+            itemStatus__in=['readyToApprove', 'ReadyToApprove']
         )
         
         if not fitments.exists():
