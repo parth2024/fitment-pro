@@ -35,7 +35,7 @@ import {
 } from "@tabler/icons-react";
 import { useParams, useLocation } from "react-router-dom";
 import apiClient from "../api/client";
-import { toast } from "react-toastify";
+import { useProfessionalToast } from "../hooks/useProfessionalToast";
 
 // interface Entity {
 //   id: string;
@@ -118,6 +118,7 @@ const REQUIRED_PRODUCT_FIELDS = [
 const EditEntityStandalone: React.FC = () => {
   const { id: routeId } = useParams<{ id: string }>();
   const location = useLocation();
+  const { showSuccess, showError } = useProfessionalToast();
 
   // Extract ID from URL manually since we're not in a proper route context
   const pathParts = window.location.pathname.split("/");
@@ -244,7 +245,7 @@ const EditEntityStandalone: React.FC = () => {
         }
 
         setError(errorMessage);
-        toast.error(errorMessage);
+        showError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -269,7 +270,7 @@ const EditEntityStandalone: React.FC = () => {
       );
       setVcdbCategories(response.data);
     } catch (error) {
-      toast.error("Failed to load VCDB categories");
+      showError("Failed to load VCDB categories");
     } finally {
       setLoadingCategories(false);
     }
@@ -306,7 +307,7 @@ const EditEntityStandalone: React.FC = () => {
 
     // Validate based on section
     if (section === "basic" && !validateBasicInfo()) {
-      toast.error("Please fix validation errors before saving");
+      showError("Please fix validation errors before saving");
       return;
     }
 
@@ -335,13 +336,13 @@ const EditEntityStandalone: React.FC = () => {
       const response = await apiClient.get(`/api/tenants/${entity.id}/`);
       setEntity(response.data);
 
-      toast.success("Settings updated successfully");
+      showSuccess("Settings updated successfully");
     } catch (error: any) {
       const errorMessage =
         error?.response?.data?.detail ||
         error?.response?.data?.error ||
         "Failed to update settings";
-      toast.error(errorMessage);
+      showError(errorMessage);
     } finally {
       if (section === "basic") setSavingBasic(false);
       if (section === "fitment") setSavingFitment(false);
@@ -385,7 +386,7 @@ const EditEntityStandalone: React.FC = () => {
       });
       window.dispatchEvent(entityChangeEvent);
 
-      toast.success(`Switched to ${entity.name}. Redirecting to dashboard...`);
+      showSuccess(`Switched to ${entity.name}. Redirecting to dashboard...`);
 
       // Smooth transition with delay (2.5 seconds for better UX)
       await new Promise((resolve) => setTimeout(resolve, 2500));
@@ -397,7 +398,7 @@ const EditEntityStandalone: React.FC = () => {
         error?.response?.data?.detail ||
         error?.response?.data?.error ||
         "Failed to switch to entity";
-      toast.error(errorMessage);
+      showError(errorMessage);
       setSwitchingEntity(false);
     }
   };

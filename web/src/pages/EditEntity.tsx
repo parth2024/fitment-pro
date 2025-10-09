@@ -40,7 +40,7 @@ import {
 } from "@tabler/icons-react";
 import { useParams, useLocation } from "react-router-dom";
 import apiClient from "../api/client";
-import { toast } from "react-toastify";
+import { useProfessionalToast } from "../hooks/useProfessionalToast";
 
 interface Entity {
   id: string;
@@ -140,6 +140,8 @@ const REQUIRED_PRODUCT_FIELDS = [
 const EditEntity: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
+  const { showSuccess, showError, showInfo, showWarning } =
+    useProfessionalToast();
 
   // Check if user came from manage entities page
   const fromManage =
@@ -238,7 +240,7 @@ const EditEntity: React.FC = () => {
         });
       } catch (error) {
         setError("Failed to load entity data");
-        toast.error("Failed to load entity data");
+        showError("Failed to load entity data");
       } finally {
         setLoading(false);
       }
@@ -263,7 +265,7 @@ const EditEntity: React.FC = () => {
       );
       setVcdbCategories(response.data);
     } catch (error) {
-      toast.error("Failed to load VCDB categories");
+      showError("Failed to load VCDB categories");
     } finally {
       setLoadingCategories(false);
     }
@@ -305,27 +307,27 @@ const EditEntity: React.FC = () => {
             newJob.status === "failed" &&
             newJob.result?.fitments_failed > 0
           ) {
-            toast.warning(
+            showWarning(
               newJob.result.error_message ||
                 `All ${newJob.result.fitments_failed} fitments already exist. No new fitments were created.`,
-              { autoClose: 10000 }
+              10000
             );
           } else if (
             newJob.status === "completed_with_warnings" &&
             newJob.result?.fitments_failed > 0
           ) {
-            toast.warning(
+            showWarning(
               newJob.result.error_message ||
                 `Created ${newJob.result.fitments_created} new fitments, but ${newJob.result.fitments_failed} already existed.`,
-              { autoClose: 10000 }
+              10000
             );
           } else if (
             newJob.status === "completed" &&
             newJob.result?.fitments_created > 0
           ) {
-            toast.success(
+            showSuccess(
               `Successfully created ${newJob.result.fitments_created} new fitments.`,
-              { autoClose: 5000 }
+              5000
             );
           }
         }
@@ -333,7 +335,7 @@ const EditEntity: React.FC = () => {
 
       setFitmentJobs(newJobs);
     } catch (error) {
-      toast.error("Failed to load fitment jobs");
+      showError("Failed to load fitment jobs");
     } finally {
       setLoadingJobs(false);
     }
@@ -371,7 +373,7 @@ const EditEntity: React.FC = () => {
       setUploadHistory(response.data || []);
     } catch (error) {
       console.error("Error fetching upload history:", error);
-      toast.error("Failed to load upload history");
+      showError("Failed to load upload history");
     } finally {
       setLoadingUploadHistory(false);
     }
@@ -411,27 +413,27 @@ const EditEntity: React.FC = () => {
         // Only show notification if status changed to a completed state
         if (previousStatus && previousStatus !== currentStatus) {
           if (currentStatus === "failed" && job.result?.fitments_failed > 0) {
-            toast.warning(
+            showWarning(
               job.result.error_message ||
                 `All ${job.result.fitments_failed} fitments already exist. No new fitments were created.`,
-              { autoClose: 10000 }
+              10000
             );
           } else if (
             currentStatus === "completed_with_warnings" &&
             job.result?.fitments_failed > 0
           ) {
-            toast.warning(
+            showWarning(
               job.result.error_message ||
                 `Created ${job.result.fitments_created} new fitments, but ${job.result.fitments_failed} already existed.`,
-              { autoClose: 10000 }
+              10000
             );
           } else if (
             currentStatus === "completed" &&
             job.result?.fitments_created > 0
           ) {
-            toast.success(
+            showSuccess(
               `Successfully created ${job.result.fitments_created} new fitments.`,
-              { autoClose: 5000 }
+              5000
             );
           }
         }
@@ -495,7 +497,7 @@ const EditEntity: React.FC = () => {
 
     // Validate based on section
     if (section === "basic" && !validateBasicInfo()) {
-      toast.error("Please fix validation errors before saving");
+      showError("Please fix validation errors before saving");
       return;
     }
 
@@ -526,13 +528,13 @@ const EditEntity: React.FC = () => {
       const response = await apiClient.get(`/api/tenants/${entity.id}/`);
       setEntity(response.data);
 
-      toast.success("Settings updated successfully");
+      showSuccess("Settings updated successfully");
     } catch (error: any) {
       const errorMessage =
         error?.response?.data?.detail ||
         error?.response?.data?.error ||
         "Failed to update settings";
-      toast.error(errorMessage);
+      showError(errorMessage);
     } finally {
       if (section === "basic") setSavingBasic(false);
       if (section === "fitment") setSavingFitment(false);
@@ -1599,11 +1601,9 @@ const EditEntity: React.FC = () => {
                             );
 
                             // Show processing notification
-                            toast.info(
+                            showInfo(
                               "🚀 Starting Fitment Process - Uploading files and configuring fitment settings...",
-                              {
-                                autoClose: 3000,
-                              }
+                              3000
                             );
 
                             // Then upload files and create fitment job
@@ -1651,11 +1651,9 @@ const EditEntity: React.FC = () => {
                               formData.default_fitment_method === "ai"
                                 ? "AI"
                                 : "Manual";
-                            toast.info(
+                            showInfo(
                               `⚙️ Creating ${jobType} Fitment Job - Setting up with your uploaded files...`,
-                              {
-                                autoClose: 3000,
-                              }
+                              3000
                             );
 
                             // Refresh fitment jobs to show the new job
@@ -1665,16 +1663,12 @@ const EditEntity: React.FC = () => {
                             fetchUploadHistory();
 
                             // Show success message with job type
-                            toast.success(
+                            showSuccess(
                               `✅ ${jobType} Fitment Started! Your ${jobType.toLowerCase()} fitment process has been initiated successfully. Check the History tab to monitor progress.`,
-                              {
-                                autoClose: 6000,
-                              }
+                              6000
                             );
                           } catch (error) {
-                            toast.error("❌ Failed to upload files", {
-                              autoClose: 5000,
-                            });
+                            showError("❌ Failed to upload files", 5000);
                           } finally {
                             setSubmitting(false);
                           }
@@ -1797,9 +1791,7 @@ const EditEntity: React.FC = () => {
                         leftSection={<IconRefresh size={16} />}
                         onClick={() => {
                           fetchFitmentJobs();
-                          toast.info("Job history is being refreshed...", {
-                            autoClose: 2000,
-                          });
+                          showInfo("Job history is being refreshed...", 2000);
                         }}
                         loading={loadingJobs}
                       >
