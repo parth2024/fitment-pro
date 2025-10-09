@@ -89,6 +89,7 @@ const Analytics: React.FC = () => {
   const [pendingFitments, setPendingFitments] = useState<PendingFitment[]>([]);
   const [pendingFitmentsLoading, setPendingFitmentsLoading] = useState(true);
   const [totalPendingCount, setTotalPendingCount] = useState(0);
+  const [navigatingToPending, setNavigatingToPending] = useState(false);
   const navigate = useNavigate();
   const { currentEntity, loading: entityLoading } = useEntity();
   const selectedEntityIds = currentEntity ? [currentEntity.id] : [];
@@ -1025,18 +1026,41 @@ const Analytics: React.FC = () => {
                 </ScrollArea>
 
                 {pendingFitments.length > 0 && (
-                  <Group justify="center" mt="md">
+                  <Group justify="center" mt="lg">
                     <Button
-                      variant="light"
                       color="blue"
-                      size="sm"
-                      onClick={() =>
-                        navigate(
-                          "/fitments?fitmentType=ai_fitment&itemStatus=readyToApprove"
-                        )
-                      }
+                      size="md"
+                      bg="#2563eb"
+                      onClick={async () => {
+                        try {
+                          setNavigatingToPending(true);
+
+                          // Smooth transition delay
+                          await new Promise((resolve) =>
+                            setTimeout(resolve, 800)
+                          );
+
+                          navigate(
+                            "/fitments?fitmentType=ai_fitment&itemStatus=readyToApprove"
+                          );
+                        } catch (error) {
+                          setNavigatingToPending(false);
+                        }
+                      }}
+                      loading={navigatingToPending}
+                      styles={{
+                        root: {
+                          fontWeight: 500,
+                          fontSize: "14px",
+                          borderRadius: "8px",
+                          transition: "all 0.2s ease",
+                          "&:hover": {
+                            background: "#f1f5f9",
+                          },
+                        },
+                      }}
                     >
-                      View All Pending Fitments ({totalPendingCount})
+                      View All Pending ({totalPendingCount})
                     </Button>
                   </Group>
                 )}
