@@ -620,6 +620,7 @@ export const EntitySelector: React.FC<EntitySelectorProps> = ({
             // Refresh entities list after creation
             fetchEntities();
           }}
+          fromManage={false}
         />
       </>
     );
@@ -706,6 +707,7 @@ export const EntitySelector: React.FC<EntitySelectorProps> = ({
           // Refresh entities list after creation
           fetchEntities();
         }}
+        fromManage={false}
       />
     </>
   );

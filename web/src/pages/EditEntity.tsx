@@ -18,13 +18,13 @@ import {
   Divider,
   Tabs,
   MultiSelect,
-  Select,
   Checkbox,
   FileInput,
   Accordion,
   ActionIcon,
   Table,
   Progress,
+  Tooltip,
 } from "@mantine/core";
 import {
   IconPlus,
@@ -34,8 +34,11 @@ import {
   IconClock,
   IconRefresh,
   IconX,
+  IconInfoCircle,
+  IconDeviceFloppy,
+  IconArrowLeft,
 } from "@tabler/icons-react";
-import { useParams } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import apiClient from "../api/client";
 import { toast } from "react-toastify";
 
@@ -136,10 +139,24 @@ const REQUIRED_PRODUCT_FIELDS = [
 
 const EditEntity: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
+
+  // Check if user came from manage entities page
+  const fromManage =
+    location.state?.from === "manage" ||
+    location.search.includes("from=manage");
   const [entity, setEntity] = useState<Entity | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [savingBasic, setSavingBasic] = useState(false);
+  const [savingFitment, setSavingFitment] = useState(false);
+  const [savingProduct, setSavingProduct] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<{
+    name?: string;
+    contact_email?: string;
+  }>({});
+  const [navigatingBack, setNavigatingBack] = useState(false);
 
   // New state for VCDB categories and jobs
   const [vcdbCategories, setVcdbCategories] = useState<VCDBCategory[]>([]);
@@ -452,11 +469,41 @@ const EditEntity: React.FC = () => {
     }
   };
 
-  const handleUpdate = async () => {
+  // Form validation
+  const validateBasicInfo = () => {
+    const errors: { name?: string; contact_email?: string } = {};
+
+    if (!formData.name.trim()) {
+      errors.name = "Entity name is required";
+    }
+
+    if (formData.contact_email && formData.contact_email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.contact_email)) {
+        errors.contact_email = "Please enter a valid email address";
+      }
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleUpdate = async (
+    section: "basic" | "fitment" | "product" = "basic"
+  ) => {
     if (!entity) return;
 
+    // Validate based on section
+    if (section === "basic" && !validateBasicInfo()) {
+      toast.error("Please fix validation errors before saving");
+      return;
+    }
+
     try {
-      setSubmitting(true);
+      // Set appropriate loading state
+      if (section === "basic") setSavingBasic(true);
+      if (section === "fitment") setSavingFitment(true);
+      if (section === "product") setSavingProduct(true);
 
       // Save all tenant data including fitment settings
       const updateData = {
@@ -472,15 +519,38 @@ const EditEntity: React.FC = () => {
 
       await apiClient.put(`/api/tenants/${entity.id}/`, updateData);
 
+      // Smooth transition delay (2 seconds for better UX)
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
       // Refresh entity data to get updated info
       const response = await apiClient.get(`/api/tenants/${entity.id}/`);
       setEntity(response.data);
 
-      toast.success("Entity updated successfully");
-    } catch (error) {
-      toast.error("Failed to update entity");
+      toast.success("Settings updated successfully");
+    } catch (error: any) {
+      const errorMessage =
+        error?.response?.data?.detail ||
+        error?.response?.data?.error ||
+        "Failed to update settings";
+      toast.error(errorMessage);
     } finally {
-      setSubmitting(false);
+      if (section === "basic") setSavingBasic(false);
+      if (section === "fitment") setSavingFitment(false);
+      if (section === "product") setSavingProduct(false);
+    }
+  };
+
+  const handleBackToManage = async () => {
+    try {
+      setNavigatingBack(true);
+
+      // Smooth transition delay (2 seconds for better UX)
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Navigate back to manage entities
+      window.location.href = "/manage-entities";
+    } catch (error) {
+      setNavigatingBack(false);
     }
   };
 
@@ -516,1108 +586,1396 @@ const EditEntity: React.FC = () => {
   }
 
   return (
-    <Container size="xl">
-      <Stack gap="md">
-        {/* Header */}
-        <Group justify="space-between" align="center">
-          <Group>
-            {/* <Button
-              leftSection={<IconArrowLeft size={14} />}
-              variant="subtle"
-              onClick={() => navigate("/entities")}
-              size="sm"
-              style={{ fontSize: "14px" }}
-            >
-              Back to Entities
-            </Button> */}
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#f8f9fa",
+      }}
+    >
+      {/* Header Bar */}
+
+      <Container size="xl">
+        <Stack gap="24">
+          {/* Page Header */}
+          <Group justify="space-between" align="flex-start">
+            <div>
+              <Group gap="sm" align="center">
+                <Title
+                  order={2}
+                  style={{
+                    fontWeight: 650,
+                    fontSize: "24px",
+                    color: "#1a1a1a",
+                    letterSpacing: "-0.02em",
+                  }}
+                >
+                  {entity.name}
+                </Title>
+                <Badge
+                  color={entity.is_active ? "green" : "red"}
+                  variant="light"
+                  style={{
+                    fontWeight: 500,
+                    fontSize: "12px",
+                  }}
+                >
+                  {entity.is_active ? "Active" : "Inactive"}
+                </Badge>
+                {entity.is_default && (
+                  <Badge
+                    color="blue"
+                    variant="light"
+                    style={{
+                      fontWeight: 500,
+                      fontSize: "12px",
+                    }}
+                  >
+                    Default
+                  </Badge>
+                )}
+              </Group>
+              <Text
+                size="sm"
+                c="dimmed"
+                style={{
+                  fontWeight: 500,
+                  fontSize: "14px",
+                  color: "#6b7280",
+                }}
+              >
+                Configure entity settings, VCDB categories, and product fields
+              </Text>
+            </div>
+
+            {/* Back to Manage Entities Button - Only show when coming from manage entities */}
+            {fromManage && (
+              <Button
+                leftSection={<IconArrowLeft size={18} />}
+                variant="light"
+                onClick={handleBackToManage}
+                loading={navigatingBack}
+                disabled={savingBasic || savingFitment || savingProduct}
+                style={{
+                  fontWeight: 500,
+                  borderRadius: "8px",
+                }}
+              >
+                Back to Manage Entities
+              </Button>
+            )}
           </Group>
 
-          {/* <Group>
-            <Badge color={entity.is_active ? "green" : "red"} size="lg">
-              {entity.is_active ? "Active" : "Inactive"}
-            </Badge>
-            {entity.is_default && (
-              <Badge color="blue" size="lg">
-                Default
-              </Badge>
-            )}
-          </Group> */}
-        </Group>
-
-        {/* Edit Form with Tabs */}
-        <Card shadow="sm" padding="xl" radius="md" withBorder>
-          <Title order={3} mb={"xl"}>
-            {entity.name}
-          </Title>
-          <Tabs
-            defaultValue="basic"
-            variant="outline"
-            onChange={handleTabChange}
+          {/* Configuration Form with Tabs */}
+          <Card
+            padding="0"
+            radius="12px"
+            style={{
+              border: "1px solid #e9ecef",
+              overflow: "hidden",
+            }}
           >
-            <Tabs.List>
-              <Tabs.Tab value="basic" leftSection={<IconDatabase size={16} />}>
-                Basic Info
-              </Tabs.Tab>
-              <Tabs.Tab value="fitments" leftSection={<IconCar size={16} />}>
-                VCDB Configuration
-              </Tabs.Tab>
-              <Tabs.Tab
-                value="products"
-                leftSection={<IconDatabase size={16} />}
-              >
-                Products Configuration
-              </Tabs.Tab>
-            </Tabs.List>
-
-            <Tabs.Panel value="basic" pt="md">
-              <Stack gap="md">
-                <TextInput
-                  label="Name"
-                  placeholder="Enter entity name"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  required
-                />
-                <TextInput
-                  label="URL"
-                  placeholder="Enter entity URL"
-                  value={formData.slug}
-                  onChange={(e) =>
-                    setFormData({ ...formData, slug: e.target.value })
-                  }
-                />
-                <Textarea
-                  label="Description"
-                  placeholder="Enter entity description"
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  rows={3}
-                />
-                <Divider />
-                <Text fw={500}>Contact Information</Text>
-                <TextInput
-                  label="Contact Email"
-                  placeholder="Enter contact email"
-                  value={formData.contact_email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, contact_email: e.target.value })
-                  }
-                />
-                <TextInput
-                  label="Contact Phone"
-                  placeholder="Enter contact phone"
-                  value={formData.contact_phone}
-                  onChange={(e) =>
-                    setFormData({ ...formData, contact_phone: e.target.value })
-                  }
-                />
-                <Textarea
-                  label="Company Address"
-                  placeholder="Enter company address"
-                  value={formData.company_address}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      company_address: e.target.value,
-                    })
-                  }
-                  rows={3}
-                />
-                <Select
-                  label="Default Fitment Application"
-                  placeholder="Select default method"
-                  data={[
-                    { value: "manual", label: "Manual" },
-                    { value: "ai", label: "AI" },
-                  ]}
-                  value={formData.default_fitment_method}
-                  onChange={(value) =>
-                    setFormData({
-                      ...formData,
-                      default_fitment_method: value as "manual" | "ai",
-                    })
-                  }
-                />
-
-                <Textarea
-                  label="AI Instructions"
-                  placeholder="Enter AI instructions for fitment processing"
-                  value={formData.ai_instructions}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      ai_instructions: e.target.value,
-                    })
-                  }
-                  rows={4}
-                />
-
-                <Group>
-                  <Switch
-                    label="Active"
-                    checked={formData.is_active}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        is_active: e.currentTarget.checked,
-                      })
-                    }
-                  />
-                  <Switch
-                    label="Default Entity"
-                    checked={formData.is_default}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        is_default: e.currentTarget.checked,
-                      })
-                    }
-                  />
-                </Group>
-
-                <Group justify="flex-end" mt="xl">
-                  <Button
-                    onClick={handleUpdate}
-                    loading={submitting}
-                    size="sm"
-                    color="blue"
-                  >
-                    Update Entity
-                  </Button>
-                </Group>
-              </Stack>
-            </Tabs.Panel>
-
-            <Tabs.Panel value="fitments" pt="md">
-              <Stack gap="md">
-                <Text fw={500} size="lg">
-                  Fitment Configuration
-                </Text>
-
-                <MultiSelect
-                  label="VCDB Categories"
-                  placeholder="Select VCDB categories"
-                  data={vcdbCategories.map((cat) => ({
-                    value: cat.id,
-                    label: `${cat.name} (${cat.version}) - ${cat.record_count} records`,
-                  }))}
-                  value={formData.vcdb_categories}
-                  onChange={(value) =>
-                    setFormData({ ...formData, vcdb_categories: value })
-                  }
-                  searchable
-                  clearable
-                  disabled={loadingCategories}
-                />
-
-                <Group grow>
-                  <MultiSelect
-                    label="Required VCDB Fields"
-                    placeholder="Select required fields (first 8 + engine type)"
-                    data={VCDB_FIELDS}
-                    value={formData.required_vcdb_fields}
-                    onChange={(value) =>
-                      setFormData({ ...formData, required_vcdb_fields: value })
-                    }
-                    searchable
-                    clearable
-                    maxValues={9}
-                  />
-                  <MultiSelect
-                    label="Optional VCDB Fields"
-                    placeholder="Select optional fields"
-                    data={VCDB_FIELDS.filter(
-                      (field) => !formData.required_vcdb_fields.includes(field)
-                    )}
-                    value={formData.optional_vcdb_fields}
-                    onChange={(value) =>
-                      setFormData({ ...formData, optional_vcdb_fields: value })
-                    }
-                    searchable
-                    clearable
-                  />
-                </Group>
-
-                <Group justify="flex-end" mt="md">
-                  <Button
-                    variant="light"
-                    onClick={async () => {
-                      try {
-                        setSubmitting(true);
-
-                        // Save fitment configuration to tenant
-                        const fitmentConfig = {
-                          vcdb_categories: formData.vcdb_categories,
-                          required_vcdb_fields: formData.required_vcdb_fields,
-                          optional_vcdb_fields: formData.optional_vcdb_fields,
-                        };
-
-                        await apiClient.put(`/api/tenants/${entity.id}/`, {
-                          ...formData,
-                          fitment_settings: fitmentConfig,
-                        });
-
-                        toast.success("Fitment configuration saved");
-                      } catch (error) {
-                        toast.error("Failed to save fitment configuration");
-                      } finally {
-                        setSubmitting(false);
-                      }
-                    }}
-                    loading={submitting}
-                    size="sm"
-                    color="blue"
-                  >
-                    Save Fitment Configuration
-                  </Button>
-                </Group>
-              </Stack>
-            </Tabs.Panel>
-
-            <Tabs.Panel value="products" pt="md">
-              <Stack gap="md">
-                <Text fw={500} size="lg">
+            <Tabs
+              defaultValue="basic"
+              onChange={handleTabChange}
+              styles={{
+                root: {
+                  background: "#ffffff",
+                },
+                list: {
+                  borderBottom: "1px solid #e9ecef",
+                  padding: "0 24px",
+                },
+                tab: {
+                  fontWeight: 500,
+                  fontSize: "14px",
+                  padding: "16px 20px",
+                  color: "#6b7280",
+                  borderRadius: "0",
+                  "&[data-active]": {
+                    color: "#2563eb",
+                    borderColor: "#2563eb",
+                    fontWeight: 600,
+                    background: "transparent",
+                  },
+                  "&:hover": {
+                    background: "#f1f5f9",
+                    borderRadius: "0",
+                  },
+                },
+                panel: {
+                  padding: "24px",
+                },
+              }}
+            >
+              <Tabs.List>
+                <Tabs.Tab
+                  value="basic"
+                  leftSection={<IconDatabase size={18} />}
+                >
+                  Basic Information
+                </Tabs.Tab>
+                <Tabs.Tab value="fitments" leftSection={<IconCar size={18} />}>
+                  VCDB Configuration
+                </Tabs.Tab>
+                <Tabs.Tab
+                  value="products"
+                  leftSection={<IconDatabase size={18} />}
+                >
                   Product Configuration
-                </Text>
-                <Alert color="blue" title="Product Configuration">
-                  <Text size="sm">
-                    Configure your product fields and additional attributes
-                    below.
-                    <br />
-                    To upload files and apply fitment, use the "Apply Fitment"
-                    tab.
-                  </Text>
-                </Alert>
+                </Tabs.Tab>
+              </Tabs.List>
 
-                <MultiSelect
-                  label="Required Product Fields"
-                  placeholder="Select required product fields"
-                  data={REQUIRED_PRODUCT_FIELDS}
-                  value={formData.required_product_fields}
-                  onChange={(value) =>
-                    setFormData({ ...formData, required_product_fields: value })
-                  }
-                  searchable
-                  clearable
-                />
-
-                <Divider />
-                <Text fw={500}>Additional Attributes</Text>
-
-                <Accordion variant="contained">
-                  <Accordion.Item value="attributes">
-                    <Accordion.Control>
-                      <Group>
-                        <Text>Define Additional Attributes</Text>
-                        <Badge size="sm">
-                          {formData.additional_attributes.length}
-                        </Badge>
-                      </Group>
-                    </Accordion.Control>
-                    <Accordion.Panel>
-                      <Stack gap="md">
-                        {formData.additional_attributes.map((attr, index) => (
-                          <Paper key={index} p="md" withBorder>
-                            <Grid>
-                              <Grid.Col span={4}>
-                                <TextInput
-                                  label="Attribute Name"
-                                  placeholder="e.g., Material, Color"
-                                  value={attr.name}
-                                  onChange={(e) => {
-                                    const newAttrs = [
-                                      ...formData.additional_attributes,
-                                    ];
-                                    newAttrs[index] = {
-                                      ...attr,
-                                      name: e.target.value,
-                                    };
-                                    setFormData({
-                                      ...formData,
-                                      additional_attributes: newAttrs,
-                                    });
-                                  }}
-                                />
-                              </Grid.Col>
-                              <Grid.Col span={4}>
-                                <TextInput
-                                  label="Attribute Value"
-                                  placeholder="e.g., Steel, Red"
-                                  value={attr.value}
-                                  onChange={(e) => {
-                                    const newAttrs = [
-                                      ...formData.additional_attributes,
-                                    ];
-                                    newAttrs[index] = {
-                                      ...attr,
-                                      value: e.target.value,
-                                    };
-                                    setFormData({
-                                      ...formData,
-                                      additional_attributes: newAttrs,
-                                    });
-                                  }}
-                                />
-                              </Grid.Col>
-                              <Grid.Col span={3}>
-                                <TextInput
-                                  label="Unit of Measure"
-                                  placeholder="e.g., lbs, inches"
-                                  value={attr.uom}
-                                  onChange={(e) => {
-                                    const newAttrs = [
-                                      ...formData.additional_attributes,
-                                    ];
-                                    newAttrs[index] = {
-                                      ...attr,
-                                      uom: e.target.value,
-                                    };
-                                    setFormData({
-                                      ...formData,
-                                      additional_attributes: newAttrs,
-                                    });
-                                  }}
-                                />
-                              </Grid.Col>
-                              <Grid.Col span={1}>
-                                <Group justify="center" mt="xl">
-                                  <ActionIcon
-                                    color="red"
-                                    variant="subtle"
-                                    onClick={() => {
-                                      const newAttrs =
-                                        formData.additional_attributes.filter(
-                                          (_, i) => i !== index
-                                        );
-                                      setFormData({
-                                        ...formData,
-                                        additional_attributes: newAttrs,
-                                      });
-                                    }}
-                                  >
-                                    <IconTrash size={16} />
-                                  </ActionIcon>
-                                </Group>
-                              </Grid.Col>
-                            </Grid>
-                            <Group mt="sm">
-                              <Checkbox
-                                label="Entity Specific"
-                                checked={attr.is_entity_specific}
-                                onChange={(e) => {
-                                  const newAttrs = [
-                                    ...formData.additional_attributes,
-                                  ];
-                                  newAttrs[index] = {
-                                    ...attr,
-                                    is_entity_specific: e.currentTarget.checked,
-                                  };
-                                  setFormData({
-                                    ...formData,
-                                    additional_attributes: newAttrs,
-                                  });
-                                }}
-                              />
-                            </Group>
-                          </Paper>
-                        ))}
-                        <Button
-                          variant="light"
-                          leftSection={<IconPlus size={16} />}
-                          onClick={() => {
-                            setFormData({
-                              ...formData,
-                              additional_attributes: [
-                                ...formData.additional_attributes,
-                                {
-                                  name: "",
-                                  value: "",
-                                  uom: "",
-                                  is_entity_specific: false,
-                                },
-                              ],
+              <Tabs.Panel value="basic">
+                <Stack gap="lg">
+                  <div>
+                    <Stack gap="md">
+                      <TextInput
+                        label="Entity Name"
+                        placeholder="Enter entity name"
+                        value={formData.name}
+                        onChange={(e) => {
+                          setFormData({ ...formData, name: e.target.value });
+                          if (validationErrors.name) {
+                            setValidationErrors({
+                              ...validationErrors,
+                              name: "",
                             });
-                          }}
-                          size="sm"
-                          color="blue"
-                        >
-                          Add Attribute
-                        </Button>
-                      </Stack>
-                    </Accordion.Panel>
-                  </Accordion.Item>
-                </Accordion>
-
-                <Group justify="flex-end" mt="md">
-                  <Button
-                    variant="light"
-                    onClick={async () => {
-                      try {
-                        setSubmitting(true);
-
-                        // Save product configuration to tenant
-                        const updateData = {
-                          ...formData,
-                          fitment_settings: {
-                            vcdb_categories: formData.vcdb_categories,
-                            required_vcdb_fields: formData.required_vcdb_fields,
-                            optional_vcdb_fields: formData.optional_vcdb_fields,
-                            required_product_fields:
-                              formData.required_product_fields,
-                            additional_attributes:
-                              formData.additional_attributes,
+                          }
+                        }}
+                        required
+                        error={validationErrors.name}
+                        styles={{
+                          label: {
+                            fontWeight: 500,
+                            fontSize: "14px",
+                            marginBottom: "6px",
                           },
-                        };
+                          input: {
+                            borderRadius: "8px",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                          },
+                        }}
+                      />
+                      <TextInput
+                        label="URL Slug"
+                        placeholder="Enter entity URL slug"
+                        value={formData.slug}
+                        onChange={(e) =>
+                          setFormData({ ...formData, slug: e.target.value })
+                        }
+                        styles={{
+                          label: {
+                            fontWeight: 500,
+                            fontSize: "14px",
+                            marginBottom: "6px",
+                          },
+                          input: {
+                            borderRadius: "8px",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                          },
+                        }}
+                      />
+                      <Textarea
+                        label="Description"
+                        placeholder="Enter entity description"
+                        value={formData.description}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            description: e.target.value,
+                          })
+                        }
+                        rows={3}
+                        styles={{
+                          label: {
+                            fontWeight: 500,
+                            fontSize: "14px",
+                            marginBottom: "6px",
+                          },
+                          input: {
+                            borderRadius: "8px",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                          },
+                        }}
+                      />
+                    </Stack>
+                  </div>
 
-                        await apiClient.put(
-                          `/api/tenants/${entity.id}/`,
-                          updateData
-                        );
+                  <Divider label="Contact Information" />
 
-                        toast.success(
-                          "Product configuration saved successfully"
-                        );
-                      } catch (error) {
-                        toast.error("Failed to save product configuration");
-                      } finally {
-                        setSubmitting(false);
-                      }
-                    }}
-                    loading={submitting}
-                    size="sm"
-                    color="blue"
-                  >
-                    Save Configuration
-                  </Button>
-                </Group>
-              </Stack>
-            </Tabs.Panel>
+                  <div>
+                    <Stack gap="md">
+                      <TextInput
+                        label="Contact Email"
+                        placeholder="contact@example.com"
+                        value={formData.contact_email}
+                        onChange={(e) => {
+                          setFormData({
+                            ...formData,
+                            contact_email: e.target.value,
+                          });
+                          if (validationErrors.contact_email) {
+                            setValidationErrors({
+                              ...validationErrors,
+                              contact_email: "",
+                            });
+                          }
+                        }}
+                        error={validationErrors.contact_email}
+                        styles={{
+                          label: {
+                            fontWeight: 500,
+                            fontSize: "14px",
+                            marginBottom: "6px",
+                          },
+                          input: {
+                            borderRadius: "8px",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                          },
+                        }}
+                      />
+                      <TextInput
+                        label="Contact Phone"
+                        placeholder="+1 (555) 123-4567"
+                        value={formData.contact_phone}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            contact_phone: e.target.value,
+                          })
+                        }
+                        styles={{
+                          label: {
+                            fontWeight: 500,
+                            fontSize: "14px",
+                            marginBottom: "6px",
+                          },
+                          input: {
+                            borderRadius: "8px",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                          },
+                        }}
+                      />
+                      <Textarea
+                        label="Company Address"
+                        placeholder="Enter company address"
+                        value={formData.company_address}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            company_address: e.target.value,
+                          })
+                        }
+                        rows={3}
+                        styles={{
+                          label: {
+                            fontWeight: 500,
+                            fontSize: "14px",
+                            marginBottom: "6px",
+                          },
+                          input: {
+                            borderRadius: "8px",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                          },
+                        }}
+                      />
+                    </Stack>
+                  </div>
+                  <Divider label="Entity Status" />
 
-            <Tabs.Panel value="apply-fitment" pt="md">
-              <Stack gap="md">
-                <Text fw={500} size="lg">
-                  Apply Fitment
-                </Text>
-
-                {checkingFiles && (
-                  <Alert color="yellow" title="Checking for existing files...">
-                    <Text size="sm">
-                      Please wait while we check for existing product files.
+                  <div>
+                    <Text
+                      fw={600}
+                      size="sm"
+                      mb="md"
+                      style={{ color: "#1a1a1a" }}
+                    >
+                      Entity Status
                     </Text>
-                  </Alert>
-                )}
+                    <Group gap="xl">
+                      <Switch
+                        label="Active"
+                        description="Enable or disable this entity"
+                        checked={formData.is_active}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            is_active: e.currentTarget.checked,
+                          })
+                        }
+                        styles={{
+                          label: {
+                            fontWeight: 500,
+                            fontSize: "14px",
+                          },
+                          description: {
+                            fontSize: "12px",
+                            color: "#6b7280",
+                          },
+                        }}
+                      />
+                      <Switch
+                        label="Default Entity"
+                        description="Set as default entity for new users"
+                        checked={formData.is_default}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            is_default: e.currentTarget.checked,
+                          })
+                        }
+                        styles={{
+                          label: {
+                            fontWeight: 500,
+                            fontSize: "14px",
+                          },
+                          description: {
+                            fontSize: "12px",
+                            color: "#6b7280",
+                          },
+                        }}
+                      />
+                    </Group>
+                  </div>
 
-                {/* Enhanced File Upload Section */}
-                <Card withBorder p="lg" style={{ backgroundColor: "#fafbfc" }}>
-                  <Stack gap="md">
-                    <Group justify="space-between" align="center">
-                      <div>
-                        <Text fw={600} size="lg" c="dark">
-                          Product Files Upload
-                        </Text>
-                        <Text size="sm" c="dimmed">
-                          Upload CSV, XLSX, or JSON files containing your
-                          product data
-                        </Text>
-                      </div>
-                      <Badge color="blue" variant="light" size="lg">
-                        {formData.uploaded_files.length} files
-                      </Badge>
+                  <Group justify="flex-end" mt="md">
+                    <Button
+                      leftSection={<IconDeviceFloppy size={18} />}
+                      onClick={() => handleUpdate("basic")}
+                      loading={savingBasic}
+                      disabled={savingFitment || savingProduct}
+                      style={{
+                        fontWeight: 600,
+                        borderRadius: "8px",
+                        background: "#2563eb",
+                      }}
+                    >
+                      Save Basic Info
+                    </Button>
+                  </Group>
+                </Stack>
+              </Tabs.Panel>
+
+              <Tabs.Panel value="fitments">
+                <Stack gap="lg">
+                  <div>
+                    <Group gap="xs" mb="xs">
+                      <Text fw={600} size="sm" style={{ color: "#1a1a1a" }}>
+                        VCDB Fitment Configuration
+                      </Text>
+                      <Tooltip label="Configure VCDB categories and fields for this entity">
+                        <IconInfoCircle size={16} color="#9ca3af" />
+                      </Tooltip>
+                    </Group>
+                    <Stack gap="md">
+                      <MultiSelect
+                        label="VCDB Categories"
+                        placeholder="Select VCDB categories"
+                        data={vcdbCategories.map((cat) => ({
+                          value: cat.id,
+                          label: `${cat.name} (${cat.version}) - ${cat.record_count} records`,
+                        }))}
+                        value={formData.vcdb_categories}
+                        onChange={(value) =>
+                          setFormData({ ...formData, vcdb_categories: value })
+                        }
+                        searchable
+                        clearable
+                        disabled={loadingCategories}
+                        styles={{
+                          label: {
+                            fontWeight: 500,
+                            fontSize: "14px",
+                            marginBottom: "6px",
+                          },
+                          input: {
+                            borderRadius: "8px",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                          },
+                        }}
+                      />
+                    </Stack>
+                  </div>
+
+                  <Divider label="VCDB Field Selection" />
+
+                  <div>
+                    <Group gap="xs" mb="xs">
+                      <Text fw={600} size="sm" style={{ color: "#1a1a1a" }}>
+                        VCDB Field Selection
+                      </Text>
+                      <Tooltip label="Select required and optional VCDB fields">
+                        <IconInfoCircle size={16} color="#9ca3af" />
+                      </Tooltip>
+                    </Group>
+                    <Group grow align="flex-start">
+                      <MultiSelect
+                        label="Required VCDB Fields"
+                        placeholder="Select required fields"
+                        data={VCDB_FIELDS}
+                        value={formData.required_vcdb_fields}
+                        onChange={(value) =>
+                          setFormData({
+                            ...formData,
+                            required_vcdb_fields: value,
+                          })
+                        }
+                        searchable
+                        clearable
+                        maxValues={9}
+                        styles={{
+                          label: {
+                            fontWeight: 500,
+                            fontSize: "14px",
+                            marginBottom: "6px",
+                          },
+                          input: {
+                            borderRadius: "8px",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                          },
+                        }}
+                      />
+                      <MultiSelect
+                        label="Optional VCDB Fields"
+                        placeholder="Select optional fields"
+                        data={VCDB_FIELDS.filter(
+                          (field) =>
+                            !formData.required_vcdb_fields.includes(field)
+                        )}
+                        value={formData.optional_vcdb_fields}
+                        onChange={(value) =>
+                          setFormData({
+                            ...formData,
+                            optional_vcdb_fields: value,
+                          })
+                        }
+                        searchable
+                        clearable
+                        styles={{
+                          label: {
+                            fontWeight: 500,
+                            fontSize: "14px",
+                            marginBottom: "6px",
+                          },
+                          input: {
+                            borderRadius: "8px",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                          },
+                        }}
+                      />
+                    </Group>
+                  </div>
+
+                  <Group justify="flex-end" mt="md">
+                    <Button
+                      leftSection={<IconDeviceFloppy size={18} />}
+                      onClick={() => handleUpdate("fitment")}
+                      loading={savingFitment}
+                      disabled={savingBasic || savingProduct}
+                      style={{
+                        fontWeight: 600,
+                        borderRadius: "8px",
+                        background: "#2563eb",
+                      }}
+                    >
+                      Save VCDB Config
+                    </Button>
+                  </Group>
+                </Stack>
+              </Tabs.Panel>
+
+              <Tabs.Panel value="products">
+                <Stack gap="lg">
+                  <div>
+                    <Group gap="xs" mb="xs">
+                      <Text fw={600} size="sm" style={{ color: "#1a1a1a" }}>
+                        Product Field Configuration
+                      </Text>
+                      <Tooltip label="Configure required product fields and additional attributes">
+                        <IconInfoCircle size={16} color="#9ca3af" />
+                      </Tooltip>
+                    </Group>
+                    <Stack gap="md">
+                      <MultiSelect
+                        label="Required Product Fields"
+                        placeholder="Select required product fields"
+                        data={REQUIRED_PRODUCT_FIELDS}
+                        value={formData.required_product_fields}
+                        onChange={(value) =>
+                          setFormData({
+                            ...formData,
+                            required_product_fields: value,
+                          })
+                        }
+                        searchable
+                        clearable
+                        styles={{
+                          label: {
+                            fontWeight: 500,
+                            fontSize: "14px",
+                            marginBottom: "6px",
+                          },
+                          input: {
+                            borderRadius: "8px",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                          },
+                        }}
+                      />
+                    </Stack>
+                  </div>
+
+                  <Divider label="Additional Attributes" />
+
+                  <div>
+                    <Group gap="xs" mb="md">
+                      <Text fw={600} size="sm" style={{ color: "#1a1a1a" }}>
+                        Additional Attributes
+                      </Text>
+                      <Tooltip label="Define custom attributes for products">
+                        <IconInfoCircle size={16} color="#9ca3af" />
+                      </Tooltip>
                     </Group>
 
-                    <FileInput
-                      placeholder="Click to browse or drag & drop files here"
-                      multiple
-                      accept=".csv,.xlsx,.json"
-                      value={formData.uploaded_files}
-                      onChange={(files) =>
-                        setFormData({
-                          ...formData,
-                          uploaded_files: files || [],
-                        })
-                      }
+                    <Accordion
+                      variant="contained"
                       styles={{
-                        input: {
-                          border: "2px dashed #dee2e6",
-                          backgroundColor: "#ffffff",
+                        control: {
                           borderRadius: "8px",
-                          padding: "24px",
-                          textAlign: "center",
-                          cursor: "pointer",
-                          transition: "all 0.2s ease",
-                          "&:hover": {
-                            borderColor: "#339af0",
-                            backgroundColor: "#f8f9ff",
-                          },
-                        },
-                        placeholder: {
-                          color: "#6c757d",
-                          fontSize: "14px",
+                          fontWeight: 500,
                         },
                       }}
-                    />
-
-                    {/* File Type Guidelines */}
-                    <Alert variant="light" radius="md">
-                      <Text size="sm" fw={500} mb="xs">
-                        Supported File Types:
-                      </Text>
-                      <Group gap="md">
-                        <Badge color="green" variant="light" size="sm">
-                          CSV Files
-                        </Badge>
-                        <Badge color="orange" variant="light" size="sm">
-                          Excel Files
-                        </Badge>
-                        <Badge color="purple" variant="light" size="sm">
-                          JSON Files
-                        </Badge>
-                      </Group>
-                    </Alert>
-
-                    {/* Enhanced File List */}
-                    {formData.uploaded_files.length > 0 && (
-                      <Card withBorder radius="md" p="md">
-                        <Group justify="space-between" mb="md">
-                          <Text fw={600} size="md" c="dark">
-                            Uploaded Files
-                          </Text>
-                          <Button
-                            variant="light"
-                            color="red"
-                            size="sm"
-                            onClick={() =>
-                              setFormData({ ...formData, uploaded_files: [] })
-                            }
-                          >
-                            Clear All
-                          </Button>
-                        </Group>
-
-                        <Stack gap="xs">
-                          {formData.uploaded_files.map((file, index) => (
-                            <Paper
-                              key={index}
-                              p="sm"
-                              radius="md"
+                    >
+                      <Accordion.Item value="attributes">
+                        <Accordion.Control>
+                          <Group>
+                            <Text fw={500} size="sm">
+                              Define Additional Attributes
+                            </Text>
+                            <Badge size="sm" variant="light">
+                              {formData.additional_attributes.length}
+                            </Badge>
+                          </Group>
+                        </Accordion.Control>
+                        <Accordion.Panel>
+                          <Stack gap="md">
+                            {formData.additional_attributes.map(
+                              (attr, index) => (
+                                <Paper key={index} p="md" withBorder>
+                                  <Grid>
+                                    <Grid.Col span={4}>
+                                      <TextInput
+                                        label="Attribute Name"
+                                        placeholder="e.g., Material, Color"
+                                        value={attr.name}
+                                        onChange={(e) => {
+                                          const newAttrs = [
+                                            ...formData.additional_attributes,
+                                          ];
+                                          newAttrs[index] = {
+                                            ...attr,
+                                            name: e.target.value,
+                                          };
+                                          setFormData({
+                                            ...formData,
+                                            additional_attributes: newAttrs,
+                                          });
+                                        }}
+                                      />
+                                    </Grid.Col>
+                                    <Grid.Col span={4}>
+                                      <TextInput
+                                        label="Attribute Value"
+                                        placeholder="e.g., Steel, Red"
+                                        value={attr.value}
+                                        onChange={(e) => {
+                                          const newAttrs = [
+                                            ...formData.additional_attributes,
+                                          ];
+                                          newAttrs[index] = {
+                                            ...attr,
+                                            value: e.target.value,
+                                          };
+                                          setFormData({
+                                            ...formData,
+                                            additional_attributes: newAttrs,
+                                          });
+                                        }}
+                                      />
+                                    </Grid.Col>
+                                    <Grid.Col span={3}>
+                                      <TextInput
+                                        label="Unit of Measure"
+                                        placeholder="e.g., lbs, inches"
+                                        value={attr.uom}
+                                        onChange={(e) => {
+                                          const newAttrs = [
+                                            ...formData.additional_attributes,
+                                          ];
+                                          newAttrs[index] = {
+                                            ...attr,
+                                            uom: e.target.value,
+                                          };
+                                          setFormData({
+                                            ...formData,
+                                            additional_attributes: newAttrs,
+                                          });
+                                        }}
+                                      />
+                                    </Grid.Col>
+                                    <Grid.Col span={1}>
+                                      <Group justify="center" mt="xl">
+                                        <ActionIcon
+                                          color="red"
+                                          variant="subtle"
+                                          onClick={() => {
+                                            const newAttrs =
+                                              formData.additional_attributes.filter(
+                                                (_, i) => i !== index
+                                              );
+                                            setFormData({
+                                              ...formData,
+                                              additional_attributes: newAttrs,
+                                            });
+                                          }}
+                                        >
+                                          <IconTrash size={16} />
+                                        </ActionIcon>
+                                      </Group>
+                                    </Grid.Col>
+                                  </Grid>
+                                  <Group mt="sm">
+                                    <Checkbox
+                                      label="Entity Specific"
+                                      checked={attr.is_entity_specific}
+                                      onChange={(e) => {
+                                        const newAttrs = [
+                                          ...formData.additional_attributes,
+                                        ];
+                                        newAttrs[index] = {
+                                          ...attr,
+                                          is_entity_specific:
+                                            e.currentTarget.checked,
+                                        };
+                                        setFormData({
+                                          ...formData,
+                                          additional_attributes: newAttrs,
+                                        });
+                                      }}
+                                    />
+                                  </Group>
+                                </Paper>
+                              )
+                            )}
+                            <Button
+                              variant="light"
+                              leftSection={<IconPlus size={16} />}
+                              onClick={() => {
+                                setFormData({
+                                  ...formData,
+                                  additional_attributes: [
+                                    ...formData.additional_attributes,
+                                    {
+                                      name: "",
+                                      value: "",
+                                      uom: "",
+                                      is_entity_specific: false,
+                                    },
+                                  ],
+                                });
+                              }}
                               style={{
-                                backgroundColor: "#ffffff",
-                                border: "1px solid #e9ecef",
-                                transition: "all 0.2s ease",
+                                fontWeight: 500,
+                                borderRadius: "8px",
                               }}
                             >
-                              <Group justify="space-between" align="center">
-                                <Group gap="sm">
-                                  <div
-                                    style={{
-                                      width: "8px",
-                                      height: "8px",
-                                      borderRadius: "50%",
-                                      backgroundColor: "#51cf66",
-                                    }}
-                                  />
-                                  <div>
-                                    <Text size="sm" fw={500} c="dark">
-                                      {file.name}
-                                    </Text>
-                                    <Text size="xs" c="dimmed">
-                                      {file.size < 1024 * 1024
-                                        ? `${(file.size / 1024).toFixed(1)} KB`
-                                        : `${(file.size / 1024 / 1024).toFixed(
-                                            2
-                                          )} MB`}
-                                    </Text>
-                                  </div>
-                                </Group>
+                              Add Attribute
+                            </Button>
+                          </Stack>
+                        </Accordion.Panel>
+                      </Accordion.Item>
+                    </Accordion>
+                  </div>
 
-                                <Group gap="xs">
-                                  <Badge
-                                    color={
-                                      file.name.endsWith(".csv")
-                                        ? "green"
-                                        : file.name.endsWith(".xlsx")
-                                        ? "orange"
-                                        : file.name.endsWith(".json")
-                                        ? "purple"
-                                        : "gray"
-                                    }
-                                    variant="light"
-                                    size="xs"
-                                  >
-                                    {file.name.split(".").pop()?.toUpperCase()}
-                                  </Badge>
+                  <Group justify="flex-end" mt="md">
+                    <Button
+                      leftSection={<IconDeviceFloppy size={18} />}
+                      onClick={() => handleUpdate("product")}
+                      loading={savingProduct}
+                      disabled={savingBasic || savingFitment}
+                      style={{
+                        fontWeight: 600,
+                        borderRadius: "8px",
+                        background: "#2563eb",
+                      }}
+                    >
+                      Save Product Config
+                    </Button>
+                  </Group>
+                </Stack>
+              </Tabs.Panel>
 
-                                  <ActionIcon
-                                    color="red"
-                                    variant="subtle"
-                                    size="sm"
-                                    onClick={() => {
-                                      const newFiles =
-                                        formData.uploaded_files.filter(
-                                          (_, i) => i !== index
-                                        );
-                                      setFormData({
-                                        ...formData,
-                                        uploaded_files: newFiles,
-                                      });
-                                    }}
-                                  >
-                                    <IconX size={14} />
-                                  </ActionIcon>
-                                </Group>
-                              </Group>
-                            </Paper>
-                          ))}
-                        </Stack>
-                      </Card>
-                    )}
-                  </Stack>
-                </Card>
+              <Tabs.Panel value="apply-fitment">
+                <Stack gap="md">
+                  <Text fw={500} size="lg">
+                    Apply Fitment
+                  </Text>
 
-                {/* Enhanced Fitment Method Display */}
-                {formData.default_fitment_method && (
+                  {checkingFiles && (
+                    <Alert
+                      color="yellow"
+                      title="Checking for existing files..."
+                    >
+                      <Text size="sm">
+                        Please wait while we check for existing product files.
+                      </Text>
+                    </Alert>
+                  )}
+
+                  {/* Enhanced File Upload Section */}
                   <Card
                     withBorder
-                    p="md"
-                    style={{ backgroundColor: "#f8f9ff" }}
+                    p="lg"
+                    style={{ backgroundColor: "#fafbfc" }}
                   >
-                    <Group justify="space-between" align="center" mb="sm">
-                      <Text fw={600} size="md" c="dark">
-                        🎯 Fitment Configuration
-                      </Text>
-                      <Badge
-                        color={
-                          formData.default_fitment_method === "ai"
-                            ? "purple"
-                            : "blue"
+                    <Stack gap="md">
+                      <Group justify="space-between" align="center">
+                        <div>
+                          <Text fw={600} size="lg" c="dark">
+                            Product Files Upload
+                          </Text>
+                          <Text size="sm" c="dimmed">
+                            Upload CSV, XLSX, or JSON files containing your
+                            product data
+                          </Text>
+                        </div>
+                        <Badge color="blue" variant="light" size="lg">
+                          {formData.uploaded_files.length} files
+                        </Badge>
+                      </Group>
+
+                      <FileInput
+                        placeholder="Click to browse or drag & drop files here"
+                        multiple
+                        accept=".csv,.xlsx,.json"
+                        value={formData.uploaded_files}
+                        onChange={(files) =>
+                          setFormData({
+                            ...formData,
+                            uploaded_files: files || [],
+                          })
                         }
-                        variant="light"
-                        size="lg"
-                      >
-                        {formData.default_fitment_method === "ai"
-                          ? "🤖 AI Fitment"
-                          : "👤 Manual Fitment"}
-                      </Badge>
-                    </Group>
+                        styles={{
+                          input: {
+                            border: "2px dashed #dee2e6",
+                            backgroundColor: "#ffffff",
+                            borderRadius: "8px",
+                            padding: "24px",
+                            textAlign: "center",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                            "&:hover": {
+                              borderColor: "#339af0",
+                              backgroundColor: "#f8f9ff",
+                            },
+                          },
+                          placeholder: {
+                            color: "#6c757d",
+                            fontSize: "14px",
+                          },
+                        }}
+                      />
 
-                    <Stack gap="xs">
-                      <Text size="sm">
-                        <strong>Processing Method:</strong>{" "}
-                        {formData.default_fitment_method === "ai"
-                          ? "AI-Powered"
-                          : "Manual Mapping"}
-                      </Text>
-
-                      {formData.default_fitment_method === "ai" && (
-                        <Text size="xs" c="dimmed">
-                          <strong>AI Instructions:</strong>{" "}
-                          {formData.ai_instructions ||
-                            "Using default AI processing"}
+                      {/* File Type Guidelines */}
+                      <Alert variant="light" radius="md">
+                        <Text size="sm" fw={500} mb="xs">
+                          Supported File Types:
                         </Text>
-                      )}
+                        <Group gap="md">
+                          <Badge color="green" variant="light" size="sm">
+                            CSV Files
+                          </Badge>
+                          <Badge color="orange" variant="light" size="sm">
+                            Excel Files
+                          </Badge>
+                          <Badge color="purple" variant="light" size="sm">
+                            JSON Files
+                          </Badge>
+                        </Group>
+                      </Alert>
 
-                      <Text size="xs" c="dimmed">
-                        When you click "Apply Fitment", a{" "}
-                        {formData.default_fitment_method} fitment job will be
-                        created and started automatically.
-                      </Text>
+                      {/* Enhanced File List */}
+                      {formData.uploaded_files.length > 0 && (
+                        <Card withBorder radius="md" p="md">
+                          <Group justify="space-between" mb="md">
+                            <Text fw={600} size="md" c="dark">
+                              Uploaded Files
+                            </Text>
+                            <Button
+                              variant="light"
+                              color="red"
+                              size="sm"
+                              onClick={() =>
+                                setFormData({ ...formData, uploaded_files: [] })
+                              }
+                            >
+                              Clear All
+                            </Button>
+                          </Group>
+
+                          <Stack gap="xs">
+                            {formData.uploaded_files.map((file, index) => (
+                              <Paper
+                                key={index}
+                                p="sm"
+                                radius="md"
+                                style={{
+                                  backgroundColor: "#ffffff",
+                                  border: "1px solid #e9ecef",
+                                  transition: "all 0.2s ease",
+                                }}
+                              >
+                                <Group justify="space-between" align="center">
+                                  <Group gap="sm">
+                                    <div
+                                      style={{
+                                        width: "8px",
+                                        height: "8px",
+                                        borderRadius: "50%",
+                                        backgroundColor: "#51cf66",
+                                      }}
+                                    />
+                                    <div>
+                                      <Text size="sm" fw={500} c="dark">
+                                        {file.name}
+                                      </Text>
+                                      <Text size="xs" c="dimmed">
+                                        {file.size < 1024 * 1024
+                                          ? `${(file.size / 1024).toFixed(
+                                              1
+                                            )} KB`
+                                          : `${(
+                                              file.size /
+                                              1024 /
+                                              1024
+                                            ).toFixed(2)} MB`}
+                                      </Text>
+                                    </div>
+                                  </Group>
+
+                                  <Group gap="xs">
+                                    <Badge
+                                      color={
+                                        file.name.endsWith(".csv")
+                                          ? "green"
+                                          : file.name.endsWith(".xlsx")
+                                          ? "orange"
+                                          : file.name.endsWith(".json")
+                                          ? "purple"
+                                          : "gray"
+                                      }
+                                      variant="light"
+                                      size="xs"
+                                    >
+                                      {file.name
+                                        .split(".")
+                                        .pop()
+                                        ?.toUpperCase()}
+                                    </Badge>
+
+                                    <ActionIcon
+                                      color="red"
+                                      variant="subtle"
+                                      size="sm"
+                                      onClick={() => {
+                                        const newFiles =
+                                          formData.uploaded_files.filter(
+                                            (_, i) => i !== index
+                                          );
+                                        setFormData({
+                                          ...formData,
+                                          uploaded_files: newFiles,
+                                        });
+                                      }}
+                                    >
+                                      <IconX size={14} />
+                                    </ActionIcon>
+                                  </Group>
+                                </Group>
+                              </Paper>
+                            ))}
+                          </Stack>
+                        </Card>
+                      )}
                     </Stack>
                   </Card>
-                )}
 
-                <Group justify="flex-end" mt="md">
-                  {/* Only allow Apply Fitment when new files are uploaded */}
-                  {formData.uploaded_files.length > 0 ? (
-                    <Button
-                      onClick={async () => {
-                        try {
-                          setSubmitting(true);
+                  {/* Enhanced Fitment Method Display */}
+                  {formData.default_fitment_method && (
+                    <Card
+                      withBorder
+                      p="md"
+                      style={{ backgroundColor: "#f8f9ff" }}
+                    >
+                      <Group justify="space-between" align="center" mb="sm">
+                        <Text fw={600} size="md" c="dark">
+                          🎯 Fitment Configuration
+                        </Text>
+                        <Badge
+                          color={
+                            formData.default_fitment_method === "ai"
+                              ? "purple"
+                              : "blue"
+                          }
+                          variant="light"
+                          size="lg"
+                        >
+                          {formData.default_fitment_method === "ai"
+                            ? "🤖 AI Fitment"
+                            : "👤 Manual Fitment"}
+                        </Badge>
+                      </Group>
 
-                          // First save configuration
-                          const updateData = {
-                            ...formData,
-                            fitment_settings: {
+                      <Stack gap="xs">
+                        <Text size="sm">
+                          <strong>Processing Method:</strong>{" "}
+                          {formData.default_fitment_method === "ai"
+                            ? "AI-Powered"
+                            : "Manual Mapping"}
+                        </Text>
+
+                        {formData.default_fitment_method === "ai" && (
+                          <Text size="xs" c="dimmed">
+                            <strong>AI Instructions:</strong>{" "}
+                            {formData.ai_instructions ||
+                              "Using default AI processing"}
+                          </Text>
+                        )}
+
+                        <Text size="xs" c="dimmed">
+                          When you click "Apply Fitment", a{" "}
+                          {formData.default_fitment_method} fitment job will be
+                          created and started automatically.
+                        </Text>
+                      </Stack>
+                    </Card>
+                  )}
+
+                  <Group justify="flex-end" mt="md">
+                    {/* Only allow Apply Fitment when new files are uploaded */}
+                    {formData.uploaded_files.length > 0 ? (
+                      <Button
+                        onClick={async () => {
+                          try {
+                            setSubmitting(true);
+
+                            // First save configuration
+                            const updateData = {
+                              ...formData,
+                              fitment_settings: {
+                                vcdb_categories: formData.vcdb_categories,
+                                required_vcdb_fields:
+                                  formData.required_vcdb_fields,
+                                optional_vcdb_fields:
+                                  formData.optional_vcdb_fields,
+                                required_product_fields:
+                                  formData.required_product_fields,
+                                additional_attributes:
+                                  formData.additional_attributes,
+                              },
+                            };
+                            await apiClient.put(
+                              `/api/tenants/${entity.id}/`,
+                              updateData
+                            );
+
+                            // Show processing notification
+                            toast.info(
+                              "🚀 Starting Fitment Process - Uploading files and configuring fitment settings...",
+                              {
+                                autoClose: 3000,
+                              }
+                            );
+
+                            // Then upload files and create fitment job
+                            const formDataToSend = new FormData();
+                            formDataToSend.append("tenant_id", entity.id);
+                            formDataToSend.append(
+                              "required_product_fields",
+                              JSON.stringify(formData.required_product_fields)
+                            );
+                            formDataToSend.append(
+                              "additional_attributes",
+                              JSON.stringify(formData.additional_attributes)
+                            );
+
+                            // Include fitment settings for job creation
+                            const fitmentSettings = {
                               vcdb_categories: formData.vcdb_categories,
                               required_vcdb_fields:
                                 formData.required_vcdb_fields,
                               optional_vcdb_fields:
                                 formData.optional_vcdb_fields,
-                              required_product_fields:
-                                formData.required_product_fields,
-                              additional_attributes:
-                                formData.additional_attributes,
-                            },
-                          };
-                          await apiClient.put(
-                            `/api/tenants/${entity.id}/`,
-                            updateData
-                          );
+                            };
+                            formDataToSend.append(
+                              "fitment_settings",
+                              JSON.stringify(fitmentSettings)
+                            );
 
-                          // Show processing notification
-                          toast.info(
-                            "🚀 Starting Fitment Process - Uploading files and configuring fitment settings...",
-                            {
-                              autoClose: 3000,
-                            }
-                          );
+                            formData.uploaded_files.forEach((file) => {
+                              formDataToSend.append(`files`, file);
+                            });
 
-                          // Then upload files and create fitment job
-                          const formDataToSend = new FormData();
-                          formDataToSend.append("tenant_id", entity.id);
-                          formDataToSend.append(
-                            "required_product_fields",
-                            JSON.stringify(formData.required_product_fields)
-                          );
-                          formDataToSend.append(
-                            "additional_attributes",
-                            JSON.stringify(formData.additional_attributes)
-                          );
+                            await apiClient.post(
+                              "/api/products/upload/",
+                              formDataToSend,
+                              {
+                                headers: {
+                                  "Content-Type": "multipart/form-data",
+                                  "X-Tenant-ID": id, // Override with the specific entity ID from URL
+                                },
+                              }
+                            );
 
-                          // Include fitment settings for job creation
-                          const fitmentSettings = {
-                            vcdb_categories: formData.vcdb_categories,
-                            required_vcdb_fields: formData.required_vcdb_fields,
-                            optional_vcdb_fields: formData.optional_vcdb_fields,
-                          };
-                          formDataToSend.append(
-                            "fitment_settings",
-                            JSON.stringify(fitmentSettings)
-                          );
+                            // Show job creation notification
+                            const jobType =
+                              formData.default_fitment_method === "ai"
+                                ? "AI"
+                                : "Manual";
+                            toast.info(
+                              `⚙️ Creating ${jobType} Fitment Job - Setting up with your uploaded files...`,
+                              {
+                                autoClose: 3000,
+                              }
+                            );
 
-                          formData.uploaded_files.forEach((file) => {
-                            formDataToSend.append(`files`, file);
-                          });
+                            // Refresh fitment jobs to show the new job
+                            fetchFitmentJobs();
 
-                          await apiClient.post(
-                            "/api/products/upload/",
-                            formDataToSend,
-                            {
-                              headers: {
-                                "Content-Type": "multipart/form-data",
-                                "X-Tenant-ID": id, // Override with the specific entity ID from URL
-                              },
-                            }
-                          );
+                            // Refresh upload history to show the latest uploads
+                            fetchUploadHistory();
 
-                          // Show job creation notification
-                          const jobType =
-                            formData.default_fitment_method === "ai"
-                              ? "AI"
-                              : "Manual";
-                          toast.info(
-                            `⚙️ Creating ${jobType} Fitment Job - Setting up with your uploaded files...`,
-                            {
-                              autoClose: 3000,
-                            }
-                          );
-
-                          // Refresh fitment jobs to show the new job
-                          fetchFitmentJobs();
-
-                          // Refresh upload history to show the latest uploads
-                          fetchUploadHistory();
-
-                          // Show success message with job type
-                          toast.success(
-                            `✅ ${jobType} Fitment Started! Your ${jobType.toLowerCase()} fitment process has been initiated successfully. Check the History tab to monitor progress.`,
-                            {
-                              autoClose: 6000,
-                            }
-                          );
-                        } catch (error) {
-                          toast.error("❌ Failed to upload files", {
-                            autoClose: 5000,
-                          });
-                        } finally {
-                          setSubmitting(false);
-                        }
-                      }}
-                      loading={submitting}
-                    >
-                      {formData.default_fitment_method === "ai"
-                        ? "Apply AI Fitment"
-                        : "Apply Manual Fitment"}
-                    </Button>
-                  ) : (
-                    <Button disabled>Upload Files Required</Button>
-                  )}
-                </Group>
-
-                {/* Upload History Section */}
-                <Card withBorder>
-                  <Group justify="space-between" align="center" mb="md">
-                    <Text fw={500}>Upload History</Text>
-                    <Button
-                      size="sm"
-                      variant="light"
-                      onClick={fetchUploadHistory}
-                      loading={loadingUploadHistory}
-                    >
-                      Refresh
-                    </Button>
+                            // Show success message with job type
+                            toast.success(
+                              `✅ ${jobType} Fitment Started! Your ${jobType.toLowerCase()} fitment process has been initiated successfully. Check the History tab to monitor progress.`,
+                              {
+                                autoClose: 6000,
+                              }
+                            );
+                          } catch (error) {
+                            toast.error("❌ Failed to upload files", {
+                              autoClose: 5000,
+                            });
+                          } finally {
+                            setSubmitting(false);
+                          }
+                        }}
+                        loading={submitting}
+                      >
+                        {formData.default_fitment_method === "ai"
+                          ? "Apply AI Fitment"
+                          : "Apply Manual Fitment"}
+                      </Button>
+                    ) : (
+                      <Button disabled>Upload Files Required</Button>
+                    )}
                   </Group>
 
-                  {loadingUploadHistory ? (
-                    <Group justify="center" py="md">
-                      <Loader size="sm" />
-                      <Text size="sm">Loading upload history...</Text>
+                  {/* Upload History Section */}
+                  <Card withBorder>
+                    <Group justify="space-between" align="center" mb="md">
+                      <Text fw={500}>Upload History</Text>
+                      <Button
+                        size="sm"
+                        variant="light"
+                        onClick={fetchUploadHistory}
+                        loading={loadingUploadHistory}
+                      >
+                        Refresh
+                      </Button>
                     </Group>
-                  ) : uploadHistory.length === 0 ? (
-                    <Text
-                      size="sm"
-                      c="dimmed"
-                      py="md"
-                      style={{ textAlign: "center" }}
-                    >
-                      No upload history found
-                    </Text>
+
+                    {loadingUploadHistory ? (
+                      <Group justify="center" py="md">
+                        <Loader size="sm" />
+                        <Text size="sm">Loading upload history...</Text>
+                      </Group>
+                    ) : uploadHistory.length === 0 ? (
+                      <Text
+                        size="sm"
+                        c="dimmed"
+                        py="md"
+                        style={{ textAlign: "center" }}
+                      >
+                        No upload history found
+                      </Text>
+                    ) : (
+                      <Table striped highlightOnHover>
+                        <Table.Thead>
+                          <Table.Tr>
+                            <Table.Th>Filename</Table.Th>
+                            <Table.Th>Size</Table.Th>
+                            <Table.Th>Upload Date</Table.Th>
+                            <Table.Th>Status</Table.Th>
+                          </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                          {uploadHistory.map((upload, index) => (
+                            <Table.Tr key={index}>
+                              <Table.Td>
+                                <Text size="sm">{upload.filename}</Text>
+                              </Table.Td>
+                              <Table.Td>
+                                <Text size="sm" c="dimmed">
+                                  {upload.file_size < 1024 * 1024
+                                    ? `${(upload.file_size / 1024).toFixed(
+                                        1
+                                      )} KB`
+                                    : `${(
+                                        upload.file_size /
+                                        1024 /
+                                        1024
+                                      ).toFixed(2)} MB`}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td>
+                                <Text size="sm" c="dimmed">
+                                  {new Date(
+                                    upload.uploaded_at
+                                  ).toLocaleString()}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td>
+                                <Badge
+                                  color={
+                                    upload.status === "processed"
+                                      ? "green"
+                                      : upload.status === "processing"
+                                      ? "blue"
+                                      : upload.status === "failed"
+                                      ? "red"
+                                      : "gray"
+                                  }
+                                  size="sm"
+                                >
+                                  {upload.status}
+                                </Badge>
+                              </Table.Td>
+                            </Table.Tr>
+                          ))}
+                        </Table.Tbody>
+                      </Table>
+                    )}
+                  </Card>
+                </Stack>
+              </Tabs.Panel>
+
+              <Tabs.Panel value="history" key={`history-${id}`}>
+                <Stack gap="md">
+                  <Group justify="space-between" align="center">
+                    <Group>
+                      <Text fw={500} size="lg">
+                        Fitment Job History
+                      </Text>
+                      <Badge color="blue" variant="light" size="sm">
+                        Entity: {entity?.name}
+                      </Badge>
+                    </Group>
+                    <Group>
+                      <Button
+                        size="sm"
+                        variant="light"
+                        leftSection={<IconRefresh size={16} />}
+                        onClick={() => {
+                          fetchFitmentJobs();
+                          toast.info("Job history is being refreshed...", {
+                            autoClose: 2000,
+                          });
+                        }}
+                        loading={loadingJobs}
+                      >
+                        Refresh
+                      </Button>
+                    </Group>
+                  </Group>
+
+                  {loadingJobs ? (
+                    <Group justify="center">
+                      <Loader size="sm" />
+                      <Text>Loading job history...</Text>
+                    </Group>
+                  ) : fitmentJobs.length === 0 ? (
+                    <Paper p="xl" style={{ textAlign: "center" }}>
+                      <Text c="dimmed">
+                        No fitment jobs found for this entity
+                      </Text>
+                      <Text size="sm" c="dimmed" mt="xs">
+                        Upload product files in the Products tab and click
+                        "Upload Files & Start Fitment Job" to create your first
+                        job
+                      </Text>
+                      <Text size="xs" c="dimmed" mt="xs">
+                        Showing job history for: <strong>{entity?.name}</strong>
+                      </Text>
+                    </Paper>
                   ) : (
                     <Table striped highlightOnHover>
                       <Table.Thead>
                         <Table.Tr>
-                          <Table.Th>Filename</Table.Th>
-                          <Table.Th>Size</Table.Th>
-                          <Table.Th>Upload Date</Table.Th>
+                          <Table.Th>Job Type</Table.Th>
                           <Table.Th>Status</Table.Th>
+                          <Table.Th>Progress</Table.Th>
+                          <Table.Th>Results</Table.Th>
+                          <Table.Th>Created</Table.Th>
+                          <Table.Th>Duration</Table.Th>
                         </Table.Tr>
                       </Table.Thead>
                       <Table.Tbody>
-                        {uploadHistory.map((upload, index) => (
-                          <Table.Tr key={index}>
-                            <Table.Td>
-                              <Text size="sm">{upload.filename}</Text>
-                            </Table.Td>
-                            <Table.Td>
-                              <Text size="sm" c="dimmed">
-                                {upload.file_size < 1024 * 1024
-                                  ? `${(upload.file_size / 1024).toFixed(1)} KB`
-                                  : `${(upload.file_size / 1024 / 1024).toFixed(
-                                      2
-                                    )} MB`}
-                              </Text>
-                            </Table.Td>
-                            <Table.Td>
-                              <Text size="sm" c="dimmed">
-                                {new Date(upload.uploaded_at).toLocaleString()}
-                              </Text>
-                            </Table.Td>
+                        {fitmentJobs.map((job) => (
+                          <Table.Tr key={job.id}>
                             <Table.Td>
                               <Badge
                                 color={
-                                  upload.status === "processed"
-                                    ? "green"
-                                    : upload.status === "processing"
+                                  job.job_type === "ai_fitment"
                                     ? "blue"
-                                    : upload.status === "failed"
-                                    ? "red"
-                                    : "gray"
+                                    : "green"
                                 }
-                                size="sm"
+                                variant="light"
                               >
-                                {upload.status}
+                                {job.job_type === "ai_fitment"
+                                  ? "AI"
+                                  : job.job_type === "manual_fitment"
+                                  ? "MANUAL"
+                                  : job.job_type.toUpperCase()}
                               </Badge>
+                            </Table.Td>
+                            <Table.Td>
+                              <Group gap="xs">
+                                <Badge
+                                  color={
+                                    job.status === "completed"
+                                      ? "green"
+                                      : job.status === "failed"
+                                      ? "red"
+                                      : job.status === "completed_with_warnings"
+                                      ? "yellow"
+                                      : job.status === "processing"
+                                      ? "blue"
+                                      : "gray"
+                                  }
+                                  size="sm"
+                                >
+                                  {job.status === "completed_with_warnings"
+                                    ? "COMPLETED WITH WARNINGS"
+                                    : job.status.toUpperCase()}
+                                </Badge>
+                                {job.status === "processing" && (
+                                  <IconClock size={16} color="#3b82f6" />
+                                )}
+                              </Group>
+                            </Table.Td>
+                            <Table.Td>
+                              <Stack gap="xs">
+                                <Progress
+                                  value={job.progress || 0}
+                                  size="sm"
+                                  color={
+                                    job.status === "completed"
+                                      ? "green"
+                                      : job.status === "failed"
+                                      ? "red"
+                                      : "blue"
+                                  }
+                                />
+                                <Text size="xs" c="dimmed">
+                                  {job.status === "completed"
+                                    ? "Completed"
+                                    : job.status === "failed"
+                                    ? "Failed"
+                                    : job.status === "processing"
+                                    ? "Processing..."
+                                    : "Pending"}
+                                </Text>
+                              </Stack>
+                            </Table.Td>
+                            <Table.Td>
+                              <Stack gap="xs">
+                                <Text size="sm">
+                                  Created: {job.result?.fitments_created || 0}
+                                </Text>
+                                {job.result?.fitments_failed > 0 && (
+                                  <Text
+                                    size="sm"
+                                    c={
+                                      job.status === "failed" ? "red" : "orange"
+                                    }
+                                  >
+                                    {job.status === "failed"
+                                      ? "Duplicates: "
+                                      : "Failed: "}
+                                    {job.result.fitments_failed}
+                                  </Text>
+                                )}
+                                {job.result?.error_message && (
+                                  <Text
+                                    size="xs"
+                                    c="dimmed"
+                                    style={{
+                                      maxWidth: 200,
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                    }}
+                                  >
+                                    {job.result.error_message}
+                                  </Text>
+                                )}
+                              </Stack>
+                            </Table.Td>
+                            <Table.Td>
+                              <Text size="sm" c="dimmed">
+                                {new Date(job.created_at).toLocaleString()}
+                              </Text>
+                            </Table.Td>
+                            <Table.Td>
+                              <Text size="sm" c="dimmed">
+                                {job.duration ||
+                                  (job.finished_at
+                                    ? `${Math.round(
+                                        (new Date(job.finished_at).getTime() -
+                                          new Date(
+                                            job.started_at || job.created_at
+                                          ).getTime()) /
+                                          1000
+                                      )}s`
+                                    : job.started_at
+                                    ? "Running..."
+                                    : "Pending")}
+                              </Text>
                             </Table.Td>
                           </Table.Tr>
                         ))}
                       </Table.Tbody>
                     </Table>
                   )}
-                </Card>
-              </Stack>
-            </Tabs.Panel>
+                </Stack>
+              </Tabs.Panel>
+            </Tabs>
+          </Card>
 
-            <Tabs.Panel value="history" pt="md" key={`history-${id}`}>
-              <Stack gap="md">
-                <Group justify="space-between" align="center">
-                  <Group>
-                    <Text fw={500} size="lg">
-                      Fitment Job History
-                    </Text>
-                    <Badge color="blue" variant="light" size="sm">
-                      Entity: {entity?.name}
-                    </Badge>
-                  </Group>
-                  <Group>
-                    <Button
-                      size="sm"
-                      variant="light"
-                      leftSection={<IconRefresh size={16} />}
-                      onClick={() => {
-                        fetchFitmentJobs();
-                        toast.info("Job history is being refreshed...", {
-                          autoClose: 2000,
-                        });
-                      }}
-                      loading={loadingJobs}
-                    >
-                      Refresh
-                    </Button>
-                  </Group>
-                </Group>
-
-                {loadingJobs ? (
-                  <Group justify="center">
-                    <Loader size="sm" />
-                    <Text>Loading job history...</Text>
-                  </Group>
-                ) : fitmentJobs.length === 0 ? (
-                  <Paper p="xl" style={{ textAlign: "center" }}>
-                    <Text c="dimmed">
-                      No fitment jobs found for this entity
-                    </Text>
-                    <Text size="sm" c="dimmed" mt="xs">
-                      Upload product files in the Products tab and click "Upload
-                      Files & Start Fitment Job" to create your first job
-                    </Text>
-                    <Text size="xs" c="dimmed" mt="xs">
-                      Showing job history for: <strong>{entity?.name}</strong>
-                    </Text>
-                  </Paper>
-                ) : (
-                  <Table striped highlightOnHover>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th>Job Type</Table.Th>
-                        <Table.Th>Status</Table.Th>
-                        <Table.Th>Progress</Table.Th>
-                        <Table.Th>Results</Table.Th>
-                        <Table.Th>Created</Table.Th>
-                        <Table.Th>Duration</Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {fitmentJobs.map((job) => (
-                        <Table.Tr key={job.id}>
-                          <Table.Td>
-                            <Badge
-                              color={
-                                job.job_type === "ai_fitment" ? "blue" : "green"
-                              }
-                              variant="light"
-                            >
-                              {job.job_type === "ai_fitment"
-                                ? "AI"
-                                : job.job_type === "manual_fitment"
-                                ? "MANUAL"
-                                : job.job_type.toUpperCase()}
-                            </Badge>
-                          </Table.Td>
-                          <Table.Td>
-                            <Group gap="xs">
-                              <Badge
-                                color={
-                                  job.status === "completed"
-                                    ? "green"
-                                    : job.status === "failed"
-                                    ? "red"
-                                    : job.status === "completed_with_warnings"
-                                    ? "yellow"
-                                    : job.status === "processing"
-                                    ? "blue"
-                                    : "gray"
-                                }
-                                size="sm"
-                              >
-                                {job.status === "completed_with_warnings"
-                                  ? "COMPLETED WITH WARNINGS"
-                                  : job.status.toUpperCase()}
-                              </Badge>
-                              {job.status === "processing" && (
-                                <IconClock size={16} color="#3b82f6" />
-                              )}
-                            </Group>
-                          </Table.Td>
-                          <Table.Td>
-                            <Stack gap="xs">
-                              <Progress
-                                value={job.progress || 0}
-                                size="sm"
-                                color={
-                                  job.status === "completed"
-                                    ? "green"
-                                    : job.status === "failed"
-                                    ? "red"
-                                    : "blue"
-                                }
-                              />
-                              <Text size="xs" c="dimmed">
-                                {job.status === "completed"
-                                  ? "Completed"
-                                  : job.status === "failed"
-                                  ? "Failed"
-                                  : job.status === "processing"
-                                  ? "Processing..."
-                                  : "Pending"}
-                              </Text>
-                            </Stack>
-                          </Table.Td>
-                          <Table.Td>
-                            <Stack gap="xs">
-                              <Text size="sm">
-                                Created: {job.result?.fitments_created || 0}
-                              </Text>
-                              {job.result?.fitments_failed > 0 && (
-                                <Text
-                                  size="sm"
-                                  c={job.status === "failed" ? "red" : "orange"}
-                                >
-                                  {job.status === "failed"
-                                    ? "Duplicates: "
-                                    : "Failed: "}
-                                  {job.result.fitments_failed}
-                                </Text>
-                              )}
-                              {job.result?.error_message && (
-                                <Text
-                                  size="xs"
-                                  c="dimmed"
-                                  style={{
-                                    maxWidth: 200,
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                  }}
-                                >
-                                  {job.result.error_message}
-                                </Text>
-                              )}
-                            </Stack>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="sm" c="dimmed">
-                              {new Date(job.created_at).toLocaleString()}
-                            </Text>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="sm" c="dimmed">
-                              {job.duration ||
-                                (job.finished_at
-                                  ? `${Math.round(
-                                      (new Date(job.finished_at).getTime() -
-                                        new Date(
-                                          job.started_at || job.created_at
-                                        ).getTime()) /
-                                        1000
-                                    )}s`
-                                  : job.started_at
-                                  ? "Running..."
-                                  : "Pending")}
-                            </Text>
-                          </Table.Td>
-                        </Table.Tr>
-                      ))}
-                    </Table.Tbody>
-                  </Table>
-                )}
-              </Stack>
-            </Tabs.Panel>
-          </Tabs>
-        </Card>
-      </Stack>
-    </Container>
+          {/* Bottom Spacing */}
+          <div style={{ height: "40px" }} />
+        </Stack>
+      </Container>
+    </div>
   );
 };
 
