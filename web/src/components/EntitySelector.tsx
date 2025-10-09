@@ -11,6 +11,7 @@ import {
   Alert,
   Menu,
   ActionIcon,
+  TextInput,
 } from "@mantine/core";
 import {
   IconBuilding,
@@ -19,6 +20,7 @@ import {
   IconPlus,
   IconSettings,
   IconChevronDown,
+  IconSearch,
 } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import apiClient from "../api/client";
@@ -56,6 +58,7 @@ export const EntitySelector: React.FC<EntitySelectorProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [menuOpened, setMenuOpened] = useState(false);
   const [createModalOpened, setCreateModalOpened] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Check localStorage on every render to ensure sync
   const checkLocalStorageEntity = () => {
@@ -443,16 +446,27 @@ export const EntitySelector: React.FC<EntitySelectorProps> = ({
   }
 
   if (compact) {
+    // Filter entities based on search query
+    const filteredEntities = entities.filter((entity) =>
+      entity.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
     return (
       <>
         <Group gap="xs">
           <IconBuilding size={18} />
           <Menu
             shadow="md"
-            width={280}
+            width={320}
             position="bottom-end"
             opened={menuOpened}
-            onChange={setMenuOpened}
+            onChange={(opened) => {
+              setMenuOpened(opened);
+              // Clear search when menu closes
+              if (!opened) {
+                setSearchQuery("");
+              }
+            }}
           >
             <Menu.Target>
               <Button
@@ -469,49 +483,100 @@ export const EntitySelector: React.FC<EntitySelectorProps> = ({
               </Button>
             </Menu.Target>
 
-            <Menu.Dropdown>
-              <Menu.Label>Switch Entity</Menu.Label>
-              {entities.map((entity) => (
-                <Menu.Item
-                  key={entity.id}
-                  onClick={() => {
-                    handleEntityChange(entity.id);
-                    setMenuOpened(false);
+            <Menu.Dropdown
+              style={{
+                padding: "8px",
+              }}
+            >
+              <div style={{ padding: "4px 8px 8px 8px" }}>
+                <TextInput
+                  placeholder="Search entities..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.currentTarget.value)}
+                  leftSection={<IconSearch size={16} />}
+                  size="sm"
+                  styles={{
+                    input: {
+                      borderRadius: "6px",
+                      fontSize: "14px",
+                      fontWeight: 500,
+                      border: "1px solid #e9ecef",
+                      "&:focus": {
+                        borderColor: "#2563eb",
+                      },
+                    },
                   }}
-                  leftSection={<IconBuilding size={16} />}
-                  rightSection={
-                    entity.id === currentEntity?.id ? (
-                      <Badge size="xs" color="blue">
-                        Current
-                      </Badge>
-                    ) : entity.is_default ? (
-                      <Badge size="xs" color="gray">
-                        Default
-                      </Badge>
-                    ) : null
-                  }
-                  style={{
-                    backgroundColor:
-                      entity.id === currentEntity?.id
-                        ? "rgba(59, 130, 246, 0.1)"
-                        : undefined,
-                  }}
-                >
-                  {entity.name}
-                </Menu.Item>
-              ))}
+                />
+              </div>
 
-              <Menu.Divider />
+              <Menu.Label
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: "#6b7280",
+                  padding: "8px 12px 4px",
+                }}
+              >
+                {filteredEntities.length > 0
+                  ? `Entities (${filteredEntities.length})`
+                  : "No entities found"}
+              </Menu.Label>
+
+              <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+                {filteredEntities.map((entity) => (
+                  <Menu.Item
+                    key={entity.id}
+                    onClick={() => {
+                      handleEntityChange(entity.id);
+                      setMenuOpened(false);
+                      setSearchQuery("");
+                    }}
+                    leftSection={<IconBuilding size={16} />}
+                    rightSection={
+                      entity.id === currentEntity?.id ? (
+                        <Badge size="xs" color="blue" variant="light">
+                          Current
+                        </Badge>
+                      ) : entity.is_default ? (
+                        <Badge size="xs" color="gray" variant="light">
+                          Default
+                        </Badge>
+                      ) : null
+                    }
+                    style={{
+                      borderRadius: "6px",
+                      margin: "2px 0",
+                      fontWeight: entity.id === currentEntity?.id ? 600 : 500,
+                      fontSize: "14px",
+                      backgroundColor:
+                        entity.id === currentEntity?.id
+                          ? "#f1f5f9"
+                          : "transparent",
+                      border:
+                        entity.id === currentEntity?.id
+                          ? "1px solid #e2e8f0"
+                          : "1px solid transparent",
+                    }}
+                  >
+                    {entity.name}
+                  </Menu.Item>
+                ))}
+              </div>
+
+              <Menu.Divider style={{ margin: "8px 0" }} />
 
               <Menu.Item
                 leftSection={<IconPlus size={16} />}
                 onClick={() => {
                   setMenuOpened(false);
+                  setSearchQuery("");
                   setCreateModalOpened(true);
                 }}
                 style={{
-                  fontWeight: 500,
-                  color: "#3b82f6",
+                  fontWeight: 600,
+                  fontSize: "14px",
+                  color: "#2563eb",
+                  borderRadius: "6px",
                 }}
               >
                 Create Entity
@@ -521,11 +586,14 @@ export const EntitySelector: React.FC<EntitySelectorProps> = ({
                 leftSection={<IconSettings size={16} />}
                 onClick={() => {
                   setMenuOpened(false);
+                  setSearchQuery("");
                   // Navigate to manage entities in same tab
                   navigate("/manage-entities");
                 }}
                 style={{
-                  fontWeight: 500,
+                  fontWeight: 600,
+                  fontSize: "14px",
+                  borderRadius: "6px",
                 }}
               >
                 Manage Entities
@@ -552,6 +620,7 @@ export const EntitySelector: React.FC<EntitySelectorProps> = ({
             // Refresh entities list after creation
             fetchEntities();
           }}
+          fromManage={false}
         />
       </>
     );
@@ -638,6 +707,7 @@ export const EntitySelector: React.FC<EntitySelectorProps> = ({
           // Refresh entities list after creation
           fetchEntities();
         }}
+        fromManage={false}
       />
     </>
   );

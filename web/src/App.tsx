@@ -7,12 +7,10 @@ import {
   NavLink,
   Text,
   Box,
-  ThemeIcon,
 } from "@mantine/core";
 import {
   IconCar,
   IconTable,
-  IconChevronRight,
   IconDashboard,
   IconBulb,
   IconBuilding,
@@ -335,21 +333,21 @@ function App() {
   return (
     <ProtectedRoute>
       <AppShell
-        header={{ height: 90, offset: false }}
-        navbar={{ width: 280, breakpoint: 0 }}
+        header={{ height: 70, offset: false }}
+        navbar={{ width: 260, breakpoint: 0 }}
         padding="0"
         style={{
-          background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
+          background: "#f8f9fa",
         }}
       >
-        {/* Professional Header */}
+        {/* Header */}
         <AppShell.Header
           style={{
-            background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
-            borderBottom: "1px solid #e2e8f0",
-            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
-            left: 280,
-            width: "calc(100% - 280px)",
+            background: "#ffffff",
+            borderBottom: "1px solid #e9ecef",
+            boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.04)",
+            left: 260,
+            width: "calc(100% - 260px)",
           }}
         >
           <Container
@@ -359,23 +357,21 @@ function App() {
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              paddingLeft: "32px",
-              paddingRight: "32px",
+              paddingLeft: "28px",
+              paddingRight: "28px",
             }}
           >
-            <div>
-              <Title
-                order={2}
-                style={{
-                  fontWeight: 700,
-                  fontSize: "24px",
-                  lineHeight: 1.2,
-                  color: "#475569",
-                }}
-              >
-                {getCurrentPageName()}
-              </Title>
-            </div>
+            <Title
+              order={2}
+              style={{
+                fontWeight: 650,
+                fontSize: "20px",
+                color: "#1a1a1a",
+                letterSpacing: "-0.02em",
+              }}
+            >
+              {getCurrentPageName()}
+            </Title>
 
             <Group gap="md">
               <EntitySelector compact />
@@ -384,84 +380,60 @@ function App() {
           </Container>
         </AppShell.Header>
 
-        {/* Professional Sidebar */}
+        {/* Sidebar */}
         <AppShell.Navbar
           style={{
-            background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
-            borderRight: "1px solid #e2e8f0",
-            boxShadow: "2px 0 8px rgba(0, 0, 0, 0.06)",
+            background: "#ffffff",
+            borderRight: "1px solid #e9ecef",
             height: "100vh",
             top: 0,
           }}
         >
-          {/* Logo Section */}
+          {/* Logo */}
           <div
             style={{
-              height: "90px",
+              height: "70px",
               display: "flex",
               alignItems: "center",
-              justifyContent: "flex-start",
-              borderBottom: "1px solid #e2e8f0",
-              background: "linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)",
-              paddingLeft: "38px",
-              paddingRight: "16px",
+              paddingLeft: "20px",
+              paddingRight: "20px",
+              borderBottom: "1px solid #e9ecef",
             }}
           >
-            <Group gap="sm" align="center">
+            <Group gap="12px" align="center">
               <div
                 style={{
-                  background:
-                    "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                  borderRadius: "6px",
-                  padding: "4px",
+                  background: "#2563eb",
+                  borderRadius: "8px",
+                  width: "32px",
+                  height: "32px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  flexShrink: 0,
-                  width: "30px",
-                  height: "30px",
+                  boxShadow: "0 2px 8px rgba(37, 99, 235, 0.25)",
                 }}
               >
-                <IconCar size={18} color="white" />
+                <IconCar size={18} color="white" stroke={2.2} />
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center",
-                  gap: "2px",
-                }}
-              >
+              <div>
                 <Title
                   order={4}
                   style={{
-                    color: "#475569",
-                    fontWeight: 700,
+                    color: "#1a1a1a",
+                    fontWeight: 650,
                     fontSize: "16px",
-                    lineHeight: 1.2,
+                    letterSpacing: "-0.015em",
                     margin: 0,
                   }}
                 >
                   Fitmentpro.ai
                 </Title>
-                <Text
-                  size="xs"
-                  c="dimmed"
-                  style={{
-                    fontWeight: 500,
-                    fontSize: "11px",
-                    lineHeight: 1,
-                    margin: 0,
-                  }}
-                >
-                  v2.0
-                </Text>
               </div>
             </Group>
           </div>
 
-          {/* Navigation Section */}
-          <Stack gap={0} style={{ padding: "16px" }}>
+          {/* Navigation */}
+          <Stack gap={4} style={{ padding: "16px 12px" }}>
             {navigationItems.map((item) => {
               const Icon = item.icon;
               const isActive = getCurrentActiveTab() === item.value;
@@ -476,54 +448,31 @@ function App() {
                   onClick={() =>
                     window.scrollTo({ top: 0, left: 0, behavior: "smooth" })
                   }
-                  leftSection={
-                    <ThemeIcon
-                      size={28}
-                      radius="md"
-                      variant={isActive ? "gradient" : "light"}
-                      gradient={
-                        isActive
-                          ? { from: "primary.6", to: "secondary.6", deg: 135 }
-                          : undefined
-                      }
-                      color={isActive ? undefined : item.color}
-                    >
-                      <Icon size={16} />
-                    </ThemeIcon>
-                  }
-                  rightSection={
-                    isActive ? (
-                      <ThemeIcon
-                        size={20}
-                        radius="xl"
-                        variant="light"
-                        color="primary"
-                      >
-                        <IconChevronRight size={14} />
-                      </ThemeIcon>
-                    ) : null
-                  }
-                  style={{
-                    borderRadius: "12px",
-                    marginBottom: "4px",
-                    paddingTop: "12px",
-                    paddingBottom: "12px",
-                    paddingLeft: "16px",
-                    paddingRight: "16px",
-                    fontWeight: isActive ? 600 : 500,
-                    fontSize: "14px",
-                    transition: "all 0.2s ease",
-                    background: isActive
-                      ? "linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)"
-                      : "transparent",
-                    border: isActive
-                      ? "1px solid rgba(59, 130, 246, 0.2)"
-                      : "1px solid transparent",
-                    "&:hover": {
-                      background: isActive
-                        ? "linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%)"
-                        : "rgba(248, 250, 252, 0.8)",
-                      transform: "translateX(2px)",
+                  leftSection={<Icon size={20} stroke={isActive ? 2 : 1.75} />}
+                  styles={{
+                    root: {
+                      borderRadius: "8px",
+                      padding: "10px 12px",
+                      fontWeight: isActive ? 600 : 500,
+                      fontSize: "14.5px",
+                      color: isActive ? "#1a1a1a" : "#4b5563",
+                      backgroundColor: isActive ? "#f1f5f9" : "transparent",
+                      transition: "all 0.12s cubic-bezier(0.4, 0, 0.2, 1)",
+                      border: isActive
+                        ? "1px solid #e2e8f0"
+                        : "1px solid transparent",
+                      "&:hover": {
+                        backgroundColor: isActive ? "#e2e8f0" : "#f8fafc",
+                        transform: "translateX(1px)",
+                      },
+                    },
+                    label: {
+                      color: isActive ? "#1a1a1a" : "#4b5563",
+                      fontWeight: isActive ? 600 : 500,
+                    },
+                    section: {
+                      color: isActive ? "#2563eb" : "#6b7280",
+                      marginRight: "12px",
                     },
                   }}
                 />
@@ -532,21 +481,20 @@ function App() {
           </Stack>
         </AppShell.Navbar>
 
-        {/* Main Content Area */}
+        {/* Main Content */}
         <AppShell.Main
           style={{
-            background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
-            minHeight: "calc(100vh - 90px)",
-            marginTop: "90px",
+            background: "#f8f9fa",
+            minHeight: "calc(100vh - 70px)",
+            marginTop: "70px",
           }}
         >
-          <Box style={{ padding: "32px", height: "100%" }}>
+          <Box style={{ padding: "28px", height: "100%" }}>
             {renderContent()}
           </Box>
         </AppShell.Main>
       </AppShell>
 
-      {/* Toast Container */}
       <ToastContainer
         position="top-right"
         autoClose={5000}

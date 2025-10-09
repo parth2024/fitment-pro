@@ -33,7 +33,7 @@ import {
 } from "@tabler/icons-react";
 import { useParams, useNavigate } from "react-router-dom";
 import apiClient from "../api/client";
-import { toast } from "react-toastify";
+import { useProfessionalToast } from "../hooks/useProfessionalToast";
 
 interface Entity {
   id: string;
@@ -115,6 +115,7 @@ const REQUIRED_PRODUCT_FIELDS = [
 const NewEntitySettings: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { showSuccess, showError } = useProfessionalToast();
   const [entity, setEntity] = useState<Entity | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -184,7 +185,7 @@ const NewEntitySettings: React.FC = () => {
         });
       } catch (error) {
         setError("Failed to load entity data");
-        toast.error("Failed to load entity data");
+        showError("Failed to load entity data");
       } finally {
         setLoading(false);
       }
@@ -209,7 +210,7 @@ const NewEntitySettings: React.FC = () => {
       );
       setVcdbCategories(response.data);
     } catch (error) {
-      toast.error("Failed to load VCDB categories");
+      showError("Failed to load VCDB categories");
     } finally {
       setLoadingCategories(false);
     }
@@ -243,9 +244,9 @@ const NewEntitySettings: React.FC = () => {
       const response = await apiClient.get(`/api/tenants/${entity.id}/`);
       setEntity(response.data);
 
-      toast.success("Entity settings updated successfully");
+      showSuccess("Entity settings updated successfully");
     } catch (error) {
-      toast.error("Failed to update entity settings");
+      showError("Failed to update entity settings");
     } finally {
       setSubmitting(false);
     }
@@ -272,12 +273,12 @@ const NewEntitySettings: React.FC = () => {
       });
       window.dispatchEvent(entityChangeEvent);
 
-      toast.success(`Switched to ${entity.name}. Welcome to your new entity!`);
+      showSuccess(`Switched to ${entity.name}. Welcome to your new entity!`);
 
       // Navigate to analytics/dashboard
       navigate("/analytics");
     } catch (error) {
-      toast.error("Failed to switch to entity");
+      showError("Failed to switch to entity");
       setSubmitting(false);
     }
   };
