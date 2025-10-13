@@ -34,7 +34,6 @@ import {
   IconFilter,
   IconEdit,
   IconChevronDown,
-  IconChevronUp,
   IconX,
   IconFileSpreadsheet,
   IconFileText,
@@ -965,17 +964,46 @@ export default function Fitments() {
 
                     <Button
                       leftSection={
-                        showAdvancedFilters ? (
-                          <IconChevronUp size={16} />
-                        ) : (
+                        <div
+                          style={{
+                            transform: showAdvancedFilters
+                              ? "rotate(180deg)"
+                              : "rotate(0deg)",
+                            transition: "transform 0.3s ease",
+                            display: "flex",
+                            alignItems: "center",
+                          }}
+                        >
                           <IconChevronDown size={16} />
-                        )
+                        </div>
                       }
-                      variant="light"
+                      variant={showAdvancedFilters ? "filled" : "light"}
                       onClick={() =>
                         setShowAdvancedFilters(!showAdvancedFilters)
                       }
                       size="sm"
+                      styles={{
+                        root: {
+                          background: showAdvancedFilters
+                            ? "#2563eb"
+                            : "#f1f5f9",
+                          color: showAdvancedFilters ? "#ffffff" : "#475569",
+                          border: showAdvancedFilters
+                            ? "1px solid #2563eb"
+                            : "1px solid #e2e8f0",
+                          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                          fontWeight: 500,
+                          "&:hover": {
+                            background: showAdvancedFilters
+                              ? "#1d4ed8"
+                              : "#e2e8f0",
+                            transform: "translateY(-1px)",
+                            boxShadow: showAdvancedFilters
+                              ? "0 4px 12px rgba(37, 99, 235, 0.3)"
+                              : "0 2px 8px rgba(0, 0, 0, 0.1)",
+                          },
+                        },
+                      }}
                     >
                       Advanced Filters
                     </Button>
@@ -986,9 +1014,9 @@ export default function Fitments() {
                       <Button
                         leftSection={<IconTrash size={16} />}
                         color="red"
-                        variant="light"
                         onClick={() => setDeleteModalOpen(true)}
                         size="sm"
+                        style={{ background: "red" }}
                       >
                         Delete ({selectedFitments.length})
                       </Button>
@@ -998,10 +1026,10 @@ export default function Fitments() {
                       <Menu.Target>
                         <Button
                           leftSection={<IconDownload size={16} />}
-                          variant="light"
                           loading={exportLoading}
                           size="sm"
                           color="blue"
+                          style={{ background: "#2563eb" }}
                         >
                           Export
                         </Button>
@@ -1744,16 +1772,16 @@ export default function Fitments() {
                       <Text size="sm" fw={600} c="#92400e">
                         AI Fitments Ready for Review
                       </Text>
-                      <Text size="xs" c="#a16207">
-                        {
+                      {/* <Text size="xs" c="#a16207"> */}
+                      {/* {
                           selectedFitmentsData.filter(
                             (f) =>
                               f.fitmentType === "ai_fitment" &&
                               f.itemStatus === "readyToApprove"
                           ).length
-                        }{" "}
-                        fitments need approval
-                      </Text>
+                        }{" "} */}
+                      {/* fitments need approval */}
+                      {/* </Text> */}
                     </Group>
                     <Group gap="xs">
                       <Button
@@ -2490,8 +2518,8 @@ export default function Fitments() {
                             </Text>
                           </Table.Td>
                           <Table.Td>{fitment.quantity}</Table.Td>
-                          <Table.Td>{fitment.liftHeight}</Table.Td>
-                          <Table.Td>{fitment.wheelType}</Table.Td>
+                          <Table.Td>{fitment.liftHeight || "-"}</Table.Td>
+                          <Table.Td>{fitment.wheelType || "-"}</Table.Td>
                           <Table.Td>
                             <Text size="xs" c="dimmed">
                               {new Date(fitment.updatedAt).toLocaleDateString()}
