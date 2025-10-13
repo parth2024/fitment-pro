@@ -15,6 +15,7 @@ import {
   LoadingOverlay,
   Tooltip,
   Switch,
+  ActionIcon,
 } from "@mantine/core";
 import {
   IconArrowLeft,
@@ -411,7 +412,13 @@ export default function EditFitment({ fitmentHash, onBack }: EditFitmentProps) {
             <Text size="lg" c="red">
               Fitment not found
             </Text>
-            <Button onClick={onBack}>Back to Fitments</Button>
+            <Button
+              leftSection={<IconArrowLeft size={16} />}
+              variant="light"
+              onClick={onBack}
+            >
+              Back to Fitments
+            </Button>
           </Stack>
         </Card>
       </div>
@@ -426,22 +433,31 @@ export default function EditFitment({ fitmentHash, onBack }: EditFitmentProps) {
           {/* Header */}
           <Group justify="space-between">
             <Group gap="md">
-              <Button
-                leftSection={<IconArrowLeft size={16} />}
-                variant="light"
-                onClick={handleCancel}
-              >
-                Back
-              </Button>
+              <Tooltip label="Back to Fitments" position="bottom" withArrow>
+                <ActionIcon
+                  variant="subtle"
+                  size="lg"
+                  onClick={handleCancel}
+                  color="gray"
+                  styles={{
+                    root: {
+                      "&:hover": {
+                        backgroundColor: "rgba(0, 0, 0, 0.05)",
+                      },
+                    },
+                  }}
+                >
+                  <IconArrowLeft size={20} />
+                </ActionIcon>
+              </Tooltip>
               <div>
-                <Title order={2}>Edit Fitment</Title>
-                <Text c="dimmed">Part ID: {fitmentData.partId}</Text>
+                <Title order={3}>Edit Fitment</Title>
+                {/* <Text c="dimmed">Part ID: {fitmentData.partId}</Text> */}
               </div>
             </Group>
             <Group>
               <Button
                 variant="light"
-                color="gray"
                 onClick={handleCancel}
                 styles={{
                   root: {
@@ -474,8 +490,7 @@ export default function EditFitment({ fitmentHash, onBack }: EditFitmentProps) {
                     fontSize: "14px",
                     height: "40px",
                     padding: "0 24px",
-                    background:
-                      "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                    background: "#2563eb",
                     border: "none",
                     transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                     boxShadow:
@@ -499,7 +514,7 @@ export default function EditFitment({ fitmentHash, onBack }: EditFitmentProps) {
           <Grid>
             {/* Basic Information */}
             <Grid.Col span={12}>
-              <Text fw={600} size="lg" mb="md">
+              <Text fw={600} size="lg">
                 Basic Information
               </Text>
             </Grid.Col>
@@ -818,7 +833,7 @@ export default function EditFitment({ fitmentHash, onBack }: EditFitmentProps) {
               />
             </Grid.Col>
 
-            <Grid.Col span={4}>
+            <Grid.Col span={6}>
               <NumberInput
                 label="Number of Doors"
                 placeholder="Enter number of doors"
@@ -850,7 +865,7 @@ export default function EditFitment({ fitmentHash, onBack }: EditFitmentProps) {
               />
             </Grid.Col>
 
-            <Grid.Col span={4}>
+            <Grid.Col span={6}>
               <TextInput
                 label="UOM (Unit of Measure)"
                 placeholder="Enter UOM"
@@ -880,7 +895,7 @@ export default function EditFitment({ fitmentHash, onBack }: EditFitmentProps) {
               />
             </Grid.Col>
 
-            <Grid.Col span={4}>
+            <Grid.Col span={6}>
               <NumberInput
                 label="Quantity"
                 placeholder="Enter quantity"
@@ -909,9 +924,8 @@ export default function EditFitment({ fitmentHash, onBack }: EditFitmentProps) {
               />
             </Grid.Col>
 
-            {/* Part Information */}
-            <Grid.Col span={12} mt="lg">
-              <Text fw={600} size="lg" mb="md">
+            <Grid.Col span={12} mt="xl">
+              <Text fw={600} size="lg">
                 Part Information
               </Text>
             </Grid.Col>
@@ -1093,8 +1107,8 @@ export default function EditFitment({ fitmentHash, onBack }: EditFitmentProps) {
             </Grid.Col>
 
             {/* Fitment Details */}
-            <Grid.Col span={12} mt="lg">
-              <Text fw={600} size="lg" mb="md">
+            <Grid.Col span={12} mt="xl">
+              <Text fw={600} size="lg">
                 Fitment Details
               </Text>
             </Grid.Col>
@@ -1224,7 +1238,6 @@ export default function EditFitment({ fitmentHash, onBack }: EditFitmentProps) {
           <Group justify="flex-end">
             <Button
               variant="light"
-              color="gray"
               onClick={handleCancel}
               styles={{
                 root: {
@@ -1256,8 +1269,7 @@ export default function EditFitment({ fitmentHash, onBack }: EditFitmentProps) {
                   fontSize: "14px",
                   height: "40px",
                   padding: "0 24px",
-                  background:
-                    "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                  background: "#2563eb",
                   border: "none",
                   transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                   boxShadow:
