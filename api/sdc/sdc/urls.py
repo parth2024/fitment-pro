@@ -19,7 +19,7 @@ from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from tenants.views import TenantListCreateView, TenantDetailView, get_current_tenant, switch_tenant, tenant_stats
 from tenants.views_auth import login_view, logout_view, current_user_view, user_roles_view, refresh_token_view
-from vcdb.views import version, year_range, configurations
+# from vcdb.views import version, year_range, configurations  # These views don't exist in the new VCDB implementation
 from fitments.views import export_fitments_advanced_csv, export_fitments_advanced_xlsx, fitments_root, coverage, property_values, validate, submit, export_csv, coverage_export, export_ai_fitments, ai_fitments_list, applied_fitments_list, fitment_filter_options, fitment_detail, update_fitment, delete_fitment, validate_fitments_csv, submit_validated_fitments, get_validation_results, detailed_coverage, coverage_trends, coverage_gaps, get_potential_fitments, get_parts_with_fitments, apply_potential_fitments, analytics_dashboard, approve_fitments, reject_fitments, bulk_delete_fitments
 from workflow.views import uploads as wf_uploads, ai_map, vcdb_validate, review_queue, review_actions, publish, presets as wf_presets, preset_detail, ai_fitments, apply_fitments_batch
 
@@ -42,9 +42,8 @@ urlpatterns = [
     path('api/tenants/<uuid:tenant_id>/stats/', tenant_stats),
     path('api/tenants/current/', get_current_tenant),
     path('api/tenants/switch/<uuid:tenant_id>/', switch_tenant),
-    path('api/vcdb/version', version),
-    path('api/vcdb/year-range', year_range),
-    path('api/vcdb/configurations', configurations),
+    # Legacy VCDB endpoints (now provided by new VCDB implementation)
+    path('api/vcdb/', include('vcdb.urls')),
     # Potential fitments endpoints (MFT V1)
     path('api/fitments/potential/<str:part_id>/', get_potential_fitments),
     path('api/fitments/parts-with-fitments/', get_parts_with_fitments),
@@ -101,6 +100,8 @@ urlpatterns = [
     path('api/field-config/', include('field_config.urls')),
     # VCDB Categories
     path('api/vcdb-categories/', include('vcdb_categories.urls')),
+    # VCDB Data (AutoCare API integration)
+    path('api/vcdb-data/', include('vcdb.urls')),
     # Products
     path('api/products/', include('products.urls')),
 ]
