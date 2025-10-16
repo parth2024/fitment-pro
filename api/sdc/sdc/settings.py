@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'django_filters',
+    'django_celery_beat',
     'tenants',
     'workflow',
     'vcdb',
@@ -254,6 +255,10 @@ AZURE_OPENAI_API_KEY = os.getenv('AZURE_OPENAI_API_KEY', '')
 AZURE_OPENAI_ENDPOINT = os.getenv('AZURE_OPENAI_ENDPOINT', '')
 AZURE_OPENAI_API_VERSION = os.getenv('AZURE_OPENAI_API_VERSION', '2024-02-15-preview')
 AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME', 'gpt-4')
+AUTOCARE_CLIENT_ID = os.getenv('AUTOCARE_CLIENT_ID', '')
+AUTOCARE_CLIENT_SECRET = os.getenv('AUTOCARE_CLIENT_SECRET', '')
+AUTOCARE_USERNAME = os.getenv('AUTOCARE_USERNAME', '')
+AUTOCARE_PASSWORD = os.getenv('AUTOCARE_PASSWORD', '')
 
 # Media files
 MEDIA_URL = '/media/'
@@ -284,4 +289,7 @@ CELERY_WORKER_DISABLE_RATE_LIMITS = True  # Disable rate limits for immediate pr
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True  # Retry connection on startup
 CELERY_BROKER_CONNECTION_RETRY = True  # Retry connection if lost
 CELERY_BROKER_CONNECTION_MAX_RETRIES = 10  # Max retry attempts
+
+# Celery Beat Schedule
+from .celery_beat_schedule import CELERY_BEAT_SCHEDULE, CELERY_BEAT_SCHEDULER
 
