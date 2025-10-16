@@ -16,11 +16,11 @@ class AutoCareAPIClient:
         self.base_url = "https://vcdb.autocarevip.com/api/v1.0/vcdb"
         self.auth_url = "https://autocare-identity.autocare.org/connect/token"
         
-        # AutoCare API credentials
-        self.client_id = "37744C6D561F4B8A"
-        self.client_secret = "eu6X8vyRTX$#"
-        self.username = "hkanani@ridefox.com"
-        self.password = "Mahadev@6028"
+        # AutoCare API credentials from environment variables
+        self.client_id = getattr(settings, 'AUTOCARE_CLIENT_ID')
+        self.client_secret = getattr(settings, 'AUTOCARE_CLIENT_SECRET')
+        self.username = getattr(settings, 'AUTOCARE_USERNAME')
+        self.password = getattr(settings, 'AUTOCARE_PASSWORD')
         self.scope = "VcdbApis CommonApis openid profile offline_access"
         
         self.access_token = None
