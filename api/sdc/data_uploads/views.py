@@ -38,6 +38,11 @@ from .models import (
     Backspacing,
 )
 from fitments.models import Fitment
+from vcdb.models import (
+    Vehicle, BaseVehicle, Make, Model, SubModel, Year,
+    DriveType, FuelType, BodyType, BodyNumDoors,
+    VehicleToDriveType, VehicleToBodyStyleConfig, VehicleToEngineConfig
+)
 from .serializers import (
     DataUploadSessionSerializer, 
     DataUploadSessionListSerializer,
@@ -498,18 +503,31 @@ def get_file_data(request, session_id, file_type):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def process_ai_fitment(request):
-    """Process AI fitment using VCDB and Product data tables directly"""
+    """Process AI fitment using new VCDB database tables and Product data tables"""
     try:
         logger.info(f"AI fitment processing request: {request.data}")
         
-        # Get data directly from VCDB and Product data tables
-        vcdb_queryset = VCDBData.objects.all()
+        # Get data from new VCDB database tables and Product data tables
+        vehicles_queryset = Vehicle.objects.select_related(
+            'base_vehicle_id__make_id',
+            'base_vehicle_id__model_id', 
+            'base_vehicle_id__year_id',
+            'sub_model_id',
+            'region_id',
+            'publication_stage_id'
+        ).prefetch_related(
+            'vehicletodrivetype_set__drive_type_id',
+            'vehicletobodystyleconfig_set__body_style_config_id__body_num_doors_id',
+            'vehicletobodystyleconfig_set__body_style_config_id__body_type_id',
+            'vehicletoengineconfig_set__engine_config_id__fuel_type_id'
+        )
+        
         products_queryset = ProductData.objects.all()
         
         # Check if we have data
-        if not vcdb_queryset.exists():
+        if not vehicles_queryset.exists():
             return Response(
-                {"error": "No VCDB data available. Please upload VCDB data first."}, 
+                {"error": "No VCDB data available. Please sync VCDB data first."}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -519,22 +537,44 @@ def process_ai_fitment(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Convert querysets to dictionaries for AI processing
+        # Convert vehicles to dictionaries for AI processing
         vcdb_data = []
-        for vcdb in vcdb_queryset:
+        for vehicle in vehicles_queryset:
+            # Get drive types for this vehicle
+            drive_types = []
+            for vtd in vehicle.vehicletodrivetype_set.all():
+                if vtd.drive_type_id:
+                    drive_types.append(vtd.drive_type_id.drive_type_name)
+            
+            # Get body style configs for this vehicle
+            num_doors_list = []
+            body_types_list = []
+            for vtbs in vehicle.vehicletobodystyleconfig_set.all():
+                if vtbs.body_style_config_id:
+                    if vtbs.body_style_config_id.body_num_doors_id:
+                        num_doors_list.append(vtbs.body_style_config_id.body_num_doors_id.body_num_doors)
+                    if vtbs.body_style_config_id.body_type_id:
+                        body_types_list.append(vtbs.body_style_config_id.body_type_id.body_type_name)
+            
+            # Get engine configs for this vehicle
+            fuel_types_list = []
+            for vtec in vehicle.vehicletoengineconfig_set.all():
+                if vtec.engine_config_id and vtec.engine_config_id.fuel_type_id:
+                    fuel_types_list.append(vtec.engine_config_id.fuel_type_id.fuel_type_name)
+            
             vcdb_data.append({
-                'id': vcdb.id,
-                'year': vcdb.year,
-                'make': vcdb.make,
-                'model': vcdb.model,
-                'submodel': vcdb.submodel,
-                'driveType': vcdb.drive_type,
-                'fuelType': vcdb.fuel_type,
-                'numDoors': vcdb.num_doors,
-                'bodyType': vcdb.body_type,
-                'engineType': vcdb.engine_type,
-                'transmission': vcdb.transmission,
-                'trimLevel': vcdb.trim_level,
+                'id': vehicle.vehicle_id,
+                'year': vehicle.base_vehicle_id.year_id.year_id,
+                'make': vehicle.base_vehicle_id.make_id.make_name,
+                'model': vehicle.base_vehicle_id.model_id.model_name,
+                'submodel': vehicle.sub_model_id.sub_model_name if vehicle.sub_model_id else '',
+                'driveType': ', '.join(drive_types) if drive_types else '',
+                'fuelType': ', '.join(fuel_types_list) if fuel_types_list else '',
+                'numDoors': ', '.join([str(d) for d in num_doors_list]) if num_doors_list else '',
+                'bodyType': ', '.join(body_types_list) if body_types_list else '',
+                'region': vehicle.region_id.region_name if vehicle.region_id else '',
+                'source': vehicle.source,
+                'publicationStage': vehicle.publication_stage_id.publication_stage_name if vehicle.publication_stage_id else '',
             })
         
         products_data = []

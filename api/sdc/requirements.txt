@@ -69,3 +69,4 @@ celery
 redis
 djangorestframework-simplejwt
 PyJWT
+django-celery-beat

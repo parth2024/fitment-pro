@@ -5,7 +5,7 @@ const pendingRequests = new Map<string, Promise<any>>();
 
 // Create axios instance with base configuration
 const apiClient = axios.create({
-  baseURL: (import.meta as any).env.VITE_BACKEND_URL,
+  baseURL: (import.meta as any).env.VITE_BACKEND_URL || "http://localhost:8001",
   timeout: 120000, // 2 minutes for AI processing
   headers: {
     "Content-Type": "application/json",
@@ -68,7 +68,10 @@ apiClient.interceptors.response.use(
         const refreshToken = localStorage.getItem("refresh_token");
         if (refreshToken) {
           const response = await axios.post(
-            `${(import.meta as any).env.VITE_BACKEND_URL}/api/auth/refresh/`,
+            `${
+              (import.meta as any).env.VITE_BACKEND_URL ||
+              "http://localhost:8001"
+            }/api/auth/refresh/`,
             { refresh_token: refreshToken }
           );
 

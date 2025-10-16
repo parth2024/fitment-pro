@@ -52,7 +52,7 @@ import {
   IconCloudUpload,
   IconFileCheck,
 } from "@tabler/icons-react";
-import { dataUploadService, fitmentUploadService } from "../api/services";
+import { dataUploadService, vcdbService } from "../api/services";
 import { useAsyncOperation, useApi } from "../hooks/useApi";
 import { useProfessionalToast } from "../hooks/useProfessionalToast";
 import { useFieldConfiguration } from "../hooks/useFieldConfiguration";
@@ -143,6 +143,23 @@ export default function ApplyFitments() {
     }
   }, []);
 
+  // Check VCDB data availability on component mount
+  useEffect(() => {
+    const checkVcdbAvailability = async () => {
+      try {
+        const response = await vcdbService.getVehicleDropdownData();
+        console.log("VCDB availability check response:", response);
+        // API is working - consider VCDB available even if no data yet
+        setVcdbDataAvailable(true);
+      } catch (error) {
+        console.error("Failed to check VCDB availability:", error);
+        setVcdbDataAvailable(false);
+      }
+    };
+
+    checkVcdbAvailability();
+  }, []);
+
   // Main method selection
   const [selectedMethod, setSelectedMethod] = useState<"ai" | "manual" | null>(
     null
@@ -190,6 +207,9 @@ export default function ApplyFitments() {
   // Manual fitment states
   const [dropdownData, setDropdownData] = useState<any>(null);
   const [loadingDropdownData, setLoadingDropdownData] = useState(false);
+  const [vcdbDataAvailable, setVcdbDataAvailable] = useState<boolean | null>(
+    null
+  );
   const [manualStep, setManualStep] = useState(1);
   const [formKey, setFormKey] = useState(0);
   const [vehicleFilters, setVehicleFilters] = useState({
@@ -240,12 +260,30 @@ export default function ApplyFitments() {
 
   // API hooks
   const { execute: fetchDropdownData } = useAsyncOperation();
-  const { execute: fetchFilteredVehicles } = useAsyncOperation();
   const { execute: createFitment } = useAsyncOperation();
+
+  // Debug dropdown data changes
+  useEffect(() => {
+    if (dropdownData && typeof dropdownData === "object") {
+      console.log("Dropdown data updated:", {
+        makes: dropdownData.makes?.length || 0,
+        models: dropdownData.models?.length || 0,
+        submodels: dropdownData.submodels?.length || 0,
+        sampleMake: dropdownData.makes?.[0],
+        sampleModel: dropdownData.models?.[0],
+      });
+    }
+  }, [dropdownData]);
+
+  // Debug vehicle filters changes
+  useEffect(() => {
+    console.log("Vehicle filters updated:", vehicleFilters);
+  }, [vehicleFilters]);
 
   // Helper functions
   const isVcdbDataAvailable = () => {
-    return dataStatus?.vcdb?.exists && dataStatus?.vcdb?.record_count > 0;
+    // Use the pre-checked VCDB availability state
+    return vcdbDataAvailable === true;
   };
 
   const isProductDataAvailable = () => {
@@ -632,18 +670,38 @@ export default function ApplyFitments() {
         await Promise.all([refreshVcdbFields(), refreshProductFields()]);
       }
 
-      const dropdownResult = await fetchDropdownData(() =>
+      // Use new VCDB API for vehicle dropdown data
+      console.log("Fetching VCDB dropdown data...");
+      const vcdbResponse = await vcdbService.getVehicleDropdownData();
+      console.log("VCDB response:", vcdbResponse);
+      const vcdbDropdownData = vcdbResponse.data;
+      console.log("VCDB dropdown data:", vcdbDropdownData);
+
+      // Get product data from existing service
+      const productResult = await fetchDropdownData(() =>
         dataUploadService.getNewDataDropdownData()
       );
 
-      if (dropdownResult && dropdownResult.data) {
-        setDropdownData(dropdownResult.data);
-      } else {
-        showError("Failed to load vehicle and product data");
-      }
+      // Ensure all dropdown data is properly formatted for Mantine Select components
+      const combinedData = {
+        years: vcdbDropdownData.years || [],
+        makes: vcdbDropdownData.makes || [],
+        models: vcdbDropdownData.models || [],
+        submodels: vcdbDropdownData.submodels || [],
+        drive_types: vcdbDropdownData.drive_types || [],
+        fuel_types: vcdbDropdownData.fuel_types || [],
+        num_doors: vcdbDropdownData.num_doors || [],
+        body_types: vcdbDropdownData.body_types || [],
+        // Keep existing product-related dropdowns
+        parts: productResult?.data?.parts || [],
+        positions: productResult?.data?.positions || [],
+      };
+
+      console.log("Combined dropdown data:", combinedData);
+      setDropdownData(combinedData);
     } catch (error) {
       console.error("Failed to fetch data:", error);
-      showError("Failed to load data");
+      showError("Failed to load vehicle data from VCDB");
     } finally {
       setLoadingDropdownData(false);
     }
@@ -741,10 +799,20 @@ export default function ApplyFitments() {
 
       const dataKey = dataMapping[fieldName];
       if (dataKey && dropdownData[dataKey]) {
-        return dropdownData[dataKey].map((item: string) => ({
-          value: item,
-          label: item,
-        }));
+        return dropdownData[dataKey].map((item: any) => {
+          // Handle both string and object formats
+          if (typeof item === "string") {
+            return { value: item, label: item };
+          } else if (
+            item &&
+            typeof item === "object" &&
+            item.value &&
+            item.label
+          ) {
+            return { value: item.value, label: item.label };
+          }
+          return { value: String(item), label: String(item) };
+        });
       }
     }
 
@@ -831,15 +899,23 @@ export default function ApplyFitments() {
                 <Group gap="lg" mb="lg">
                   <Group gap="xs">
                     <Badge
-                      color={isVcdbDataAvailable() ? "green" : "red"}
+                      color={
+                        vcdbDataAvailable === null
+                          ? "blue"
+                          : isVcdbDataAvailable()
+                          ? "green"
+                          : "red"
+                      }
                       variant="light"
                       size="sm"
                     >
                       VCDB Data
                     </Badge>
                     <Text size="xs" c="dimmed">
-                      {isVcdbDataAvailable()
-                        ? `${dataStatus?.vcdb?.record_count || 0} records`
+                      {vcdbDataAvailable === null
+                        ? "Checking..."
+                        : isVcdbDataAvailable()
+                        ? `AutoCare VCDB API connected (ready for sync)`
                         : "Not available"}
                     </Text>
                   </Group>
@@ -1020,10 +1096,23 @@ export default function ApplyFitments() {
               {!isManualMethodAvailable() && !isAiMethodAvailable() && (
                 <Alert color="orange" variant="light" mt="lg">
                   <Text size="sm">
-                    <strong>Data Required:</strong> Both VCDB and Product data
-                    must be uploaded before you can apply fitments. Please go to
-                    the <strong>Upload Data</strong> page to upload your vehicle
-                    and product data files.
+                    <strong>Data Required:</strong> VCDB data is automatically
+                    synced from AutoCare APIs, and Product data must be uploaded
+                    before you can apply fitments. Please go to the{" "}
+                    <strong>Upload Data</strong> page to upload your product
+                    data files.
+                  </Text>
+                </Alert>
+              )}
+
+              {/* Help message when VCDB is available but no data yet */}
+              {isVcdbDataAvailable() && !isProductDataAvailable() && (
+                <Alert color="blue" variant="light" mt="lg">
+                  <Text size="sm">
+                    <strong>VCDB Ready:</strong> AutoCare VCDB API is connected
+                    and ready. To populate with vehicle data, run the sync
+                    command in the backend. Product data must be uploaded before
+                    you can apply fitments.
                   </Text>
                 </Alert>
               )}
@@ -1619,10 +1708,46 @@ export default function ApplyFitments() {
                           mt="md"
                         >
                           <Text size="sm">
-                            Loading vehicle data from uploaded files...
+                            Loading vehicle data from AutoCare VCDB API...
                           </Text>
                         </Alert>
                       )}
+
+                      {/* Debug info */}
+                      {dropdownData && (
+                        <Alert color="green" variant="light" mt="md">
+                          <Text size="sm">
+                            <strong>Debug:</strong> Years loaded:{" "}
+                            {dropdownData.years?.length || 0}, Makes loaded:{" "}
+                            {dropdownData.makes?.length || 0}, Models loaded:{" "}
+                            {dropdownData.models?.length || 0}
+                          </Text>
+                        </Alert>
+                      )}
+
+                      {/* Test API button */}
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        onClick={async () => {
+                          try {
+                            console.log("Testing VCDB API...");
+                            const response =
+                              await vcdbService.getVehicleDropdownData();
+                            console.log("Test API response:", response);
+                            alert(
+                              `API Test Success! Years: ${
+                                response.data.years?.length || 0
+                              }`
+                            );
+                          } catch (error) {
+                            console.error("API Test failed:", error);
+                            alert(`API Test Failed: ${error}`);
+                          }
+                        }}
+                      >
+                        Test VCDB API
+                      </Button>
                     </div>
 
                     <div key={formKey}>
@@ -1633,6 +1758,7 @@ export default function ApplyFitments() {
                           data={dropdownData?.years || []}
                           value={vehicleFilters.yearFrom}
                           onChange={(value) => {
+                            console.log("Year From selected:", value);
                             setVehicleFilters((prev) => {
                               const newYearFrom = value || "";
                               let newYearTo = prev.yearTo;
@@ -1656,19 +1782,21 @@ export default function ApplyFitments() {
                             <IconCalendar size={16} color="#64748b" />
                           }
                         />
+
                         <Select
                           label="Year To"
                           placeholder="Select year to"
                           data={
                             dropdownData?.years
-                              ? dropdownData.years.filter((year: string) => {
-                                  if (!vehicleFilters.yearFrom) return true;
-                                  return (
-                                    parseInt(year) >
-                                    parseInt(vehicleFilters.yearFrom)
-                                  );
-                                })
+                              ? dropdownData?.years?.filter(
+                                  (year: { value: string }) => {
+                                    if (!vehicleFilters.yearFrom) return true;
+                                    return year.value > vehicleFilters.yearFrom;
+                                  }
+                                )
                               : []
+
+                            // dropdownData?.years || []
                           }
                           value={vehicleFilters.yearTo}
                           onChange={(value) =>
@@ -1688,12 +1816,13 @@ export default function ApplyFitments() {
                           placeholder="Select make"
                           data={dropdownData?.makes || []}
                           value={vehicleFilters.make}
-                          onChange={(value) =>
+                          onChange={(value) => {
+                            console.log("Make selected:", value);
                             setVehicleFilters((prev) => ({
                               ...prev,
                               make: value || "",
-                            }))
-                          }
+                            }));
+                          }}
                           searchable
                           disabled={loadingDropdownData}
                           leftSection={<IconCar size={16} color="#64748b" />}
@@ -1703,12 +1832,13 @@ export default function ApplyFitments() {
                           placeholder="Select model"
                           data={dropdownData?.models || []}
                           value={vehicleFilters.model}
-                          onChange={(value) =>
+                          onChange={(value) => {
+                            console.log("Model selected:", value);
                             setVehicleFilters((prev) => ({
                               ...prev,
                               model: value || "",
-                            }))
-                          }
+                            }));
+                          }}
                           searchable
                           disabled={loadingDropdownData}
                           leftSection={<IconCar size={16} color="#64748b" />}
@@ -1917,31 +2047,79 @@ export default function ApplyFitments() {
                           }
 
                           try {
-                            const searchCriteria = {
-                              ...vehicleFilters,
-                              ...dynamicVcdbFields,
-                            };
-
-                            const result: any = await fetchFilteredVehicles(
-                              () =>
-                                fitmentUploadService.getFilteredVehicles(
-                                  sessionId || "",
-                                  searchCriteria
-                                )
+                            // Merge filters, but only include non-empty values from dynamicVcdbFields
+                            const filteredDynamicFields = Object.fromEntries(
+                              Object.entries(dynamicVcdbFields).filter(
+                                ([, value]) => value && value !== ""
+                              )
                             );
 
-                            if (result && result.data && result.data.vehicles) {
-                              if (result.data.vehicles.length === 0) {
+                            const searchCriteria = {
+                              ...filteredDynamicFields,
+                              ...vehicleFilters, // Static filters take precedence
+                            };
+
+                            // Use new VCDB vehicle search API
+                            const searchParams: any = {};
+                            Object.entries(searchCriteria).forEach(
+                              ([key, value]) => {
+                                if (value && value !== "") {
+                                  searchParams[key] = String(value);
+                                }
+                              }
+                            );
+
+                            console.log("Search criteria:", searchCriteria);
+                            console.log("Search params:", searchParams);
+                            console.log("Vehicle filters:", vehicleFilters);
+                            console.log(
+                              "Dynamic VCDB fields:",
+                              dynamicVcdbFields
+                            );
+                            console.log("Dropdown data:", dropdownData);
+
+                            const response = await vcdbService.searchVehicles(
+                              searchParams
+                            );
+                            const result = response.data;
+
+                            if (result && result.vehicles) {
+                              if (result.vehicles.length === 0) {
                                 showError(
                                   "No vehicles found matching your criteria"
                                 );
                                 return;
                               }
 
-                              setFilteredVehicles(result.data.vehicles);
+                              // Transform VCDB vehicle data to match expected format
+                              const transformedVehicles = result.vehicles.map(
+                                (vehicle: any) => ({
+                                  id: vehicle.id,
+                                  year: vehicle.year,
+                                  make: vehicle.make,
+                                  model: vehicle.model,
+                                  submodel: vehicle.submodel,
+                                  driveType: vehicle.driveTypes?.[0] || "", // Take first drive type
+                                  fuelType: vehicle.fuelTypes?.[0] || "", // Take first fuel type
+                                  numDoors: vehicle.numDoors?.[0] || 0, // Take first num doors
+                                  bodyType: vehicle.bodyTypes?.[0] || "", // Take first body type
+                                  region: vehicle.region,
+                                  publicationStage: vehicle.publication_stage,
+                                  source: vehicle.source,
+                                  effectiveDateTime: vehicle.effectiveDateTime,
+                                  endDateTime: vehicle.endDateTime,
+                                  // Additional VCDB data
+                                  driveTypes: vehicle.driveTypes,
+                                  fuelTypes: vehicle.fuelTypes,
+                                  numDoorsList: vehicle.numDoors,
+                                  bodyTypes: vehicle.bodyTypes,
+                                })
+                              );
+
+                              setFilteredVehicles(transformedVehicles);
                               setManualStep(2);
                               showSuccess(
-                                `Found ${result.data.vehicles.length} vehicles`,
+                                `Found ${transformedVehicles.length} vehicles from VCDB`,
                                 3000
                               );
                             } else {
@@ -1949,7 +2127,7 @@ export default function ApplyFitments() {
                             }
                           } catch (error) {
                             console.error("Vehicle search error:", error);
-                            showError("Failed to search vehicles");
+                            showError("Failed to search vehicles from VCDB");
                           }
                         }}
                       >
@@ -2030,6 +2208,12 @@ export default function ApplyFitments() {
                                   {vehicle.submodel} • {vehicle.driveType} •{" "}
                                   {vehicle.fuelType} • {vehicle.bodyType}
                                 </Text>
+                                {vehicle.region && (
+                                  <Text size="xs" c="#64748b">
+                                    Region: {vehicle.region} • Source:{" "}
+                                    {vehicle.source}
+                                  </Text>
+                                )}
                               </div>
                             </Group>
                           </Card>

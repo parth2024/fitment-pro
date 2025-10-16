@@ -129,6 +129,12 @@ export const vcdbService = {
     apiClient.get(`/api/vcdb/property/${property}`, { params }),
   getConfigurations: (params?: any) =>
     apiClient.get("/api/vcdb/configurations", { params }),
+
+  // New VCDB API endpoints for manual fitments
+  getVehicleDropdownData: () =>
+    apiClient.get("/api/vcdb/vehicle-dropdown-data"),
+  searchVehicles: (params?: any) =>
+    apiClient.get("/api/vcdb/vehicle-search", { params }),
 };
 
 export const partsService = {
