@@ -12,14 +12,16 @@ logger = logging.getLogger(__name__)
 
 from .models import (
     Make, Model, SubModel, Region, PublicationStage, Year, BaseVehicle, DriveType, FuelType,
-    BodyNumDoors, BodyType, BodyStyleConfig, EngineConfig, Vehicle,
+    BodyNumDoors, BodyType, BodyStyleConfig, EngineConfig, Vehicle, VehicleTypeGroup, VehicleType,
     VehicleToDriveType, VehicleToBodyStyleConfig, VehicleToEngineConfig,
+    TransmissionType, TransmissionNumSpeeds, TransmissionControlType, TransmissionBase, Transmission,
+    BedType, BedLength, WheelBase, CylinderHeadType, EngineBase, EngineVIN, EngineBlock, EngineBase2,
     VCDBSyncLog
 )
 from .serializers import (
     MakeSerializer, ModelSerializer, SubModelSerializer, RegionSerializer, PublicationStageSerializer, YearSerializer,
     BaseVehicleSerializer, DriveTypeSerializer, FuelTypeSerializer, BodyNumDoorsSerializer, BodyTypeSerializer,
-    BodyStyleConfigSerializer, EngineConfigSerializer, VehicleSerializer,
+    BodyStyleConfigSerializer, EngineConfigSerializer, VehicleSerializer, VehicleTypeGroupSerializer,
     VehicleToDriveTypeSerializer, VehicleToBodyStyleConfigSerializer, VehicleToEngineConfigSerializer,
     VCDBSyncLogSerializer, VehicleSearchSerializer, VehicleSearchResultSerializer
 )
@@ -506,6 +508,17 @@ def property_values(request, property_name):
         }, status=500)
 
 
+class VehicleTypeGroupViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = VehicleTypeGroup.objects.all()
+    serializer_class = VehicleTypeGroupSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['culture_id']
+    search_fields = ['vehicle_type_group_name']
+    ordering_fields = ['vehicle_type_group_name', 'vehicle_type_group_id']
+    ordering = ['vehicle_type_group_name']
+
+
 @require_http_methods(["GET"])
 def vehicle_search(request):
     """New VCDB vehicle search endpoint for manual fitments"""
@@ -513,6 +526,7 @@ def vehicle_search(request):
         # Get query parameters
         year_from = request.GET.get('yearFrom')
         year_to = request.GET.get('yearTo')
+        year_exact = request.GET.get('year')
         make = request.GET.get('make')
         model = request.GET.get('model')
         submodel = request.GET.get('submodel')
@@ -520,6 +534,19 @@ def vehicle_search(request):
         num_doors = request.GET.get('numDoors')
         drive_type = request.GET.get('driveType')
         body_type = request.GET.get('bodyType')
+        # Extended filter params
+        engine_base = request.GET.get('engineBase')
+        engine_vin = request.GET.get('engineVin')
+        engine_block = request.GET.get('engineBlock')
+        cylinder_head_type = request.GET.get('cylinderHeadType')
+        transmission_type = request.GET.get('transmissionType')
+        transmission_speeds = request.GET.get('transmissionSpeeds')
+        transmission_control_type = request.GET.get('transmissionControlType')
+        bed_type = request.GET.get('bedType')
+        bed_length = request.GET.get('bedLength')
+        wheelbase = request.GET.get('wheelbase')
+        region = request.GET.get('region')
+        vtg_param = request.GET.get('vehicleTypeGroup')
         
         # Build query
         vehicles_query = Vehicle.objects.select_related(
@@ -556,6 +583,15 @@ def vehicle_search(request):
         if submodel:
             vehicles_query = vehicles_query.filter(sub_model_id__sub_model_name__icontains=submodel)
         
+        # Exact year filter (if provided)
+        if year_exact:
+            try:
+                vehicles_query = vehicles_query.filter(
+                    base_vehicle_id__year_id__year_id=int(year_exact)
+                )
+            except Exception:
+                pass
+
         # Advanced filters - now enabled with populated relationship tables
         if fuel_type:
             # VehicleToEngineConfig table now has data, so enable fuel type filtering
@@ -579,7 +615,104 @@ def vehicle_search(request):
             vehicles_query = vehicles_query.filter(
                 vehicletobodystyleconfig__body_style_config_id__body_type_id__body_type_name__icontains=body_type
             )
+
+        # Extended filters mapping to relationships
+        if region:
+            vehicles_query = vehicles_query.filter(region_id__region_name__icontains=region)
+
+        if engine_base:
+            vehicles_query = vehicles_query.filter(
+                vehicletoengineconfig__engine_config_id__engine_base_id=int(engine_base)
+            )
+
+        if engine_vin:
+            vehicles_query = vehicles_query.filter(
+                vehicletoengineconfig__engine_config_id__engine_vin_id__in=
+                EngineVIN.objects.filter(engine_vin_name__icontains=engine_vin).values_list('engine_vin_id', flat=True)
+            )
+
+        if engine_block:
+            vehicles_query = vehicles_query.filter(
+                vehicletoengineconfig__engine_config_id__engine_base_id__in=
+                EngineBase.objects.filter(block_type__icontains=engine_block).values_list('engine_base_id', flat=True)
+            )
+
+        if cylinder_head_type:
+            vehicles_query = vehicles_query.filter(
+                vehicletoengineconfig__engine_config_id__cylinder_head_type_id__in=
+                CylinderHeadType.objects.filter(cylinder_head_type_name__icontains=cylinder_head_type).values_list('cylinder_head_type_id', flat=True)
+            )
+
+        if transmission_type:
+            vehicles_query = vehicles_query.filter(
+                vehicletotransmission__transmission_id__in=
+                Transmission.objects.filter(
+                    transmission_base_id__in=TransmissionBase.objects.filter(
+                        transmission_type_id__in=TransmissionType.objects.filter(
+                            transmission_type_name__icontains=transmission_type
+                        ).values_list('transmission_type_id', flat=True)
+                    ).values_list('transmission_base_id', flat=True)
+                ).values_list('transmission_id', flat=True)
+            )
+
+        if transmission_speeds:
+            vehicles_query = vehicles_query.filter(
+                vehicletotransmission__transmission_id__in=
+                Transmission.objects.filter(
+                    transmission_base_id__in=TransmissionBase.objects.filter(
+                        transmission_num_speeds_id__in=TransmissionNumSpeeds.objects.filter(
+                            transmission_num_speeds__icontains=transmission_speeds
+                        ).values_list('transmission_num_speeds_id', flat=True)
+                    ).values_list('transmission_base_id', flat=True)
+                ).values_list('transmission_id', flat=True)
+            )
+
+        if transmission_control_type:
+            vehicles_query = vehicles_query.filter(
+                vehicletotransmission__transmission_id__in=
+                Transmission.objects.filter(
+                    transmission_base_id__in=TransmissionBase.objects.filter(
+                        transmission_control_type_id__in=TransmissionControlType.objects.filter(
+                            transmission_control_type_name__icontains=transmission_control_type
+                        ).values_list('transmission_control_type_id', flat=True)
+                    ).values_list('transmission_base_id', flat=True)
+                ).values_list('transmission_id', flat=True)
+            )
+
+        if bed_type:
+            vehicles_query = vehicles_query.filter(
+                vehicletobodyconfig__bed_config_id__in=
+                BedType.objects.filter(bed_type_name__icontains=bed_type).values_list('bed_type_id', flat=True)
+            )
+
+        if bed_length:
+            vehicles_query = vehicles_query.filter(
+                vehicletobodyconfig__bed_config_id__in=
+                BedLength.objects.filter(bed_length__icontains=bed_length).values_list('bed_length_id', flat=True)
+            )
+
+        if wheelbase:
+            vehicles_query = vehicles_query.filter(
+                vehicletobodyconfig__wheelbase_id__in=
+                WheelBase.objects.filter(wheel_base__icontains=wheelbase).values_list('wheel_base_id', flat=True)
+            )
         
+        # Filter by Vehicle Type Group if provided
+        if vtg_param:
+            try:
+                vtg_ids = [int(x) for x in str(vtg_param).split(',') if x.strip()]
+                if vtg_ids:
+                    from .models import VehicleType
+                    vehicle_type_ids = list(VehicleType.objects.filter(
+                        vehicle_type_group_id__in=vtg_ids
+                    ).values_list('vehicle_type_id', flat=True))
+                    if vehicle_type_ids:
+                        vehicles_query = vehicles_query.filter(
+                            base_vehicle_id__model_id__vehicle_type_id__in=vehicle_type_ids
+                        )
+            except Exception:
+                pass
+
         # Execute query and format results
         vehicles = vehicles_query.distinct()[:1000]  # Limit to 1000 results
         
@@ -652,17 +785,28 @@ def vehicle_search(request):
 def vehicle_dropdown_data(request):
     """Get dropdown data for vehicle search filters"""
     try:
-        # Get all unique values for dropdowns and format for Mantine Combobox
-        # Only get models/makes that are actually used by vehicles
+        # Get ALL data from each table without any restrictions
         years = Year.objects.values_list('year_id', flat=True).distinct().order_by('-year_id')
-        makes = Make.objects.filter(basevehicle__vehicle__isnull=False).values_list('make_name', flat=True).distinct().order_by('make_name')
-        models = Model.objects.filter(basevehicle__vehicle__isnull=False).values_list('model_name', flat=True).distinct().order_by('model_name')
-        submodels = SubModel.objects.filter(vehicle__isnull=False).values_list('sub_model_name', flat=True).distinct().order_by('sub_model_name')
-        drive_types = DriveType.objects.filter(vehicletodrivetype__isnull=False).values_list('drive_type_name', flat=True).distinct().order_by('drive_type_name')
-        # Show all fuel types, not just those used by vehicles
+        makes = Make.objects.values_list('make_name', flat=True).distinct().order_by('make_name')
+        models = Model.objects.values_list('model_name', flat=True).distinct().order_by('model_name')
+        submodels = SubModel.objects.values_list('sub_model_name', flat=True).distinct().order_by('sub_model_name')
+        drive_types = DriveType.objects.values_list('drive_type_name', flat=True).distinct().order_by('drive_type_name')
         fuel_types = FuelType.objects.values_list('fuel_type_name', flat=True).distinct().order_by('fuel_type_name')
-        body_num_doors = BodyNumDoors.objects.filter(bodystyleconfig__vehicletobodystyleconfig__isnull=False).values_list('body_num_doors', flat=True).distinct().order_by('body_num_doors')
-        body_types = BodyType.objects.filter(bodystyleconfig__vehicletobodystyleconfig__isnull=False).values_list('body_type_name', flat=True).distinct().order_by('body_type_name')
+        body_num_doors = BodyNumDoors.objects.values_list('body_num_doors', flat=True).distinct().order_by('body_num_doors')
+        body_types = BodyType.objects.values_list('body_type_name', flat=True).distinct().order_by('body_type_name')
+
+        # Extended dropdowns - get ALL data from each table
+        engine_bases = EngineBase.objects.values_list('engine_base_id', flat=True).order_by('engine_base_id')
+        engine_vins = EngineVIN.objects.values_list('engine_vin_name', flat=True).order_by('engine_vin_name')
+        engine_blocks = EngineBlock.objects.values_list('block_type', flat=True).order_by('block_type')
+        cylinder_head_types = CylinderHeadType.objects.values_list('cylinder_head_type_name', flat=True).order_by('cylinder_head_type_name')
+        transmission_types = TransmissionType.objects.values_list('transmission_type_name', flat=True).order_by('transmission_type_name')
+        transmission_speeds = TransmissionNumSpeeds.objects.values_list('transmission_num_speeds', flat=True).order_by('transmission_num_speeds')
+        transmission_control_types = TransmissionControlType.objects.values_list('transmission_control_type_name', flat=True).order_by('transmission_control_type_name')
+        bed_types = BedType.objects.values_list('bed_type_name', flat=True).order_by('bed_type_name')
+        bed_lengths = BedLength.objects.values_list('bed_length', flat=True).order_by('bed_length')
+        wheelbases = WheelBase.objects.values_list('wheel_base', flat=True).order_by('wheel_base')
+        regions = Region.objects.values_list('region_name', flat=True).order_by('region_name')
 
         # Format data for Mantine Combobox (value/label pairs)
         def format_for_combobox(values):
@@ -677,6 +821,17 @@ def vehicle_dropdown_data(request):
             'fuel_types': format_for_combobox(fuel_types),
             'num_doors': format_for_combobox(body_num_doors),
             'body_types': format_for_combobox(body_types),
+            'engine_bases': format_for_combobox(engine_bases),
+            'engine_vins': format_for_combobox(engine_vins),
+            'engine_blocks': format_for_combobox(engine_blocks),
+            'cylinder_head_types': format_for_combobox(cylinder_head_types),
+            'transmission_types': format_for_combobox(transmission_types),
+            'transmission_speeds': format_for_combobox(transmission_speeds),
+            'transmission_control_types': format_for_combobox(transmission_control_types),
+            'bed_types': format_for_combobox(bed_types),
+            'bed_lengths': format_for_combobox(bed_lengths),
+            'wheelbases': format_for_combobox(wheelbases),
+            'regions': format_for_combobox(regions),
         })
 
     except Exception as e:

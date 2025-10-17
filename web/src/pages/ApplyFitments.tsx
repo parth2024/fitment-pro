@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Card,
   Title,
@@ -78,7 +78,7 @@ export default function ApplyFitments() {
   const { showSuccess, showError } = useProfessionalToast();
 
   // Entity context for tenant ID
-  const { currentEntity } = useEntity();
+  const { currentEntity, refreshCurrentEntity } = useEntity();
 
   // Session state
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -115,6 +115,20 @@ export default function ApplyFitments() {
       setSessionId(latestSession.id);
     }
   }, [sessionsData]);
+
+  // Refresh entity data on component mount to get latest fitment_settings
+  useEffect(() => {
+    const refreshEntity = async () => {
+      try {
+        await refreshCurrentEntity();
+        console.log("Refreshed entity data");
+      } catch (error) {
+        console.error("Failed to refresh entity:", error);
+      }
+    };
+
+    refreshEntity();
+  }, [refreshCurrentEntity]);
 
   // Listen for entity change events from EntitySelector
   useEffect(() => {
@@ -309,6 +323,106 @@ export default function ApplyFitments() {
     setSearchQuery("");
     setManualStep(1);
   };
+
+  // Build list of VCDB fields to render based on entity configuration
+  // Note: We're using entity fitment_settings directly instead of field-config API
+
+  // Fallback: derive configured fields from tenant fitment_settings if API returns none
+  const vcdbLabelToName: Record<string, string> = {
+    "Year (model year)": "year_range", // Special handling for year range
+    "Make (manufacturer, e.g., Ford, Toyota)": "make",
+    "Model (e.g., F-150, Camry)": "model",
+    "Submodel / Trim (e.g., XLT, Limited, SE)": "submodel",
+    "Body Type (e.g., Sedan, SUV, Pickup)": "body_type",
+    "Body Number of Doors (2-door, 4-door, etc.)": "num_doors",
+    "Drive Type (FWD, RWD, AWD, 4WD)": "driveType", // Fixed: use driveType to match vehicleFilters
+    "Fuel Type (Gasoline, Diesel, Hybrid, Electric)": "fuel_type",
+    "Engine Base (engine code or family ID)": "engine_base",
+    "Engine Liter (e.g., 2.0L, 5.7L)": "engine_base",
+    "Engine Cylinders (e.g., I4, V6, V8)": "engine_cylinders",
+    "Engine VIN Code (8th digit VIN engine identifier)": "engine_vin_code",
+    "Engine Block Type (Inline, V-type, etc.)": "engine_block_type",
+    "Transmission Type (Automatic, Manual, CVT)": "transmission_type",
+    "Transmission Speeds (e.g., 6-speed, 10-speed)": "transmission_speeds",
+    "Transmission Control Type (Automatic, Dual-Clutch, etc.)":
+      "transmission_control_type",
+    "Bed Type (for pickups — e.g., Fleetside, Stepside)": "bed_type",
+    "Bed Length (e.g., 5.5 ft, 6.5 ft, 8 ft)": "bed_length",
+    "Wheelbase (measured length in inches/mm)": "wheelbase",
+    "Region (market region — U.S., Canada, Mexico, Latin America)": "region",
+  };
+
+  const tenantConfiguredLabels: string[] = [
+    ...((currentEntity?.fitment_settings?.required_vcdb_fields as string[]) ||
+      []),
+    ...((currentEntity?.fitment_settings?.optional_vcdb_fields as string[]) ||
+      []),
+  ];
+
+  console.log("Tenant configured labels:", currentEntity);
+
+  // Map db field name -> dropdown key used by getFieldData
+  // Field label/name (normalized) -> dropdown key produced by vehicle_dropdown_data
+  const fieldNameToDropdownKey: Record<string, string> = {
+    year_range: "years", // Special handling for year range
+    year: "years",
+    make: "makes",
+    model: "models",
+    submodel: "submodels",
+    // snake_case and camel/simple variants
+    fueltype: "fuel_types",
+    fuel_type: "fuel_types",
+    numdoors: "num_doors",
+    num_doors: "num_doors",
+    drivetype: "drive_types",
+    drive_type: "drive_types",
+    driveType: "drive_types", // Added: camelCase variant for driveType
+    bodytype: "body_types",
+    body_type: "body_types",
+    engine_base: "engine_bases",
+    engine_vin_code: "engine_vins",
+    engine_vin: "engine_vins",
+    engine_block_type: "engine_blocks",
+    engine_cylinders: "cylinder_head_types",
+    transmission_type: "transmission_types",
+    transmission_speeds: "transmission_speeds",
+    transmission_control_type: "transmission_control_types",
+    bed_type: "bed_types",
+    bed_length: "bed_lengths",
+    wheelbase: "wheelbases",
+    region: "regions",
+  };
+
+  // Generate a structured list for rendering configured filters
+  // Use entity configuration directly since field-config API returns empty
+  const configuredFilters = tenantConfiguredLabels
+    .map((label) => {
+      const fieldName = vcdbLabelToName[label];
+      const dropdownKey = fieldNameToDropdownKey[fieldName];
+      const isRequired =
+        (
+          currentEntity?.fitment_settings?.required_vcdb_fields as string[]
+        )?.includes(label) || false;
+
+      console.log("Field mapping:", {
+        label,
+        fieldName,
+        dropdownKey,
+        isRequired,
+      });
+
+      if (!fieldName || !dropdownKey) return null;
+
+      return {
+        name: label,
+        fieldName: fieldName,
+        key: dropdownKey,
+        required: isRequired,
+      };
+    })
+    .filter((field): field is NonNullable<typeof field> => field !== null);
+
+  console.log("Final configured filters:", configuredFilters);
 
   // Generate industry-standard AI fitment logs
   const generateIndustryLogs = (progress: number) => {
@@ -683,15 +797,46 @@ export default function ApplyFitments() {
       );
 
       // Ensure all dropdown data is properly formatted for Mantine Select components
+      // Helper function to deduplicate dropdown options
+      const deduplicateOptions = (options: any[]) => {
+        if (!Array.isArray(options)) return [];
+        const seen = new Set();
+        return options.filter((option) => {
+          const value = typeof option === "string" ? option : option.value;
+          if (seen.has(value)) return false;
+          seen.add(value);
+          return true;
+        });
+      };
+
       const combinedData = {
-        years: vcdbDropdownData.years || [],
-        makes: vcdbDropdownData.makes || [],
-        models: vcdbDropdownData.models || [],
-        submodels: vcdbDropdownData.submodels || [],
-        drive_types: vcdbDropdownData.drive_types || [],
-        fuel_types: vcdbDropdownData.fuel_types || [],
-        num_doors: vcdbDropdownData.num_doors || [],
-        body_types: vcdbDropdownData.body_types || [],
+        years: deduplicateOptions(vcdbDropdownData.years || []),
+        makes: deduplicateOptions(vcdbDropdownData.makes || []),
+        models: deduplicateOptions(vcdbDropdownData.models || []),
+        submodels: deduplicateOptions(vcdbDropdownData.submodels || []),
+        drive_types: deduplicateOptions(vcdbDropdownData.drive_types || []),
+        fuel_types: deduplicateOptions(vcdbDropdownData.fuel_types || []),
+        num_doors: deduplicateOptions(vcdbDropdownData.num_doors || []),
+        body_types: deduplicateOptions(vcdbDropdownData.body_types || []),
+        engine_bases: deduplicateOptions(vcdbDropdownData.engine_bases || []),
+        engine_vins: deduplicateOptions(vcdbDropdownData.engine_vins || []),
+        engine_blocks: deduplicateOptions(vcdbDropdownData.engine_blocks || []),
+        cylinder_head_types: deduplicateOptions(
+          vcdbDropdownData.cylinder_head_types || []
+        ),
+        transmission_types: deduplicateOptions(
+          vcdbDropdownData.transmission_types || []
+        ),
+        transmission_speeds: deduplicateOptions(
+          vcdbDropdownData.transmission_speeds || []
+        ),
+        transmission_control_types: deduplicateOptions(
+          vcdbDropdownData.transmission_control_types || []
+        ),
+        bed_types: deduplicateOptions(vcdbDropdownData.bed_types || []),
+        bed_lengths: deduplicateOptions(vcdbDropdownData.bed_lengths || []),
+        wheelbases: deduplicateOptions(vcdbDropdownData.wheelbases || []),
+        regions: deduplicateOptions(vcdbDropdownData.regions || []),
         // Keep existing product-related dropdowns
         parts: productResult?.data?.parts || [],
         positions: productResult?.data?.positions || [],
@@ -793,6 +938,9 @@ export default function ApplyFitments() {
         numdoors: "num_doors",
         drivetype: "drive_types",
         bodytype: "body_types",
+        enginetype: "engine_types",
+        transmission: "transmissions",
+        trimlevel: "trim_levels",
         part: "parts",
         position: "positions",
       };
@@ -1712,8 +1860,7 @@ export default function ApplyFitments() {
                           </Text>
                         </Alert>
                       )}
-
-                      {/* Debug info */}
+                      {/* Debug info
                       {dropdownData && (
                         <Alert color="green" variant="light" mt="md">
                           <Text size="sm">
@@ -1723,9 +1870,8 @@ export default function ApplyFitments() {
                             {dropdownData.models?.length || 0}
                           </Text>
                         </Alert>
-                      )}
-
-                      {/* Test API button */}
+                      )} */}
+                      {/* Test API button
                       <Button
                         variant="outline"
                         size="xs"
@@ -1747,181 +1893,260 @@ export default function ApplyFitments() {
                         }}
                       >
                         Test VCDB API
-                      </Button>
+                      </Button> */}
                     </div>
 
                     <div key={formKey}>
                       <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="xl">
-                        <Select
-                          label="Year From"
-                          placeholder="Select year from"
-                          data={dropdownData?.years || []}
-                          value={vehicleFilters.yearFrom}
-                          onChange={(value) => {
-                            console.log("Year From selected:", value);
-                            setVehicleFilters((prev) => {
-                              const newYearFrom = value || "";
-                              let newYearTo = prev.yearTo;
-                              if (
-                                newYearFrom &&
-                                prev.yearTo &&
-                                parseInt(prev.yearTo) <= parseInt(newYearFrom)
-                              ) {
-                                newYearTo = "";
-                              }
-                              return {
-                                ...prev,
-                                yearFrom: newYearFrom,
-                                yearTo: newYearTo,
-                              };
-                            });
-                          }}
-                          searchable
-                          disabled={loadingDropdownData}
-                          leftSection={
-                            <IconCalendar size={16} color="#64748b" />
-                          }
-                        />
-
-                        <Select
-                          label="Year To"
-                          placeholder="Select year to"
-                          data={
-                            dropdownData?.years
-                              ? dropdownData?.years?.filter(
-                                  (year: { value: string }) => {
-                                    if (!vehicleFilters.yearFrom) return true;
-                                    return year.value > vehicleFilters.yearFrom;
+                        {/* Render only configured base fields if present in configuration */}
+                        {configuredFilters.length === 0 && (
+                          <>
+                            <Select
+                              label="Year From"
+                              placeholder="Select year from"
+                              data={dropdownData?.years || []}
+                              value={vehicleFilters.yearFrom}
+                              onChange={(value) => {
+                                console.log("Year From selected:", value);
+                                setVehicleFilters((prev) => {
+                                  const newYearFrom = value || "";
+                                  let newYearTo = prev.yearTo;
+                                  if (
+                                    newYearFrom &&
+                                    prev.yearTo &&
+                                    parseInt(prev.yearTo) <=
+                                      parseInt(newYearFrom)
+                                  ) {
+                                    newYearTo = "";
                                   }
-                                )
-                              : []
+                                  return {
+                                    ...prev,
+                                    yearFrom: newYearFrom,
+                                    yearTo: newYearTo,
+                                  };
+                                });
+                              }}
+                              searchable
+                              disabled={loadingDropdownData}
+                              leftSection={
+                                <IconCalendar size={16} color="#64748b" />
+                              }
+                            />
 
-                            // dropdownData?.years || []
+                            <Select
+                              label="Year To"
+                              placeholder="Select year to"
+                              data={
+                                dropdownData?.years
+                                  ? dropdownData?.years?.filter(
+                                      (year: { value: string }) => {
+                                        if (!vehicleFilters.yearFrom)
+                                          return true;
+                                        return (
+                                          year.value > vehicleFilters.yearFrom
+                                        );
+                                      }
+                                    )
+                                  : []
+
+                                // dropdownData?.years || []
+                              }
+                              value={vehicleFilters.yearTo}
+                              onChange={(value) =>
+                                setVehicleFilters((prev) => ({
+                                  ...prev,
+                                  yearTo: value || "",
+                                }))
+                              }
+                              searchable
+                              disabled={loadingDropdownData}
+                              leftSection={
+                                <IconCalendar size={16} color="#64748b" />
+                              }
+                            />
+                            <Select
+                              label="Make"
+                              placeholder="Select make"
+                              data={dropdownData?.makes || []}
+                              value={vehicleFilters.make}
+                              onChange={(value) => {
+                                console.log("Make selected:", value);
+                                setVehicleFilters((prev) => ({
+                                  ...prev,
+                                  make: value || "",
+                                }));
+                              }}
+                              searchable
+                              disabled={loadingDropdownData}
+                              leftSection={
+                                <IconCar size={16} color="#64748b" />
+                              }
+                            />
+                            <Select
+                              label="Model"
+                              placeholder="Select model"
+                              data={dropdownData?.models || []}
+                              value={vehicleFilters.model}
+                              onChange={(value) => {
+                                console.log("Model selected:", value);
+                                setVehicleFilters((prev) => ({
+                                  ...prev,
+                                  model: value || "",
+                                }));
+                              }}
+                              searchable
+                              disabled={loadingDropdownData}
+                              leftSection={
+                                <IconCar size={16} color="#64748b" />
+                              }
+                            />
+                            <Select
+                              label="Submodel"
+                              placeholder="Select submodel"
+                              data={dropdownData?.submodels || []}
+                              value={vehicleFilters.submodel}
+                              onChange={(value) =>
+                                setVehicleFilters((prev) => ({
+                                  ...prev,
+                                  submodel: value || "",
+                                }))
+                              }
+                              searchable
+                              disabled={loadingDropdownData}
+                              leftSection={
+                                <IconCar size={16} color="#64748b" />
+                              }
+                            />
+                            <Select
+                              label="Fuel Type"
+                              placeholder="Select fuel type"
+                              data={dropdownData?.fuel_types || []}
+                              value={vehicleFilters.fuelType}
+                              onChange={(value) =>
+                                setVehicleFilters((prev) => ({
+                                  ...prev,
+                                  fuelType: value || "",
+                                }))
+                              }
+                              searchable
+                              disabled={loadingDropdownData}
+                              leftSection={
+                                <IconGasStation size={16} color="#64748b" />
+                              }
+                            />
+                            <Select
+                              label="Number of Doors"
+                              placeholder="Select doors"
+                              data={dropdownData?.num_doors || []}
+                              value={vehicleFilters.numDoors}
+                              onChange={(value) =>
+                                setVehicleFilters((prev) => ({
+                                  ...prev,
+                                  numDoors: value || "",
+                                }))
+                              }
+                              searchable
+                              disabled={loadingDropdownData}
+                              leftSection={
+                                <IconDoor size={16} color="#64748b" />
+                              }
+                            />
+                            <Select
+                              label="Drive Type"
+                              placeholder="Select drive type"
+                              data={dropdownData?.drive_types || []}
+                              value={vehicleFilters.driveType}
+                              onChange={(value) =>
+                                setVehicleFilters((prev) => ({
+                                  ...prev,
+                                  driveType: value || "",
+                                }))
+                              }
+                              searchable
+                              disabled={loadingDropdownData}
+                              leftSection={
+                                <IconSettings size={16} color="#64748b" />
+                              }
+                            />
+                            <Select
+                              label="Body Type"
+                              placeholder="Select body type"
+                              data={dropdownData?.body_types || []}
+                              value={vehicleFilters.bodyType}
+                              onChange={(value) =>
+                                setVehicleFilters((prev) => ({
+                                  ...prev,
+                                  bodyType: value || "",
+                                }))
+                              }
+                              searchable
+                              disabled={loadingDropdownData}
+                              leftSection={
+                                <IconCar size={16} color="#64748b" />
+                              }
+                            />
+                          </>
+                        )}
+
+                        {configuredFilters.map((field) => {
+                          // Special handling for year field - show Year From and Year To
+                          if (field.fieldName === "year_range") {
+                            return (
+                              <React.Fragment key={`cfg-${field.fieldName}`}>
+                                <Select
+                                  label="Year From"
+                                  placeholder="Select year from"
+                                  data={dropdownData?.[field.key] || []}
+                                  value={vehicleFilters.yearFrom || ""}
+                                  onChange={(value) =>
+                                    setVehicleFilters((prev) => ({
+                                      ...prev,
+                                      yearFrom: value || "",
+                                    }))
+                                  }
+                                  searchable
+                                  disabled={loadingDropdownData}
+                                  required={field.required}
+                                />
+                                <Select
+                                  label="Year To"
+                                  placeholder="Select year to"
+                                  data={dropdownData?.[field.key] || []}
+                                  value={vehicleFilters.yearTo || ""}
+                                  onChange={(value) =>
+                                    setVehicleFilters((prev) => ({
+                                      ...prev,
+                                      yearTo: value || "",
+                                    }))
+                                  }
+                                  searchable
+                                  disabled={loadingDropdownData}
+                                  required={field.required}
+                                />
+                              </React.Fragment>
+                            );
                           }
-                          value={vehicleFilters.yearTo}
-                          onChange={(value) =>
-                            setVehicleFilters((prev) => ({
-                              ...prev,
-                              yearTo: value || "",
-                            }))
-                          }
-                          searchable
-                          disabled={loadingDropdownData}
-                          leftSection={
-                            <IconCalendar size={16} color="#64748b" />
-                          }
-                        />
-                        <Select
-                          label="Make"
-                          placeholder="Select make"
-                          data={dropdownData?.makes || []}
-                          value={vehicleFilters.make}
-                          onChange={(value) => {
-                            console.log("Make selected:", value);
-                            setVehicleFilters((prev) => ({
-                              ...prev,
-                              make: value || "",
-                            }));
-                          }}
-                          searchable
-                          disabled={loadingDropdownData}
-                          leftSection={<IconCar size={16} color="#64748b" />}
-                        />
-                        <Select
-                          label="Model"
-                          placeholder="Select model"
-                          data={dropdownData?.models || []}
-                          value={vehicleFilters.model}
-                          onChange={(value) => {
-                            console.log("Model selected:", value);
-                            setVehicleFilters((prev) => ({
-                              ...prev,
-                              model: value || "",
-                            }));
-                          }}
-                          searchable
-                          disabled={loadingDropdownData}
-                          leftSection={<IconCar size={16} color="#64748b" />}
-                        />
-                        <Select
-                          label="Submodel"
-                          placeholder="Select submodel"
-                          data={dropdownData?.submodels || []}
-                          value={vehicleFilters.submodel}
-                          onChange={(value) =>
-                            setVehicleFilters((prev) => ({
-                              ...prev,
-                              submodel: value || "",
-                            }))
-                          }
-                          searchable
-                          disabled={loadingDropdownData}
-                          leftSection={<IconCar size={16} color="#64748b" />}
-                        />
-                        <Select
-                          label="Fuel Type"
-                          placeholder="Select fuel type"
-                          data={dropdownData?.fuel_types || []}
-                          value={vehicleFilters.fuelType}
-                          onChange={(value) =>
-                            setVehicleFilters((prev) => ({
-                              ...prev,
-                              fuelType: value || "",
-                            }))
-                          }
-                          searchable
-                          disabled={loadingDropdownData}
-                          leftSection={
-                            <IconGasStation size={16} color="#64748b" />
-                          }
-                        />
-                        <Select
-                          label="Number of Doors"
-                          placeholder="Select doors"
-                          data={dropdownData?.num_doors || []}
-                          value={vehicleFilters.numDoors}
-                          onChange={(value) =>
-                            setVehicleFilters((prev) => ({
-                              ...prev,
-                              numDoors: value || "",
-                            }))
-                          }
-                          searchable
-                          disabled={loadingDropdownData}
-                          leftSection={<IconDoor size={16} color="#64748b" />}
-                        />
-                        <Select
-                          label="Drive Type"
-                          placeholder="Select drive type"
-                          data={dropdownData?.drive_types || []}
-                          value={vehicleFilters.driveType}
-                          onChange={(value) =>
-                            setVehicleFilters((prev) => ({
-                              ...prev,
-                              driveType: value || "",
-                            }))
-                          }
-                          searchable
-                          disabled={loadingDropdownData}
-                          leftSection={
-                            <IconSettings size={16} color="#64748b" />
-                          }
-                        />
-                        <Select
-                          label="Body Type"
-                          placeholder="Select body type"
-                          data={dropdownData?.body_types || []}
-                          value={vehicleFilters.bodyType}
-                          onChange={(value) =>
-                            setVehicleFilters((prev) => ({
-                              ...prev,
-                              bodyType: value || "",
-                            }))
-                          }
-                          searchable
-                          disabled={loadingDropdownData}
-                          leftSection={<IconCar size={16} color="#64748b" />}
-                        />
+
+                          // Regular field rendering
+                          return (
+                            <Select
+                              key={`cfg-${field.fieldName}`}
+                              label={field.name}
+                              placeholder={`Select ${field.name}`}
+                              data={dropdownData?.[field.key] || []}
+                              value={
+                                (dynamicVcdbFields as any)[field.fieldName] ||
+                                ""
+                              }
+                              onChange={(value) =>
+                                updateDynamicVcdbField(field.fieldName, value)
+                              }
+                              searchable
+                              disabled={loadingDropdownData}
+                              required={field.required}
+                            />
+                          );
+                        })}
                       </SimpleGrid>
 
                       {/* Dynamic VCDB Fields */}
@@ -2047,36 +2272,112 @@ export default function ApplyFitments() {
                           }
 
                           try {
-                            // Merge filters, but only include non-empty values from dynamicVcdbFields
-                            const filteredDynamicFields = Object.fromEntries(
-                              Object.entries(dynamicVcdbFields).filter(
-                                ([, value]) => value && value !== ""
-                              )
-                            );
+                            // Include VehicleTypeGroup filter from entity config (values like 'vtg:<id>')
+                            const selectedGroups = Array.isArray(
+                              currentEntity?.fitment_settings?.vcdb_categories
+                            )
+                              ? currentEntity?.fitment_settings?.vcdb_categories
+                                  .filter(
+                                    (v: string) =>
+                                      typeof v === "string" &&
+                                      v.startsWith("vtg:")
+                                  )
+                                  .map((v: string) => v.replace("vtg:", ""))
+                              : [];
 
-                            const searchCriteria = {
-                              ...filteredDynamicFields,
-                              ...vehicleFilters, // Static filters take precedence
-                            };
-
-                            // Use new VCDB vehicle search API
+                            // Use new VCDB vehicle search API with correct parameter mapping
                             const searchParams: any = {};
-                            Object.entries(searchCriteria).forEach(
+
+                            // Add vehicle filters (yearFrom, yearTo, make, model, etc.)
+                            Object.entries(vehicleFilters).forEach(
                               ([key, value]) => {
                                 if (value && value !== "") {
-                                  searchParams[key] = String(value);
+                                  // Map vehicle filter keys to API parameter names
+                                  const vehicleFilterToApiMap: Record<
+                                    string,
+                                    string
+                                  > = {
+                                    yearFrom: "yearFrom",
+                                    yearTo: "yearTo",
+                                    make: "make",
+                                    model: "model",
+                                    submodel: "submodel",
+                                    fuelType: "fuelType",
+                                    numDoors: "num_doors",
+                                    driveType: "driveType",
+                                    bodyType: "bodyType",
+                                  };
+                                  const apiParam =
+                                    vehicleFilterToApiMap[key] || key;
+                                  searchParams[apiParam] = String(value);
                                 }
                               }
                             );
 
-                            console.log("Search criteria:", searchCriteria);
+                            // Add dynamic VCDB fields
+                            Object.entries(dynamicVcdbFields).forEach(
+                              ([key, value]) => {
+                                if (!value) return;
+                                // Map field names to API parameter names
+                                const fieldToApiParamMap: Record<
+                                  string,
+                                  string
+                                > = {
+                                  // Year range
+                                  yearFrom: "yearFrom",
+                                  yearTo: "yearTo",
+                                  // Basic vehicle fields
+                                  make: "make",
+                                  model: "model",
+                                  submodel: "submodel",
+                                  fuelType: "fuelType",
+                                  numDoors: "num_doors",
+                                  driveType: "driveType", // Fixed: direct mapping for driveType
+                                  bodyType: "bodyType",
+                                  // Dynamic VCDB fields
+                                  engine_base: "engineBase",
+                                  engine_vin_code: "engineVin",
+                                  engine_vin: "engineVin",
+                                  engine_block_type: "engineBlock",
+                                  engine_cylinders: "cylinderHeadType",
+                                  transmission_type: "transmissionType",
+                                  transmission_speeds: "transmissionSpeeds",
+                                  transmission_control_type:
+                                    "transmissionControlType",
+                                  bed_type: "bedType",
+                                  bed_length: "bedLength",
+                                  wheelbase: "wheelbase",
+                                  region: "region",
+                                };
+
+                                const apiParam = fieldToApiParamMap[key] || key;
+                                if (apiParam) {
+                                  searchParams[apiParam] = String(value);
+                                }
+                              }
+                            );
+
+                            // Add vehicle type group filter
+                            if (selectedGroups.length > 0) {
+                              searchParams["vehicleTypeGroup"] =
+                                selectedGroups.join(",");
+                            }
+
                             console.log("Search params:", searchParams);
                             console.log("Vehicle filters:", vehicleFilters);
                             console.log(
                               "Dynamic VCDB fields:",
                               dynamicVcdbFields
                             );
-                            console.log("Dropdown data:", dropdownData);
+                            console.log("Selected groups:", selectedGroups);
+                            console.log(
+                              "Drive Type value:",
+                              vehicleFilters.driveType
+                            );
+                            console.log(
+                              "Drive Type in dynamicVcdbFields:",
+                              dynamicVcdbFields.driveType
+                            );
 
                             const response = await vcdbService.searchVehicles(
                               searchParams

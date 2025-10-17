@@ -40,6 +40,7 @@ import {
 } from "@tabler/icons-react";
 import { useParams, useLocation } from "react-router-dom";
 import apiClient from "../api/client";
+import { vcdbService } from "../api/services";
 import { useProfessionalToast } from "../hooks/useProfessionalToast";
 
 interface Entity {
@@ -84,13 +85,7 @@ interface EntityFormData {
   uploaded_files: File[];
 }
 
-interface VCDBCategory {
-  id: string;
-  name: string;
-  version: string;
-  is_valid: boolean;
-  record_count: number;
-}
+// Removed VCDBCategory interface as categories list now comes solely from VehicleTypeGroups API
 
 interface FitmentJob {
   id: string;
@@ -107,7 +102,7 @@ interface FitmentJob {
 
 // VCDB Field Options
 
-const VCDB_FIELDS = [
+const VCDB_REQUIRED_FIELDS = [
   "Year (model year)",
   "Make (manufacturer, e.g., Ford, Toyota)",
   "Model (e.g., F-150, Camry)",
@@ -116,6 +111,9 @@ const VCDB_FIELDS = [
   "Body Number of Doors (2-door, 4-door, etc.)",
   "Drive Type (FWD, RWD, AWD, 4WD)",
   "Fuel Type (Gasoline, Diesel, Hybrid, Electric)",
+];
+
+const VCDB_OPTIONAL_FIELDS = [
   "Engine Base (engine code or family ID)",
   "Engine Liter (e.g., 2.0L, 5.7L)",
   "Engine Cylinders (e.g., I4, V6, V8)",
@@ -161,7 +159,8 @@ const EditEntity: React.FC = () => {
   const [navigatingBack, setNavigatingBack] = useState(false);
 
   // New state for VCDB categories and jobs
-  const [vcdbCategories, setVcdbCategories] = useState<VCDBCategory[]>([]);
+  // Categories now sourced only from VehicleTypeGroups
+  const [vehicleTypeGroups, setVehicleTypeGroups] = useState<any[]>([]);
   const [fitmentJobs, setFitmentJobs] = useState<FitmentJob[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [loadingJobs, setLoadingJobs] = useState(false);
@@ -170,6 +169,18 @@ const EditEntity: React.FC = () => {
   const [checkingFiles, setCheckingFiles] = useState(false);
   const [uploadHistory, setUploadHistory] = useState<any[]>([]);
   const [loadingUploadHistory, setLoadingUploadHistory] = useState(false);
+
+  // Default required VCDB fields
+  const DEFAULT_REQUIRED_VCDB_FIELDS = [
+    "Year (model year)",
+    "Make (manufacturer, e.g., Ford, Toyota)",
+    "Model (e.g., F-150, Camry)",
+    "Submodel / Trim (e.g., XLT, Limited, SE)",
+    "Fuel Type (Gasoline, Diesel, Hybrid, Electric)",
+    "Body Number of Doors (2-door, 4-door, etc.)",
+    "Drive Type (FWD, RWD, AWD, 4WD)",
+    "Body Type (e.g., Sedan, SUV, Pickup)",
+  ];
 
   const [formData, setFormData] = useState<EntityFormData>({
     name: "",
@@ -184,7 +195,7 @@ const EditEntity: React.FC = () => {
     default_fitment_method: "manual",
     // Fitments Configuration
     vcdb_categories: [],
-    required_vcdb_fields: [],
+    required_vcdb_fields: DEFAULT_REQUIRED_VCDB_FIELDS,
     optional_vcdb_fields: [],
     // Products Configuration
     required_product_fields: [],
@@ -222,7 +233,7 @@ const EditEntity: React.FC = () => {
           required_vcdb_fields:
             fitmentSettings.required_vcdb_fields ||
             entityData.required_vcdb_fields ||
-            [],
+            DEFAULT_REQUIRED_VCDB_FIELDS,
           optional_vcdb_fields:
             fitmentSettings.optional_vcdb_fields ||
             entityData.optional_vcdb_fields ||
@@ -255,15 +266,14 @@ const EditEntity: React.FC = () => {
 
     try {
       setLoadingCategories(true);
-      const response = await apiClient.get(
-        `/api/vcdb-categories/categories/?tenant_id=${id}`,
-        {
-          headers: {
-            "X-Tenant-ID": id, // Override with the specific entity ID from URL
-          },
-        }
+      const vtgResp = await vcdbService.getVehicleTypeGroups();
+      const vtg = (vtgResp.data?.results || vtgResp.data || []).map(
+        (g: any) => ({
+          value: `vtg:${g.vehicle_type_group_id}`,
+          label: `Vehicle Type Group: ${g.vehicle_type_group_name}`,
+        })
       );
-      setVcdbCategories(response.data);
+      setVehicleTypeGroups(vtg);
     } catch (error) {
       showError("Failed to load VCDB categories");
     } finally {
@@ -527,6 +537,9 @@ const EditEntity: React.FC = () => {
       // Refresh entity data to get updated info
       const response = await apiClient.get(`/api/tenants/${entity.id}/`);
       setEntity(response.data);
+
+      // Update localStorage with the updated entity data
+      localStorage.setItem("current_entity", JSON.stringify(response.data));
 
       showSuccess("Settings updated successfully");
     } catch (error: any) {
@@ -979,10 +992,7 @@ const EditEntity: React.FC = () => {
                       <MultiSelect
                         label="VCDB Categories"
                         placeholder="Select VCDB categories"
-                        data={vcdbCategories.map((cat) => ({
-                          value: cat.id,
-                          label: `${cat.name} (${cat.version}) - ${cat.record_count} records`,
-                        }))}
+                        data={vehicleTypeGroups}
                         value={formData.vcdb_categories}
                         onChange={(value) =>
                           setFormData({ ...formData, vcdb_categories: value })
@@ -1021,7 +1031,7 @@ const EditEntity: React.FC = () => {
                       <MultiSelect
                         label="Required VCDB Fields"
                         placeholder="Select required fields"
-                        data={VCDB_FIELDS}
+                        data={VCDB_REQUIRED_FIELDS}
                         value={formData.required_vcdb_fields}
                         onChange={(value) =>
                           setFormData({
@@ -1048,10 +1058,7 @@ const EditEntity: React.FC = () => {
                       <MultiSelect
                         label="Optional VCDB Fields"
                         placeholder="Select optional fields"
-                        data={VCDB_FIELDS.filter(
-                          (field) =>
-                            !formData.required_vcdb_fields.includes(field)
-                        )}
+                        data={VCDB_OPTIONAL_FIELDS}
                         value={formData.optional_vcdb_fields}
                         onChange={(value) =>
                           setFormData({
