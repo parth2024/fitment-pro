@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Container,
   Title,
@@ -42,6 +42,7 @@ import {
 } from "@tabler/icons-react";
 import { useEntity } from "../hooks/useEntity";
 import apiClient from "../api/client";
+import { vcdbService } from "../api/services";
 import { notifications } from "@mantine/notifications";
 
 interface Entity {
@@ -72,12 +73,7 @@ interface EntityFormData {
   is_default: boolean;
 }
 
-// VCDB Options
-const VCDB_OPTIONS = [
-  "Light Duty & Powersports, North America",
-  "Medium & Heavy Duty Trucks (Classes 4–8), North America",
-  "Off-Highway & Equipment, North America",
-];
+// Removed static VCDB options; using live VehicleTypeGroups API
 
 // Required VCDB Fields (first 8 + engine type)
 const REQUIRED_VCDB_FIELDS = [
@@ -143,7 +139,8 @@ interface UploadedFile {
 }
 
 const EntityManagementEnhanced: React.FC = () => {
-  const { entities, loading, error, refreshEntities } = useEntity();
+  const { entities, loading, error, refreshEntities, currentEntity } =
+    useEntity();
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -160,14 +157,43 @@ const EntityManagementEnhanced: React.FC = () => {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  // Default required VCDB fields
+  const DEFAULT_REQUIRED_VCDB_FIELDS = [
+    "Year (model year)",
+    "Make (manufacturer, e.g., Ford, Toyota)",
+    "Model (e.g., F-150, Camry)",
+    "Submodel / Trim (e.g., XLT, Limited, SE)",
+    "Fuel Type (Gasoline, Diesel, Hybrid, Electric)",
+    "Body Number of Doors (2-door, 4-door, etc.)",
+    "Drive Type (FWD, RWD, AWD, 4WD)",
+    "Body Type (e.g., Sedan, SUV, Pickup)",
+  ];
+
   // Fitments and Products Configuration State
   const [vcdbConfig, setVcdbConfig] = useState<VCDBConfiguration>({
     selectedVCDB: [],
-    requiredFields: [],
+    requiredFields: DEFAULT_REQUIRED_VCDB_FIELDS,
     optionalFields: [],
     fieldSequence: {},
     defaultFitmentMode: "manual",
   });
+  const [vehicleTypeGroups, setVehicleTypeGroups] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadVtgs = async () => {
+      try {
+        const resp = await vcdbService.getVehicleTypeGroups();
+        const vtg = (resp.data?.results || resp.data || []).map((g: any) => ({
+          value: `vtg:${g.vehicle_type_group_id}`,
+          label: `Vehicle Type Group: ${g.vehicle_type_group_name}`,
+        }));
+        setVehicleTypeGroups(vtg);
+      } catch (_) {
+        // ignore
+      }
+    };
+    loadVtgs();
+  }, []);
 
   const [productConfig, setProductConfig] = useState<ProductConfiguration>({
     requiredFields: [],
@@ -208,6 +234,15 @@ const EntityManagementEnhanced: React.FC = () => {
     try {
       setSubmitting(true);
       await apiClient.put(`/api/tenants/${selectedEntity.id}/`, formData);
+
+      // Update localStorage with the updated entity data if it's the current entity
+      if (selectedEntity.id === currentEntity?.id) {
+        const response = await apiClient.get(
+          `/api/tenants/${selectedEntity.id}/`
+        );
+        localStorage.setItem("current_entity", JSON.stringify(response.data));
+      }
+
       notifications.show({
         title: "Success",
         message: "Entity updated successfully",
@@ -766,7 +801,7 @@ const EntityManagementEnhanced: React.FC = () => {
                     <MultiSelect
                       label="VCDB Categories"
                       placeholder="Select VCDB categories"
-                      data={VCDB_OPTIONS}
+                      data={vehicleTypeGroups}
                       value={vcdbConfig.selectedVCDB}
                       onChange={(value) =>
                         setVcdbConfig((prev) => ({

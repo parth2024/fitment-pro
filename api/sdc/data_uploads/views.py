@@ -1169,6 +1169,8 @@ def get_vcdb_data(request):
             try:
                 from tenants.models import Tenant
                 from vcdb_categories.models import VCDBData as GlobalVCDBData
+                import uuid as _uuid
+                import uuid as _uuid
                 
                 tenant = Tenant.objects.get(id=tenant_id)
                 
@@ -1406,10 +1408,18 @@ def get_data_status(request):
                 
                 # Check if tenant has selected VCDB categories in their settings
                 selected_categories = tenant.fitment_settings.get('vcdb_categories', [])
+
+                # Filter only valid UUIDs (ignore non-UUID identifiers such as VehicleTypeGroup placeholders)
+                valid_category_ids = []
+                for cid in selected_categories:
+                    try:
+                        valid_category_ids.append(_uuid.UUID(str(cid)))
+                    except Exception:
+                        continue
                 
-                if selected_categories and len(selected_categories) > 0:
-                    # Use global VCDB categories data
-                    vcdb_queryset = GlobalVCDBData.objects.filter(category_id__in=selected_categories)
+                if valid_category_ids:
+                    # Use global VCDB categories data (UUIDs only)
+                    vcdb_queryset = GlobalVCDBData.objects.filter(category_id__in=valid_category_ids)
                 else:
                     # Fall back to tenant-specific VCDB data
                     vcdb_queryset = VCDBData.objects.filter(tenant=tenant)
@@ -1487,10 +1497,19 @@ def get_dropdown_data(request):
                 
                 # Check if tenant has selected VCDB categories in their settings
                 selected_categories = tenant.fitment_settings.get('vcdb_categories', [])
+
+                # Filter only valid UUIDs (ignore non-UUID values like VehicleTypeGroup placeholders)
+                valid_category_ids = []
+                for cid in selected_categories:
+                    try:
+                        valid_category_ids.append(_uuid.UUID(str(cid)))
+                    except Exception:
+                        # Ignore non-UUID identifiers
+                        continue
                 
-                if selected_categories and len(selected_categories) > 0:
-                    # Use global VCDB categories data filtered by selected categories
-                    vcdb_queryset = GlobalVCDBData.objects.filter(category_id__in=selected_categories)
+                if valid_category_ids:
+                    # Use global VCDB categories data filtered by selected categories (UUIDs only)
+                    vcdb_queryset = GlobalVCDBData.objects.filter(category_id__in=valid_category_ids)
                     logger.info(f"Using global VCDB categories: {selected_categories} for tenant {tenant.name}")
                 else:
                     # Fall back to tenant-specific VCDB data

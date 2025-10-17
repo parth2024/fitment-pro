@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (
     Make, Model, SubModel, Region, PublicationStage, Year, BaseVehicle, DriveType, FuelType,
-    BodyNumDoors, BodyType, BodyStyleConfig, EngineConfig, Vehicle,
+    BodyNumDoors, BodyType, BodyStyleConfig, EngineConfig, Vehicle, VehicleTypeGroup,
     VehicleToDriveType, VehicleToBodyStyleConfig, VehicleToEngineConfig,
     VCDBSyncLog
 )
@@ -179,6 +179,12 @@ class VCDBSyncLogSerializer(serializers.ModelSerializer):
             seconds = obj.duration_seconds % 60
             return f"{minutes}m {seconds}s"
         return None
+
+
+class VehicleTypeGroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VehicleTypeGroup
+        fields = '__all__'
 
 
 # Search and filter serializers for frontend

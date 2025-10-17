@@ -16,7 +16,7 @@ import {
   IconBuilding,
   // IconUpload,
   IconFile,
-  IconDatabase,
+  // IconDatabase,
 } from "@tabler/icons-react";
 import {
   Routes,
@@ -111,13 +111,13 @@ const baseNavigationItems = [
 
 // Admin-only navigation items
 const adminNavigationItems: any = [
-  {
-    label: "VCDB Data",
-    value: "vcdb-data",
-    path: "/vcdb-data",
-    icon: IconDatabase,
-    color: "cyan",
-  },
+  // {
+  //   label: "VCDB Data",
+  //   value: "vcdb-data",
+  //   path: "/vcdb-data",
+  //   icon: IconDatabase,
+  //   color: "cyan",
+  // },
 ];
 
 // Function to get navigation items based on user role

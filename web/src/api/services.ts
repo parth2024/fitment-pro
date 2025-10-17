@@ -135,6 +135,7 @@ export const vcdbService = {
     apiClient.get("/api/vcdb/vehicle-dropdown-data"),
   searchVehicles: (params?: any) =>
     apiClient.get("/api/vcdb/vehicle-search", { params }),
+  getVehicleTypeGroups: () => apiClient.get("/api/vcdb/vehicle-type-groups/"),
 };
 
 export const partsService = {
