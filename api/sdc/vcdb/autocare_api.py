@@ -184,11 +184,144 @@ class AutoCareAPIClient:
         """Fetch all years from AutoCare API"""
         return self._make_request("Year")
     
+    # Additional API methods for extended VCDB support
+    def get_abbreviations(self) -> Optional[List[Dict]]:
+        """Fetch all abbreviations from AutoCare API"""
+        return self._make_request("Abbreviation")
+    
+    def get_aspirations(self) -> Optional[List[Dict]]:
+        """Fetch all aspirations from AutoCare API"""
+        return self._make_request("Aspiration")
+    
+    def get_bed_configs(self) -> Optional[List[Dict]]:
+        """Fetch all bed configs from AutoCare API"""
+        return self._make_request("BedConfig")
+    
+    def get_bed_lengths(self) -> Optional[List[Dict]]:
+        """Fetch all bed lengths from AutoCare API"""
+        return self._make_request("BedLength")
+    
+    def get_bed_types(self) -> Optional[List[Dict]]:
+        """Fetch all bed types from AutoCare API"""
+        return self._make_request("BedType")
+    
+    def get_brake_abs(self) -> Optional[List[Dict]]:
+        """Fetch all brake ABS from AutoCare API"""
+        return self._make_request("BrakeABS")
+    
+    def get_brake_configs(self) -> Optional[List[Dict]]:
+        """Fetch all brake configs from AutoCare API"""
+        return self._make_request("BrakeConfig")
+    
+    def get_brake_systems(self) -> Optional[List[Dict]]:
+        """Fetch all brake systems from AutoCare API"""
+        return self._make_request("BrakeSystem")
+    
+    def get_brake_types(self) -> Optional[List[Dict]]:
+        """Fetch all brake types from AutoCare API"""
+        return self._make_request("BrakeType")
+    
+    def get_classes(self) -> Optional[List[Dict]]:
+        """Fetch all classes from AutoCare API"""
+        return self._make_request("Class")
+    
+    def get_cylinder_head_types(self) -> Optional[List[Dict]]:
+        """Fetch all cylinder head types from AutoCare API"""
+        return self._make_request("CylinderHeadType")
+    
+    def get_elec_controlled(self) -> Optional[List[Dict]]:
+        """Fetch all electronic controlled from AutoCare API"""
+        return self._make_request("ElecControlled")
+    
+    def get_engine_bases(self) -> Optional[List[Dict]]:
+        """Fetch all engine bases from AutoCare API"""
+        return self._make_request("EngineBase")
+    
+    # Even more endpoints
+    def get_engine_blocks(self) -> Optional[List[Dict]]:
+        return self._make_request("EngineBlock")
+    def get_engine_bore_strokes(self) -> Optional[List[Dict]]:
+        return self._make_request("EngineBoreStroke")
+    def get_engine_base2(self) -> Optional[List[Dict]]:
+        return self._make_request("EngineBase2")
+    def get_engine_designations(self) -> Optional[List[Dict]]:
+        return self._make_request("EngineDesignation")
+    def get_engine_vins(self) -> Optional[List[Dict]]:
+        return self._make_request("EngineVIN")
+    def get_engine_versions(self) -> Optional[List[Dict]]:
+        return self._make_request("EngineVersion")
+    def get_fuel_delivery_types(self) -> Optional[List[Dict]]:
+        return self._make_request("FuelDeliveryType")
+    def get_fuel_delivery_sub_types(self) -> Optional[List[Dict]]:
+        return self._make_request("FuelDeliverySubType")
+    def get_fuel_system_control_types(self) -> Optional[List[Dict]]:
+        return self._make_request("FuelSystemControlType")
+    def get_fuel_system_designs(self) -> Optional[List[Dict]]:
+        return self._make_request("FuelSystemDesign")
+    def get_ignition_system_types(self) -> Optional[List[Dict]]:
+        return self._make_request("IgnitionSystemType")
+    def get_mfrs(self) -> Optional[List[Dict]]:
+        return self._make_request("Mfr")
+    def get_mfr_body_codes(self) -> Optional[List[Dict]]:
+        return self._make_request("MfrBodyCode")
+    def get_power_outputs(self) -> Optional[List[Dict]]:
+        return self._make_request("PowerOutput")
+    def get_spring_types(self) -> Optional[List[Dict]]:
+        return self._make_request("SpringType")
+    def get_spring_type_configs(self) -> Optional[List[Dict]]:
+        return self._make_request("SpringTypeConfig")
+    def get_steering_types(self) -> Optional[List[Dict]]:
+        return self._make_request("SteeringType")
+    def get_steering_systems(self) -> Optional[List[Dict]]:
+        return self._make_request("SteeringSystem")
+    def get_steering_configs(self) -> Optional[List[Dict]]:
+        return self._make_request("SteeringConfig")
+    def get_transmission_types(self) -> Optional[List[Dict]]:
+        return self._make_request("TransmissionType")
+    def get_transmission_num_speeds(self) -> Optional[List[Dict]]:
+        return self._make_request("TransmissionNumSpeeds")
+    def get_transmission_control_types(self) -> Optional[List[Dict]]:
+        return self._make_request("TransmissionControlType")
+    def get_transmission_bases(self) -> Optional[List[Dict]]:
+        return self._make_request("TransmissionBase")
+    def get_transmission_mfr_codes(self) -> Optional[List[Dict]]:
+        return self._make_request("TransmissionMfrCode")
+    def get_transmissions(self) -> Optional[List[Dict]]:
+        return self._make_request("Transmission")
+    def get_valves(self) -> Optional[List[Dict]]:
+        return self._make_request("Valves")
+    def get_vehicle_type_groups(self) -> Optional[List[Dict]]:
+        return self._make_request("VehicleTypeGroup")
+    def get_vehicle_types(self) -> Optional[List[Dict]]:
+        return self._make_request("VehicleType")
+    def get_wheelbases(self) -> Optional[List[Dict]]:
+        return self._make_request("WheelBase")
+    # Vehicle-to-* relationships
+    def get_vehicle_to_bed_configs(self) -> Optional[List[Dict]]:
+        return self._make_request("VehicleToBedConfig")
+    def get_vehicle_to_body_configs(self) -> Optional[List[Dict]]:
+        return self._make_request("VehicleToBodyConfig")
+    def get_vehicle_to_brake_configs(self) -> Optional[List[Dict]]:
+        return self._make_request("VehicleToBrakeConfig")
+    def get_vehicle_to_classes(self) -> Optional[List[Dict]]:
+        return self._make_request("VehicleToClass")
+    def get_vehicle_to_mfr_body_codes(self) -> Optional[List[Dict]]:
+        return self._make_request("VehicleToMfrBodyCode")
+    def get_vehicle_to_spring_type_configs(self) -> Optional[List[Dict]]:
+        return self._make_request("VehicleToSpringTypeConfig")
+    def get_vehicle_to_steering_configs(self) -> Optional[List[Dict]]:
+        return self._make_request("VehicleToSteeringConfig")
+    def get_vehicle_to_transmissions(self) -> Optional[List[Dict]]:
+        return self._make_request("VehicleToTransmission")
+    def get_vehicle_to_wheelbases(self) -> Optional[List[Dict]]:
+        return self._make_request("VehicleToWheelbase")
+    
     def get_all_data(self) -> Dict[str, Optional[List[Dict]]]:
         """Fetch all VCDB data from AutoCare API"""
         logger.info("Starting comprehensive VCDB data fetch...")
         
         data = {
+            # Original VCDB tables
             'makes': self.get_makes(),
             'models': self.get_models(),
             'submodels': self.get_submodels(),
@@ -206,6 +339,59 @@ class AutoCareAPIClient:
             'vehicle_to_body_style_configs': self.get_vehicle_to_body_style_configs(),
             'vehicle_to_engine_configs': self.get_vehicle_to_engine_configs(),
             'body_types': self.get_body_types(),
+            
+            # Additional VCDB tables
+            'abbreviations': self.get_abbreviations(),
+            'aspirations': self.get_aspirations(),
+            'bed_configs': self.get_bed_configs(),
+            'bed_lengths': self.get_bed_lengths(),
+            'bed_types': self.get_bed_types(),
+            'brake_abs': self.get_brake_abs(),
+            'brake_configs': self.get_brake_configs(),
+            'brake_systems': self.get_brake_systems(),
+            'brake_types': self.get_brake_types(),
+            'classes': self.get_classes(),
+            'cylinder_head_types': self.get_cylinder_head_types(),
+            'elec_controlled': self.get_elec_controlled(),
+            'engine_bases': self.get_engine_bases(),
+            'engine_blocks': self.get_engine_blocks(),
+            'engine_bore_strokes': self.get_engine_bore_strokes(),
+            'engine_base2': self.get_engine_base2(),
+            'engine_designations': self.get_engine_designations(),
+            'engine_vins': self.get_engine_vins(),
+            'engine_versions': self.get_engine_versions(),
+            'fuel_delivery_types': self.get_fuel_delivery_types(),
+            'fuel_delivery_sub_types': self.get_fuel_delivery_sub_types(),
+            'fuel_system_control_types': self.get_fuel_system_control_types(),
+            'fuel_system_designs': self.get_fuel_system_designs(),
+            'ignition_system_types': self.get_ignition_system_types(),
+            'mfrs': self.get_mfrs(),
+            'mfr_body_codes': self.get_mfr_body_codes(),
+            'power_outputs': self.get_power_outputs(),
+            'spring_types': self.get_spring_types(),
+            'spring_type_configs': self.get_spring_type_configs(),
+            'steering_types': self.get_steering_types(),
+            'steering_systems': self.get_steering_systems(),
+            'steering_configs': self.get_steering_configs(),
+            'transmission_types': self.get_transmission_types(),
+            'transmission_num_speeds': self.get_transmission_num_speeds(),
+            'transmission_control_types': self.get_transmission_control_types(),
+            'transmission_bases': self.get_transmission_bases(),
+            'transmission_mfr_codes': self.get_transmission_mfr_codes(),
+            'transmissions': self.get_transmissions(),
+            'valves': self.get_valves(),
+            'vehicle_type_groups': self.get_vehicle_type_groups(),
+            'vehicle_types': self.get_vehicle_types(),
+            'wheelbases': self.get_wheelbases(),
+            'vehicle_to_bed_configs': self.get_vehicle_to_bed_configs(),
+            'vehicle_to_body_configs': self.get_vehicle_to_body_configs(),
+            'vehicle_to_brake_configs': self.get_vehicle_to_brake_configs(),
+            'vehicle_to_classes': self.get_vehicle_to_classes(),
+            'vehicle_to_mfr_body_codes': self.get_vehicle_to_mfr_body_codes(),
+            'vehicle_to_spring_type_configs': self.get_vehicle_to_spring_type_configs(),
+            'vehicle_to_steering_configs': self.get_vehicle_to_steering_configs(),
+            'vehicle_to_transmissions': self.get_vehicle_to_transmissions(),
+            'vehicle_to_wheelbases': self.get_vehicle_to_wheelbases(),
         }
         
         # Log summary
@@ -400,6 +586,398 @@ def convert_autocare_data_to_django(data: Dict[str, Any], table_name: str) -> Di
             'VehicleToEngineConfigID': 'vehicle_to_engine_config_id',
             'VehicleID': 'vehicle_id',
             'EngineConfigID': 'engine_config_id',
+            'Source': 'source',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        # Additional VCDB table mappings
+        'Abbreviation': {
+            'Abbreviation': 'abbreviation',
+            'Description': 'description',
+            'LongDescription': 'long_description',
+        },
+        'Aspiration': {
+            'AspirationID': 'aspiration_id',
+            'AspirationName': 'aspiration_name',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'BedConfig': {
+            'BedConfigID': 'bed_config_id',
+            'BedLengthID': 'bed_length_id',
+            'BedTypeID': 'bed_type_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'BedLength': {
+            'BedLengthID': 'bed_length_id',
+            'BedLength': 'bed_length',
+            'BedLengthMetric': 'bed_length_metric',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'BedType': {
+            'BedTypeID': 'bed_type_id',
+            'BedTypeName': 'bed_type_name',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'BrakeABS': {
+            'BrakeABSID': 'brake_abs_id',
+            'BrakeABSName': 'brake_abs_name',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'BrakeConfig': {
+            'BrakeConfigID': 'brake_config_id',
+            'FrontBrakeTypeID': 'front_brake_type_id',
+            'RearBrakeTypeID': 'rear_brake_type_id',
+            'BrakeSystemID': 'brake_system_id',
+            'BrakeABSID': 'brake_abs_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'BrakeSystem': {
+            'BrakeSystemID': 'brake_system_id',
+            'BrakeSystemName': 'brake_system_name',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'BrakeType': {
+            'BrakeTypeID': 'brake_type_id',
+            'BrakeTypeName': 'brake_type_name',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'Class': {
+            'ClassID': 'class_id',
+            'ClassName': 'class_name',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'CylinderHeadType': {
+            'CylinderHeadTypeID': 'cylinder_head_type_id',
+            'CylinderHeadTypeName': 'cylinder_head_type_name',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'ElecControlled': {
+            'ElecControlledID': 'elec_controlled_id',
+            'ElecControlled': 'elec_controlled',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'EngineBase': {
+            'EngineBaseID': 'engine_base_id',
+            'Liter': 'liter',
+            'CC': 'cc',
+            'CID': 'cid',
+            'Cylinders': 'cylinders',
+            'BlockType': 'block_type',
+            'EngBoreIn': 'eng_bore_in',
+            'EngBoreMetric': 'eng_bore_metric',
+            'EngStrokeIn': 'eng_stroke_in',
+            'EngStrokeMetric': 'eng_stroke_metric',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'EngineBlock': {
+            'EngineBlockID': 'engine_block_id',
+            'Liter': 'liter',
+            'CC': 'cc',
+            'CID': 'cid',
+            'Cylinders': 'cylinders',
+            'BlockType': 'block_type',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'EngineBoreStroke': {
+            'EngineBoreStrokeID': 'engine_bore_stroke_id',
+            'EngBoreIn': 'eng_bore_in',
+            'EngBoreMetric': 'eng_bore_metric',
+            'EngStrokeIn': 'eng_stroke_in',
+            'EngStrokeMetric': 'eng_stroke_metric',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'EngineBase2': {
+            'EngineBaseID': 'engine_base_id',
+            'EngineBlockID': 'engine_block_id',
+            'EngineBoreStrokeID': 'engine_bore_stroke_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'EngineDesignation': {
+            'EngineDesignationID': 'engine_designation_id',
+            'EngineDesignationName': 'engine_designation_name',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'EngineVIN': {
+            'EngineVINID': 'engine_vin_id',
+            'EngineVINName': 'engine_vin_name',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'EngineVersion': {
+            'EngineVersionID': 'engine_version_id',
+            'EngineVersion': 'engine_version',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'FuelDeliveryType': {
+            'FuelDeliveryTypeID': 'fuel_delivery_type_id',
+            'FuelDeliveryTypeName': 'fuel_delivery_type_name',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'FuelDeliverySubType': {
+            'FuelDeliverySubTypeID': 'fuel_delivery_sub_type_id',
+            'FuelDeliverySubTypeName': 'fuel_delivery_sub_type_name',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'FuelSystemControlType': {
+            'FuelSystemControlTypeID': 'fuel_system_control_type_id',
+            'FuelSystemControlTypeName': 'fuel_system_control_type_name',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'FuelSystemDesign': {
+            'FuelSystemDesignID': 'fuel_system_design_id',
+            'FuelSystemDesignName': 'fuel_system_design_name',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'IgnitionSystemType': {
+            'IgnitionSystemTypeID': 'ignition_system_type_id',
+            'IgnitionSystemTypeName': 'ignition_system_type_name',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'Mfr': {
+            'MfrID': 'mfr_id',
+            'MfrName': 'mfr_name',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'MfrBodyCode': {
+            'MfrBodyCodeID': 'mfr_body_code_id',
+            'MfrBodyCodeName': 'mfr_body_code_name',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'PowerOutput': {
+            'PowerOutputID': 'power_output_id',
+            'HorsePower': 'horse_power',
+            'KilowattPower': 'kilowatt_power',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'SpringType': {
+            'SpringTypeID': 'spring_type_id',
+            'SpringTypeName': 'spring_type_name',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'SpringTypeConfig': {
+            'SpringTypeConfigID': 'spring_type_config_id',
+            'FrontSpringTypeID': 'front_spring_type_id',
+            'RearSpringTypeID': 'rear_spring_type_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'SteeringType': {
+            'SteeringTypeID': 'steering_type_id',
+            'SteeringTypeName': 'steering_type_name',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'SteeringSystem': {
+            'SteeringSystemID': 'steering_system_id',
+            'SteeringSystemName': 'steering_system_name',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'SteeringConfig': {
+            'SteeringConfigID': 'steering_config_id',
+            'SteeringTypeID': 'steering_type_id',
+            'SteeringSystemID': 'steering_system_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'TransmissionType': {
+            'TransmissionTypeID': 'transmission_type_id',
+            'TransmissionTypeName': 'transmission_type_name',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'TransmissionNumSpeeds': {
+            'TransmissionNumSpeedsID': 'transmission_num_speeds_id',
+            'TransmissionNumSpeeds': 'transmission_num_speeds',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'TransmissionControlType': {
+            'TransmissionControlTypeID': 'transmission_control_type_id',
+            'TransmissionControlTypeName': 'transmission_control_type_name',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'TransmissionBase': {
+            'TransmissionBaseID': 'transmission_base_id',
+            'TransmissionTypeID': 'transmission_type_id',
+            'TransmissionNumSpeedsID': 'transmission_num_speeds_id',
+            'TransmissionControlTypeID': 'transmission_control_type_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'TransmissionMfrCode': {
+            'TransmissionMfrCodeID': 'transmission_mfr_code_id',
+            'TransmissionMfrCode': 'transmission_mfr_code',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'Transmission': {
+            'TransmissionID': 'transmission_id',
+            'TransmissionBaseID': 'transmission_base_id',
+            'TransmissionMfrCodeID': 'transmission_mfr_code_id',
+            'TransmissionElecControlledID': 'transmission_elec_controlled_id',
+            'TransmissionMfrID': 'transmission_mfr_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'Valves': {
+            'ValvesID': 'valves_id',
+            'ValvesPerEngine': 'valves_per_engine',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'VehicleTypeGroup': {
+            'VehicleTypeGroupID': 'vehicle_type_group_id',
+            'VehicleTypeGroupName': 'vehicle_type_group_name',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'VehicleType': {
+            'VehicleTypeID': 'vehicle_type_id',
+            'VehicleTypeName': 'vehicle_type_name',
+            'VehicleTypeGroupID': 'vehicle_type_group_id',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'WheelBase': {
+            'WheelBaseID': 'wheel_base_id',
+            'WheelBase': 'wheel_base',
+            'WheelBaseMetric': 'wheel_base_metric',
+            'Source': 'source',
+            'CultureID': 'culture_id',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'VehicleToBedConfig': {
+            'VehicleToBedConfigID': 'vehicle_to_bed_config_id',
+            'VehicleID': 'vehicle_id',
+            'BedConfigID': 'bed_config_id',
+            'Source': 'source',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'VehicleToBodyConfig': {
+            'VehicleToBodyConfigID': 'vehicle_to_body_config_id',
+            'VehicleID': 'vehicle_id',
+            'BodyStyleConfigID': 'body_style_config_id',
+            'BedConfigID': 'bed_config_id',
+            'MfrBodyCodeID': 'mfr_body_code_id',
+            'WheelBaseID': 'wheelbase_id',
+            'Source': 'source',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'VehicleToBrakeConfig': {
+            'VehicleToBrakeConfigID': 'vehicle_to_brake_config_id',
+            'VehicleID': 'vehicle_id',
+            'BrakeConfigID': 'brake_config_id',
+            'Source': 'source',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'VehicleToClass': {
+            'VehicleToClassID': 'vehicle_to_class_id',
+            'VehicleID': 'vehicle_id',
+            'ClassID': 'class_id',
+            'Source': 'source',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'VehicleToMfrBodyCode': {
+            'VehicleToMfrBodyCodeID': 'vehicle_to_mfr_body_code_id',
+            'VehicleID': 'vehicle_id',
+            'MfrBodyCodeID': 'mfr_body_code_id',
+            'Source': 'source',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'VehicleToSpringTypeConfig': {
+            'VehicleToSpringTypeConfigID': 'vehicle_to_spring_type_config_id',
+            'VehicleID': 'vehicle_id',
+            'SpringTypeConfigID': 'spring_type_config_id',
+            'Source': 'source',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'VehicleToSteeringConfig': {
+            'VehicleToSteeringConfigID': 'vehicle_to_steering_config_id',
+            'VehicleID': 'vehicle_id',
+            'SteeringConfigID': 'steering_config_id',
+            'Source': 'source',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'VehicleToTransmission': {
+            'VehicleToTransmissionID': 'vehicle_to_transmission_id',
+            'VehicleID': 'vehicle_id',
+            'TransmissionID': 'transmission_id',
+            'Source': 'source',
+            'EffectiveDateTime': 'effective_date_time',
+            'EndDateTime': 'end_date_time',
+        },
+        'VehicleToWheelbase': {
+            'VehicleToWheelbaseID': 'vehicle_to_wheelbase_id',
+            'VehicleID': 'vehicle_id',
+            'WheelbaseID': 'wheelbase_id',
             'Source': 'source',
             'EffectiveDateTime': 'effective_date_time',
             'EndDateTime': 'end_date_time',

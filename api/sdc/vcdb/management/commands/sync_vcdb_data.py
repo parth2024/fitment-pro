@@ -8,7 +8,19 @@ from vcdb.models import (
     Make, Model, SubModel, Region, PublicationStage, Year, BaseVehicle, DriveType, FuelType,
     BodyNumDoors, BodyType, BodyStyleConfig, EngineConfig, Vehicle,
     VehicleToDriveType, VehicleToBodyStyleConfig, VehicleToEngineConfig,
-    VCDBSyncLog
+    VCDBSyncLog,
+    # Additional VCDB models
+    Abbreviation, Aspiration, BedConfig, BedLength, BedType, BrakeABS, BrakeConfig,
+    BrakeSystem, BrakeType, Class, CylinderHeadType, ElecControlled, EngineBase,
+    EngineBlock, EngineBoreStroke, EngineBase2, EngineDesignation, EngineVIN, EngineVersion,
+    FuelDeliveryType, FuelDeliverySubType, FuelSystemControlType, FuelSystemDesign,
+    IgnitionSystemType, Mfr, MfrBodyCode, PowerOutput, SpringType, SpringTypeConfig,
+    SteeringType, SteeringSystem, SteeringConfig, TransmissionType, TransmissionNumSpeeds,
+    TransmissionControlType, TransmissionBase, TransmissionMfrCode, Transmission, Valves,
+    VehicleTypeGroup, VehicleType, WheelBase,
+    VehicleToBedConfig, VehicleToBodyConfig, VehicleToBrakeConfig, VehicleToClass,
+    VehicleToMfrBodyCode, VehicleToSpringTypeConfig, VehicleToSteeringConfig,
+    VehicleToTransmission, VehicleToWheelbase
 )
 from vcdb.autocare_api import AutoCareAPIClient, convert_autocare_data_to_django
 
@@ -65,6 +77,7 @@ class Command(BaseCommand):
             
             # Process in dependency order
             table_processors = [
+                # Original VCDB tables
                 ('makes', self.process_makes),
                 ('models', self.process_models),
                 ('submodels', self.process_submodels),
@@ -82,6 +95,59 @@ class Command(BaseCommand):
                 ('vehicle_to_drive_types', self.process_vehicle_to_drive_types),
                 ('vehicle_to_body_style_configs', self.process_vehicle_to_body_style_configs),
                 ('vehicle_to_engine_configs', self.process_vehicle_to_engine_configs),
+                
+                # Additional VCDB tables
+                ('abbreviations', self.process_abbreviations),
+                ('aspirations', self.process_aspirations),
+                ('bed_configs', self.process_bed_configs),
+                ('bed_lengths', self.process_bed_lengths),
+                ('bed_types', self.process_bed_types),
+                ('brake_abs', self.process_brake_abs),
+                ('brake_configs', self.process_brake_configs),
+                ('brake_systems', self.process_brake_systems),
+                ('brake_types', self.process_brake_types),
+                ('classes', self.process_classes),
+                ('cylinder_head_types', self.process_cylinder_head_types),
+                ('elec_controlled', self.process_elec_controlled),
+                ('engine_bases', self.process_engine_bases),
+                ('engine_blocks', self.process_engine_blocks),
+                ('engine_bore_strokes', self.process_engine_bore_strokes),
+                ('engine_base2', self.process_engine_base2),
+                ('engine_designations', self.process_engine_designations),
+                ('engine_vins', self.process_engine_vins),
+                ('engine_versions', self.process_engine_versions),
+                ('fuel_delivery_types', self.process_fuel_delivery_types),
+                ('fuel_delivery_sub_types', self.process_fuel_delivery_sub_types),
+                ('fuel_system_control_types', self.process_fuel_system_control_types),
+                ('fuel_system_designs', self.process_fuel_system_designs),
+                ('ignition_system_types', self.process_ignition_system_types),
+                ('mfrs', self.process_mfrs),
+                ('mfr_body_codes', self.process_mfr_body_codes),
+                ('power_outputs', self.process_power_outputs),
+                ('spring_types', self.process_spring_types),
+                ('spring_type_configs', self.process_spring_type_configs),
+                ('steering_types', self.process_steering_types),
+                ('steering_systems', self.process_steering_systems),
+                ('steering_configs', self.process_steering_configs),
+                ('transmission_types', self.process_transmission_types),
+                ('transmission_num_speeds', self.process_transmission_num_speeds),
+                ('transmission_control_types', self.process_transmission_control_types),
+                ('transmission_bases', self.process_transmission_bases),
+                ('transmission_mfr_codes', self.process_transmission_mfr_codes),
+                ('transmissions', self.process_transmissions),
+                ('valves', self.process_valves),
+                ('vehicle_type_groups', self.process_vehicle_type_groups),
+                ('vehicle_types', self.process_vehicle_types),
+                ('wheelbases', self.process_wheelbases),
+                ('vehicle_to_bed_configs', self.process_vehicle_to_bed_configs),
+                ('vehicle_to_body_configs', self.process_vehicle_to_body_configs),
+                ('vehicle_to_brake_configs', self.process_vehicle_to_brake_configs),
+                ('vehicle_to_classes', self.process_vehicle_to_classes),
+                ('vehicle_to_mfr_body_codes', self.process_vehicle_to_mfr_body_codes),
+                ('vehicle_to_spring_type_configs', self.process_vehicle_to_spring_type_configs),
+                ('vehicle_to_steering_configs', self.process_vehicle_to_steering_configs),
+                ('vehicle_to_transmissions', self.process_vehicle_to_transmissions),
+                ('vehicle_to_wheelbases', self.process_vehicle_to_wheelbases),
             ]
             
             for table_name, processor in table_processors:
@@ -278,6 +344,110 @@ class Command(BaseCommand):
         
         return processed, created, updated, skipped
 
+    # Additional processors
+    def process_engine_blocks(self, data, dry_run=False):
+        return self._process_table(EngineBlock, data, 'EngineBlock', dry_run)
+    def process_engine_bore_strokes(self, data, dry_run=False):
+        return self._process_table(EngineBoreStroke, data, 'EngineBoreStroke', dry_run)
+    def process_engine_base2(self, data, dry_run=False):
+        return self._process_table(EngineBase2, data, 'EngineBase2', dry_run)
+    def process_engine_designations(self, data, dry_run=False):
+        return self._process_table(EngineDesignation, data, 'EngineDesignation', dry_run)
+    def process_engine_vins(self, data, dry_run=False):
+        return self._process_table(EngineVIN, data, 'EngineVIN', dry_run)
+    def process_engine_versions(self, data, dry_run=False):
+        return self._process_table(EngineVersion, data, 'EngineVersion', dry_run)
+    def process_fuel_delivery_types(self, data, dry_run=False):
+        return self._process_table(FuelDeliveryType, data, 'FuelDeliveryType', dry_run)
+    def process_fuel_delivery_sub_types(self, data, dry_run=False):
+        return self._process_table(FuelDeliverySubType, data, 'FuelDeliverySubType', dry_run)
+    def process_fuel_system_control_types(self, data, dry_run=False):
+        return self._process_table(FuelSystemControlType, data, 'FuelSystemControlType', dry_run)
+    def process_fuel_system_designs(self, data, dry_run=False):
+        return self._process_table(FuelSystemDesign, data, 'FuelSystemDesign', dry_run)
+    def process_ignition_system_types(self, data, dry_run=False):
+        return self._process_table(IgnitionSystemType, data, 'IgnitionSystemType', dry_run)
+    def process_mfrs(self, data, dry_run=False):
+        return self._process_table(Mfr, data, 'Mfr', dry_run)
+    def process_mfr_body_codes(self, data, dry_run=False):
+        return self._process_table(MfrBodyCode, data, 'MfrBodyCode', dry_run)
+    def process_power_outputs(self, data, dry_run=False):
+        return self._process_table(PowerOutput, data, 'PowerOutput', dry_run)
+    def process_spring_types(self, data, dry_run=False):
+        return self._process_table(SpringType, data, 'SpringType', dry_run)
+    def process_spring_type_configs(self, data, dry_run=False):
+        return self._process_table(SpringTypeConfig, data, 'SpringTypeConfig', dry_run)
+    def process_steering_types(self, data, dry_run=False):
+        return self._process_table(SteeringType, data, 'SteeringType', dry_run)
+    def process_steering_systems(self, data, dry_run=False):
+        return self._process_table(SteeringSystem, data, 'SteeringSystem', dry_run)
+    def process_steering_configs(self, data, dry_run=False):
+        return self._process_table(SteeringConfig, data, 'SteeringConfig', dry_run)
+    def process_transmission_types(self, data, dry_run=False):
+        return self._process_table(TransmissionType, data, 'TransmissionType', dry_run)
+    def process_transmission_num_speeds(self, data, dry_run=False):
+        return self._process_table(TransmissionNumSpeeds, data, 'TransmissionNumSpeeds', dry_run)
+    def process_transmission_control_types(self, data, dry_run=False):
+        return self._process_table(TransmissionControlType, data, 'TransmissionControlType', dry_run)
+    def process_transmission_bases(self, data, dry_run=False):
+        return self._process_table(TransmissionBase, data, 'TransmissionBase', dry_run)
+    def process_transmission_mfr_codes(self, data, dry_run=False):
+        return self._process_table(TransmissionMfrCode, data, 'TransmissionMfrCode', dry_run)
+    def process_transmissions(self, data, dry_run=False):
+        return self._process_table(Transmission, data, 'Transmission', dry_run)
+    def process_valves(self, data, dry_run=False):
+        return self._process_table(Valves, data, 'Valves', dry_run)
+    def process_vehicle_type_groups(self, data, dry_run=False):
+        return self._process_table(VehicleTypeGroup, data, 'VehicleTypeGroup', dry_run)
+    def process_vehicle_types(self, data, dry_run=False):
+        return self._process_table(VehicleType, data, 'VehicleType', dry_run)
+    def process_wheelbases(self, data, dry_run=False):
+        return self._process_table(WheelBase, data, 'WheelBase', dry_run)
+    def process_vehicle_to_bed_configs(self, data, dry_run=False):
+        return self._process_table_with_relations(
+            VehicleToBedConfig, data, 'VehicleToBedConfig', dry_run,
+            {'vehicle_id': Vehicle}
+        )
+    def process_vehicle_to_body_configs(self, data, dry_run=False):
+        return self._process_table_with_relations(
+            VehicleToBodyConfig, data, 'VehicleToBodyConfig', dry_run,
+            {'vehicle_id': Vehicle}
+        )
+    def process_vehicle_to_brake_configs(self, data, dry_run=False):
+        return self._process_table_with_relations(
+            VehicleToBrakeConfig, data, 'VehicleToBrakeConfig', dry_run,
+            {'vehicle_id': Vehicle}
+        )
+    def process_vehicle_to_classes(self, data, dry_run=False):
+        return self._process_table_with_relations(
+            VehicleToClass, data, 'VehicleToClass', dry_run,
+            {'vehicle_id': Vehicle}
+        )
+    def process_vehicle_to_mfr_body_codes(self, data, dry_run=False):
+        return self._process_table_with_relations(
+            VehicleToMfrBodyCode, data, 'VehicleToMfrBodyCode', dry_run,
+            {'vehicle_id': Vehicle}
+        )
+    def process_vehicle_to_spring_type_configs(self, data, dry_run=False):
+        return self._process_table_with_relations(
+            VehicleToSpringTypeConfig, data, 'VehicleToSpringTypeConfig', dry_run,
+            {'vehicle_id': Vehicle}
+        )
+    def process_vehicle_to_steering_configs(self, data, dry_run=False):
+        return self._process_table_with_relations(
+            VehicleToSteeringConfig, data, 'VehicleToSteeringConfig', dry_run,
+            {'vehicle_id': Vehicle}
+        )
+    def process_vehicle_to_transmissions(self, data, dry_run=False):
+        return self._process_table_with_relations(
+            VehicleToTransmission, data, 'VehicleToTransmission', dry_run,
+            {'vehicle_id': Vehicle}
+        )
+    def process_vehicle_to_wheelbases(self, data, dry_run=False):
+        return self._process_table_with_relations(
+            VehicleToWheelbase, data, 'VehicleToWheelbase', dry_run,
+            {'vehicle_id': Vehicle}
+        )
     def _process_table_with_relations(self, model_class, data, table_name, dry_run=False, relations=None):
         """Process a table with foreign key relations"""
         processed = 0
@@ -343,3 +513,42 @@ class Command(BaseCommand):
                     skipped += 1
         
         return processed, created, updated, skipped
+    # Additional processing methods for new VCDB tables
+    def process_abbreviations(self, data, dry_run=False):
+        return self._process_table(Abbreviation, data, 'Abbreviation', dry_run)
+    
+    def process_aspirations(self, data, dry_run=False):
+        return self._process_table(Aspiration, data, 'Aspiration', dry_run)
+    
+    def process_bed_configs(self, data, dry_run=False):
+        return self._process_table(BedConfig, data, 'BedConfig', dry_run)
+    
+    def process_bed_lengths(self, data, dry_run=False):
+        return self._process_table(BedLength, data, 'BedLength', dry_run)
+    
+    def process_bed_types(self, data, dry_run=False):
+        return self._process_table(BedType, data, 'BedType', dry_run)
+    
+    def process_brake_abs(self, data, dry_run=False):
+        return self._process_table(BrakeABS, data, 'BrakeABS', dry_run)
+    
+    def process_brake_configs(self, data, dry_run=False):
+        return self._process_table(BrakeConfig, data, 'BrakeConfig', dry_run)
+    
+    def process_brake_systems(self, data, dry_run=False):
+        return self._process_table(BrakeSystem, data, 'BrakeSystem', dry_run)
+    
+    def process_brake_types(self, data, dry_run=False):
+        return self._process_table(BrakeType, data, 'BrakeType', dry_run)
+    
+    def process_classes(self, data, dry_run=False):
+        return self._process_table(Class, data, 'Class', dry_run)
+    
+    def process_cylinder_head_types(self, data, dry_run=False):
+        return self._process_table(CylinderHeadType, data, 'CylinderHeadType', dry_run)
+    
+    def process_elec_controlled(self, data, dry_run=False):
+        return self._process_table(ElecControlled, data, 'ElecControlled', dry_run)
+    
+    def process_engine_bases(self, data, dry_run=False):
+        return self._process_table(EngineBase, data, 'EngineBase', dry_run)
