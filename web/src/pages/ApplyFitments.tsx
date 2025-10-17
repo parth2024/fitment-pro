@@ -221,6 +221,7 @@ export default function ApplyFitments() {
   // Manual fitment states
   const [dropdownData, setDropdownData] = useState<any>(null);
   const [loadingDropdownData, setLoadingDropdownData] = useState(false);
+  const [searchingVehicles, setSearchingVehicles] = useState(false);
   const [vcdbDataAvailable, setVcdbDataAvailable] = useState<boolean | null>(
     null
   );
@@ -249,7 +250,7 @@ export default function ApplyFitments() {
     liftHeight: "",
     wheelType: "",
   });
-  const [applyingManualFitment, setApplyingManualFitment] = useState(false);
+  // const [applyingManualFitment, setApplyingManualFitment] = useState(false); // Replaced with searchingVehicles
 
   // Dynamic field configurations
   const {
@@ -1860,6 +1861,18 @@ export default function ApplyFitments() {
                           </Text>
                         </Alert>
                       )}
+                      {searchingVehicles && (
+                        <Alert
+                          icon={<IconSearch size={16} />}
+                          color="blue"
+                          radius="md"
+                          mt="md"
+                        >
+                          <Text size="sm">
+                            Searching vehicles in VCDB database...
+                          </Text>
+                        </Alert>
+                      )}
                       {/* Debug info
                       {dropdownData && (
                         <Alert color="green" variant="light" mt="md">
@@ -2252,6 +2265,8 @@ export default function ApplyFitments() {
                       <Button
                         size="sm"
                         leftSection={<IconSearch size={16} />}
+                        loading={searchingVehicles}
+                        disabled={searchingVehicles}
                         onClick={async () => {
                           if (
                             !vehicleFilters.yearFrom ||
@@ -2271,6 +2286,7 @@ export default function ApplyFitments() {
                             return;
                           }
 
+                          setSearchingVehicles(true);
                           try {
                             // Include VehicleTypeGroup filter from entity config (values like 'vtg:<id>')
                             const selectedGroups = Array.isArray(
@@ -2386,8 +2402,16 @@ export default function ApplyFitments() {
 
                             if (result && result.vehicles) {
                               if (result.vehicles.length === 0) {
+                                // Show more helpful error message with suggestions
+                                const suggestions = result.suggestions || [
+                                  "Try expanding your year range",
+                                  "Remove some filters to broaden the search",
+                                  "Check if the make/model combination exists",
+                                ];
                                 showError(
-                                  "No vehicles found matching your criteria"
+                                  `No vehicles found matching your criteria. ${suggestions.join(
+                                    " "
+                                  )}`
                                 );
                                 return;
                               }
@@ -2424,11 +2448,36 @@ export default function ApplyFitments() {
                                 3000
                               );
                             } else {
-                              showError("Failed to search vehicles");
+                              showError(
+                                "Failed to search vehicles - invalid response format"
+                              );
                             }
-                          } catch (error) {
+                          } catch (error: any) {
                             console.error("Vehicle search error:", error);
-                            showError("Failed to search vehicles from VCDB");
+
+                            // Handle different types of errors
+                            if (error.response?.status === 400) {
+                              // Validation errors from backend
+                              const errorDetails =
+                                error.response?.data?.details || [];
+                              showError(
+                                `Validation failed: ${errorDetails.join(", ")}`
+                              );
+                            } else if (error.response?.data?.error) {
+                              // Backend error with message
+                              showError(
+                                `Search failed: ${error.response.data.error}`
+                              );
+                            } else if (error.message) {
+                              // Network or other errors
+                              showError(`Search failed: ${error.message}`);
+                            } else {
+                              showError(
+                                "Failed to search vehicles from VCDB - please try again"
+                              );
+                            }
+                          } finally {
+                            setSearchingVehicles(false);
                           }
                         }}
                       >
@@ -2741,7 +2790,7 @@ export default function ApplyFitments() {
                             return;
                           }
 
-                          setApplyingManualFitment(true);
+                          setSearchingVehicles(true);
                           try {
                             const fitmentsData = selectedVehicles.map(
                               (vehicleId) => {
@@ -2794,10 +2843,10 @@ export default function ApplyFitments() {
                             console.error("Create fitment error:", error);
                             showError("Failed to create fitments");
                           } finally {
-                            setApplyingManualFitment(false);
+                            setSearchingVehicles(false);
                           }
                         }}
-                        loading={applyingManualFitment}
+                        loading={searchingVehicles}
                         disabled={
                           !fitmentDetails.partId ||
                           !fitmentDetails.position ||

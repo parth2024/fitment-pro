@@ -548,6 +548,42 @@ def vehicle_search(request):
         region = request.GET.get('region')
         vtg_param = request.GET.get('vehicleTypeGroup')
         
+        # Validate required parameters
+        validation_errors = []
+        
+        # If year range is provided, validate it
+        if year_from and year_to:
+            try:
+                year_from_int = int(year_from)
+                year_to_int = int(year_to)
+                if year_from_int >= year_to_int:
+                    validation_errors.append("yearTo must be greater than yearFrom")
+                if year_from_int < 1900 or year_from_int > 2030:
+                    validation_errors.append("yearFrom must be between 1900 and 2030")
+                if year_to_int < 1900 or year_to_int > 2030:
+                    validation_errors.append("yearTo must be between 1900 and 2030")
+            except ValueError:
+                validation_errors.append("yearFrom and yearTo must be valid integers")
+        elif year_from or year_to:
+            validation_errors.append("Both yearFrom and yearTo must be provided together")
+        
+        # Validate VTG parameter format
+        if vtg_param:
+            try:
+                vtg_ids = [int(x) for x in str(vtg_param).split(',') if x.strip()]
+                if not vtg_ids:
+                    validation_errors.append("vehicleTypeGroup must contain valid integer IDs")
+            except ValueError:
+                validation_errors.append("vehicleTypeGroup contains invalid integer values")
+        
+        # Return validation errors if any
+        if validation_errors:
+            return JsonResponse({
+                'error': 'Validation failed',
+                'details': validation_errors,
+                'vehicles': []
+            }, status=400)
+        
         # Build query
         vehicles_query = Vehicle.objects.select_related(
             'base_vehicle_id__make_id',
@@ -716,6 +752,30 @@ def vehicle_search(request):
         # Execute query and format results
         vehicles = vehicles_query.distinct()[:1000]  # Limit to 1000 results
         
+        # Check if we have any results
+        if not vehicles.exists():
+            return JsonResponse({
+                'vehicles': [],
+                'total': 0,
+                'message': 'No vehicles found matching the specified criteria',
+                'suggestions': [
+                    'Try expanding your year range',
+                    'Remove some filters to broaden the search',
+                    'Check if the make/model combination exists'
+                ],
+                'filters_applied': {
+                    'yearFrom': year_from,
+                    'yearTo': year_to,
+                    'make': make,
+                    'model': model,
+                    'submodel': submodel,
+                    'fuelType': fuel_type,
+                    'numDoors': num_doors,
+                    'driveType': drive_type,
+                    'bodyType': body_type,
+                }
+            })
+        
         results = []
         for vehicle in vehicles:
             # Get drive types for this vehicle
@@ -785,6 +845,14 @@ def vehicle_search(request):
 def vehicle_dropdown_data(request):
     """Get dropdown data for vehicle search filters"""
     try:
+        from django.core.cache import cache
+        
+        # Try to get from cache first (cache for 1 hour)
+        cache_key = 'vcdb_dropdown_data'
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            return JsonResponse(cached_data)
+        
         # Get ALL data from each table without any restrictions
         years = Year.objects.values_list('year_id', flat=True).distinct().order_by('-year_id')
         makes = Make.objects.values_list('make_name', flat=True).distinct().order_by('make_name')
@@ -812,7 +880,8 @@ def vehicle_dropdown_data(request):
         def format_for_combobox(values):
             return [{'value': str(val), 'label': str(val)} for val in values]
 
-        return JsonResponse({
+        # Format response data
+        response_data = {
             'years': format_for_combobox(years),
             'makes': format_for_combobox(makes),
             'models': format_for_combobox(models),
@@ -832,7 +901,12 @@ def vehicle_dropdown_data(request):
             'bed_lengths': format_for_combobox(bed_lengths),
             'wheelbases': format_for_combobox(wheelbases),
             'regions': format_for_combobox(regions),
-        })
+        }
+        
+        # Cache the response for 1 hour
+        cache.set(cache_key, response_data, 3600)
+        
+        return JsonResponse(response_data)
 
     except Exception as e:
         logger.error(f'Error getting vehicle dropdown data: {str(e)}')

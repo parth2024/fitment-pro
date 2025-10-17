@@ -110,6 +110,11 @@ DATABASES = {
         'HOST': "ec2-65-0-133-50.ap-south-1.compute.amazonaws.com",
         # 'HOST': "localhost",
         'PORT': "5432",
+        'OPTIONS': {
+            'connect_timeout': 60,
+            'options': '-c statement_timeout=300000',  # 5 minutes
+        },
+        'CONN_MAX_AGE': 0,  # Don't persist connections
     }
 }
 
