@@ -41,10 +41,17 @@ class Command(BaseCommand):
             action='store_true',
             help='Force sync even if recent sync exists',
         )
+        parser.add_argument(
+            '--batch-size',
+            type=int,
+            default=100,
+            help='Number of records to process in each batch (default: 100)',
+        )
 
     def handle(self, *args, **options):
         dry_run = options['dry_run']
         force = options['force']
+        batch_size = options['batch_size']
         
         self.stdout.write(
             self.style.SUCCESS('Starting VCDB data synchronization...')
@@ -154,9 +161,16 @@ class Command(BaseCommand):
                 if table_name in vcdb_data and vcdb_data[table_name]:
                     self.stdout.write(f'Processing {table_name}...')
                     try:
-                        processed, created, updated, skipped = processor(
-                            vcdb_data[table_name], dry_run
-                        )
+                        # Pass batch_size to processors that support it
+                        try:
+                            processed, created, updated, skipped = processor(
+                                vcdb_data[table_name], dry_run, batch_size
+                            )
+                        except TypeError:
+                            # Fallback for processors that don't support batch_size
+                            processed, created, updated, skipped = processor(
+                                vcdb_data[table_name], dry_run
+                            )
                         total_processed += processed
                         total_created += created
                         total_updated += updated
@@ -219,35 +233,35 @@ class Command(BaseCommand):
             logger.error(f'VCDB sync failed: {str(e)}', exc_info=True)
             raise CommandError(f'Sync failed: {str(e)}')
 
-    def process_makes(self, data, dry_run=False):
-        return self._process_table(Make, data, 'Make', dry_run)
+    def process_makes(self, data, dry_run=False, batch_size=100):
+        return self._process_table(Make, data, 'Make', dry_run, batch_size)
 
-    def process_models(self, data, dry_run=False):
-        return self._process_table(Model, data, 'Model', dry_run)
+    def process_models(self, data, dry_run=False, batch_size=100):
+        return self._process_table(Model, data, 'Model', dry_run, batch_size)
 
-    def process_submodels(self, data, dry_run=False):
-        return self._process_table(SubModel, data, 'SubModel', dry_run)
+    def process_submodels(self, data, dry_run=False, batch_size=100):
+        return self._process_table(SubModel, data, 'SubModel', dry_run, batch_size)
 
-    def process_regions(self, data, dry_run=False):
-        return self._process_table(Region, data, 'Region', dry_run)
+    def process_regions(self, data, dry_run=False, batch_size=100):
+        return self._process_table(Region, data, 'Region', dry_run, batch_size)
 
-    def process_publication_stages(self, data, dry_run=False):
-        return self._process_table(PublicationStage, data, 'PublicationStage', dry_run)
+    def process_publication_stages(self, data, dry_run=False, batch_size=100):
+        return self._process_table(PublicationStage, data, 'PublicationStage', dry_run, batch_size)
 
-    def process_years(self, data, dry_run=False):
-        return self._process_table(Year, data, 'Year', dry_run)
+    def process_years(self, data, dry_run=False, batch_size=100):
+        return self._process_table(Year, data, 'Year', dry_run, batch_size)
 
-    def process_drive_types(self, data, dry_run=False):
-        return self._process_table(DriveType, data, 'DriveType', dry_run)
+    def process_drive_types(self, data, dry_run=False, batch_size=100):
+        return self._process_table(DriveType, data, 'DriveType', dry_run, batch_size)
 
-    def process_fuel_types(self, data, dry_run=False):
-        return self._process_table(FuelType, data, 'FuelType', dry_run)
+    def process_fuel_types(self, data, dry_run=False, batch_size=100):
+        return self._process_table(FuelType, data, 'FuelType', dry_run, batch_size)
 
-    def process_body_num_doors(self, data, dry_run=False):
-        return self._process_table(BodyNumDoors, data, 'BodyNumDoors', dry_run)
+    def process_body_num_doors(self, data, dry_run=False, batch_size=100):
+        return self._process_table(BodyNumDoors, data, 'BodyNumDoors', dry_run, batch_size)
 
-    def process_body_types(self, data, dry_run=False):
-        return self._process_table(BodyType, data, 'BodyType', dry_run)
+    def process_body_types(self, data, dry_run=False, batch_size=100):
+        return self._process_table(BodyType, data, 'BodyType', dry_run, batch_size)
 
     def process_base_vehicles(self, data, dry_run=False):
         return self._process_table_with_relations(
@@ -267,7 +281,7 @@ class Command(BaseCommand):
             {'fuel_type_id': FuelType}
         )
 
-    def process_vehicles(self, data, dry_run=False):
+    def process_vehicles(self, data, dry_run=False, batch_size=100):
         return self._process_table_with_relations(
             Vehicle, data, 'Vehicle', dry_run,
             {
@@ -275,7 +289,7 @@ class Command(BaseCommand):
                 'sub_model_id': SubModel,
                 'region_id': Region,
                 'publication_stage_id': PublicationStage
-            }
+            }, batch_size
         )
 
     def process_vehicle_to_drive_types(self, data, dry_run=False):
@@ -296,7 +310,7 @@ class Command(BaseCommand):
             {'vehicle_id': Vehicle, 'engine_config_id': EngineConfig}
         )
 
-    def _process_table(self, model_class, data, table_name, dry_run=False):
+    def _process_table(self, model_class, data, table_name, dry_run=False, batch_size=100):
         """Process a simple table without foreign key relations"""
         processed = 0
         created = 0
@@ -307,40 +321,58 @@ class Command(BaseCommand):
             self.stdout.write(f'  [DRY RUN] Would process {len(data)} {table_name} records')
             return len(data), 0, 0, 0
         
-        with transaction.atomic():
-            for record in data:
-                try:
-                    # Convert AutoCare data to Django format
-                    django_data = convert_autocare_data_to_django(record, table_name)
-                    
-                    # Get primary key field name
-                    pk_field = model_class._meta.pk.name
-                    pk_value = django_data.get(pk_field)
-                    
-                    if not pk_value:
-                        skipped += 1
-                        continue
-                    
-                    # Check if record exists
-                    existing = model_class.objects.filter(**{pk_field: pk_value}).first()
-                    
-                    if existing:
-                        # Update existing record
-                        for field, value in django_data.items():
-                            if field != pk_field:
-                                setattr(existing, field, value)
-                        existing.save()
-                        updated += 1
-                    else:
-                        # Create new record
-                        model_class.objects.create(**django_data)
-                        created += 1
-                    
-                    processed += 1
-                    
-                except Exception as e:
-                    logger.error(f'Error processing {table_name} record {record}: {str(e)}')
-                    skipped += 1
+        # Process in batches to avoid connection timeouts
+        for i in range(0, len(data), batch_size):
+            batch = data[i:i + batch_size]
+            
+            try:
+                with transaction.atomic():
+                    for record in batch:
+                        try:
+                            # Convert AutoCare data to Django format
+                            django_data = convert_autocare_data_to_django(record, table_name)
+                            
+                            # Get primary key field name
+                            pk_field = model_class._meta.pk.name
+                            pk_value = django_data.get(pk_field)
+                            
+                            if not pk_value:
+                                skipped += 1
+                                continue
+                            
+                            # Check if record exists
+                            existing = model_class.objects.filter(**{pk_field: pk_value}).first()
+                            
+                            if existing:
+                                # Update existing record
+                                for field, value in django_data.items():
+                                    if field != pk_field:
+                                        setattr(existing, field, value)
+                                existing.save()
+                                updated += 1
+                            else:
+                                # Create new record
+                                model_class.objects.create(**django_data)
+                                created += 1
+                            
+                            processed += 1
+                            
+                        except Exception as e:
+                            logger.error(f'Error processing {table_name} record {record}: {str(e)}')
+                            skipped += 1
+                            
+            except Exception as e:
+                logger.error(f'Error processing {table_name} batch {i//batch_size + 1}: {str(e)}')
+                # Mark all records in this batch as skipped
+                skipped += len(batch)
+            
+            # Close database connection after each batch to prevent timeouts
+            from django.db import connection
+            connection.close()
+            
+            # Progress update
+            if (i + batch_size) % (batch_size * 10) == 0:  # Every 10 batches
+                self.stdout.write(f'  Processed {i + batch_size}/{len(data)} {table_name} records...')
         
         return processed, created, updated, skipped
 
@@ -448,7 +480,7 @@ class Command(BaseCommand):
             VehicleToWheelbase, data, 'VehicleToWheelbase', dry_run,
             {'vehicle_id': Vehicle}
         )
-    def _process_table_with_relations(self, model_class, data, table_name, dry_run=False, relations=None):
+    def _process_table_with_relations(self, model_class, data, table_name, dry_run=False, relations=None, batch_size=100):
         """Process a table with foreign key relations"""
         processed = 0
         created = 0
@@ -459,58 +491,76 @@ class Command(BaseCommand):
             self.stdout.write(f'  [DRY RUN] Would process {len(data)} {table_name} records')
             return len(data), 0, 0, 0
         
-        with transaction.atomic():
-            for record in data:
-                try:
-                    # Convert AutoCare data to Django format
-                    django_data = convert_autocare_data_to_django(record, table_name)
-                    
-                    # Get primary key field name
-                    pk_field = model_class._meta.pk.name
-                    pk_value = django_data.get(pk_field)
-                    
-                    if not pk_value:
-                        skipped += 1
-                        continue
-                    
-                    # Resolve foreign key relations
-                    if relations:
-                        for fk_field, related_model in relations.items():
-                            fk_value = django_data.get(fk_field)
-                            if fk_value:
-                                # Check if related object exists
-                                related_obj = related_model.objects.filter(
-                                    **{related_model._meta.pk.name: fk_value}
-                                ).first()
-                                if related_obj:
-                                    django_data[fk_field] = related_obj
-                                else:
-                                    # Skip if related object doesn't exist
-                                    skipped += 1
-                                    continue
+        # Process in batches to avoid connection timeouts
+        for i in range(0, len(data), batch_size):
+            batch = data[i:i + batch_size]
+            
+            try:
+                with transaction.atomic():
+                    for record in batch:
+                        try:
+                            # Convert AutoCare data to Django format
+                            django_data = convert_autocare_data_to_django(record, table_name)
+                            
+                            # Get primary key field name
+                            pk_field = model_class._meta.pk.name
+                            pk_value = django_data.get(pk_field)
+                            
+                            if not pk_value:
+                                skipped += 1
+                                continue
+                            
+                            # Resolve foreign key relations
+                            if relations:
+                                for fk_field, related_model in relations.items():
+                                    fk_value = django_data.get(fk_field)
+                                    if fk_value:
+                                        # Check if related object exists
+                                        related_obj = related_model.objects.filter(
+                                            **{related_model._meta.pk.name: fk_value}
+                                        ).first()
+                                        if related_obj:
+                                            django_data[fk_field] = related_obj
+                                        else:
+                                            # Skip if related object doesn't exist
+                                            skipped += 1
+                                            continue
+                                    else:
+                                        django_data[fk_field] = None
+                            
+                            # Check if record exists
+                            existing = model_class.objects.filter(**{pk_field: pk_value}).first()
+                            
+                            if existing:
+                                # Update existing record
+                                for field, value in django_data.items():
+                                    if field != pk_field:
+                                        setattr(existing, field, value)
+                                existing.save()
+                                updated += 1
                             else:
-                                django_data[fk_field] = None
-                    
-                    # Check if record exists
-                    existing = model_class.objects.filter(**{pk_field: pk_value}).first()
-                    
-                    if existing:
-                        # Update existing record
-                        for field, value in django_data.items():
-                            if field != pk_field:
-                                setattr(existing, field, value)
-                        existing.save()
-                        updated += 1
-                    else:
-                        # Create new record
-                        model_class.objects.create(**django_data)
-                        created += 1
-                    
-                    processed += 1
-                    
-                except Exception as e:
-                    logger.error(f'Error processing {table_name} record {record}: {str(e)}')
-                    skipped += 1
+                                # Create new record
+                                model_class.objects.create(**django_data)
+                                created += 1
+                            
+                            processed += 1
+                            
+                        except Exception as e:
+                            logger.error(f'Error processing {table_name} record {record}: {str(e)}')
+                            skipped += 1
+                            
+            except Exception as e:
+                logger.error(f'Error processing {table_name} batch {i//batch_size + 1}: {str(e)}')
+                # Mark all records in this batch as skipped
+                skipped += len(batch)
+            
+            # Close database connection after each batch to prevent timeouts
+            from django.db import connection
+            connection.close()
+            
+            # Progress update
+            if (i + batch_size) % (batch_size * 10) == 0:  # Every 10 batches
+                self.stdout.write(f'  Processed {i + batch_size}/{len(data)} {table_name} records...')
         
         return processed, created, updated, skipped
     # Additional processing methods for new VCDB tables
