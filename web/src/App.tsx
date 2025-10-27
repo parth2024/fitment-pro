@@ -58,7 +58,7 @@ import "react-toastify/dist/ReactToastify.css";
 // Base navigation items that are always available
 const baseNavigationItems = [
   {
-    label: "Analytics",
+    label: "Dashboard",
     value: "analytics",
     path: "/analytics",
     icon: IconDashboard,
