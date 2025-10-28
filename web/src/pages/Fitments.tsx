@@ -14,6 +14,7 @@ import {
   ActionIcon,
   Pagination,
   Select,
+  MultiSelect,
   Switch,
   Menu,
   Modal,
@@ -26,12 +27,13 @@ import {
   Grid,
   Tooltip,
   Divider,
+  Radio,
+  Textarea,
 } from "@mantine/core";
 import {
   IconSearch,
   IconDownload,
   IconTrash,
-  IconFilter,
   IconEdit,
   IconChevronDown,
   IconX,
@@ -42,6 +44,7 @@ import {
   IconShield,
   IconCheck,
   IconTable,
+  IconInfoCircle,
 } from "@tabler/icons-react";
 import FilterableSortableHeader from "../components/FilterableSortableHeader";
 import { useApi } from "../hooks/useApi";
@@ -49,10 +52,17 @@ import { useEntity } from "../hooks/useEntity";
 import {
   fitmentsService,
   fitmentUploadService,
+  dataUploadService,
   type FlattenedAppliedFitment,
 } from "../api/services";
 import { notifications } from "@mantine/notifications";
 import MultiEntitySelector from "../components/MultiEntitySelector";
+
+// Filter mode enum for match all/any configurations
+export enum FilterMode {
+  MATCH_ALL = "MATCH_ALL",
+  MATCH_ANY = "MATCH_ANY",
+}
 
 interface FilterOptions {
   itemStatus: string[];
@@ -124,6 +134,16 @@ export default function Fitments() {
   const [singleDeleteModalOpen, setSingleDeleteModalOpen] = useState(false);
   const [fitmentToDelete, setFitmentToDelete] = useState<string | null>(null);
 
+  // Filter mode and vehicle filter state
+  const [filterMode, setFilterMode] = useState<FilterMode>(
+    FilterMode.MATCH_ALL
+  );
+  const [vehicleFilter, setVehicleFilter] = useState("");
+  const [selectedParts, setSelectedParts] = useState<string[]>([]);
+  const [showFitments, setShowFitments] = useState(false);
+  const [showFitmentsLoading, setShowFitmentsLoading] = useState(false);
+  const [filtersChanged, setFiltersChanged] = useState(false);
+
   // Advanced filtering state
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(
@@ -185,6 +205,19 @@ export default function Fitments() {
       params.entity_ids = selectedEntities.join(",");
     }
 
+    // Add selected parts filtering
+    if (selectedParts.length > 0) {
+      params.part_ids = selectedParts.join(",");
+    }
+
+    // Add filter mode and vehicle filter
+    if (filterMode) {
+      params.filterMode = filterMode;
+    }
+    if (vehicleFilter) {
+      params.vehicleFilter = vehicleFilter;
+    }
+
     // Add advanced filters
     Object.entries(advancedFilters).forEach(([key, value]) => {
       if (value !== "" && value !== null && value !== undefined) {
@@ -199,6 +232,9 @@ export default function Fitments() {
       }
     });
 
+    // Debug logging
+    console.log("API Parameters being sent:", params);
+
     return params;
   }, [
     searchTerm,
@@ -208,12 +244,41 @@ export default function Fitments() {
     selectedEntities,
     advancedFilters,
     columnFilters,
+    filterMode,
+    vehicleFilter,
+    selectedParts,
   ]);
 
-  const { data, loading, error, refetch } = useApi<{
+  // Manual state management for fitments to prevent disappearing
+  const [fitmentsData, setFitmentsData] = useState<{
     fitments: FlattenedAppliedFitment[];
     totalCount: number;
-  }>(() => fitmentsService.getFitments(buildApiParams()), [buildApiParams]);
+  } | null>(null);
+  const [fitmentsLoading, setFitmentsLoading] = useState(false);
+  const [fitmentsError, setFitmentsError] = useState<string | null>(null);
+
+  // Custom refetch that actually fetches data
+  const manualRefetch = useCallback(async () => {
+    try {
+      setFitmentsLoading(true);
+      setFitmentsError(null);
+      const response = await fitmentsService.getFitments(buildApiParams());
+      setFitmentsData(response.data);
+      return response.data;
+    } catch (error: any) {
+      const errorMessage =
+        error?.response?.data?.message || error?.message || "An error occurred";
+      setFitmentsError(errorMessage);
+      throw error;
+    } finally {
+      setFitmentsLoading(false);
+    }
+  }, [buildApiParams]);
+
+  // Use fitmentsData instead of data from useApi
+  const data = fitmentsData;
+  const loading = fitmentsLoading;
+  const error = fitmentsError;
 
   // Entity selection handlers
   const handleEntitySelectionChange = (entityIds: string[]) => {
@@ -222,7 +287,7 @@ export default function Fitments() {
 
   const handleDataFetch = async (_entityIds: string[]) => {
     setDataFetched(true);
-    await refetch();
+    // Don't auto-fetch, user needs to click "Show Fitments"
   };
 
   // Initialize with current entity if available and fetch data automatically
@@ -240,7 +305,10 @@ export default function Fitments() {
       console.log("Entity changed, refreshing Fitments...");
       if (currentEntity) {
         setSelectedEntities([currentEntity.id]);
-        await refetch();
+        setShowFitments(false);
+        setShowFitmentsLoading(false);
+        setFiltersChanged(false);
+        setFitmentsData(null); // Clear fitments data when entity changes
       }
     };
 
@@ -251,7 +319,28 @@ export default function Fitments() {
     return () => {
       window.removeEventListener("entityChanged", handleEntityChange);
     };
-  }, [refetch, currentEntity]);
+  }, [currentEntity]);
+
+  // Track when filters change to show visual indicator
+  useEffect(() => {
+    if (showFitments) {
+      setFiltersChanged(true);
+    }
+  }, [
+    searchTerm,
+    filterMode,
+    vehicleFilter,
+    selectedParts,
+    advancedFilters,
+    columnFilters,
+  ]);
+
+  // Reset filters changed flag when fitments are refreshed
+  useEffect(() => {
+    if (!showFitmentsLoading) {
+      setFiltersChanged(false);
+    }
+  }, [showFitmentsLoading]);
 
   // Fetch AI-generated fitments from Django backend
   const { refetch: refetchAi } = useApi<{
@@ -262,6 +351,51 @@ export default function Fitments() {
   // Fetch filter options
   const { data: filterOptionsData, refetch: refetchFilterOptions } =
     useApi<FilterOptions>(() => fitmentsService.getFilterOptions(), []);
+
+  // Fetch products from Product Catalog for the dropdown
+  const [products, setProducts] = useState<
+    Array<{ value: string; label: string }>
+  >([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setProductsLoading(true);
+        // Fetch products from the Product Catalog API
+        const response = await dataUploadService.getProductData({
+          limit: 1000,
+        });
+
+        // Handle the response structure: { data: [...], total_count: ..., returned_count: ... }
+        if (response?.data?.data && Array.isArray(response.data.data)) {
+          const productsList = response.data.data.map((product: any) => ({
+            value: product.part_id || String(product.id),
+            label: `${product.part_id || product.id}${
+              product.description ? ` - ${product.description}` : ""
+            }`,
+          }));
+          setProducts(productsList);
+          console.log(
+            `Loaded ${productsList.length} products from Product Catalog`
+          );
+        } else {
+          console.warn("Unexpected response structure:", response);
+        }
+      } catch (error) {
+        console.error("Failed to fetch products:", error);
+        notifications.show({
+          title: "Warning",
+          message: "Failed to load products from Product Catalog",
+          color: "orange",
+        });
+      } finally {
+        setProductsLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
 
   // Mock fitment types for demonstration
   const mockFitments = (fitments: FlattenedAppliedFitment[]) => {
@@ -315,13 +449,19 @@ export default function Fitments() {
   }, [filterOptionsData]);
   useEffect(() => {
     const onFocus = () => {
-      refetch();
+      // Only refetch fitments if they're already being shown
+      if (showFitments) {
+        manualRefetch();
+      }
       refetchAi();
       refetchFilterOptions();
     };
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
-        refetch();
+        // Only refetch fitments if they're already being shown
+        if (showFitments) {
+          manualRefetch();
+        }
         refetchAi();
         refetchFilterOptions();
       }
@@ -332,7 +472,7 @@ export default function Fitments() {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [refetch, refetchAi, refetchFilterOptions]);
+  }, [manualRefetch, refetchAi, refetchFilterOptions, showFitments]);
 
   // Handler functions
   const handleSort = (field: string) => {
@@ -425,6 +565,11 @@ export default function Fitments() {
 
     // Clear any selected fitments
     setSelectedFitments([]);
+
+    // Reset show fitments state
+    setShowFitments(false);
+    setShowFitmentsLoading(false);
+    setFiltersChanged(false);
   };
 
   const handleEditFitment = (fitment: FlattenedAppliedFitment) => {
@@ -446,7 +591,7 @@ export default function Fitments() {
         message: "Fitment deleted successfully",
         color: "green",
       });
-      refetch();
+      manualRefetch();
     } catch (error) {
       notifications.show({
         title: "Error",
@@ -467,7 +612,7 @@ export default function Fitments() {
         message: "Fitment approved successfully",
         color: "green",
       });
-      refetch();
+      manualRefetch();
     } catch (error) {
       notifications.show({
         title: "Error",
@@ -485,7 +630,7 @@ export default function Fitments() {
         message: "Fitment rejected and deleted successfully",
         color: "green",
       });
-      refetch();
+      manualRefetch();
     } catch (error) {
       notifications.show({
         title: "Error",
@@ -561,7 +706,7 @@ export default function Fitments() {
       });
       setSelectedFitments([]);
       setDeleteModalOpen(false);
-      refetch();
+      manualRefetch();
     } catch (error) {
       notifications.show({
         title: "Error",
@@ -610,7 +755,7 @@ export default function Fitments() {
       });
 
       setSelectedFitments([]);
-      refetch();
+      manualRefetch();
     } catch (error) {
       notifications.show({
         title: "Error",
@@ -659,7 +804,7 @@ export default function Fitments() {
       });
 
       setSelectedFitments([]);
-      refetch();
+      manualRefetch();
     } catch (error) {
       notifications.show({
         title: "Error",
@@ -868,6 +1013,92 @@ export default function Fitments() {
         minHeight: "100vh",
       }}
     >
+      <style>
+        {`
+          /* Complete checkbox reset and proper styling */
+          .mantine-Checkbox-root {
+            display: flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+          }
+          
+          .mantine-Checkbox-input {
+            width: 18px !important;
+            height: 18px !important;
+            border: 2px solid #d1d5db !important;
+            border-radius: 4px !important;
+            background-color: white !important;
+            appearance: none !important;
+            -webkit-appearance: none !important;
+            -moz-appearance: none !important;
+            position: relative !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            cursor: pointer !important;
+            transition: all 0.15s ease !important;
+            box-sizing: border-box !important;
+          }
+          
+          /* Remove any existing pseudo-elements */
+          .mantine-Checkbox-input::before,
+          .mantine-Checkbox-input::after {
+            display: none !important;
+          }
+          
+          .mantine-Checkbox-input:hover {
+            border-color: #9ca3af !important;
+          }
+          
+          .mantine-Checkbox-input:checked {
+            background-color: #3b82f6 !important;
+            border-color: #3b82f6 !important;
+          }
+          
+          .mantine-Checkbox-input:checked::after {
+            content: "" !important;
+            display: block !important;
+            position: absolute !important;
+            top: 3px !important;
+            left: 6px !important;
+            width: 4px !important;
+            height: 8px !important;
+            border: solid white !important;
+            border-width: 0 2px 2px 0 !important;
+            transform: rotate(45deg) !important;
+          }
+          
+          .mantine-Checkbox-input:indeterminate {
+            background-color: #3b82f6 !important;
+            border-color: #3b82f6 !important;
+          }
+          
+          .mantine-Checkbox-input:indeterminate::after {
+            content: "" !important;
+            display: block !important;
+            position: absolute !important;
+            top: 7px !important;
+            left: 4px !important;
+            width: 8px !important;
+            height: 2px !important;
+            background-color: white !important;
+          }
+          
+          .mantine-Checkbox-input:focus {
+            outline: 2px solid #3b82f6 !important;
+            outline-offset: 2px !important;
+          }
+          
+          .mantine-Checkbox-label {
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          
+          /* Hide Mantine's default icon */
+          .mantine-Checkbox-icon {
+            display: none !important;
+          }
+        `}
+      </style>
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Stack gap="lg">
           {/* Header */}
@@ -896,70 +1127,26 @@ export default function Fitments() {
                 <Group justify="space-between" align="flex-end" wrap="nowrap">
                   <Group gap="xs" style={{ flex: 1 }} wrap="nowrap">
                     <TextInput
-                      placeholder="Search by Part ID, Make, Model..."
+                      placeholder="Search by Part ID, Make, Model, Year, Vehicle Type, Part Type, Position, Fitment Title, Description..."
                       leftSection={<IconSearch size={16} color="#64748b" />}
                       value={searchTerm}
                       onChange={(event) =>
                         setSearchTerm(event.currentTarget.value)
                       }
                       styles={{
-                        root: { flex: 1, minWidth: 200, maxWidth: 300 },
+                        root: { flex: 1, width: "100%" },
+                        input: {
+                          height: "48px",
+                          fontSize: "14px",
+                          paddingLeft: "40px",
+                          paddingRight: "16px",
+                        },
+                        section: {
+                          left: "12px",
+                          width: "20px",
+                        },
                       }}
-                      size="sm"
-                    />
-
-                    <Select
-                      placeholder="Sort by"
-                      value={sortBy}
-                      onChange={(value) => setSortBy(value || "updatedAt")}
-                      data={[
-                        { value: "partId", label: "Part ID" },
-                        { value: "makeName", label: "Make" },
-                        { value: "modelName", label: "Model" },
-                        { value: "year", label: "Year" },
-                        { value: "updatedAt", label: "Last Updated" },
-                        { value: "createdAt", label: "Created Date" },
-                        { value: "itemStatus", label: "Status" },
-                        { value: "fitmentType", label: "Fitment Type" },
-                      ]}
-                      leftSection={<IconFilter size={16} color="#64748b" />}
-                      styles={{
-                        root: { minWidth: 140 },
-                      }}
-                      size="sm"
-                    />
-
-                    <Select
-                      value={sortOrder}
-                      onChange={(value) =>
-                        setSortOrder(value as "asc" | "desc")
-                      }
-                      data={[
-                        { value: "asc", label: "Ascending" },
-                        { value: "desc", label: "Descending" },
-                      ]}
-                      styles={{
-                        root: { minWidth: 120 },
-                      }}
-                      size="sm"
-                    />
-
-                    <Select
-                      placeholder="Filter by status"
-                      value={columnFilters.itemStatus}
-                      onChange={(value) =>
-                        handleColumnFilterChange("itemStatus", value || "")
-                      }
-                      data={[
-                        { value: "", label: "All Status" },
-                        { value: "Active", label: "Active" },
-                        { value: "readyToApprove", label: "Ready to Approve" },
-                      ]}
-                      clearable
-                      styles={{
-                        root: { minWidth: 140 },
-                      }}
-                      size="sm"
+                      size="md"
                     />
 
                     <Button
@@ -1009,7 +1196,7 @@ export default function Fitments() {
                     </Button>
                   </Group>
 
-                  <Group gap="sm">
+                  <Group gap="sm" mb={"5"}>
                     {selectedFitments.length > 0 && (
                       <Button
                         leftSection={<IconTrash size={16} />}
@@ -1051,6 +1238,172 @@ export default function Fitments() {
                     </Menu>
                   </Group>
                 </Group>
+              </div>
+
+              {/* Parts Selection and Filter Mode */}
+              <div style={{ marginTop: "16px" }}>
+                <Card withBorder radius="md" p="md">
+                  <Stack gap="md">
+                    {/* Parts Selection */}
+                    <div>
+                      <Text fw={600} size="sm" c="#374151" mb="xs">
+                        Select the Parts
+                      </Text>
+                      <MultiSelect
+                        placeholder={
+                          productsLoading
+                            ? "Loading products..."
+                            : "(leave blank to show all)"
+                        }
+                        value={selectedParts}
+                        onChange={setSelectedParts}
+                        data={products}
+                        clearable
+                        searchable
+                        disabled={productsLoading}
+                        styles={{
+                          root: { maxWidth: 600, width: "100%" },
+                        }}
+                        size="sm"
+                      />
+                    </div>
+
+                    {/* Filter Mode and Vehicle Filter */}
+                    <Grid>
+                      <Grid.Col span={6}>
+                        <div>
+                          <Text fw={600} size="sm" c="#374151" mb="xs">
+                            Filter Mode
+                          </Text>
+                          <Radio.Group
+                            value={filterMode}
+                            onChange={(value) =>
+                              setFilterMode(value as FilterMode)
+                            }
+                          >
+                            <Stack gap="xs">
+                              <Radio
+                                value={FilterMode.MATCH_ALL}
+                                label="Return fitments that match ALL the configurations"
+                                size="sm"
+                              />
+                              <Radio
+                                value={FilterMode.MATCH_ANY}
+                                label="Return fitments that match ANY configuration"
+                                size="sm"
+                              />
+                            </Stack>
+                          </Radio.Group>
+                        </div>
+                      </Grid.Col>
+                      <Grid.Col span={6}>
+                        <div>
+                          <Group gap="xs" mb="xs">
+                            <Text fw={600} size="sm" c="#374151">
+                              Filter
+                            </Text>
+                            <Tooltip
+                              label="Enter a year (e.g., 2026) or full format: Year | Make | Model | Submodel | DriveType | FuelType | NumDoors (e.g: 2008|Dodge|Ram 1500|*|4WD|*|*). Use * for wildcards."
+                              multiline
+                              w={400}
+                              withArrow
+                            >
+                              <IconInfoCircle size={16} color="#64748b" />
+                            </Tooltip>
+                          </Group>
+                          <Textarea
+                            placeholder="Enter year (e.g., 2026) or full format: Year | Make | Model | Submodel | DriveType | FuelType | NumDoors"
+                            value={vehicleFilter}
+                            onChange={(event) =>
+                              setVehicleFilter(event.currentTarget.value)
+                            }
+                            minRows={3}
+                            maxRows={6}
+                            styles={{
+                              input: {
+                                fontSize: "13px",
+                                fontFamily: "monospace",
+                              },
+                            }}
+                            size="sm"
+                          />
+                        </div>
+                      </Grid.Col>
+                    </Grid>
+
+                    {/* Show Fitments Button */}
+                    <Group justify="center">
+                      <div style={{ position: "relative" }}>
+                        {filtersChanged && showFitments && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: "-8px",
+                              right: "-8px",
+                              width: "12px",
+                              height: "12px",
+                              backgroundColor: "#f59e0b",
+                              borderRadius: "50%",
+                              border: "2px solid white",
+                              zIndex: 1,
+                            }}
+                          />
+                        )}
+                        <Button
+                          styles={{
+                            root: {
+                              fontWeight: 500,
+                              fontSize: "14px",
+                              borderRadius: "8px",
+                              transition: "all 0.2s ease",
+                              "&:hover": {
+                                background: "#f1f5f9",
+                              },
+                            },
+                          }}
+                          onClick={async () => {
+                            // Set showFitments to true first so the API call will work
+                            if (!showFitments) {
+                              setShowFitments(true);
+                              // Wait a bit for state to update
+                              await new Promise((resolve) =>
+                                setTimeout(resolve, 100)
+                              );
+                            }
+
+                            setShowFitmentsLoading(true);
+
+                            // Always show loading animation for 1 second
+                            await new Promise((resolve) =>
+                              setTimeout(resolve, 1000)
+                            );
+
+                            setShowFitmentsLoading(false);
+
+                            // Trigger manual refetch after loading animation
+                            try {
+                              await manualRefetch();
+                              console.log("Fitments loaded successfully");
+                            } catch (error) {
+                              console.error("Error loading fitments:", error);
+                            }
+                          }}
+                          loading={showFitmentsLoading}
+                          size="md"
+                          style={{ minWidth: 150 }}
+                        >
+                          {showFitmentsLoading
+                            ? "Loading..."
+                            : showFitments
+                            ? filtersChanged
+                              ? "Apply New Filters"
+                              : "Refresh Fitments"
+                            : "Show Fitments"}
+                        </Button>
+                      </div>
+                    </Group>
+                  </Stack>
+                </Card>
               </div>
 
               {/* Advanced Filters */}
@@ -1984,266 +2337,63 @@ export default function Fitments() {
 
           {/* AI Generated Fitments Section */}
 
-          {/* Table */}
-          {error && <Text c="red">{error}</Text>}
-          {expandedView && (
-            <div
-              style={{
-                marginBottom: "8px",
-                padding: "8px 12px",
-                backgroundColor: "#f8fafc",
-                borderRadius: "8px",
-                border: "1px solid #e2e8f0",
-              }}
-            >
-              <Text size="sm" c="#64748b" fw={500}>
-                💡 Expanded view is active - scroll horizontally to see all
-                columns
-              </Text>
-            </div>
-          )}
-          <ScrollArea
-            type="scroll"
-            scrollbarSize={8}
-            style={{
-              width: "100%",
-              maxWidth: "100%",
-              border: "1px solid #e2e8f0",
-              borderRadius: "8px",
-            }}
-          >
-            <Table
-              striped
-              highlightOnHover
-              style={{
-                minWidth: expandedView ? "1400px" : "800px",
-                width: "100%",
-              }}
-            >
-              <Table.Thead>
-                <Table.Tr style={{ height: "48px" }}>
-                  <Table.Th
-                    style={{
-                      width: "50px",
-                      minWidth: "50px",
-                      verticalAlign: "middle",
-                      textAlign: "center",
-                    }}
-                  >
-                    <Checkbox
-                      checked={selectedFitments.length === fitments.length}
-                      indeterminate={
-                        selectedFitments.length > 0 &&
-                        selectedFitments.length < fitments.length
-                      }
-                      onChange={(event) =>
-                        handleSelectAll(event.currentTarget.checked)
-                      }
-                    />
-                  </Table.Th>
-                  <Table.Th
-                    style={{
-                      width: "120px",
-                      minWidth: "120px",
-                      verticalAlign: "middle",
-                    }}
-                  >
-                    <FilterableSortableHeader
-                      label="Part ID"
-                      field="partId"
-                      currentSortBy={sortBy}
-                      currentSortOrder={sortOrder}
-                      onSort={handleSort}
-                      filterType="text"
-                      filterValue={columnFilters.partId}
-                      onFilterChange={handleColumnFilterChange}
-                      onFilterClear={handleColumnFilterClear}
-                      placeholder="Filter by Part ID"
-                    />
-                  </Table.Th>
-                  <Table.Th
-                    style={{
-                      width: "100px",
-                      minWidth: "100px",
-                      verticalAlign: "middle",
-                    }}
-                  >
-                    <FilterableSortableHeader
-                      label="Status"
-                      field="itemStatus"
-                      currentSortBy={sortBy}
-                      currentSortOrder={sortOrder}
-                      onSort={handleSort}
-                      filterType="select"
-                      filterOptions={
-                        filterOptions?.itemStatus.map((status) => ({
-                          value: status,
-                          label: status,
-                        })) || []
-                      }
-                      filterValue={columnFilters.itemStatus}
-                      onFilterChange={handleColumnFilterChange}
-                      onFilterClear={handleColumnFilterClear}
-                      placeholder="Select status"
-                    />
-                  </Table.Th>
-                  <Table.Th
-                    style={{
-                      width: "200px",
-                      minWidth: "200px",
-                      verticalAlign: "middle",
-                    }}
-                  >
-                    <FilterableSortableHeader
-                      label="Vehicle"
-                      field="makeName"
-                      currentSortBy={sortBy}
-                      currentSortOrder={sortOrder}
-                      onSort={handleSort}
-                      filterType="select"
-                      filterOptions={
-                        filterOptions?.makeName.map((make) => ({
-                          value: make,
-                          label: make,
-                        })) || []
-                      }
-                      filterValue={columnFilters.makeName}
-                      onFilterChange={handleColumnFilterChange}
-                      onFilterClear={handleColumnFilterClear}
-                      placeholder="Select make"
-                    />
-                  </Table.Th>
-                  <Table.Th
-                    style={{
-                      width: "150px",
-                      minWidth: "150px",
-                      verticalAlign: "middle",
-                    }}
-                  >
-                    <FilterableSortableHeader
-                      label="Part Type"
-                      field="partTypeDescriptor"
-                      currentSortBy={sortBy}
-                      currentSortOrder={sortOrder}
-                      onSort={handleSort}
-                      filterType="select"
-                      filterOptions={
-                        filterOptions?.partTypeDescriptor.map((part) => ({
-                          value: part,
-                          label: part,
-                        })) || []
-                      }
-                      filterValue={columnFilters.partTypeDescriptor}
-                      onFilterChange={handleColumnFilterChange}
-                      onFilterClear={handleColumnFilterClear}
-                      placeholder="Select part type"
-                    />
-                  </Table.Th>
-                  <Table.Th
-                    style={{
-                      width: "100px",
-                      minWidth: "100px",
-                      verticalAlign: "middle",
-                    }}
-                  >
-                    <FilterableSortableHeader
-                      label="Position"
-                      field="position"
-                      currentSortBy={sortBy}
-                      currentSortOrder={sortOrder}
-                      onSort={handleSort}
-                      filterType="select"
-                      filterOptions={
-                        filterOptions?.position.map((pos) => ({
-                          value: pos,
-                          label: pos,
-                        })) || []
-                      }
-                      filterValue={columnFilters.position}
-                      onFilterChange={handleColumnFilterChange}
-                      onFilterClear={handleColumnFilterClear}
-                      placeholder="Select position"
-                    />
-                  </Table.Th>
-                  <Table.Th
-                    style={{
-                      width: "200px",
-                      minWidth: "200px",
-                      verticalAlign: "middle",
-                    }}
-                  >
-                    <FilterableSortableHeader
-                      label="Title"
-                      field="fitmentTitle"
-                      currentSortBy={sortBy}
-                      currentSortOrder={sortOrder}
-                      onSort={handleSort}
-                      filterType="text"
-                      filterValue={columnFilters.fitmentTitle}
-                      onFilterChange={handleColumnFilterChange}
-                      onFilterClear={handleColumnFilterClear}
-                      placeholder="Filter by title"
-                    />
-                  </Table.Th>
-                  <Table.Th
-                    style={{
-                      width: "180px",
-                      minWidth: "180px",
-                      verticalAlign: "middle",
-                    }}
-                  >
-                    <FilterableSortableHeader
-                      label="Fitment Type"
-                      field="fitmentType"
-                      currentSortBy={sortBy}
-                      currentSortOrder={sortOrder}
-                      onSort={handleSort}
-                      filterType="select"
-                      filterOptions={[
-                        { value: "ai_fitment", label: "AI Fitment" },
-                        {
-                          value: "potential_fitment",
-                          label: "Potential Fitment",
-                        },
-                        { value: "manual_fitment", label: "Manual Fitment" },
-                      ]}
-                      filterValue={columnFilters.fitmentType || ""}
-                      onFilterChange={handleColumnFilterChange}
-                      onFilterClear={handleColumnFilterClear}
-                      placeholder="Select method"
-                    />
-                  </Table.Th>
-                  {expandedView && (
-                    <>
+          {/* Table - Only show if showFitments is true */}
+          {showFitments && (
+            <>
+              {error && <Text c="red">{error}</Text>}
+              {expandedView && (
+                <div
+                  style={{
+                    marginBottom: "8px",
+                    padding: "8px 12px",
+                    backgroundColor: "#f8fafc",
+                    borderRadius: "8px",
+                    border: "1px solid #e2e8f0",
+                  }}
+                >
+                  <Text size="sm" c="#64748b" fw={500}>
+                    💡 Expanded view is active - scroll horizontally to see all
+                    columns
+                  </Text>
+                </div>
+              )}
+              <ScrollArea
+                type="scroll"
+                scrollbarSize={8}
+                style={{
+                  width: "100%",
+                  maxWidth: "100%",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "8px",
+                }}
+              >
+                <Table
+                  striped
+                  highlightOnHover
+                  style={{
+                    minWidth: expandedView ? "1400px" : "800px",
+                    width: "100%",
+                  }}
+                >
+                  <Table.Thead>
+                    <Table.Tr style={{ height: "48px" }}>
                       <Table.Th
                         style={{
-                          width: "250px",
-                          minWidth: "250px",
+                          width: "50px",
+                          minWidth: "50px",
                           verticalAlign: "middle",
+                          textAlign: "center",
                         }}
                       >
-                        Description
-                      </Table.Th>
-                      <Table.Th
-                        style={{
-                          width: "80px",
-                          minWidth: "80px",
-                          verticalAlign: "middle",
-                        }}
-                      >
-                        <FilterableSortableHeader
-                          label="Quantity"
-                          field="quantity"
-                          currentSortBy={sortBy}
-                          currentSortOrder={sortOrder}
-                          onSort={handleSort}
-                          filterType="number"
-                          filterValue={columnFilters.quantity}
-                          onFilterChange={handleColumnFilterChange}
-                          onFilterClear={handleColumnFilterClear}
-                          placeholder="Filter by quantity"
-                          min={1}
-                          max={100}
+                        <Checkbox
+                          checked={selectedFitments.length === fitments.length}
+                          indeterminate={
+                            selectedFitments.length > 0 &&
+                            selectedFitments.length < fitments.length
+                          }
+                          onChange={(event) =>
+                            handleSelectAll(event.currentTarget.checked)
+                          }
                         />
                       </Table.Th>
                       <Table.Th
@@ -2254,376 +2404,643 @@ export default function Fitments() {
                         }}
                       >
                         <FilterableSortableHeader
-                          label="Lift Height"
-                          field="liftHeight"
+                          label="Part ID"
+                          field="partId"
+                          currentSortBy={sortBy}
+                          currentSortOrder={sortOrder}
+                          onSort={handleSort}
+                          filterType="text"
+                          filterValue={columnFilters.partId}
+                          onFilterChange={handleColumnFilterChange}
+                          onFilterClear={handleColumnFilterClear}
+                          placeholder="Filter by Part ID"
+                        />
+                      </Table.Th>
+                      <Table.Th
+                        style={{
+                          width: "100px",
+                          minWidth: "100px",
+                          verticalAlign: "middle",
+                        }}
+                      >
+                        <FilterableSortableHeader
+                          label="Status"
+                          field="itemStatus"
                           currentSortBy={sortBy}
                           currentSortOrder={sortOrder}
                           onSort={handleSort}
                           filterType="select"
                           filterOptions={
-                            filterOptions?.liftHeight.map((lift) => ({
-                              value: lift,
-                              label: lift,
+                            filterOptions?.itemStatus.map((status) => ({
+                              value: status,
+                              label: status,
                             })) || []
                           }
-                          filterValue={columnFilters.liftHeight}
+                          filterValue={columnFilters.itemStatus}
                           onFilterChange={handleColumnFilterChange}
                           onFilterClear={handleColumnFilterClear}
-                          placeholder="Select lift height"
+                          placeholder="Select status"
                         />
                       </Table.Th>
                       <Table.Th
                         style={{
-                          width: "120px",
-                          minWidth: "120px",
+                          width: "200px",
+                          minWidth: "200px",
                           verticalAlign: "middle",
                         }}
                       >
                         <FilterableSortableHeader
-                          label="Wheel Type"
-                          field="wheelType"
+                          label="Vehicle"
+                          field="makeName"
                           currentSortBy={sortBy}
                           currentSortOrder={sortOrder}
                           onSort={handleSort}
                           filterType="select"
                           filterOptions={
-                            filterOptions?.wheelType.map((wheel) => ({
-                              value: wheel,
-                              label: wheel,
+                            filterOptions?.makeName.map((make) => ({
+                              value: make,
+                              label: make,
                             })) || []
                           }
-                          filterValue={columnFilters.wheelType}
+                          filterValue={columnFilters.makeName}
                           onFilterChange={handleColumnFilterChange}
                           onFilterClear={handleColumnFilterClear}
-                          placeholder="Select wheel type"
+                          placeholder="Select make"
                         />
                       </Table.Th>
                       <Table.Th
                         style={{
-                          width: "120px",
-                          minWidth: "120px",
+                          width: "150px",
+                          minWidth: "150px",
                           verticalAlign: "middle",
                         }}
                       >
                         <FilterableSortableHeader
-                          label="Updated"
-                          field="updatedAt"
+                          label="Part Type"
+                          field="partTypeDescriptor"
                           currentSortBy={sortBy}
                           currentSortOrder={sortOrder}
                           onSort={handleSort}
-                          filterType="date"
-                          filterValue={columnFilters.updatedAt}
+                          filterType="select"
+                          filterOptions={
+                            filterOptions?.partTypeDescriptor.map((part) => ({
+                              value: part,
+                              label: part,
+                            })) || []
+                          }
+                          filterValue={columnFilters.partTypeDescriptor}
                           onFilterChange={handleColumnFilterChange}
                           onFilterClear={handleColumnFilterClear}
-                          placeholder="Filter by date"
+                          placeholder="Select part type"
                         />
                       </Table.Th>
-                    </>
-                  )}
-                  <Table.Th
-                    style={{
-                      width: "100px",
-                      minWidth: "100px",
-                      verticalAlign: "middle",
-                      textAlign: "center",
-                    }}
-                  >
-                    Actions
-                  </Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {loading ? (
-                  // Professional loading skeleton rows
-                  Array.from({ length: 8 }).map((_, index) => (
-                    <Table.Tr key={`skeleton-${index}`}>
-                      <Table.Td>
-                        <Skeleton height={16} width={16} />
-                      </Table.Td>
-                      <Table.Td>
-                        <Skeleton height={16} width={80} />
-                      </Table.Td>
-                      <Table.Td>
-                        <Skeleton height={20} width={60} radius="sm" />
-                      </Table.Td>
-                      <Table.Td>
-                        <Stack gap="xs">
-                          <Skeleton height={14} width={150} />
-                          <Skeleton height={12} width={100} />
-                        </Stack>
-                      </Table.Td>
-                      <Table.Td>
-                        <Skeleton height={16} width={90} />
-                      </Table.Td>
-                      <Table.Td>
-                        <Skeleton height={16} width={70} />
-                      </Table.Td>
-                      <Table.Td>
-                        <Skeleton height={16} width={120} />
-                      </Table.Td>
-                      <Table.Td>
-                        <Skeleton height={20} width={80} radius="sm" />
-                      </Table.Td>
+                      <Table.Th
+                        style={{
+                          width: "100px",
+                          minWidth: "100px",
+                          verticalAlign: "middle",
+                        }}
+                      >
+                        <FilterableSortableHeader
+                          label="Position"
+                          field="position"
+                          currentSortBy={sortBy}
+                          currentSortOrder={sortOrder}
+                          onSort={handleSort}
+                          filterType="select"
+                          filterOptions={
+                            filterOptions?.position.map((pos) => ({
+                              value: pos,
+                              label: pos,
+                            })) || []
+                          }
+                          filterValue={columnFilters.position}
+                          onFilterChange={handleColumnFilterChange}
+                          onFilterClear={handleColumnFilterClear}
+                          placeholder="Select position"
+                        />
+                      </Table.Th>
+                      <Table.Th
+                        style={{
+                          width: "200px",
+                          minWidth: "200px",
+                          verticalAlign: "middle",
+                        }}
+                      >
+                        <FilterableSortableHeader
+                          label="Title"
+                          field="fitmentTitle"
+                          currentSortBy={sortBy}
+                          currentSortOrder={sortOrder}
+                          onSort={handleSort}
+                          filterType="text"
+                          filterValue={columnFilters.fitmentTitle}
+                          onFilterChange={handleColumnFilterChange}
+                          onFilterClear={handleColumnFilterClear}
+                          placeholder="Filter by title"
+                        />
+                      </Table.Th>
+                      <Table.Th
+                        style={{
+                          width: "180px",
+                          minWidth: "180px",
+                          verticalAlign: "middle",
+                        }}
+                      >
+                        <FilterableSortableHeader
+                          label="Fitment Type"
+                          field="fitmentType"
+                          currentSortBy={sortBy}
+                          currentSortOrder={sortOrder}
+                          onSort={handleSort}
+                          filterType="select"
+                          filterOptions={[
+                            { value: "ai_fitment", label: "AI Fitment" },
+                            {
+                              value: "potential_fitment",
+                              label: "Potential Fitment",
+                            },
+                            {
+                              value: "manual_fitment",
+                              label: "Manual Fitment",
+                            },
+                          ]}
+                          filterValue={columnFilters.fitmentType || ""}
+                          onFilterChange={handleColumnFilterChange}
+                          onFilterClear={handleColumnFilterClear}
+                          placeholder="Select method"
+                        />
+                      </Table.Th>
                       {expandedView && (
                         <>
+                          <Table.Th
+                            style={{
+                              width: "250px",
+                              minWidth: "250px",
+                              verticalAlign: "middle",
+                            }}
+                          >
+                            Description
+                          </Table.Th>
+                          <Table.Th
+                            style={{
+                              width: "80px",
+                              minWidth: "80px",
+                              verticalAlign: "middle",
+                            }}
+                          >
+                            <FilterableSortableHeader
+                              label="Quantity"
+                              field="quantity"
+                              currentSortBy={sortBy}
+                              currentSortOrder={sortOrder}
+                              onSort={handleSort}
+                              filterType="number"
+                              filterValue={columnFilters.quantity}
+                              onFilterChange={handleColumnFilterChange}
+                              onFilterClear={handleColumnFilterClear}
+                              placeholder="Filter by quantity"
+                              min={1}
+                              max={100}
+                            />
+                          </Table.Th>
+                          <Table.Th
+                            style={{
+                              width: "120px",
+                              minWidth: "120px",
+                              verticalAlign: "middle",
+                            }}
+                          >
+                            <FilterableSortableHeader
+                              label="Lift Height"
+                              field="liftHeight"
+                              currentSortBy={sortBy}
+                              currentSortOrder={sortOrder}
+                              onSort={handleSort}
+                              filterType="select"
+                              filterOptions={
+                                filterOptions?.liftHeight.map((lift) => ({
+                                  value: lift,
+                                  label: lift,
+                                })) || []
+                              }
+                              filterValue={columnFilters.liftHeight}
+                              onFilterChange={handleColumnFilterChange}
+                              onFilterClear={handleColumnFilterClear}
+                              placeholder="Select lift height"
+                            />
+                          </Table.Th>
+                          <Table.Th
+                            style={{
+                              width: "120px",
+                              minWidth: "120px",
+                              verticalAlign: "middle",
+                            }}
+                          >
+                            <FilterableSortableHeader
+                              label="Wheel Type"
+                              field="wheelType"
+                              currentSortBy={sortBy}
+                              currentSortOrder={sortOrder}
+                              onSort={handleSort}
+                              filterType="select"
+                              filterOptions={
+                                filterOptions?.wheelType.map((wheel) => ({
+                                  value: wheel,
+                                  label: wheel,
+                                })) || []
+                              }
+                              filterValue={columnFilters.wheelType}
+                              onFilterChange={handleColumnFilterChange}
+                              onFilterClear={handleColumnFilterClear}
+                              placeholder="Select wheel type"
+                            />
+                          </Table.Th>
+                          <Table.Th
+                            style={{
+                              width: "120px",
+                              minWidth: "120px",
+                              verticalAlign: "middle",
+                            }}
+                          >
+                            <FilterableSortableHeader
+                              label="Updated"
+                              field="updatedAt"
+                              currentSortBy={sortBy}
+                              currentSortOrder={sortOrder}
+                              onSort={handleSort}
+                              filterType="date"
+                              filterValue={columnFilters.updatedAt}
+                              onFilterChange={handleColumnFilterChange}
+                              onFilterClear={handleColumnFilterClear}
+                              placeholder="Filter by date"
+                            />
+                          </Table.Th>
+                        </>
+                      )}
+                      <Table.Th
+                        style={{
+                          width: "100px",
+                          minWidth: "100px",
+                          verticalAlign: "middle",
+                          textAlign: "center",
+                        }}
+                      >
+                        Actions
+                      </Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {loading ? (
+                      // Professional loading skeleton rows
+                      Array.from({ length: 8 }).map((_, index) => (
+                        <Table.Tr key={`skeleton-${index}`}>
                           <Table.Td>
-                            <Skeleton height={16} width={150} />
-                          </Table.Td>
-                          <Table.Td>
-                            <Skeleton height={16} width={40} />
-                          </Table.Td>
-                          <Table.Td>
-                            <Skeleton height={16} width={60} />
+                            <Skeleton height={16} width={16} />
                           </Table.Td>
                           <Table.Td>
                             <Skeleton height={16} width={80} />
                           </Table.Td>
                           <Table.Td>
+                            <Skeleton height={20} width={60} radius="sm" />
+                          </Table.Td>
+                          <Table.Td>
+                            <Stack gap="xs">
+                              <Skeleton height={14} width={150} />
+                              <Skeleton height={12} width={100} />
+                            </Stack>
+                          </Table.Td>
+                          <Table.Td>
                             <Skeleton height={16} width={90} />
                           </Table.Td>
-                        </>
-                      )}
-                      <Table.Td>
-                        <Skeleton height={24} width={24} radius="sm" />
-                      </Table.Td>
-                    </Table.Tr>
-                  ))
-                ) : fitments.length === 0 ? (
-                  <Table.Tr>
-                    <Table.Td colSpan={expandedView ? 13 : 9}>
-                      <Center py="xl">
-                        <Stack align="center" gap="md">
-                          <Text size="lg" c="dimmed">
-                            No fitments found
-                          </Text>
-                          <Text size="sm" c="dimmed">
-                            Try adjusting your search criteria or filters
-                          </Text>
-                        </Stack>
-                      </Center>
-                    </Table.Td>
-                  </Table.Tr>
-                ) : (
-                  fitments.map((fitment) => (
-                    <Table.Tr key={fitment.hash}>
-                      <Table.Td>
-                        <Checkbox
-                          checked={selectedFitments.includes(fitment.hash)}
-                          onChange={(event) =>
-                            handleSelectFitment(
-                              fitment.hash,
-                              event.currentTarget.checked
-                            )
-                          }
-                        />
-                      </Table.Td>
-                      <Table.Td>
-                        <Text fw={500}>{fitment.partId}</Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Group gap="xs">
-                          <Badge
-                            variant="light"
-                            color={getStatusColor(fitment.itemStatus)}
-                            size="sm"
-                          >
-                            {fitment.itemStatus}
-                          </Badge>
-                        </Group>
-                      </Table.Td>
-                      <Table.Td>
-                        <div>
-                          <Text size="sm" fw={500}>
-                            {fitment.year} {fitment.makeName}{" "}
-                            {fitment.modelName}
-                          </Text>
-                          <Text size="xs" c="dimmed">
-                            {fitment.subModelName} • {fitment.driveTypeName}
-                          </Text>
-                        </div>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">{fitment.partTypeDescriptor}</Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">{fitment.position}</Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm" fw={500}>
-                          {fitment.fitmentTitle}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        {fitment.fitmentType === "manual_fitment" ? (
-                          <Group gap="xs">
-                            {getFitmentTypeIcon(fitment.fitmentType)}
-                            <Badge
-                              variant="light"
-                              color={getFitmentTypeColor(fitment.fitmentType)}
-                              size="sm"
-                            >
-                              {getFitmentTypeLabel(fitment.fitmentType)}
-                            </Badge>
-                          </Group>
-                        ) : (
-                          <Tooltip
-                            label={getEnhancedFitmentTypeDescription(fitment)}
-                            multiline
-                            w={400}
-                            withArrow
-                          >
-                            <Group gap="xs" style={{ cursor: "help" }}>
-                              {getFitmentTypeIcon(fitment.fitmentType)}
-                              <Badge
-                                variant="light"
-                                color={getFitmentTypeColor(fitment.fitmentType)}
-                                size="sm"
-                              >
-                                {getFitmentTypeLabel(fitment.fitmentType)}
-                              </Badge>
-                              {(fitment.fitmentType === "ai_fitment" ||
-                                fitment.fitmentType === "potential_fitment") &&
-                                fitment.confidenceScore && (
-                                  <Badge
-                                    variant="filled"
-                                    color={getConfidenceColor(
-                                      fitment.confidenceScore
-                                    )}
-                                    size="xs"
-                                    leftSection={<IconShield size={12} />}
-                                  >
-                                    {formatConfidenceScore(
-                                      fitment.confidenceScore
-                                    )}
-                                  </Badge>
-                                )}
-                              {isPotentialFitment(fitment.fitmentType) && (
-                                <Badge
-                                  variant="outline"
-                                  color="orange"
-                                  size="xs"
-                                >
-                                  Needs Review
-                                </Badge>
-                              )}
-                            </Group>
-                          </Tooltip>
-                        )}
-                      </Table.Td>
-                      {expandedView && (
-                        <>
                           <Table.Td>
-                            <Text size="sm" truncate="end" maw={200}>
-                              {fitment.fitmentDescription}
-                            </Text>
+                            <Skeleton height={16} width={70} />
                           </Table.Td>
-                          <Table.Td>{fitment.quantity}</Table.Td>
-                          <Table.Td>{fitment.liftHeight || "-"}</Table.Td>
-                          <Table.Td>{fitment.wheelType || "-"}</Table.Td>
                           <Table.Td>
-                            <Text size="xs" c="dimmed">
-                              {new Date(fitment.updatedAt).toLocaleDateString()}
-                            </Text>
+                            <Skeleton height={16} width={120} />
                           </Table.Td>
-                        </>
-                      )}
-                      <Table.Td>
-                        <Group gap="xs">
-                          {fitment.itemStatus === "readyToApprove" ? (
+                          <Table.Td>
+                            <Skeleton height={20} width={80} radius="sm" />
+                          </Table.Td>
+                          {expandedView && (
                             <>
-                              <Tooltip label="Approve fitment">
-                                <ActionIcon
-                                  color="green"
-                                  variant="light"
-                                  size="sm"
-                                  onClick={() =>
-                                    handleApproveFitment(fitment.hash)
-                                  }
-                                >
-                                  <IconCheck size={14} />
-                                </ActionIcon>
-                              </Tooltip>
-                              <Tooltip label="Reject fitment">
-                                <ActionIcon
-                                  color="red"
-                                  variant="light"
-                                  size="sm"
-                                  onClick={() =>
-                                    handleRejectFitment(fitment.hash)
-                                  }
-                                >
-                                  <IconX size={14} />
-                                </ActionIcon>
-                              </Tooltip>
-                            </>
-                          ) : (
-                            <>
-                              <Tooltip label="Edit fitment">
-                                <ActionIcon
-                                  color="blue"
-                                  variant="light"
-                                  size="sm"
-                                  onClick={() => handleEditFitment(fitment)}
-                                >
-                                  <IconEdit size={14} />
-                                </ActionIcon>
-                              </Tooltip>
-                              <Tooltip label="Delete fitment">
-                                <ActionIcon
-                                  color="red"
-                                  variant="light"
-                                  size="sm"
-                                  onClick={() =>
-                                    handleDeleteFitment(fitment.hash)
-                                  }
-                                >
-                                  <IconTrash size={14} />
-                                </ActionIcon>
-                              </Tooltip>
+                              <Table.Td>
+                                <Skeleton height={16} width={150} />
+                              </Table.Td>
+                              <Table.Td>
+                                <Skeleton height={16} width={40} />
+                              </Table.Td>
+                              <Table.Td>
+                                <Skeleton height={16} width={60} />
+                              </Table.Td>
+                              <Table.Td>
+                                <Skeleton height={16} width={80} />
+                              </Table.Td>
+                              <Table.Td>
+                                <Skeleton height={16} width={90} />
+                              </Table.Td>
                             </>
                           )}
-                        </Group>
-                      </Table.Td>
-                    </Table.Tr>
-                  ))
-                )}
-              </Table.Tbody>
-            </Table>
-          </ScrollArea>
+                          <Table.Td>
+                            <Skeleton height={24} width={24} radius="sm" />
+                          </Table.Td>
+                        </Table.Tr>
+                      ))
+                    ) : fitments.length === 0 ? (
+                      <Table.Tr>
+                        <Table.Td colSpan={expandedView ? 13 : 9}>
+                          <Center py="xl">
+                            <Stack align="center" gap="md">
+                              <Text size="lg" c="dimmed">
+                                No fitments found
+                              </Text>
+                              <Text size="sm" c="dimmed">
+                                Try adjusting your search criteria or filters
+                              </Text>
+                            </Stack>
+                          </Center>
+                        </Table.Td>
+                      </Table.Tr>
+                    ) : (
+                      fitments.map((fitment) => (
+                        <Table.Tr key={fitment.hash}>
+                          <Table.Td>
+                            <Checkbox
+                              checked={selectedFitments.includes(fitment.hash)}
+                              onChange={(event) =>
+                                handleSelectFitment(
+                                  fitment.hash,
+                                  event.currentTarget.checked
+                                )
+                              }
+                            />
+                          </Table.Td>
+                          <Table.Td>
+                            <Text fw={500}>{fitment.partId}</Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Group gap="xs">
+                              <Badge
+                                variant="light"
+                                color={getStatusColor(fitment.itemStatus)}
+                                size="sm"
+                              >
+                                {fitment.itemStatus}
+                              </Badge>
+                            </Group>
+                          </Table.Td>
+                          <Table.Td>
+                            <div>
+                              <Text size="sm" fw={500}>
+                                {fitment.year} {fitment.makeName}{" "}
+                                {fitment.modelName}
+                              </Text>
+                              <Text size="xs" c="dimmed">
+                                {fitment.subModelName} • {fitment.driveTypeName}
+                              </Text>
+                            </div>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm">{fitment.partTypeDescriptor}</Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm">{fitment.position}</Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm" fw={500}>
+                              {fitment.fitmentTitle}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            {fitment.fitmentType === "manual_fitment" ? (
+                              <Group gap="xs">
+                                {getFitmentTypeIcon(fitment.fitmentType)}
+                                <Badge
+                                  variant="light"
+                                  color={getFitmentTypeColor(
+                                    fitment.fitmentType
+                                  )}
+                                  size="sm"
+                                >
+                                  {getFitmentTypeLabel(fitment.fitmentType)}
+                                </Badge>
+                              </Group>
+                            ) : (
+                              <Tooltip
+                                label={getEnhancedFitmentTypeDescription(
+                                  fitment
+                                )}
+                                multiline
+                                w={400}
+                                withArrow
+                              >
+                                <Group gap="xs" style={{ cursor: "help" }}>
+                                  {getFitmentTypeIcon(fitment.fitmentType)}
+                                  <Badge
+                                    variant="light"
+                                    color={getFitmentTypeColor(
+                                      fitment.fitmentType
+                                    )}
+                                    size="sm"
+                                  >
+                                    {getFitmentTypeLabel(fitment.fitmentType)}
+                                  </Badge>
+                                  {(fitment.fitmentType === "ai_fitment" ||
+                                    fitment.fitmentType ===
+                                      "potential_fitment") &&
+                                    fitment.confidenceScore && (
+                                      <Badge
+                                        variant="filled"
+                                        color={getConfidenceColor(
+                                          fitment.confidenceScore
+                                        )}
+                                        size="xs"
+                                        leftSection={<IconShield size={12} />}
+                                      >
+                                        {formatConfidenceScore(
+                                          fitment.confidenceScore
+                                        )}
+                                      </Badge>
+                                    )}
+                                  {isPotentialFitment(fitment.fitmentType) && (
+                                    <Badge
+                                      variant="outline"
+                                      color="orange"
+                                      size="xs"
+                                    >
+                                      Needs Review
+                                    </Badge>
+                                  )}
+                                </Group>
+                              </Tooltip>
+                            )}
+                          </Table.Td>
+                          {expandedView && (
+                            <>
+                              <Table.Td>
+                                <Text size="sm" truncate="end" maw={200}>
+                                  {fitment.fitmentDescription}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td>{fitment.quantity}</Table.Td>
+                              <Table.Td>{fitment.liftHeight || "-"}</Table.Td>
+                              <Table.Td>{fitment.wheelType || "-"}</Table.Td>
+                              <Table.Td>
+                                <Text size="xs" c="dimmed">
+                                  {new Date(
+                                    fitment.updatedAt
+                                  ).toLocaleDateString()}
+                                </Text>
+                              </Table.Td>
+                            </>
+                          )}
+                          <Table.Td>
+                            <Group gap="xs">
+                              {fitment.itemStatus === "readyToApprove" ? (
+                                <>
+                                  <Tooltip label="Approve fitment">
+                                    <ActionIcon
+                                      color="green"
+                                      variant="light"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleApproveFitment(fitment.hash)
+                                      }
+                                    >
+                                      <IconCheck size={14} />
+                                    </ActionIcon>
+                                  </Tooltip>
+                                  <Tooltip label="Reject fitment">
+                                    <ActionIcon
+                                      color="red"
+                                      variant="light"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleRejectFitment(fitment.hash)
+                                      }
+                                    >
+                                      <IconX size={14} />
+                                    </ActionIcon>
+                                  </Tooltip>
+                                </>
+                              ) : (
+                                <>
+                                  <Tooltip label="Edit fitment">
+                                    <ActionIcon
+                                      color="blue"
+                                      variant="light"
+                                      size="sm"
+                                      onClick={() => handleEditFitment(fitment)}
+                                    >
+                                      <IconEdit size={14} />
+                                    </ActionIcon>
+                                  </Tooltip>
+                                  <Tooltip label="Delete fitment">
+                                    <ActionIcon
+                                      color="red"
+                                      variant="light"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleDeleteFitment(fitment.hash)
+                                      }
+                                    >
+                                      <IconTrash size={14} />
+                                    </ActionIcon>
+                                  </Tooltip>
+                                </>
+                              )}
+                            </Group>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))
+                    )}
+                  </Table.Tbody>
+                </Table>
+              </ScrollArea>
 
-          {/* Pagination */}
-          {!loading && (
-            <Flex justify="space-between" align="center">
-              <Text size="sm" c="dimmed">
-                {data?.totalCount ? (
-                  <>
-                    Showing {(currentPage - 1) * pageSize + 1}-
-                    {Math.min(currentPage * pageSize, data.totalCount)} of{" "}
-                    {data.totalCount} fitments
-                  </>
-                ) : (
-                  `${fitments.length} fitments`
-                )}
-              </Text>
-              {data?.totalCount && data.totalCount > pageSize && (
-                <Pagination
-                  value={currentPage}
-                  onChange={setCurrentPage}
-                  total={Math.ceil(data.totalCount / pageSize)}
-                  size="sm"
-                  withEdges
-                  styles={{
-                    control: {
-                      "&[data-active]": {
-                        background:
-                          "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                        borderColor: "transparent",
-                      },
-                    },
-                  }}
-                />
+              {/* Pagination */}
+              {!loading && (
+                <Flex justify="space-between" align="center">
+                  <Text size="sm" c="dimmed">
+                    {data?.totalCount ? (
+                      <>
+                        Showing {(currentPage - 1) * pageSize + 1}-
+                        {Math.min(currentPage * pageSize, data.totalCount)} of{" "}
+                        {data.totalCount} fitments
+                      </>
+                    ) : (
+                      `${fitments.length} fitments`
+                    )}
+                  </Text>
+                  {data?.totalCount && data.totalCount > pageSize && (
+                    <Pagination
+                      value={currentPage}
+                      onChange={setCurrentPage}
+                      total={Math.ceil(data.totalCount / pageSize)}
+                      size="sm"
+                      withEdges
+                      styles={{
+                        control: {
+                          "&[data-active]": {
+                            background:
+                              "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                            borderColor: "transparent",
+                          },
+                        },
+                      }}
+                    />
+                  )}
+                </Flex>
               )}
-            </Flex>
+            </>
+          )}
+
+          {/* Show message when fitments are not loaded yet */}
+          {!showFitments && (
+            <Card withBorder radius="md" p="xl" style={{ textAlign: "center" }}>
+              <Stack align="center" gap="md">
+                <IconTable size={48} color="#64748b" />
+                <Text size="lg" c="dimmed" fw={500}>
+                  Ready to view fitments
+                </Text>
+                <Text size="sm" c="dimmed">
+                  Configure your filters and click "Show Fitments" to load the
+                  data
+                </Text>
+                {(searchTerm ||
+                  vehicleFilter ||
+                  selectedParts.length > 0 ||
+                  Object.values(advancedFilters).some(
+                    (v) => v !== "" && v !== null
+                  )) && (
+                  <div
+                    style={{
+                      marginTop: "16px",
+                      padding: "12px",
+                      backgroundColor: "#f0f9ff",
+                      borderRadius: "8px",
+                      border: "1px solid #0ea5e9",
+                    }}
+                  >
+                    <Text size="sm" c="#0369a1" fw={500}>
+                      🔍 Filters Applied
+                    </Text>
+                    <Text size="xs" c="#0369a1" mt="xs">
+                      {searchTerm && `Search: "${searchTerm}"`}
+                      {vehicleFilter &&
+                        ` • Vehicle Filter: ${
+                          vehicleFilter.split("\n").length
+                        } configuration(s)`}
+                      {selectedParts.length > 0 &&
+                        ` • Parts: ${selectedParts.length} selected`}
+                      {Object.values(advancedFilters).some(
+                        (v) => v !== "" && v !== null
+                      ) && ` • Advanced filters active`}
+                    </Text>
+                  </div>
+                )}
+              </Stack>
+            </Card>
           )}
         </Stack>
       </Card>

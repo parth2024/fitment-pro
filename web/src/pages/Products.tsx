@@ -150,7 +150,7 @@ export default function Products() {
       <Stack gap="xl">
         {/* Header */}
         <div>
-          <Title order={2} c="#1e293b" fw={600} mb="xs">
+          <Title order={2} c="#1e293b" fw={600}>
             Products Management
           </Title>
           <Text size="md" c="#64748b">
@@ -377,7 +377,8 @@ export default function Products() {
                       <Table striped highlightOnHover>
                         <Table.Thead>
                           <Table.Tr>
-                            <Table.Th>Part ID</Table.Th>
+                            <Table.Th>ID</Table.Th>
+                            <Table.Th>PTID</Table.Th>
                             <Table.Th>Description</Table.Th>
                             <Table.Th>Category</Table.Th>
                             <Table.Th>Part Type</Table.Th>
@@ -396,6 +397,11 @@ export default function Products() {
                           ) : (
                             filteredProducts.map((product: any) => (
                               <Table.Tr key={product.id}>
+                                <Table.Td>
+                                  <Text size="sm" fw={600} c="#3b82f6">
+                                    {product.id}
+                                  </Text>
+                                </Table.Td>
                                 <Table.Td>
                                   <Text size="sm" fw={600} c="#3b82f6">
                                     {product.part_id}
