@@ -48,6 +48,117 @@ def _apply_filters(queryset, params):
         q = Q(partId__icontains=search) | Q(makeName__icontains=search) | Q(modelName__icontains=search) | Q(fitmentTitle__icontains=search) | Q(fitmentDescription__icontains=search)
         queryset = queryset.filter(q)
     
+    # Vehicle filter with match all/any mode
+    # 
+    # FILTER MODE EXPLANATION:
+    # 
+    # MATCH_ANY (OR logic): Returns fitments that match ANY of the provided configurations
+    #   Example input:
+    #     2026
+    #     2025|Toyota|Camry
+    #   Result: Returns fitments from year 2026 OR (year 2025 AND Toyota AND Camry)
+    #   SQL equivalent: WHERE (year=2026) OR (year=2025 AND make='Toyota' AND model='Camry')
+    #
+    # MATCH_ALL (AND logic): Returns fitments that match ALL of the provided configurations
+    #   Example input:
+    #     2026
+    #     2025|Toyota|Camry
+    #   Result: Returns fitments that match BOTH (year=2026) AND (year=2025 AND Toyota AND Camry)
+    #   This is usually an impossible condition, so MATCH_ALL is typically used with
+    #   overlapping/cumulative criteria rather than different configurations.
+    #   SQL equivalent: WHERE (year=2026) AND (year=2025 AND make='Toyota' AND model='Camry')
+    #
+    vehicle_filter = params.get("vehicleFilter")
+    filter_mode = params.get("filterMode", "MATCH_ALL")
+    
+    if vehicle_filter:
+        # Parse vehicle filter format: Year | Make | Model | Submodel | DriveType | FuelType | NumDoors
+        # e.g: 2008|Dodge|Ram 1500|*|4WD|*|*
+        # Or single value: 2026 (just a year)
+        lines = vehicle_filter.strip().split('\n')
+        vehicle_conditions = []
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            
+            # Check if it's a single value (e.g., just a year) or pipe-separated format
+            if '|' not in line:
+                # Single value - treat as year filter
+                try:
+                    year_value = int(line.strip())
+                    vehicle_q = Q(year=year_value)
+                    vehicle_conditions.append(vehicle_q)
+                    continue
+                except ValueError:
+                    # If not a valid year, skip this line
+                    continue
+                
+            # Pipe-separated format
+            parts = [part.strip() for part in line.split('|')]
+            
+            # Build Q object for this vehicle configuration
+            vehicle_q = Q()
+            
+            # Handle different number of parts (at least 1, up to 7)
+            if len(parts) >= 1 and parts[0] and parts[0] != '*':
+                try:
+                    vehicle_q &= Q(year=int(parts[0]))
+                except ValueError:
+                    pass
+            
+            if len(parts) >= 2 and parts[1] and parts[1] != '*':
+                vehicle_q &= Q(makeName__icontains=parts[1])
+            
+            if len(parts) >= 3 and parts[2] and parts[2] != '*':
+                vehicle_q &= Q(modelName__icontains=parts[2])
+            
+            if len(parts) >= 4 and parts[3] and parts[3] != '*':
+                vehicle_q &= Q(subModelName__icontains=parts[3])
+            
+            if len(parts) >= 5 and parts[4] and parts[4] != '*':
+                vehicle_q &= Q(driveTypeName__icontains=parts[4])
+            
+            if len(parts) >= 6 and parts[5] and parts[5] != '*':
+                vehicle_q &= Q(fuelTypeName__icontains=parts[5])
+            
+            if len(parts) >= 7 and parts[6] and parts[6] != '*':
+                vehicle_q &= Q(bodyNumDoors__icontains=parts[6])
+            
+            # Only add condition if at least one filter was set
+            if vehicle_q.children or vehicle_q.connector == Q.AND:
+                vehicle_conditions.append(vehicle_q)
+        
+        if vehicle_conditions:
+            if filter_mode == "MATCH_ANY":
+                # MATCH_ANY: Return fitments that match ANY of the provided configurations
+                # Example: If filter has "2026" and "2025|Toyota|Camry"
+                # Result: Returns fitments from year 2026 OR (year 2025 AND Toyota Camry)
+                # Logic: (condition1) OR (condition2) OR (condition3) ...
+                combined_q = vehicle_conditions[0]
+                for condition in vehicle_conditions[1:]:
+                    combined_q |= condition
+                queryset = queryset.filter(combined_q)
+            else:
+                # MATCH_ALL: Return fitments that match ALL of the provided configurations
+                # Note: This is typically used when you want fitments that satisfy multiple criteria
+                # Example: If filter has multiple lines, returns fitments matching ALL conditions
+                # Logic: (condition1) AND (condition2) AND (condition3) ...
+                # WARNING: For most use cases, MATCH_ANY is more useful than MATCH_ALL
+                # because MATCH_ALL with different configurations rarely returns results
+                combined_q = vehicle_conditions[0]
+                for condition in vehicle_conditions[1:]:
+                    combined_q &= condition
+                queryset = queryset.filter(combined_q)
+    
+    # Part IDs filtering
+    part_ids = params.get("part_ids")
+    if part_ids:
+        part_id_list = [pid.strip() for pid in part_ids.split(',') if pid.strip()]
+        if part_id_list:
+            queryset = queryset.filter(partId__in=part_id_list)
+    
     # Column-wise filtering - support both direct and column_ prefixed parameters
     def get_param_value(param_name):
         """Get parameter value, checking both direct and column_ prefixed versions"""
