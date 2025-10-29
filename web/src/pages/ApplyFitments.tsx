@@ -278,7 +278,7 @@ export default function ApplyFitments() {
   >({});
 
   // API hooks
-  const { execute: fetchDropdownData } = useAsyncOperation();
+  // const { execute: fetchDropdownData } = useAsyncOperation();
   const { execute: createFitment } = useAsyncOperation();
 
   // Debug dropdown data changes
