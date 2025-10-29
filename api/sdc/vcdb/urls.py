@@ -33,4 +33,5 @@ urlpatterns = [
     # New VCDB endpoints for manual fitments
     path('vehicle-search', views.vehicle_search, name='vcdb-vehicle-search'),
     path('vehicle-dropdown-data', views.vehicle_dropdown_data, name='vcdb-vehicle-dropdown-data'),
+    path('vehicle-dropdown-options', views.vehicle_dropdown_options, name='vcdb-vehicle-dropdown-options'),
 ]

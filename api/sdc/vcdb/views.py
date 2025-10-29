@@ -911,3 +911,115 @@ def vehicle_dropdown_data(request):
     except Exception as e:
         logger.error(f'Error getting vehicle dropdown data: {str(e)}')
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_http_methods(["GET"])
+def vehicle_dropdown_options(request):
+    """Lazy dropdown options endpoint.
+    Query params:
+      - field: one of years, makes, models, submodels, drive_types, fuel_types, num_doors, body_types
+      - yearFrom, yearTo, make, model (filters)
+      - minYear (for Year To list)
+    Returns: { field: 'models', options: [{value,label},...], count: N }
+    """
+    try:
+        field = request.GET.get('field')
+        if not field:
+            return JsonResponse({'error': 'field is required', 'options': []}, status=400)
+
+        year_from = request.GET.get('yearFrom')
+        year_to = request.GET.get('yearTo')
+        min_year = request.GET.get('minYear')
+        make = request.GET.get('make')
+        model = request.GET.get('model')
+
+        def fmt(values):
+            return [{'value': str(v), 'label': str(v)} for v in values]
+
+        options = []
+
+        if field == 'years':
+            qs = Year.objects.values_list('year_id', flat=True)
+            if min_year:
+                try:
+                    qs = qs.filter(year_id__gt=int(min_year))
+                except Exception:
+                    pass
+            if year_to:
+                try:
+                    qs = qs.filter(year_id__lte=int(year_to))
+                except Exception:
+                    pass
+            options = fmt(qs.order_by('-year_id').distinct())
+
+        elif field == 'makes':
+            # Filter makes by BaseVehicle with optional year range
+            bq = BaseVehicle.objects.all()
+            if year_from:
+                bq = bq.filter(year_id__gte=int(year_from))
+            if year_to:
+                bq = bq.filter(year_id__lte=int(year_to))
+            make_ids = bq.values_list('make_id', flat=True).distinct()
+            qs = Make.objects.filter(make_id__in=make_ids) if (year_from or year_to) else Make.objects.all()
+            options = fmt(qs.values_list('make_name', flat=True).order_by('make_name').distinct())
+
+        elif field == 'models':
+            # Filter models by BaseVehicle with optional year range and make
+            bq = BaseVehicle.objects.all()
+            if year_from:
+                bq = bq.filter(year_id__gte=int(year_from))
+            if year_to:
+                bq = bq.filter(year_id__lte=int(year_to))
+            if make:
+                # map make name -> id(s)
+                make_ids = list(Make.objects.filter(make_name=make).values_list('make_id', flat=True))
+                if make_ids:
+                    bq = bq.filter(make_id__in=make_ids)
+            model_ids = bq.values_list('model_id', flat=True).distinct()
+            qs = Model.objects.filter(model_id__in=model_ids) if (year_from or year_to or make) else Model.objects.all()
+            options = fmt(qs.values_list('model_name', flat=True).order_by('model_name').distinct())
+
+        elif field == 'submodels':
+            # Filter submodels by Vehicle via BaseVehicle filters and optional model
+            vb = BaseVehicle.objects.all()
+            if year_from:
+                vb = vb.filter(year_id__gte=int(year_from))
+            if year_to:
+                vb = vb.filter(year_id__lte=int(year_to))
+            if make:
+                make_ids = list(Make.objects.filter(make_name=make).values_list('make_id', flat=True))
+                if make_ids:
+                    vb = vb.filter(make_id__in=make_ids)
+            if model:
+                model_ids = list(Model.objects.filter(model_name=model).values_list('model_id', flat=True))
+                if model_ids:
+                    vb = vb.filter(model_id__in=model_ids)
+            vehicle_ids = Vehicle.objects.filter(base_vehicle_id__in=vb.values_list('base_vehicle_id', flat=True)).values_list('sub_model_id', flat=True).distinct()
+            qs = SubModel.objects.filter(sub_model_id__in=vehicle_ids) if (year_from or year_to or make or model) else SubModel.objects.all()
+            options = fmt(qs.values_list('sub_model_name', flat=True).order_by('sub_model_name').distinct())
+
+        elif field == 'drive_types':
+            # Filter via VehicleToDriveType if base filters provided, else all
+            opts = DriveType.objects.values_list('drive_type_name', flat=True)
+            options = fmt(opts.order_by('drive_type_name').distinct())
+
+        elif field == 'fuel_types':
+            opts = FuelType.objects.values_list('fuel_type_name', flat=True)
+            options = fmt(opts.order_by('fuel_type_name').distinct())
+
+        elif field == 'num_doors':
+            opts = BodyNumDoors.objects.values_list('body_num_doors', flat=True)
+            options = fmt(opts.order_by('body_num_doors').distinct())
+
+        elif field == 'body_types':
+            opts = BodyType.objects.values_list('body_type_name', flat=True)
+            options = fmt(opts.order_by('body_type_name').distinct())
+
+        else:
+            return JsonResponse({'error': f'Unknown field: {field}', 'options': []}, status=400)
+
+        return JsonResponse({'field': field, 'options': options, 'count': len(options)})
+
+    except Exception as e:
+        logger.error(f'Error in vehicle_dropdown_options: {str(e)}')
+        return JsonResponse({'error': str(e), 'options': []}, status=500)

@@ -82,7 +82,7 @@ class AutoCareAPIClient:
         return True
     
     def _make_request(self, endpoint: str, params: Optional[Dict] = None) -> Optional[List[Dict]]:
-        """Make authenticated request to AutoCare API"""
+        """Make authenticated request to AutoCare API with pagination support"""
         if not self.ensure_authenticated():
             logger.error("Failed to authenticate with AutoCare API")
             return None
@@ -93,28 +93,126 @@ class AutoCareAPIClient:
             'Content-Type': 'application/json'
         }
         
-        try:
-            logger.info(f"Making request to: {url}")
-            response = requests.get(url, headers=headers, params=params, timeout=60)
-            response.raise_for_status()
+        # Set up pagination parameters
+        page_size = 1000
+        page_number = 1
+        all_data = []
+        
+        while True:
+            # Add pagination parameters to the request
+            request_params = params.copy() if params else {}
+            request_params.update({
+                'PageSize': page_size,
+                'PageNumber': page_number
+            })
             
-            data = response.json()
-            if isinstance(data, list):
-                logger.info(f"Retrieved {len(data)} records from {endpoint}")
-                return data
-            else:
-                logger.warning(f"Unexpected response format from {endpoint}: {type(data)}")
-                return []
+            try:
+                logger.info(f"Making request to: {url} (Page {page_number})")
+                response = requests.get(url, headers=headers, params=request_params, timeout=60)
+                response.raise_for_status()
                 
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Request failed for {endpoint}: {str(e)}")
-            return None
-        except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON response from {endpoint}: {str(e)}")
-            return None
-        except Exception as e:
-            logger.error(f"Unexpected error for {endpoint}: {str(e)}")
-            return None
+                data = response.json()
+                if isinstance(data, list):
+                    # If we get an empty array, we've reached the end
+                    if not data:
+                        logger.info(f"Reached end of data for {endpoint} at page {page_number}")
+                        break
+                    
+                    all_data.extend(data)
+                    logger.info(f"Retrieved {len(data)} records from {endpoint} page {page_number} (Total: {len(all_data)})")
+                    
+                    # If we got fewer records than the page size, we've reached the end
+                    if len(data) < page_size:
+                        logger.info(f"Reached end of data for {endpoint} at page {page_number} (got {len(data)} < {page_size})")
+                        break
+                    
+                    page_number += 1
+                else:
+                    logger.warning(f"Unexpected response format from {endpoint}: {type(data)}")
+                    break
+                    
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Request failed for {endpoint} page {page_number}: {str(e)}")
+                return None
+            except json.JSONDecodeError as e:
+                logger.error(f"Invalid JSON response from {endpoint} page {page_number}: {str(e)}")
+                return None
+            except Exception as e:
+                logger.error(f"Unexpected error for {endpoint} page {page_number}: {str(e)}")
+                return None
+        
+        logger.info(f"Retrieved total {len(all_data)} records from {endpoint}")
+        return all_data
+    
+    def _make_request_paginated(self, endpoint: str, params: Optional[Dict] = None, callback=None):
+        """Make paginated requests to AutoCare API and process each page with callback"""
+        if not self.ensure_authenticated():
+            logger.error("Failed to authenticate with AutoCare API")
+            return False
+        
+        url = f"{self.base_url}/{endpoint}"
+        headers = {
+            'Authorization': f'Bearer {self.access_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Set up pagination parameters
+        page_size = 1000
+        page_number = 1
+        total_processed = 0
+        
+        while True:
+            # Add pagination parameters to the request
+            request_params = params.copy() if params else {}
+            request_params.update({
+                'PageSize': page_size,
+                'PageNumber': page_number
+            })
+            
+            try:
+                logger.info(f"Making request to: {url} (Page {page_number})")
+                response = requests.get(url, headers=headers, params=request_params, timeout=60)
+                response.raise_for_status()
+                
+                data = response.json()
+                if isinstance(data, list):
+                    # If we get an empty array, we've reached the end
+                    if not data:
+                        logger.info(f"Reached end of data for {endpoint} at page {page_number}")
+                        break
+                    
+                    # Process this page with the callback
+                    if callback:
+                        try:
+                            processed = callback(data, page_number)
+                            total_processed += processed
+                            logger.info(f"Processed {processed} records from {endpoint} page {page_number} (Total: {total_processed})")
+                        except Exception as e:
+                            logger.error(f"Error processing {endpoint} page {page_number}: {str(e)}")
+                            return False
+                    
+                    # If we got fewer records than the page size, we've reached the end
+                    if len(data) < page_size:
+                        logger.info(f"Reached end of data for {endpoint} at page {page_number} (got {len(data)} < {page_size})")
+                        break
+                    
+                    page_number += 1
+                else:
+                    logger.warning(f"Unexpected response format from {endpoint}: {type(data)}")
+                    break
+                    
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Request failed for {endpoint} page {page_number}: {str(e)}")
+                return False
+            except json.JSONDecodeError as e:
+                logger.error(f"Invalid JSON response from {endpoint} page {page_number}: {str(e)}")
+                return False
+            except Exception as e:
+                logger.error(f"Unexpected error for {endpoint} page {page_number}: {str(e)}")
+                return False
+        
+        logger.info(f"Completed processing {endpoint}. Total records processed: {total_processed}")
+        return True
     
     def get_makes(self) -> Optional[List[Dict]]:
         """Fetch all makes from AutoCare API"""
