@@ -14,32 +14,32 @@ def sync_vcdb_data_task(self, force=False):
     This task should be scheduled to run quarterly
     """
     try:
-        logger.info("Starting VCDB data sync task...")
+        logger.info("Starting VCDB streaming sync task...")
         
         # Call the management command
-        call_command('sync_vcdb_data', force=force)
+        call_command('sync_vcdb_streaming', batch_size=200)
         
-        logger.info("VCDB data sync task completed successfully")
+        logger.info("VCDB streaming sync task completed successfully")
         return {
             'status': 'success',
-            'message': 'VCDB data sync completed successfully',
+            'message': 'VCDB streaming sync completed successfully',
             'timestamp': timezone.now().isoformat()
         }
         
     except Exception as exc:
-        logger.error(f"VCDB data sync task failed: {str(exc)}")
+        logger.error(f"VCDB streaming sync task failed: {str(exc)}")
         
         # Retry the task with exponential backoff
         if self.request.retries < self.max_retries:
             retry_delay = 60 * (2 ** self.request.retries)  # 1min, 2min, 4min
-            logger.info(f"Retrying VCDB sync task in {retry_delay} seconds...")
+            logger.info(f"Retrying VCDB streaming sync task in {retry_delay} seconds...")
             raise self.retry(countdown=retry_delay, exc=exc)
         
         # If all retries failed, log the error
-        logger.error(f"VCDB data sync task failed after {self.max_retries} retries")
+        logger.error(f"VCDB streaming sync task failed after {self.max_retries} retries")
         return {
             'status': 'failed',
-            'message': f'VCDB data sync failed: {str(exc)}',
+            'message': f'VCDB streaming sync failed: {str(exc)}',
             'timestamp': timezone.now().isoformat(),
             'retries': self.request.retries
         }

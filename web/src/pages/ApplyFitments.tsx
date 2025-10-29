@@ -25,6 +25,7 @@ import {
   Paper,
   ThemeIcon,
   Center,
+  Loader,
 } from "@mantine/core";
 import {
   IconBrain,
@@ -220,6 +221,9 @@ export default function ApplyFitments() {
 
   // Manual fitment states
   const [dropdownData, setDropdownData] = useState<any>(null);
+  const [dropdownLoading, setDropdownLoading] = useState<
+    Record<string, boolean>
+  >({});
   const [loadingDropdownData, setLoadingDropdownData] = useState(false);
   const [searchingVehicles, setSearchingVehicles] = useState(false);
   const [vcdbDataAvailable, setVcdbDataAvailable] = useState<boolean | null>(
@@ -274,7 +278,7 @@ export default function ApplyFitments() {
   >({});
 
   // API hooks
-  const { execute: fetchDropdownData } = useAsyncOperation();
+  // const { execute: fetchDropdownData } = useAsyncOperation();
   const { execute: createFitment } = useAsyncOperation();
 
   // Debug dropdown data changes
@@ -784,67 +788,10 @@ export default function ApplyFitments() {
       if (refreshVcdbFields && refreshProductFields) {
         await Promise.all([refreshVcdbFields(), refreshProductFields()]);
       }
-
-      // Use new VCDB API for vehicle dropdown data
-      console.log("Fetching VCDB dropdown data...");
-      const vcdbResponse = await vcdbService.getVehicleDropdownData();
-      console.log("VCDB response:", vcdbResponse);
-      const vcdbDropdownData = vcdbResponse.data;
-      console.log("VCDB dropdown data:", vcdbDropdownData);
-
-      // Get product data from existing service
-      const productResult = await fetchDropdownData(() =>
-        dataUploadService.getNewDataDropdownData()
-      );
-
-      // Ensure all dropdown data is properly formatted for Mantine Select components
-      // Helper function to deduplicate dropdown options
-      const deduplicateOptions = (options: any[]) => {
-        if (!Array.isArray(options)) return [];
-        const seen = new Set();
-        return options.filter((option) => {
-          const value = typeof option === "string" ? option : option.value;
-          if (seen.has(value)) return false;
-          seen.add(value);
-          return true;
-        });
-      };
-
-      const combinedData = {
-        years: deduplicateOptions(vcdbDropdownData.years || []),
-        makes: deduplicateOptions(vcdbDropdownData.makes || []),
-        models: deduplicateOptions(vcdbDropdownData.models || []),
-        submodels: deduplicateOptions(vcdbDropdownData.submodels || []),
-        drive_types: deduplicateOptions(vcdbDropdownData.drive_types || []),
-        fuel_types: deduplicateOptions(vcdbDropdownData.fuel_types || []),
-        num_doors: deduplicateOptions(vcdbDropdownData.num_doors || []),
-        body_types: deduplicateOptions(vcdbDropdownData.body_types || []),
-        engine_bases: deduplicateOptions(vcdbDropdownData.engine_bases || []),
-        engine_vins: deduplicateOptions(vcdbDropdownData.engine_vins || []),
-        engine_blocks: deduplicateOptions(vcdbDropdownData.engine_blocks || []),
-        cylinder_head_types: deduplicateOptions(
-          vcdbDropdownData.cylinder_head_types || []
-        ),
-        transmission_types: deduplicateOptions(
-          vcdbDropdownData.transmission_types || []
-        ),
-        transmission_speeds: deduplicateOptions(
-          vcdbDropdownData.transmission_speeds || []
-        ),
-        transmission_control_types: deduplicateOptions(
-          vcdbDropdownData.transmission_control_types || []
-        ),
-        bed_types: deduplicateOptions(vcdbDropdownData.bed_types || []),
-        bed_lengths: deduplicateOptions(vcdbDropdownData.bed_lengths || []),
-        wheelbases: deduplicateOptions(vcdbDropdownData.wheelbases || []),
-        regions: deduplicateOptions(vcdbDropdownData.regions || []),
-        // Keep existing product-related dropdowns
-        parts: productResult?.data?.parts || [],
-        positions: productResult?.data?.positions || [],
-      };
-
-      console.log("Combined dropdown data:", combinedData);
-      setDropdownData(combinedData);
+      // Lazy approach: initialize empty; will fetch on demand
+      setDropdownData({});
+      // Prefetch years so Year From/To are populated immediately
+      await loadDropdown("years");
     } catch (error) {
       console.error("Failed to fetch data:", error);
       showError("Failed to load vehicle data from VCDB");
@@ -966,6 +913,46 @@ export default function ApplyFitments() {
     }
 
     return [];
+  };
+
+  // Lazy load dropdown options with dependency filters
+  const loadDropdown = async (fieldKey: string) => {
+    try {
+      setDropdownLoading((prev) => ({ ...prev, [fieldKey]: true }));
+      const params: any = {};
+      if (vehicleFilters.yearFrom) params.yearFrom = vehicleFilters.yearFrom;
+      if (vehicleFilters.yearTo) params.yearTo = vehicleFilters.yearTo;
+      if (vehicleFilters.make) params.make = vehicleFilters.make;
+      if (vehicleFilters.model) params.model = vehicleFilters.model;
+
+      // Year To should be greater than Year From
+      if (
+        fieldKey === "years_to" ||
+        fieldKey === "yearsTo" ||
+        fieldKey === "years"
+      ) {
+        if (vehicleFilters.yearFrom) params.minYear = vehicleFilters.yearFrom;
+      }
+
+      // Map UI key to API field
+      const map: Record<string, string> = {
+        years: "years",
+        makes: "makes",
+        models: "models",
+        submodels: "submodels",
+      };
+      const apiField = map[fieldKey] || fieldKey;
+      const res = await vcdbService.getVehicleDropdownOptions(apiField, params);
+      const options = res.data?.options || [];
+      setDropdownData((prev: any) => ({
+        ...(prev || {}),
+        [apiField]: options,
+      }));
+    } catch (e) {
+      console.error("Failed to load dropdown", fieldKey, e);
+    } finally {
+      setDropdownLoading((prev) => ({ ...prev, [fieldKey]: false }));
+    }
   };
 
   // Render job status badge
@@ -1847,7 +1834,7 @@ export default function ApplyFitments() {
                         Vehicle Search Criteria
                       </Title>
                       <Text size="xs" c="#64748b">
-                        Refine your search with specific vehicle attributes
+                        Refine your search with specific vehicle attributesfff
                       </Text>
                       {loadingDropdownData && (
                         <Alert
@@ -1941,6 +1928,12 @@ export default function ApplyFitments() {
                               }}
                               searchable
                               disabled={loadingDropdownData}
+                              onDropdownOpen={() => loadDropdown("years")}
+                              rightSection={
+                                dropdownLoading["years"] ? (
+                                  <Loader size={16} />
+                                ) : undefined
+                              }
                               leftSection={
                                 <IconCalendar size={16} color="#64748b" />
                               }
@@ -1949,21 +1942,7 @@ export default function ApplyFitments() {
                             <Select
                               label="Year To"
                               placeholder="Select year to"
-                              data={
-                                dropdownData?.years
-                                  ? dropdownData?.years?.filter(
-                                      (year: { value: string }) => {
-                                        if (!vehicleFilters.yearFrom)
-                                          return true;
-                                        return (
-                                          year.value > vehicleFilters.yearFrom
-                                        );
-                                      }
-                                    )
-                                  : []
-
-                                // dropdownData?.years || []
-                              }
+                              data={dropdownData?.years || []}
                               value={vehicleFilters.yearTo}
                               onChange={(value) =>
                                 setVehicleFilters((prev) => ({
@@ -1973,6 +1952,12 @@ export default function ApplyFitments() {
                               }
                               searchable
                               disabled={loadingDropdownData}
+                              onDropdownOpen={() => loadDropdown("years")}
+                              rightSection={
+                                dropdownLoading["years"] ? (
+                                  <Loader size={16} />
+                                ) : undefined
+                              }
                               leftSection={
                                 <IconCalendar size={16} color="#64748b" />
                               }
@@ -1991,6 +1976,12 @@ export default function ApplyFitments() {
                               }}
                               searchable
                               disabled={loadingDropdownData}
+                              onDropdownOpen={() => loadDropdown("makes")}
+                              rightSection={
+                                dropdownLoading["makes"] ? (
+                                  <Loader size={16} />
+                                ) : undefined
+                              }
                               leftSection={
                                 <IconCar size={16} color="#64748b" />
                               }
@@ -2009,6 +2000,12 @@ export default function ApplyFitments() {
                               }}
                               searchable
                               disabled={loadingDropdownData}
+                              onDropdownOpen={() => loadDropdown("models")}
+                              rightSection={
+                                dropdownLoading["models"] ? (
+                                  <Loader size={16} />
+                                ) : undefined
+                              }
                               leftSection={
                                 <IconCar size={16} color="#64748b" />
                               }
@@ -2043,6 +2040,12 @@ export default function ApplyFitments() {
                               }
                               searchable
                               disabled={loadingDropdownData}
+                              onDropdownOpen={() => loadDropdown("fuel_types")}
+                              rightSection={
+                                dropdownLoading["fuel_types"] ? (
+                                  <Loader size={16} />
+                                ) : undefined
+                              }
                               leftSection={
                                 <IconGasStation size={16} color="#64748b" />
                               }
@@ -2060,6 +2063,12 @@ export default function ApplyFitments() {
                               }
                               searchable
                               disabled={loadingDropdownData}
+                              onDropdownOpen={() => loadDropdown("num_doors")}
+                              rightSection={
+                                dropdownLoading["num_doors"] ? (
+                                  <Loader size={16} />
+                                ) : undefined
+                              }
                               leftSection={
                                 <IconDoor size={16} color="#64748b" />
                               }
@@ -2077,6 +2086,12 @@ export default function ApplyFitments() {
                               }
                               searchable
                               disabled={loadingDropdownData}
+                              onDropdownOpen={() => loadDropdown("drive_types")}
+                              rightSection={
+                                dropdownLoading["drive_types"] ? (
+                                  <Loader size={16} />
+                                ) : undefined
+                              }
                               leftSection={
                                 <IconSettings size={16} color="#64748b" />
                               }
@@ -2094,6 +2109,12 @@ export default function ApplyFitments() {
                               }
                               searchable
                               disabled={loadingDropdownData}
+                              onDropdownOpen={() => loadDropdown("body_types")}
+                              rightSection={
+                                dropdownLoading["body_types"] ? (
+                                  <Loader size={16} />
+                                ) : undefined
+                              }
                               leftSection={
                                 <IconCar size={16} color="#64748b" />
                               }
@@ -2156,6 +2177,12 @@ export default function ApplyFitments() {
                               }
                               searchable
                               disabled={loadingDropdownData}
+                              onDropdownOpen={() => loadDropdown(field.key)}
+                              rightSection={
+                                dropdownLoading[field.key] ? (
+                                  <Loader size={16} />
+                                ) : undefined
+                              }
                               required={field.required}
                             />
                           );

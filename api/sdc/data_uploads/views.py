@@ -1249,11 +1249,24 @@ def get_product_data(request):
         # Get tenant ID from header
         tenant_id = request.headers.get('X-Tenant-ID')
         
-        # Get query parameters for filtering
+        # Get query parameters for filtering/pagination/sorting
         category = request.GET.get('category')
         part_type = request.GET.get('part_type')
-        search = request.GET.get('search')  # Search in description
-        limit = request.GET.get('limit', 1000)  # Default limit
+        search = request.GET.get('search')  # Search across multiple fields
+        limit = request.GET.get('limit')  # Legacy support
+        try:
+            page = int(request.GET.get('page', 1))
+            if page < 1:
+                page = 1
+        except ValueError:
+            page = 1
+        try:
+            page_size = int(request.GET.get('page_size', 25))
+            if page_size < 1:
+                page_size = 25
+        except ValueError:
+            page_size = 25
+        ordering = request.GET.get('ordering')  # e.g. 'id' or '-description'
         
         # Build query
         queryset = ProductData.objects.all()
@@ -1275,18 +1288,55 @@ def get_product_data(request):
         if part_type:
             queryset = queryset.filter(part_type__icontains=part_type)
         if search:
-            queryset = queryset.filter(description__icontains=search)
-        
-        # Apply limit
-        try:
-            limit = int(limit)
-            queryset = queryset[:limit]
-        except ValueError:
-            queryset = queryset[:1000]
-        
+            # Search across common fields
+            from django.db.models import Q
+            q = (
+                Q(description__icontains=search)
+                | Q(part_id__icontains=search)
+                | Q(category__icontains=search)
+                | Q(brand__icontains=search)
+                | Q(sku__icontains=search)
+            )
+            queryset = queryset.filter(q)
+
+        # Total before pagination
+        total_count = queryset.count()
+
+        # Ordering (whitelist allowed fields)
+        allowed = {
+            'id': 'id',
+            'part_id': 'part_id',
+            'description': 'description',
+            'category': 'category',
+            'part_type': 'part_type',
+            'brand': 'brand',
+            'sku': 'sku',
+            'created_at': 'created_at',
+            'updated_at': 'updated_at',
+        }
+        if ordering:
+            order_field = ordering.lstrip('-')
+            sign = '-' if ordering.startswith('-') else ''
+            if order_field in allowed:
+                queryset = queryset.order_by(f"{sign}{allowed[order_field]}")
+        else:
+            queryset = queryset.order_by('-created_at')
+
+        # Legacy limit handling (if provided, override pagination)
+        if limit is not None:
+            try:
+                lim = int(limit)
+                queryset_page = queryset[:lim]
+            except ValueError:
+                queryset_page = queryset[:1000]
+        else:
+            # Pagination window
+            offset = (page - 1) * page_size
+            queryset_page = queryset[offset: offset + page_size]
+
         # Serialize data
         data = []
-        for record in queryset:
+        for record in queryset_page:
             data.append({
                 'id': record.id,
                 'part_id': record.part_id,
@@ -1304,10 +1354,17 @@ def get_product_data(request):
                 'updated_at': record.updated_at.isoformat(),
             })
         
+        # Return both paginated and legacy keys for backward compatibility
         return Response({
+            'results': data,
+            'count': total_count,
+            'page': page,
+            'page_size': page_size,
+            'ordering': ordering,
+            # Legacy
             'data': data,
-            'total_count': ProductData.objects.count(),
-            'returned_count': len(data)
+            'total_count': total_count,
+            'returned_count': len(data),
         })
         
     except Exception as e:

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Card,
   Title,
@@ -16,6 +16,8 @@ import {
   Paper,
   ThemeIcon,
   Center,
+  Pagination,
+  Select,
 } from "@mantine/core";
 import {
   IconUpload,
@@ -27,6 +29,9 @@ import {
   IconPackage,
   IconSearch,
   IconAlertCircle,
+  IconArrowsSort,
+  IconSortAscending,
+  IconSortDescending,
 } from "@tabler/icons-react";
 import { useProfessionalToast } from "../hooks/useProfessionalToast";
 import { dataUploadService } from "../api/services";
@@ -43,11 +48,24 @@ export default function Products() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [validationResults, setValidationResults] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<string | number>(25);
+  const [totalCount, setTotalCount] = useState(0);
+  const [sortField, setSortField] = useState<string>("id");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [showUpload, setShowUpload] = useState(false);
+  const uploadSectionRef = useRef<HTMLDivElement | null>(null);
 
   // API hooks
   const { data: productsResponse, refetch: refetchProducts } = useApi(
-    () => dataUploadService.getProductData(),
-    []
+    () =>
+      dataUploadService.getProductData({
+        page,
+        page_size: typeof pageSize === "string" ? parseInt(pageSize) : pageSize,
+        search: searchQuery || undefined,
+        ordering: sortDirection === "asc" ? sortField : `-${sortField}`,
+      }),
+    [page, pageSize, searchQuery, sortField, sortDirection]
   ) as any;
 
   const { data: dataStatus, refetch: refetchDataStatus } = useApi(
@@ -56,7 +74,16 @@ export default function Products() {
   ) as any;
 
   // Extract products array
-  const productsData = productsResponse?.data || [];
+  const productsDataRaw = productsResponse?.data || [];
+  const productsData = Array.isArray(productsDataRaw)
+    ? productsDataRaw
+    : productsDataRaw?.results || [];
+  const computedTotal = Array.isArray(productsDataRaw)
+    ? productsData.length
+    : productsDataRaw?.count ?? productsData.length;
+  useEffect(() => {
+    setTotalCount(computedTotal);
+  }, [computedTotal]);
 
   // Listen for entity changes
   useEffect(() => {
@@ -132,18 +159,46 @@ export default function Products() {
     navigate("/settings?tab=entity&subtab=products");
   };
 
-  // Filter products
-  const filteredProducts = Array.isArray(productsData)
-    ? productsData.filter((product: any) => {
-        if (!searchQuery) return true;
-        const query = searchQuery.toLowerCase();
-        return (
-          product.part_id?.toLowerCase().includes(query) ||
-          product.description?.toLowerCase().includes(query) ||
-          product.category?.toLowerCase().includes(query)
-        );
-      })
-    : [];
+  // Display list (server-side filtering used; fallback to client filter if array-only)
+  const filteredProducts = useMemo(() => {
+    if (!Array.isArray(productsData)) return [];
+    if (productsResponse?.data?.results !== undefined) return productsData; // server-side
+    if (!searchQuery) return productsData;
+    const query = searchQuery.toLowerCase();
+    return productsData.filter((product: any) =>
+      [product.part_id, product.description, product.category]
+        .filter(Boolean)
+        .map((v: string) => v.toLowerCase())
+        .some((v: string) => v.includes(query))
+    );
+  }, [productsData, productsResponse, searchQuery]);
+
+  // Sorting handlers
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+    setPage(1);
+  };
+
+  const SortIcon = ({ field }: { field: string }) => {
+    if (sortField !== field) return <IconArrowsSort size={14} />;
+    return sortDirection === "asc" ? (
+      <IconSortAscending size={14} />
+    ) : (
+      <IconSortDescending size={14} />
+    );
+  };
+
+  const handleClickUploadTop = () => {
+    setShowUpload(true);
+    setTimeout(() => {
+      uploadSectionRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 0);
+  };
 
   return (
     <div style={{ minHeight: "100vh" }}>
@@ -228,161 +283,230 @@ export default function Products() {
                 </Group>
               </Card>
 
-              {/* Upload Section */}
-              <Card withBorder>
-                <Stack gap="lg">
-                  <div>
-                    <Text fw={600} size="lg" c="#1e293b" mb="xs">
-                      Upload Product Data
-                    </Text>
-                    <Text size="sm" c="#64748b">
-                      Upload product files to enable AI fitment generation
-                    </Text>
-                  </div>
-
-                  {/* File Upload Area */}
-                  <Paper
-                    style={{
-                      minHeight: "150px",
-                      border: `2px dashed ${
-                        productFile ? "#22c55e" : "#cbd5e1"
-                      }`,
-                      borderRadius: "12px",
-                      backgroundColor: productFile ? "#f0fdf4" : "#fafafa",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => {
-                      if (uploading) return;
-                      const input = document.createElement("input");
-                      input.type = "file";
-                      input.accept = ".csv,.xlsx,.xls,.json";
-                      input.onchange = (e) => {
-                        const file = (e.target as HTMLInputElement).files?.[0];
-                        if (file) setProductFile(file);
-                      };
-                      input.click();
-                    }}
-                  >
-                    <Center style={{ height: "150px", padding: "24px" }}>
-                      <Stack align="center" gap="md">
-                        <ThemeIcon
-                          size="xl"
-                          variant="light"
-                          color={productFile ? "green" : "blue"}
-                          radius="xl"
-                        >
-                          {productFile ? (
-                            <IconCheck size={28} />
-                          ) : (
-                            <IconUpload size={28} />
-                          )}
-                        </ThemeIcon>
-
-                        <Stack align="center" gap="xs">
-                          <Text fw={600} size="md" c="dark">
-                            {productFile
-                              ? productFile.name
-                              : "Click to upload product file"}
-                          </Text>
-                          <Text size="sm" c="dimmed" ta="center">
-                            {productFile
-                              ? "Click to change file"
-                              : "Supports CSV, XLSX, XLS, and JSON formats"}
-                          </Text>
-                        </Stack>
-                      </Stack>
-                    </Center>
-                  </Paper>
-
-                  {/* Upload Progress */}
-                  {uploading && (
-                    <Paper
-                      withBorder
-                      p="md"
-                      style={{ backgroundColor: "#f8fafc" }}
-                    >
-                      <Stack gap="sm">
-                        <Group justify="space-between">
-                          <Text size="sm" fw={600}>
-                            Uploading and processing...
-                          </Text>
-                          <Badge color="blue" variant="light">
-                            {uploadProgress}%
-                          </Badge>
-                        </Group>
-                        <Progress value={uploadProgress} size="lg" animated />
-                      </Stack>
-                    </Paper>
-                  )}
-
-                  {/* Validation Results */}
-                  {validationResults && (
-                    <Alert
-                      color={validationResults.is_valid ? "green" : "red"}
-                      icon={
-                        validationResults.is_valid ? (
-                          <IconCheck size={16} />
-                        ) : (
-                          <IconX size={16} />
-                        )
-                      }
-                    >
-                      <Text size="sm" fw={600}>
-                        {validationResults.is_valid
-                          ? `File validated successfully! ${validationResults.total_records} products found.`
-                          : "Validation failed"}
+              {/* Upload Section (collapsible) */}
+              {showUpload && (
+                <Card withBorder ref={uploadSectionRef as any}>
+                  <Stack gap="lg">
+                    <div>
+                      <Text fw={600} size="lg" c="#1e293b" mb="xs">
+                        Upload Product Data
                       </Text>
-                      {!validationResults.is_valid &&
-                        validationResults.errors && (
-                          <Text size="xs" mt="xs">
-                            {validationResults.errors.slice(0, 3).join("; ")}
-                          </Text>
-                        )}
-                    </Alert>
-                  )}
+                      <Text size="sm" c="#64748b">
+                        Upload product files to enable AI fitment generation
+                      </Text>
+                    </div>
 
-                  {/* Upload Button */}
-                  <Center>
-                    <Button
-                      size="lg"
-                      leftSection={<IconUpload size={20} />}
-                      onClick={handleUpload}
-                      loading={uploading}
-                      disabled={!productFile || uploading}
+                    {/* File Upload Area */}
+                    <Paper
+                      style={{
+                        minHeight: "150px",
+                        border: `2px dashed ${
+                          productFile ? "#22c55e" : "#cbd5e1"
+                        }`,
+                        borderRadius: "12px",
+                        backgroundColor: productFile ? "#f0fdf4" : "#fafafa",
+                        cursor: "pointer",
+                      }}
+                      onClick={() => {
+                        if (uploading) return;
+                        const input = document.createElement("input");
+                        input.type = "file";
+                        input.accept = ".csv,.xlsx,.xls,.json";
+                        input.onchange = (e) => {
+                          const file = (e.target as HTMLInputElement)
+                            .files?.[0];
+                          if (file) setProductFile(file);
+                        };
+                        input.click();
+                      }}
                     >
-                      Upload Product Data
-                    </Button>
-                  </Center>
-                </Stack>
-              </Card>
+                      <Center style={{ height: "150px", padding: "24px" }}>
+                        <Stack align="center" gap="md">
+                          <ThemeIcon
+                            size="xl"
+                            variant="light"
+                            color={productFile ? "green" : "blue"}
+                            radius="xl"
+                          >
+                            {productFile ? (
+                              <IconCheck size={28} />
+                            ) : (
+                              <IconUpload size={28} />
+                            )}
+                          </ThemeIcon>
+
+                          <Stack align="center" gap="xs">
+                            <Text fw={600} size="md" c="dark">
+                              {productFile
+                                ? productFile.name
+                                : "Click to upload product file"}
+                            </Text>
+                            <Text size="sm" c="dimmed" ta="center">
+                              {productFile
+                                ? "Click to change file"
+                                : "Supports CSV, XLSX, XLS, and JSON formats"}
+                            </Text>
+                          </Stack>
+                        </Stack>
+                      </Center>
+                    </Paper>
+
+                    {/* Upload Progress */}
+                    {uploading && (
+                      <Paper
+                        withBorder
+                        p="md"
+                        style={{ backgroundColor: "#f8fafc" }}
+                      >
+                        <Stack gap="sm">
+                          <Group justify="space-between">
+                            <Text size="sm" fw={600}>
+                              Uploading and processing...
+                            </Text>
+                            <Badge color="blue" variant="light">
+                              {uploadProgress}%
+                            </Badge>
+                          </Group>
+                          <Progress value={uploadProgress} size="lg" animated />
+                        </Stack>
+                      </Paper>
+                    )}
+
+                    {/* Validation Results */}
+                    {validationResults && (
+                      <Alert
+                        color={validationResults.is_valid ? "green" : "red"}
+                        icon={
+                          validationResults.is_valid ? (
+                            <IconCheck size={16} />
+                          ) : (
+                            <IconX size={16} />
+                          )
+                        }
+                      >
+                        <Text size="sm" fw={600}>
+                          {validationResults.is_valid
+                            ? `File validated successfully! ${validationResults.total_records} products found.`
+                            : "Validation failed"}
+                        </Text>
+                        {!validationResults.is_valid &&
+                          validationResults.errors && (
+                            <Text size="xs" mt="xs">
+                              {validationResults.errors.slice(0, 3).join("; ")}
+                            </Text>
+                          )}
+                      </Alert>
+                    )}
+
+                    {/* Upload Button */}
+                    <Center>
+                      <Button
+                        size="lg"
+                        leftSection={<IconUpload size={20} />}
+                        onClick={handleUpload}
+                        loading={uploading}
+                        disabled={!productFile || uploading}
+                      >
+                        Upload Product Data
+                      </Button>
+                    </Center>
+                  </Stack>
+                </Card>
+              )}
 
               {/* Products List */}
               {dataStatus?.products?.exists && (
                 <Card withBorder>
                   <Stack gap="md">
-                    <Group justify="space-between">
-                      <Text fw={600} size="lg" c="#1e293b">
-                        Product Catalog ({filteredProducts.length} products)
-                      </Text>
-                      <TextInput
-                        placeholder="Search by ID, description, or category..."
-                        leftSection={<IconSearch size={16} />}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.currentTarget.value)}
-                        style={{ width: "300px" }}
-                      />
-                    </Group>
+                    <Stack gap="sm">
+                      <Group justify="space-between" align="center">
+                        <Text fw={600} size="lg" c="#1e293b">
+                          Product Catalog ({totalCount} products)
+                        </Text>
+                      </Group>
+                      <Group
+                        justify="space-between"
+                        align="center"
+                        wrap="nowrap"
+                      >
+                        <TextInput
+                          placeholder="Search by ID, description, or category..."
+                          leftSection={<IconSearch size={16} />}
+                          value={searchQuery}
+                          onChange={(e) => {
+                            setSearchQuery(e.currentTarget.value);
+                            setPage(1);
+                          }}
+                          style={{ width: "100%" }}
+                        />
+                        <Button
+                          size="sm"
+                          leftSection={<IconUpload size={14} />}
+                          onClick={handleClickUploadTop}
+                        >
+                          Upload Product
+                        </Button>
+                      </Group>
+                    </Stack>
 
                     <ScrollArea h={500}>
                       <Table striped highlightOnHover>
                         <Table.Thead>
                           <Table.Tr>
-                            <Table.Th>ID</Table.Th>
-                            <Table.Th>PTID</Table.Th>
-                            <Table.Th>Description</Table.Th>
-                            <Table.Th>Category</Table.Th>
-                            <Table.Th>Part Type</Table.Th>
-                            <Table.Th>Brand</Table.Th>
+                            <Table.Th
+                              onClick={() => handleSort("id")}
+                              style={{ cursor: "pointer" }}
+                            >
+                              <Group gap={6} wrap="nowrap">
+                                <span>ID</span>
+                                <SortIcon field="id" />
+                              </Group>
+                            </Table.Th>
+                            <Table.Th
+                              onClick={() => handleSort("part_id")}
+                              style={{ cursor: "pointer" }}
+                            >
+                              <Group gap={6} wrap="nowrap">
+                                <span>PTID</span>
+                                <SortIcon field="part_id" />
+                              </Group>
+                            </Table.Th>
+                            <Table.Th
+                              onClick={() => handleSort("description")}
+                              style={{ cursor: "pointer" }}
+                            >
+                              <Group gap={6} wrap="nowrap">
+                                <span>Description</span>
+                                <SortIcon field="description" />
+                              </Group>
+                            </Table.Th>
+                            <Table.Th
+                              onClick={() => handleSort("category")}
+                              style={{ cursor: "pointer" }}
+                            >
+                              <Group gap={6} wrap="nowrap">
+                                <span>Category</span>
+                                <SortIcon field="category" />
+                              </Group>
+                            </Table.Th>
+                            <Table.Th
+                              onClick={() => handleSort("part_type")}
+                              style={{ cursor: "pointer" }}
+                            >
+                              <Group gap={6} wrap="nowrap">
+                                <span>Part Type</span>
+                                <SortIcon field="part_type" />
+                              </Group>
+                            </Table.Th>
+                            <Table.Th
+                              onClick={() => handleSort("brand")}
+                              style={{ cursor: "pointer" }}
+                            >
+                              <Group gap={6} wrap="nowrap">
+                                <span>Brand</span>
+                                <SortIcon field="brand" />
+                              </Group>
+                            </Table.Th>
                           </Table.Tr>
                         </Table.Thead>
                         <Table.Tbody>
@@ -434,6 +558,47 @@ export default function Products() {
                         </Table.Tbody>
                       </Table>
                     </ScrollArea>
+
+                    <Group justify="space-between" align="center">
+                      <Group gap="xs">
+                        <Text size="sm" c="dimmed">
+                          Page {page} of{" "}
+                          {Math.max(
+                            1,
+                            Math.ceil(
+                              totalCount /
+                                (typeof pageSize === "string"
+                                  ? parseInt(pageSize)
+                                  : pageSize)
+                            )
+                          )}
+                        </Text>
+                        <Select
+                          data={["10", "25", "50", "100"]}
+                          value={String(pageSize)}
+                          onChange={(val) => {
+                            setPageSize(val || "25");
+                            setPage(1);
+                          }}
+                          size="xs"
+                          allowDeselect={false}
+                        />
+                      </Group>
+                      <Pagination
+                        total={Math.max(
+                          1,
+                          Math.ceil(
+                            totalCount /
+                              (typeof pageSize === "string"
+                                ? parseInt(pageSize)
+                                : pageSize)
+                          )
+                        )}
+                        value={page}
+                        onChange={(p) => setPage(p)}
+                        size="sm"
+                      />
+                    </Group>
                   </Stack>
                 </Card>
               )}
