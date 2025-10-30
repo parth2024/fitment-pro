@@ -2371,7 +2371,7 @@ export default function Fitments() {
                   striped
                   highlightOnHover
                   style={{
-                    minWidth: expandedView ? "1400px" : "800px",
+                    minWidth: expandedView ? "2000px" : "800px",
                     width: "100%",
                   }}
                 >
@@ -2676,6 +2676,88 @@ export default function Fitments() {
                               placeholder="Filter by date"
                             />
                           </Table.Th>
+                          {/* Additional requested columns */}
+                          <Table.Th
+                            style={{
+                              width: "90px",
+                              minWidth: "90px",
+                              verticalAlign: "middle",
+                            }}
+                          >
+                            Year
+                          </Table.Th>
+                          <Table.Th
+                            style={{
+                              width: "140px",
+                              minWidth: "140px",
+                              verticalAlign: "middle",
+                            }}
+                          >
+                            Make
+                          </Table.Th>
+                          <Table.Th
+                            style={{
+                              width: "160px",
+                              minWidth: "160px",
+                              verticalAlign: "middle",
+                            }}
+                          >
+                            Model
+                          </Table.Th>
+                          <Table.Th
+                            style={{
+                              width: "160px",
+                              minWidth: "160px",
+                              verticalAlign: "middle",
+                            }}
+                          >
+                            Submodel
+                          </Table.Th>
+                          <Table.Th
+                            style={{
+                              width: "140px",
+                              minWidth: "140px",
+                              verticalAlign: "middle",
+                            }}
+                          >
+                            Drive Type
+                          </Table.Th>
+                          <Table.Th
+                            style={{
+                              width: "140px",
+                              minWidth: "140px",
+                              verticalAlign: "middle",
+                            }}
+                          >
+                            Fuel Type
+                          </Table.Th>
+                          <Table.Th
+                            style={{
+                              width: "140px",
+                              minWidth: "140px",
+                              verticalAlign: "middle",
+                            }}
+                          >
+                            Body Type
+                          </Table.Th>
+                          <Table.Th
+                            style={{
+                              width: "100px",
+                              minWidth: "100px",
+                              verticalAlign: "middle",
+                            }}
+                          >
+                            Doors
+                          </Table.Th>
+                          <Table.Th
+                            style={{
+                              width: "100px",
+                              minWidth: "100px",
+                              verticalAlign: "middle",
+                            }}
+                          >
+                            UoM
+                          </Table.Th>
                         </>
                       )}
                       <Table.Th
@@ -2748,7 +2830,7 @@ export default function Fitments() {
                       ))
                     ) : fitments.length === 0 ? (
                       <Table.Tr>
-                        <Table.Td colSpan={expandedView ? 13 : 9}>
+                        <Table.Td colSpan={expandedView ? 22 : 9}>
                           <Center py="xl">
                             <Stack align="center" gap="md">
                               <Text size="lg" c="dimmed">
@@ -2885,6 +2967,7 @@ export default function Fitments() {
                               <Table.Td>{fitment.quantity}</Table.Td>
                               <Table.Td>{fitment.liftHeight || "-"}</Table.Td>
                               <Table.Td>{fitment.wheelType || "-"}</Table.Td>
+                              {/* Additional requested columns */}
                               <Table.Td>
                                 <Text size="xs" c="dimmed">
                                   {new Date(
@@ -2892,6 +2975,15 @@ export default function Fitments() {
                                   ).toLocaleDateString()}
                                 </Text>
                               </Table.Td>
+                              <Table.Td>{fitment.year}</Table.Td>
+                              <Table.Td>{fitment.makeName}</Table.Td>
+                              <Table.Td>{fitment.modelName}</Table.Td>
+                              <Table.Td>{fitment.subModelName}</Table.Td>
+                              <Table.Td>{fitment.driveTypeName}</Table.Td>
+                              <Table.Td>{fitment.fuelTypeName}</Table.Td>
+                              <Table.Td>{fitment.bodyTypeName}</Table.Td>
+                              <Table.Td>{fitment.bodyNumDoors}</Table.Td>
+                              <Table.Td>{fitment.uom}</Table.Td>
                             </>
                           )}
                           <Table.Td>
