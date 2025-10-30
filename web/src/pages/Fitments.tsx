@@ -31,7 +31,6 @@ import {
   Textarea,
 } from "@mantine/core";
 import {
-  IconSearch,
   IconDownload,
   IconTrash,
   IconEdit,
@@ -1126,6 +1125,7 @@ export default function Fitments() {
               <div>
                 <Group justify="space-between" align="flex-end" wrap="nowrap">
                   <Group gap="xs" style={{ flex: 1 }} wrap="nowrap">
+                    {/**
                     <TextInput
                       placeholder="Search by Part ID, Make, Model, Year, Vehicle Type, Part Type, Position, Fitment Title, Description..."
                       leftSection={<IconSearch size={16} color="#64748b" />}
@@ -1148,6 +1148,7 @@ export default function Fitments() {
                       }}
                       size="md"
                     />
+                    */}
 
                     <Button
                       leftSection={
@@ -1196,140 +1197,96 @@ export default function Fitments() {
                     </Button>
                   </Group>
 
-                  <Group gap="sm" mb={"5"}>
-                    {selectedFitments.length > 0 && (
-                      <Button
-                        leftSection={<IconTrash size={16} />}
-                        color="red"
-                        onClick={() => setDeleteModalOpen(true)}
-                        size="sm"
-                        style={{ background: "red" }}
-                      >
-                        Delete ({selectedFitments.length})
-                      </Button>
-                    )}
-
-                    <Menu shadow="md" width={200}>
-                      <Menu.Target>
-                        <Button
-                          leftSection={<IconDownload size={16} />}
-                          loading={exportLoading}
-                          size="sm"
-                          color="blue"
-                          style={{ background: "#2563eb" }}
-                        >
-                          Export
-                        </Button>
-                      </Menu.Target>
-                      <Menu.Dropdown>
-                        <Menu.Item
-                          leftSection={<IconFileText size={14} />}
-                          onClick={() => handleExport("csv")}
-                        >
-                          Export as CSV
-                        </Menu.Item>
-                        <Menu.Item
-                          leftSection={<IconFileSpreadsheet size={14} />}
-                          onClick={() => handleExport("xlsx")}
-                        >
-                          Export as XLSX
-                        </Menu.Item>
-                      </Menu.Dropdown>
-                    </Menu>
-                  </Group>
+                  <Group gap="sm" mb={"5"} />
                 </Group>
               </div>
 
-              {/* Parts Selection and Filter Mode */}
+              {/* Filter text area (top) */}
+              <Card withBorder radius="md" p="md">
+                <Stack gap="md">
+                  <Group gap="xs" mb="xs">
+                    <Text fw={600} size="sm" c="#374151">
+                      Filter
+                    </Text>
+                    <Tooltip
+                      label="Enter a year (e.g., 2026) or full format: Year | Make | Model | Submodel | DriveType | FuelType | NumDoors (e.g: 2008|Dodge|Ram 1500|*|4WD|*|*). Use * for wildcards."
+                      multiline
+                      w={400}
+                      withArrow
+                    >
+                      <IconInfoCircle size={16} color="#64748b" />
+                    </Tooltip>
+                  </Group>
+                  <Textarea
+                    placeholder="Enter year (e.g., 2026) or full format: Year | Make | Model | Submodel | DriveType | FuelType | NumDoors"
+                    value={vehicleFilter}
+                    onChange={(event) =>
+                      setVehicleFilter(event.currentTarget.value)
+                    }
+                    minRows={3}
+                    maxRows={6}
+                    styles={{
+                      input: { fontSize: "13px", fontFamily: "monospace" },
+                    }}
+                    size="sm"
+                  />
+                </Stack>
+              </Card>
+
+              {/* Parts Selection and Filter Mode (single row) */}
               <div style={{ marginTop: "16px" }}>
                 <Card withBorder radius="md" p="md">
                   <Stack gap="md">
-                    {/* Parts Selection */}
-                    <div>
-                      <Text fw={600} size="sm" c="#374151" mb="xs">
-                        Select the Parts
-                      </Text>
-                      <MultiSelect
-                        placeholder={
-                          productsLoading
-                            ? "Loading products..."
-                            : "(leave blank to show all)"
-                        }
-                        value={selectedParts}
-                        onChange={setSelectedParts}
-                        data={products}
-                        clearable
-                        searchable
-                        disabled={productsLoading}
-                        styles={{
-                          root: { maxWidth: 600, width: "100%" },
-                        }}
-                        size="sm"
-                      />
-                    </div>
-
-                    {/* Filter Mode and Vehicle Filter */}
-                    <Grid>
-                      <Grid.Col span={6}>
-                        <div>
-                          <Text fw={600} size="sm" c="#374151" mb="xs">
-                            Filter Mode
-                          </Text>
-                          <Radio.Group
-                            value={filterMode}
-                            onChange={(value) =>
-                              setFilterMode(value as FilterMode)
-                            }
-                          >
-                            <Stack gap="xs">
-                              <Radio
-                                value={FilterMode.MATCH_ALL}
-                                label="Return fitments that match ALL the configurations"
-                                size="sm"
-                              />
-                              <Radio
-                                value={FilterMode.MATCH_ANY}
-                                label="Return fitments that match ANY configuration"
-                                size="sm"
-                              />
-                            </Stack>
-                          </Radio.Group>
-                        </div>
-                      </Grid.Col>
-                      <Grid.Col span={6}>
-                        <div>
-                          <Group gap="xs" mb="xs">
-                            <Text fw={600} size="sm" c="#374151">
-                              Filter
-                            </Text>
-                            <Tooltip
-                              label="Enter a year (e.g., 2026) or full format: Year | Make | Model | Submodel | DriveType | FuelType | NumDoors (e.g: 2008|Dodge|Ram 1500|*|4WD|*|*). Use * for wildcards."
-                              multiline
-                              w={400}
-                              withArrow
-                            >
-                              <IconInfoCircle size={16} color="#64748b" />
-                            </Tooltip>
-                          </Group>
-                          <Textarea
-                            placeholder="Enter year (e.g., 2026) or full format: Year | Make | Model | Submodel | DriveType | FuelType | NumDoors"
-                            value={vehicleFilter}
-                            onChange={(event) =>
-                              setVehicleFilter(event.currentTarget.value)
-                            }
-                            minRows={3}
-                            maxRows={6}
-                            styles={{
-                              input: {
-                                fontSize: "13px",
-                                fontFamily: "monospace",
-                              },
-                            }}
-                            size="sm"
-                          />
-                        </div>
-                      </Grid.Col>
-                    </Grid>
+                    <Group
+                      justify="space-between"
+                      align="flex-start"
+                      wrap="nowrap"
+                    >
+                      <div style={{ minWidth: 300 }}>
+                        <Text fw={600} size="sm" c="#374151" mb="xs">
+                          Filter Mode
+                        </Text>
+                        <Radio.Group
+                          value={filterMode}
+                          onChange={(value) =>
+                            setFilterMode(value as FilterMode)
+                          }
+                        >
+                          <Stack gap="xs">
+                            <Radio
+                              value={FilterMode.MATCH_ALL}
+                              label="Return fitments that match ALL the configurations"
+                              size="sm"
+                            />
+                            <Radio
+                              value={FilterMode.MATCH_ANY}
+                              label="Return fitments that match ANY configuration"
+                              size="sm"
+                            />
+                          </Stack>
+                        </Radio.Group>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <Text fw={600} size="sm" c="#374151" mb="xs">
+                          Select the Parts
+                        </Text>
+                        <MultiSelect
+                          placeholder={
+                            productsLoading
+                              ? "Loading products..."
+                              : "(leave blank to show all)"
+                          }
+                          value={selectedParts}
+                          onChange={setSelectedParts}
+                          data={products}
+                          clearable
+                          searchable
+                          disabled={productsLoading}
+                          styles={{ root: { width: "100%" } }}
+                          size="sm"
+                        />
+                      </div>
+                    </Group>
 
                     {/* Show Fitments Button */}
                     <Group justify="center">
@@ -2340,6 +2297,49 @@ export default function Fitments() {
           {/* Table - Only show if showFitments is true */}
           {showFitments && (
             <>
+              {/* Actions just above the table */}
+              <Group justify="space-between" mb="sm">
+                <div>
+                  {selectedFitments.length > 0 && (
+                    <Button
+                      leftSection={<IconTrash size={16} />}
+                      color="red"
+                      onClick={() => setDeleteModalOpen(true)}
+                      size="sm"
+                      style={{ background: "red" }}
+                    >
+                      Delete ({selectedFitments.length})
+                    </Button>
+                  )}
+                </div>
+                <Menu shadow="md" width={200}>
+                  <Menu.Target>
+                    <Button
+                      leftSection={<IconDownload size={16} />}
+                      loading={exportLoading}
+                      size="sm"
+                      color="blue"
+                      style={{ background: "#2563eb" }}
+                    >
+                      Export
+                    </Button>
+                  </Menu.Target>
+                  <Menu.Dropdown>
+                    <Menu.Item
+                      leftSection={<IconFileText size={14} />}
+                      onClick={() => handleExport("csv")}
+                    >
+                      Export as CSV
+                    </Menu.Item>
+                    <Menu.Item
+                      leftSection={<IconFileSpreadsheet size={14} />}
+                      onClick={() => handleExport("xlsx")}
+                    >
+                      Export as XLSX
+                    </Menu.Item>
+                  </Menu.Dropdown>
+                </Menu>
+              </Group>
               {error && <Text c="red">{error}</Text>}
               {expandedView && (
                 <div
