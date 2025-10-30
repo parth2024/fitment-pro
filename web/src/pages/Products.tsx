@@ -437,12 +437,13 @@ export default function Products() {
                             setSearchQuery(e.currentTarget.value);
                             setPage(1);
                           }}
-                          style={{ width: "100%" }}
+                          style={{ flex: 1, minWidth: 0 }}
                         />
                         <Button
                           size="sm"
                           leftSection={<IconUpload size={14} />}
                           onClick={handleClickUploadTop}
+                          style={{ whiteSpace: "nowrap", flexShrink: 0 }}
                         >
                           Upload Product
                         </Button>
