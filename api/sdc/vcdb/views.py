@@ -534,6 +534,8 @@ def vehicle_search(request):
         num_doors = request.GET.get('numDoors')
         drive_type = request.GET.get('driveType')
         body_type = request.GET.get('bodyType')
+        base_vehicle_ids_param = request.GET.get('baseVehicleIds')
+        base_vehicle_ids: list[int] = []
         # Extended filter params
         engine_base = request.GET.get('engineBase')
         engine_vin = request.GET.get('engineVin')
@@ -550,6 +552,18 @@ def vehicle_search(request):
         
         # Validate required parameters
         validation_errors = []
+        
+        if base_vehicle_ids_param:
+            try:
+                base_vehicle_ids = [
+                    int(x.strip())
+                    for x in str(base_vehicle_ids_param).split(',')
+                    if x and x.strip()
+                ]
+                if not base_vehicle_ids:
+                    validation_errors.append("baseVehicleIds must contain valid integer IDs")
+            except ValueError:
+                validation_errors.append("baseVehicleIds must contain valid integer IDs")
         
         # If year range is provided, validate it
         if year_from and year_to:
@@ -650,6 +664,11 @@ def vehicle_search(request):
         if body_type:
             vehicles_query = vehicles_query.filter(
                 vehicletobodystyleconfig__body_style_config_id__body_type_id__body_type_name__icontains=body_type
+            )
+
+        if base_vehicle_ids:
+            vehicles_query = vehicles_query.filter(
+                base_vehicle_id__base_vehicle_id__in=base_vehicle_ids
             )
 
         # Extended filters mapping to relationships
@@ -773,6 +792,7 @@ def vehicle_search(request):
                     'numDoors': num_doors,
                     'driveType': drive_type,
                     'bodyType': body_type,
+            'baseVehicleIds': base_vehicle_ids_param,
                 }
             })
         
@@ -804,9 +824,10 @@ def vehicle_search(request):
             
             vehicle_data = {
                 'id': vehicle.vehicle_id,
-                'year': vehicle.base_vehicle_id.year_id.year_id,
-                'make': vehicle.base_vehicle_id.make_id.make_name,
-                'model': vehicle.base_vehicle_id.model_id.model_name,
+                'baseVehicleId': vehicle.base_vehicle_id.base_vehicle_id if vehicle.base_vehicle_id else None,
+                'year': vehicle.base_vehicle_id.year_id.year_id if vehicle.base_vehicle_id and vehicle.base_vehicle_id.year_id else None,
+                'make': vehicle.base_vehicle_id.make_id.make_name if vehicle.base_vehicle_id and vehicle.base_vehicle_id.make_id else '',
+                'model': vehicle.base_vehicle_id.model_id.model_name if vehicle.base_vehicle_id and vehicle.base_vehicle_id.model_id else '',
                 'submodel': vehicle.sub_model_id.sub_model_name if vehicle.sub_model_id else '',
                 'region': vehicle.region_id.region_name if vehicle.region_id else '',
                 'publication_stage': vehicle.publication_stage_id.publication_stage_name if vehicle.publication_stage_id else '',
