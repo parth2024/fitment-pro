@@ -401,7 +401,7 @@ function App() {
             }}
           >
             <Group gap="12px" align="center">
-              <div
+              {/* <div
                 style={{
                   background: "#2563eb",
                   borderRadius: "8px",
@@ -414,9 +414,9 @@ function App() {
                 }}
               >
                 <IconCar size={18} color="white" stroke={2.2} />
-              </div>
+              </div> */}
               <div>
-                <Title
+                {/* <Title
                   order={4}
                   style={{
                     color: "#1a1a1a",
@@ -427,7 +427,7 @@ function App() {
                   }}
                 >
                   Fitmentpro.ai
-                </Title>
+                </Title> */}
               </div>
             </Group>
           </div>
