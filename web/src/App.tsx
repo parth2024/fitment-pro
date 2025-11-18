@@ -7,16 +7,23 @@ import {
   NavLink,
   Text,
   Box,
+  ActionIcon,
 } from "@mantine/core";
 import {
-  IconCar,
+  // IconCar,
   IconTable,
   IconDashboard,
-  IconBulb,
+  // IconBulb,
   IconBuilding,
   // IconUpload,
   IconFile,
   // IconDatabase,
+  IconHistory,
+  IconChevronDown,
+  IconChevronRight,
+  IconTag,
+  IconFileExport,
+  IconChartBar,
 } from "@tabler/icons-react";
 import {
   Routes,
@@ -29,6 +36,7 @@ import {
 import Analytics from "./pages/Analytics";
 import ApplyFitments from "./pages/ApplyFitments";
 import Fitments from "./pages/Fitments";
+import FitmentJobs from "./pages/FitmentJobs";
 import EditFitment from "./pages/EditFitment";
 import BulkUpload from "./pages/BulkUpload";
 import CoverageNew from "./pages/CoverageNew/CoverageWrapper";
@@ -54,9 +62,28 @@ import UserRoleToggle from "./components/UserRoleToggle";
 import { useAuth } from "./contexts/AuthContext";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { useState, useEffect } from "react";
+
+// Navigation item types
+interface NavigationChild {
+  label: string;
+  value: string;
+  path: string;
+  icon: any;
+  color: string;
+}
+
+interface NavigationItem {
+  label: string;
+  value: string;
+  path: string;
+  icon: any;
+  color: string;
+  children?: NavigationChild[];
+}
 
 // Base navigation items that are always available
-const baseNavigationItems = [
+const baseNavigationItems: NavigationItem[] = [
   {
     label: "Dashboard",
     value: "analytics",
@@ -64,19 +91,42 @@ const baseNavigationItems = [
     icon: IconDashboard,
     color: "blue",
   },
-  {
-    label: "Apply Fitments",
-    value: "apply-fitments",
-    path: "/apply-fitments",
-    icon: IconCar,
-    color: "green",
-  },
+  // {
+  //   label: "Apply Fitments",
+  //   value: "apply-fitments",
+  //   path: "/apply-fitments",
+  //   icon: IconCar,
+  //   color: "green",
+  // },
   {
     label: "Fitments",
     value: "fitments",
     path: "/fitments",
     icon: IconTable,
     color: "teal",
+    children: [
+      {
+        label: "History",
+        value: "fitments-jobs",
+        path: "/fitments/jobs",
+        icon: IconHistory,
+        color: "teal",
+      },
+    ],
+  },
+  {
+    label: "Products",
+    value: "products",
+    path: "/products",
+    icon: IconFile,
+    color: "purple",
+  },
+  {
+    label: "Attributes",
+    value: "attributes",
+    path: "attributes",
+    icon: IconTag,
+    color: "purple",
   },
   // {
   //   label: "Bulk Upload",
@@ -85,19 +135,27 @@ const baseNavigationItems = [
   //   icon: IconUpload,
   //   color: "orange",
   // },
+  // {
+  //   label: "Potential Fitments",
+  //   value: "potential",
+  //   path: "/potential-fitments",
+  //   icon: IconBulb,
+  //   color: "yellow",
+  // },
   {
-    label: "Potential Fitments",
-    value: "potential",
-    path: "/potential-fitments",
-    icon: IconBulb,
+    label: "Exports",
+    value: "exports",
+    path: "/exports",
+    icon: IconFileExport,
     color: "yellow",
   },
+
   {
-    label: "Products",
-    value: "products",
-    path: "/products",
-    icon: IconFile,
-    color: "purple",
+    label: "Insights",
+    value: "insights",
+    path: "/insights",
+    icon: IconChartBar,
+    color: "yellow",
   },
 
   {
@@ -132,6 +190,22 @@ function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [expandedItems, setExpandedItems] = useState<string[]>(() => {
+    // Auto-expand Fitments if on fitments page or sub-page
+    if (location.pathname.startsWith("/fitments")) {
+      return ["fitments"];
+    }
+    return [];
+  });
+
+  // Auto-expand when navigating to fitments routes
+  useEffect(() => {
+    if (location.pathname.startsWith("/fitments")) {
+      setExpandedItems((prev) =>
+        prev.includes("fitments") ? prev : [...prev, "fitments"]
+      );
+    }
+  }, [location.pathname]);
 
   // Get navigation items based on user role
   const navigationItems = user
@@ -170,6 +244,11 @@ function App() {
       return "VCDB Data";
     }
 
+    // Handle Fitment Jobs route
+    if (location.pathname === "/fitments/jobs") {
+      return "Fitment Jobs & History";
+    }
+
     return "Dashboard";
   };
 
@@ -179,6 +258,20 @@ function App() {
       (item) => item.path === location.pathname
     );
     if (currentNav) return currentNav.value;
+
+    // Check children for nested navigation
+    for (const item of navigationItems) {
+      if (item.children) {
+        const childNav = item.children.find(
+          (child: NavigationChild) => child.path === location.pathname
+        );
+        if (childNav) return childNav.value;
+        // If on a child route, make parent active too
+        if (location.pathname.startsWith(item.path) && item.path !== "/") {
+          return item.value;
+        }
+      }
+    }
 
     // Handle edit entity routes - these should be considered settings
     if (location.pathname.startsWith("/edit-entity/")) {
@@ -217,6 +310,7 @@ function App() {
         <Route path="/upload-data" element={<UploadData />} />
         <Route path="/apply-fitments" element={<ApplyFitments />} />
         <Route path="/fitments" element={<Fitments />} />
+        <Route path="/fitments/jobs" element={<FitmentJobs />} />
         <Route
           path="/edit-fitment/:fitmentHash"
           element={<EditFitmentWrapper />}
@@ -228,7 +322,8 @@ function App() {
         <Route path="/review-publish" element={<ReviewPublish />} />
         <Route path="/coverage" element={<CoverageNew />} />
         <Route
-          path="/potential-fitments"
+          // path="/potential-fitments"
+          path="/insights"
           element={<PotentialFitmentsBootstrap />}
         />
         <Route path="/admin" element={<Admin />} />
@@ -437,45 +532,176 @@ function App() {
             {navigationItems.map((item) => {
               const Icon = item.icon;
               const isActive = getCurrentActiveTab() === item.value;
+              const hasChildren = item.children && item.children.length > 0;
+              const isExpanded = expandedItems.includes(item.value);
+              const isChildActive =
+                hasChildren &&
+                item.children?.some(
+                  (child: NavigationChild) => child.path === location.pathname
+                );
 
               return (
-                <NavLink
-                  key={item.value}
-                  component={Link}
-                  to={item.path}
-                  active={isActive}
-                  label={item.label}
-                  onClick={() =>
-                    window.scrollTo({ top: 0, left: 0, behavior: "smooth" })
-                  }
-                  leftSection={<Icon size={20} stroke={isActive ? 2 : 1.75} />}
-                  styles={{
-                    root: {
-                      borderRadius: "8px",
-                      padding: "10px 12px",
-                      fontWeight: isActive ? 600 : 500,
-                      fontSize: "14.5px",
-                      color: isActive ? "#1a1a1a" : "#4b5563",
-                      backgroundColor: isActive ? "#f1f5f9" : "transparent",
-                      transition: "all 0.12s cubic-bezier(0.4, 0, 0.2, 1)",
-                      border: isActive
-                        ? "1px solid #e2e8f0"
-                        : "1px solid transparent",
-                      "&:hover": {
-                        backgroundColor: isActive ? "#e2e8f0" : "#f8fafc",
-                        transform: "translateX(1px)",
-                      },
-                    },
-                    label: {
-                      color: isActive ? "#1a1a1a" : "#4b5563",
-                      fontWeight: isActive ? 600 : 500,
-                    },
-                    section: {
-                      color: isActive ? "#2563eb" : "#6b7280",
-                      marginRight: "12px",
-                    },
-                  }}
-                />
+                <div key={item.value}>
+                  <div style={{ position: "relative" }}>
+                    <NavLink
+                      disabled={item.label === "Exports"}
+                      component={Link}
+                      to={item.path}
+                      active={isActive || isChildActive}
+                      label={item.label}
+                      onClick={() => {
+                        // Auto-expand if has children when navigating
+                        if (hasChildren) {
+                          setExpandedItems((prev) =>
+                            prev.includes(item.value)
+                              ? prev
+                              : [...prev, item.value]
+                          );
+                        }
+                        window.scrollTo({
+                          top: 0,
+                          left: 0,
+                          behavior: "smooth",
+                        });
+                      }}
+                      leftSection={
+                        <Icon
+                          size={20}
+                          stroke={isActive || isChildActive ? 2 : 1.75}
+                        />
+                      }
+                      styles={{
+                        root: {
+                          borderRadius: "8px",
+                          padding: "10px 12px",
+                          paddingRight: hasChildren ? "36px" : "12px",
+                          fontWeight: isActive || isChildActive ? 600 : 500,
+                          fontSize: "14.5px",
+                          color:
+                            isActive || isChildActive ? "#1a1a1a" : "#4b5563",
+                          backgroundColor:
+                            isActive || isChildActive
+                              ? "#f1f5f9"
+                              : "transparent",
+                          transition: "all 0.12s cubic-bezier(0.4, 0, 0.2, 1)",
+                          border:
+                            isActive || isChildActive
+                              ? "1px solid #e2e8f0"
+                              : "1px solid transparent",
+                          "&:hover": {
+                            backgroundColor:
+                              isActive || isChildActive ? "#e2e8f0" : "#f8fafc",
+                            transform: "translateX(1px)",
+                          },
+                        },
+                        label: {
+                          color:
+                            isActive || isChildActive ? "#1a1a1a" : "#4b5563",
+                          fontWeight: isActive || isChildActive ? 600 : 500,
+                        },
+                        section: {
+                          color:
+                            isActive || isChildActive ? "#2563eb" : "#6b7280",
+                          marginRight: "12px",
+                        },
+                      }}
+                    />
+                    {hasChildren && (
+                      <ActionIcon
+                        variant="subtle"
+                        size="sm"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setExpandedItems((prev) =>
+                            prev.includes(item.value)
+                              ? prev.filter((v) => v !== item.value)
+                              : [...prev, item.value]
+                          );
+                        }}
+                        style={{
+                          position: "absolute",
+                          right: "8px",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          zIndex: 1,
+                          color:
+                            isActive || isChildActive ? "#2563eb" : "#6b7280",
+                        }}
+                      >
+                        {isExpanded ? (
+                          <IconChevronDown size={16} />
+                        ) : (
+                          <IconChevronRight size={16} />
+                        )}
+                      </ActionIcon>
+                    )}
+                  </div>
+                  {hasChildren && isExpanded && (
+                    <Stack
+                      gap={2}
+                      style={{ marginLeft: "20px", marginTop: "4px" }}
+                    >
+                      {item.children?.map((child: NavigationChild) => {
+                        const ChildIcon = child.icon;
+                        const isChildActive = child.path === location.pathname;
+                        return (
+                          <NavLink
+                            key={child.value}
+                            component={Link}
+                            to={child.path}
+                            active={isChildActive}
+                            label={child.label}
+                            onClick={() =>
+                              window.scrollTo({
+                                top: 0,
+                                left: 0,
+                                behavior: "smooth",
+                              })
+                            }
+                            leftSection={
+                              <ChildIcon
+                                size={18}
+                                stroke={isChildActive ? 2 : 1.5}
+                              />
+                            }
+                            styles={{
+                              root: {
+                                borderRadius: "6px",
+                                padding: "8px 10px",
+                                fontWeight: isChildActive ? 600 : 500,
+                                fontSize: "13.5px",
+                                color: isChildActive ? "#1a1a1a" : "#64748b",
+                                backgroundColor: isChildActive
+                                  ? "#e2e8f0"
+                                  : "transparent",
+                                transition:
+                                  "all 0.12s cubic-bezier(0.4, 0, 0.2, 1)",
+                                border: isChildActive
+                                  ? "1px solid #cbd5e1"
+                                  : "1px solid transparent",
+                                "&:hover": {
+                                  backgroundColor: isChildActive
+                                    ? "#cbd5e1"
+                                    : "#f1f5f9",
+                                  transform: "translateX(1px)",
+                                },
+                              },
+                              label: {
+                                color: isChildActive ? "#1a1a1a" : "#64748b",
+                                fontWeight: isChildActive ? 600 : 500,
+                              },
+                              section: {
+                                color: isChildActive ? "#2563eb" : "#94a3b8",
+                                marginRight: "10px",
+                              },
+                            }}
+                          />
+                        );
+                      })}
+                    </Stack>
+                  )}
+                </div>
               );
             })}
           </Stack>

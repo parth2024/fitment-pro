@@ -15,7 +15,7 @@ import {
   Loader,
   Grid,
   Paper,
-  Divider,
+  // Divider,
   Tabs,
   MultiSelect,
   Checkbox,
@@ -29,8 +29,8 @@ import {
 import {
   IconPlus,
   IconTrash,
-  IconCar,
-  IconDatabase,
+  // IconCar,
+  // IconDatabase,
   IconClock,
   IconRefresh,
   IconX,
@@ -725,73 +725,73 @@ const EditEntity: React.FC = () => {
               <Tabs.List>
                 <Tabs.Tab
                   value="basic"
-                  leftSection={<IconDatabase size={18} />}
+                  // leftSection={<IconDatabase size={18} />}
                 >
-                  Basic Information
+                  Profile
                 </Tabs.Tab>
-                <Tabs.Tab value="fitments" leftSection={<IconCar size={18} />}>
-                  VCDB Configuration
-                </Tabs.Tab>
+                <Tabs.Tab value="fitments">Fitment Rules</Tabs.Tab>
                 <Tabs.Tab
                   value="products"
-                  leftSection={<IconDatabase size={18} />}
+                  // leftSection={<IconDatabase size={18} />}
                 >
-                  Product Configuration
+                  Part Rules
                 </Tabs.Tab>
               </Tabs.List>
 
               <Tabs.Panel value="basic">
                 <Stack gap="lg">
-                  <div>
+                  <div style={{ maxWidth: "80%" }}>
                     <Stack gap="md">
-                      <TextInput
-                        label="Entity Name"
-                        placeholder="Enter entity name"
-                        value={formData.name}
-                        onChange={(e) => {
-                          setFormData({ ...formData, name: e.target.value });
-                          if (validationErrors.name) {
-                            setValidationErrors({
-                              ...validationErrors,
-                              name: "",
-                            });
+                      <Group grow gap="md">
+                        <TextInput
+                          label="Entity Name"
+                          placeholder="Enter entity name"
+                          value={formData.name}
+                          onChange={(e) => {
+                            setFormData({ ...formData, name: e.target.value });
+                            if (validationErrors.name) {
+                              setValidationErrors({
+                                ...validationErrors,
+                                name: "",
+                              });
+                            }
+                          }}
+                          required
+                          error={validationErrors.name}
+                          styles={{
+                            label: {
+                              fontWeight: 500,
+                              fontSize: "14px",
+                              marginBottom: "6px",
+                            },
+                            input: {
+                              borderRadius: "8px",
+                              fontSize: "14px",
+                              fontWeight: 500,
+                            },
+                          }}
+                        />
+                        <TextInput
+                          label="URL Slug"
+                          placeholder="Enter entity URL slug"
+                          value={formData.slug}
+                          onChange={(e) =>
+                            setFormData({ ...formData, slug: e.target.value })
                           }
-                        }}
-                        required
-                        error={validationErrors.name}
-                        styles={{
-                          label: {
-                            fontWeight: 500,
-                            fontSize: "14px",
-                            marginBottom: "6px",
-                          },
-                          input: {
-                            borderRadius: "8px",
-                            fontSize: "14px",
-                            fontWeight: 500,
-                          },
-                        }}
-                      />
-                      <TextInput
-                        label="URL Slug"
-                        placeholder="Enter entity URL slug"
-                        value={formData.slug}
-                        onChange={(e) =>
-                          setFormData({ ...formData, slug: e.target.value })
-                        }
-                        styles={{
-                          label: {
-                            fontWeight: 500,
-                            fontSize: "14px",
-                            marginBottom: "6px",
-                          },
-                          input: {
-                            borderRadius: "8px",
-                            fontSize: "14px",
-                            fontWeight: 500,
-                          },
-                        }}
-                      />
+                          styles={{
+                            label: {
+                              fontWeight: 500,
+                              fontSize: "14px",
+                              marginBottom: "6px",
+                            },
+                            input: {
+                              borderRadius: "8px",
+                              fontSize: "14px",
+                              fontWeight: 500,
+                            },
+                          }}
+                        />
+                      </Group>
                       <Textarea
                         label="Description"
                         placeholder="Enter entity description"
@@ -819,65 +819,67 @@ const EditEntity: React.FC = () => {
                     </Stack>
                   </div>
 
-                  <Divider label="Contact Information" />
+                  {/* <Divider label="Contact Information" /> */}
 
-                  <div>
+                  <div style={{ maxWidth: "80%" }}>
                     <Stack gap="md">
-                      <TextInput
-                        label="Contact Email"
-                        placeholder="contact@example.com"
-                        value={formData.contact_email}
-                        onChange={(e) => {
-                          setFormData({
-                            ...formData,
-                            contact_email: e.target.value,
-                          });
-                          if (validationErrors.contact_email) {
-                            setValidationErrors({
-                              ...validationErrors,
-                              contact_email: "",
+                      <Group grow gap="md">
+                        <TextInput
+                          label="Email"
+                          placeholder="contact@example.com"
+                          value={formData.contact_email}
+                          onChange={(e) => {
+                            setFormData({
+                              ...formData,
+                              contact_email: e.target.value,
                             });
+                            if (validationErrors.contact_email) {
+                              setValidationErrors({
+                                ...validationErrors,
+                                contact_email: "",
+                              });
+                            }
+                          }}
+                          error={validationErrors.contact_email}
+                          styles={{
+                            label: {
+                              fontWeight: 500,
+                              fontSize: "14px",
+                              marginBottom: "6px",
+                            },
+                            input: {
+                              borderRadius: "8px",
+                              fontSize: "14px",
+                              fontWeight: 500,
+                            },
+                          }}
+                        />
+                        <TextInput
+                          label="Phone"
+                          placeholder="+1 (555) 123-4567"
+                          value={formData.contact_phone}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              contact_phone: e.target.value,
+                            })
                           }
-                        }}
-                        error={validationErrors.contact_email}
-                        styles={{
-                          label: {
-                            fontWeight: 500,
-                            fontSize: "14px",
-                            marginBottom: "6px",
-                          },
-                          input: {
-                            borderRadius: "8px",
-                            fontSize: "14px",
-                            fontWeight: 500,
-                          },
-                        }}
-                      />
-                      <TextInput
-                        label="Contact Phone"
-                        placeholder="+1 (555) 123-4567"
-                        value={formData.contact_phone}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            contact_phone: e.target.value,
-                          })
-                        }
-                        styles={{
-                          label: {
-                            fontWeight: 500,
-                            fontSize: "14px",
-                            marginBottom: "6px",
-                          },
-                          input: {
-                            borderRadius: "8px",
-                            fontSize: "14px",
-                            fontWeight: 500,
-                          },
-                        }}
-                      />
+                          styles={{
+                            label: {
+                              fontWeight: 500,
+                              fontSize: "14px",
+                              marginBottom: "6px",
+                            },
+                            input: {
+                              borderRadius: "8px",
+                              fontSize: "14px",
+                              fontWeight: 500,
+                            },
+                          }}
+                        />
+                      </Group>
                       <Textarea
-                        label="Company Address"
+                        label="Address"
                         placeholder="Enter company address"
                         value={formData.company_address}
                         onChange={(e) =>
@@ -902,7 +904,7 @@ const EditEntity: React.FC = () => {
                       />
                     </Stack>
                   </div>
-                  <Divider label="Entity Status" />
+                  {/* <Divider label="Entity Status" /> */}
 
                   <div>
                     <Text
@@ -911,12 +913,11 @@ const EditEntity: React.FC = () => {
                       mb="md"
                       style={{ color: "#1a1a1a" }}
                     >
-                      Entity Status
+                      Status
                     </Text>
                     <Group gap="xl">
                       <Switch
                         label="Active"
-                        description="Enable or disable this entity"
                         checked={formData.is_active}
                         onChange={(e) =>
                           setFormData({
@@ -935,31 +936,35 @@ const EditEntity: React.FC = () => {
                           },
                         }}
                       />
-                      <Switch
-                        label="Default Entity"
-                        description="Set as default entity for new users"
-                        checked={formData.is_default}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            is_default: e.currentTarget.checked,
-                          })
-                        }
-                        styles={{
-                          label: {
-                            fontWeight: 500,
-                            fontSize: "14px",
-                          },
-                          description: {
-                            fontSize: "12px",
-                            color: "#6b7280",
-                          },
-                        }}
-                      />
+                      <Group gap="xs" align="center">
+                        <Switch
+                          label="Default Entity"
+                          checked={formData.is_default}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              is_default: e.currentTarget.checked,
+                            })
+                          }
+                          styles={{
+                            label: {
+                              fontWeight: 500,
+                              fontSize: "14px",
+                            },
+                          }}
+                        />
+                        <Tooltip label="Set as default entity for new users">
+                          <IconInfoCircle
+                            size={16}
+                            color="#9ca3af"
+                            style={{ cursor: "help" }}
+                          />
+                        </Tooltip>
+                      </Group>
                     </Group>
                   </div>
 
-                  <Group justify="flex-end" mt="md">
+                  <Group justify="center" mt="md">
                     <Button
                       leftSection={<IconDeviceFloppy size={18} />}
                       onClick={() => handleUpdate("basic")}
@@ -982,7 +987,7 @@ const EditEntity: React.FC = () => {
                   <div>
                     <Group gap="xs" mb="xs">
                       <Text fw={600} size="sm" style={{ color: "#1a1a1a" }}>
-                        VCDB Fitment Configuration
+                        VCDB Type
                       </Text>
                       <Tooltip label="Configure VCDB categories and fields for this entity">
                         <IconInfoCircle size={16} color="#9ca3af" />
@@ -990,7 +995,6 @@ const EditEntity: React.FC = () => {
                     </Group>
                     <Stack gap="md">
                       <MultiSelect
-                        label="VCDB Categories"
                         placeholder="Select VCDB categories"
                         data={vehicleTypeGroups}
                         value={formData.vcdb_categories}
@@ -1016,20 +1020,15 @@ const EditEntity: React.FC = () => {
                     </Stack>
                   </div>
 
-                  <Divider label="VCDB Field Selection" />
-
                   <div>
                     <Group gap="xs" mb="xs">
-                      <Text fw={600} size="sm" style={{ color: "#1a1a1a" }}>
-                        VCDB Field Selection
-                      </Text>
-                      <Tooltip label="Select required and optional VCDB fields">
+                      {/* <Tooltip label="Select required and optional VCDB fields">
                         <IconInfoCircle size={16} color="#9ca3af" />
-                      </Tooltip>
+                      </Tooltip> */}
                     </Group>
                     <Group grow align="flex-start">
                       <MultiSelect
-                        label="Required VCDB Fields"
+                        label="Source to VCDB identifier Field(s)"
                         placeholder="Select required fields"
                         data={VCDB_REQUIRED_FIELDS}
                         value={formData.required_vcdb_fields}
@@ -1056,7 +1055,7 @@ const EditEntity: React.FC = () => {
                         }}
                       />
                       <MultiSelect
-                        label="Optional VCDB Fields"
+                        label="VCDB Output Fields"
                         placeholder="Select optional fields"
                         data={VCDB_OPTIONAL_FIELDS}
                         value={formData.optional_vcdb_fields}
@@ -1084,7 +1083,7 @@ const EditEntity: React.FC = () => {
                     </Group>
                   </div>
 
-                  <Group justify="flex-end" mt="md">
+                  <Group justify="center" mt="md">
                     <Button
                       leftSection={<IconDeviceFloppy size={18} />}
                       onClick={() => handleUpdate("fitment")}
@@ -1107,7 +1106,7 @@ const EditEntity: React.FC = () => {
                   <div>
                     <Group gap="xs" mb="xs">
                       <Text fw={600} size="sm" style={{ color: "#1a1a1a" }}>
-                        Product Field Configuration
+                        Source to Part identifier Field(s)
                       </Text>
                       <Tooltip label="Configure required product fields and additional attributes">
                         <IconInfoCircle size={16} color="#9ca3af" />
@@ -1115,7 +1114,6 @@ const EditEntity: React.FC = () => {
                     </Group>
                     <Stack gap="md">
                       <MultiSelect
-                        label="Required Product Fields"
                         placeholder="Select required product fields"
                         data={REQUIRED_PRODUCT_FIELDS}
                         value={formData.required_product_fields}
@@ -1142,8 +1140,6 @@ const EditEntity: React.FC = () => {
                       />
                     </Stack>
                   </div>
-
-                  <Divider label="Additional Attributes" />
 
                   <div>
                     <Group gap="xs" mb="md">
@@ -1203,7 +1199,7 @@ const EditEntity: React.FC = () => {
                                     </Grid.Col>
                                     <Grid.Col span={4}>
                                       <TextInput
-                                        label="Attribute Value"
+                                        label="Attribute Value(s)"
                                         placeholder="e.g., Steel, Red"
                                         value={attr.value}
                                         onChange={(e) => {
