@@ -544,7 +544,9 @@ function App() {
                 <div key={item.value}>
                   <div style={{ position: "relative" }}>
                     <NavLink
-                      disabled={item.label === "Exports"}
+                      disabled={
+                        item.label === "Exports" || item.label === "Attributes"
+                      }
                       component={Link}
                       to={item.path}
                       active={isActive || isChildActive}
