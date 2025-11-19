@@ -36,6 +36,7 @@ import {
   IconInfoCircle,
   IconDeviceFloppy,
   IconArrowLeft,
+  IconShieldCheck,
 } from "@tabler/icons-react";
 import { useParams, useLocation } from "react-router-dom";
 import apiClient from "../api/client";
@@ -1065,7 +1066,7 @@ const EditEntity: React.FC = () => {
                         }
                         searchable
                         clearable
-                        maxValues={9}
+                        maxValues={1}
                         styles={{
                           label: {
                             fontWeight: 500,
@@ -1443,32 +1444,43 @@ const EditEntity: React.FC = () => {
                                         },
                                       }}
                                     />
-                                    <Switch
-                                      label="ACPN recommendations"
-                                      checked={
-                                        attr.acpn_recommendations || false
-                                      }
-                                      onChange={(e) => {
-                                        const newAttrs = [
-                                          ...formData.additional_attributes,
-                                        ];
-                                        newAttrs[index] = {
-                                          ...attr,
-                                          acpn_recommendations:
-                                            e.currentTarget.checked,
-                                        };
-                                        setFormData({
-                                          ...formData,
-                                          additional_attributes: newAttrs,
-                                        });
-                                      }}
-                                      styles={{
-                                        label: {
-                                          fontWeight: 500,
-                                          fontSize: "14px",
-                                        },
-                                      }}
-                                    />
+                                    <Group gap="xs">
+                                      <Switch
+                                        label="ACPN recommendations"
+                                        checked={
+                                          attr.acpn_recommendations || false
+                                        }
+                                        onChange={(e) => {
+                                          const newAttrs = [
+                                            ...formData.additional_attributes,
+                                          ];
+                                          newAttrs[index] = {
+                                            ...attr,
+                                            acpn_recommendations:
+                                              e.currentTarget.checked,
+                                          };
+                                          setFormData({
+                                            ...formData,
+                                            additional_attributes: newAttrs,
+                                          });
+                                        }}
+                                        styles={{
+                                          label: {
+                                            fontWeight: 500,
+                                            fontSize: "14px",
+                                          },
+                                        }}
+                                      />
+                                      {attr.acpn_recommendations && (
+                                        <Tooltip label="ACPN Compliant - This field uses AutoCare PIES industry standard naming">
+                                          <IconShieldCheck
+                                            size={18}
+                                            color="#10b981"
+                                            style={{ cursor: "help" }}
+                                          />
+                                        </Tooltip>
+                                      )}
+                                    </Group>
                                   </Group>
                                 </Paper>
                               )
