@@ -296,9 +296,23 @@ export const fitmentRulesService = {
       headers: { "Content-Type": "multipart/form-data" },
     });
   },
-  aiMap: (uploadId: string, dataType?: "fitments" | "products") => {
+  aiMap: (
+    uploadId: string,
+    dataType?: "fitments" | "products",
+    entityConfig?: {
+      requiredVcdbFields?: string[];
+      optionalVcdbFields?: string[];
+      requiredProductFields?: string[];
+      partNumberSkuDescription?: string;
+      ptidMatch?: boolean;
+      seekParentChild?: boolean;
+      parentChildExample?: string;
+      additionalAttributes?: any[];
+    }
+  ) => {
     return apiClient.post(`/api/uploads/${uploadId}/ai-map`, {
       dataType: dataType,
+      entityConfig: entityConfig || {},
     });
   },
   transform: (uploadId: string) =>

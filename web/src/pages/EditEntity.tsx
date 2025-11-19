@@ -109,6 +109,30 @@ interface FitmentJob {
 // VCDB Field Options
 
 const VCDB_REQUIRED_FIELDS = [
+  "Part Number",
+  // "Year (model year)",
+  // "Make (manufacturer, e.g., Ford, Toyota)",
+  // "Model (e.g., F-150, Camry)",
+  // "Submodel / Trim (e.g., XLT, Limited, SE)",
+  // "Body Type (e.g., Sedan, SUV, Pickup)",
+  // "Body Number of Doors (2-door, 4-door, etc.)",
+  // "Drive Type (FWD, RWD, AWD, 4WD)",
+  // "Fuel Type (Gasoline, Diesel, Hybrid, Electric)",
+];
+
+const VCDB_OPTIONAL_FIELDS = [
+  // "Engine Base (engine code or family ID)",
+  // "Engine Liter (e.g., 2.0L, 5.7L)",
+  // "Engine Cylinders (e.g., I4, V6, V8)",
+  // "Engine VIN Code (8th digit VIN engine identifier)",
+  // "Engine Block Type (Inline, V-type, etc.)",
+  // "Transmission Type (Automatic, Manual, CVT)",
+  // "Transmission Speeds (e.g., 6-speed, 10-speed)",
+  // "Transmission Control Type (Automatic, Dual-Clutch, etc.)",
+  // "Bed Type (for pickups — e.g., Fleetside, Stepside)",
+  // "Bed Length (e.g., 5.5 ft, 6.5 ft, 8 ft)",
+  // "Wheelbase (measured length in inches/mm)",
+  // "Region (market region — U.S., Canada, Mexico, Latin America)",
   "Year (model year)",
   "Make (manufacturer, e.g., Ford, Toyota)",
   "Model (e.g., F-150, Camry)",
@@ -116,22 +140,7 @@ const VCDB_REQUIRED_FIELDS = [
   "Body Type (e.g., Sedan, SUV, Pickup)",
   "Body Number of Doors (2-door, 4-door, etc.)",
   "Drive Type (FWD, RWD, AWD, 4WD)",
-  "Fuel Type (Gasoline, Diesel, Hybrid, Electric)",
-];
-
-const VCDB_OPTIONAL_FIELDS = [
-  "Engine Base (engine code or family ID)",
-  "Engine Liter (e.g., 2.0L, 5.7L)",
-  "Engine Cylinders (e.g., I4, V6, V8)",
-  "Engine VIN Code (8th digit VIN engine identifier)",
-  "Engine Block Type (Inline, V-type, etc.)",
-  "Transmission Type (Automatic, Manual, CVT)",
-  "Transmission Speeds (e.g., 6-speed, 10-speed)",
-  "Transmission Control Type (Automatic, Dual-Clutch, etc.)",
-  "Bed Type (for pickups — e.g., Fleetside, Stepside)",
-  "Bed Length (e.g., 5.5 ft, 6.5 ft, 8 ft)",
-  "Wheelbase (measured length in inches/mm)",
-  "Region (market region — U.S., Canada, Mexico, Latin America)",
+  "Fuel Type (Gas)",
 ];
 
 const REQUIRED_PRODUCT_FIELDS = [
@@ -1197,7 +1206,7 @@ const EditEntity: React.FC = () => {
                       />
                       {/* Part Number with SKU Description - Always shown as Part Number is required */}
                       <Group grow align="flex-start">
-                        <TextInput
+                        {/* <TextInput
                           label="Part Number"
                           value="Part Number"
                           disabled
@@ -1214,7 +1223,7 @@ const EditEntity: React.FC = () => {
                               fontWeight: 500,
                             },
                           }}
-                        />
+                        /> */}
                         <TextInput
                           label="SKU Description"
                           placeholder="Describe the unique part identifier in upload file (SKU)"

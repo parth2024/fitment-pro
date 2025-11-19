@@ -38,6 +38,7 @@ import {
 } from "@tabler/icons-react";
 import { useProfessionalToast } from "../hooks/useProfessionalToast";
 import { fitmentRulesService, dataUploadService } from "../api/services";
+import { useEntity } from "../hooks/useEntity";
 
 interface ColumnMapping {
   source: string;
@@ -89,11 +90,26 @@ interface ProcessingStep {
 }
 
 export default function FitmentRulesUpload() {
+  const { currentEntity } = useEntity();
   const [dataType, setDataType] = useState<string | null>("fitments");
   const [file, setFile] = useState<File | null>(null);
   const [uploadId, setUploadId] = useState<string | null>(null);
   const [activeStep, setActiveStep] = useState(0);
   const [columnMappings, setColumnMappings] = useState<ColumnMapping[]>([]);
+
+  // Get entity configuration
+  const fitmentSettings = currentEntity?.fitment_settings || {};
+  const requiredVcdbFields = fitmentSettings.required_vcdb_fields || [];
+  const optionalVcdbFields = fitmentSettings.optional_vcdb_fields || [];
+  const requiredProductFields = fitmentSettings.required_product_fields || [];
+  const partNumberSkuDescription =
+    fitmentSettings.part_number_sku_description || "";
+  const ptidMatch = fitmentSettings.ptid_match || false;
+  const seekParentChild =
+    fitmentSettings.seek_parent_child_relationships || false;
+  const parentChildExample = fitmentSettings.parent_child_example_format || "";
+  const additionalAttributes = fitmentSettings.additional_attributes || [];
+
   const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([
     { step: 0, label: "Upload File", status: "pending" },
     { step: 1, label: "AI Mapping", status: "pending" },
@@ -276,9 +292,22 @@ export default function FitmentRulesUpload() {
       updateStepStatus(1, "in_progress", "Analyzing columns with AI...");
       setUploadProgress(30);
 
+      // Prepare entity configuration to pass to backend
+      const entityConfig = {
+        requiredVcdbFields: requiredVcdbFields,
+        optionalVcdbFields: optionalVcdbFields,
+        requiredProductFields: requiredProductFields,
+        partNumberSkuDescription: partNumberSkuDescription,
+        ptidMatch: ptidMatch,
+        seekParentChild: seekParentChild,
+        parentChildExample: parentChildExample,
+        additionalAttributes: additionalAttributes,
+      };
+
       const response = await fitmentRulesService.aiMap(
         idToUse,
-        (dataType || "fitments") as "fitments" | "products"
+        (dataType || "fitments") as "fitments" | "products",
+        entityConfig
       );
       const mappings = response.data.suggestions?.columnMappings || [];
 
@@ -572,59 +601,95 @@ export default function FitmentRulesUpload() {
   };
 
   const handleDownloadExample = (type: string) => {
-    // Messy Fitments Example - Tests AI's ability to handle inconsistent formats
-    const fitmentsExample = `Product Description,Vehicle Info,Part#,Engine,Position Info,Notes,Year Range
-"Pro Performance Shock for 2023 Ford F-150 5.0L",F-150 Platinum,SHK-001,5.0L V8,FRONT LEFT,Heavy duty application,2023
-"Ultra Shock fits 2024 Chevy Silverado 1500 6.2L",Silverado LT,SHK-003,6.2L,FRONT,Standard replacement,2024
-"Economy Shock - 2023 Toyota Tacoma 2.7L I4",Tacoma SR,SHK-005,2.7L I4,FRONT LEFT,Budget option,2023
-"Premium Brake Pad Set - 2021 BMW X5 3.0L I6 M50i",X5 M50i,BRK-001,3.0L I6,FRONT,Ceramic pads,2021
-"Performance Rotor - 2011-2012 KIA Optima 2.4L",Optima,ROT-001,2.4L,FRONT,OEM Plus,2011-2012
-"Street Sport Pad - 2011-2012 KIA Optima 2.4L",Optima,JAYczadj,2.4L,FRONT,2000 Street Sport,2011-2012
-"Premium Street Pad - 2011-2012 KIA Optima 2.4L",Optima,JAYwzadjC,2.4L,FRONT,Premium Street,2011-2012
-"Flagship Range Pad - 2011-2012 KIA Optima 2.4L",Optima,JAYjzadjR,2.4L,FRONT,Our Flagship range,2011-2012
-"NPC Fastest Street Pad - 2011-2012 KIA Optima 2.4L",Optima,JAYmzadjNPC,2.4L,FRONT,NPC Fastest Street and Race Pads,2011-2012
-"OEM Plus Pad - 2011-2012 KIA Optima 2.4L",Optima,UXzjjm,2.4L,REAR,OEM Plus,2011-2012
-"2000 Street Sport Pad - 2011-2012 KIA Optima 2.4L",Optima,JAYczadm,2.4L,REAR,2000 Street Sport,2011-2012
-"Premium Street Pad - 2011-2012 KIA Optima 2.4L",Optima,JAYwzadmC,2.4L,REAR,Premium Street,2011-2012
-"Rotors - 2011-2012 KIA Optima 2.4L",Optima,PATowaw,2.4L,FRONT,Rotors,2011-2012
-"GD Rotors - 2011-2012 KIA Optima 2.4L",Optima,DANowaw,2.4L,FRONT,GD Rotors,2011-2012
-"USR Rotors - 2011-2012 KIA Optima 2.4L",Optima,BOBowaw,2.4L,FRONT,USR Rotors,2011-2012
-"Rotors - 2011-2012 KIA Optima 2.4L",Optima,PATodaa,2.4L,REAR,Rotors,2011-2012
-"GD Rotors - 2011-2012 KIA Optima 2.4L",Optima,GXodaa,2.4L,REAR,GD Rotors,2011-2012
-"USR Rotors - 2011-2012 KIA Optima 2.4L",Optima,BOBodaa,2.4L,REAR,USR Rotors,2011-2012
-"Shock Absorber - 2022 Honda CR-V 1.5L Turbo EX-L",CR-V EX-L,SHK-007,1.5L Turbo,FRONT,Premium finish,2022
-"Alloy Wheel 18x8 - 2022 Honda CR-V 1.5L Turbo",CR-V EX-L,WHEEL-001,1.5L Turbo,FRONT,18" Alloy,2022
-"Performance Brake Pad - 2005 Chevrolet Impala 3.8L",Impala,BRK-003,3.8L,FRONT,Ceramic,2005
-"Performance Brake Pad - 2005 Chevrolet Impala 3.8L",Impala,BRK-004,3.8L,REAR,Ceramic,2005
-"Shock Absorber - 2018 Ford F150 3.5L EcoBoost",F-150,SHK-008,3.5L EcoBoost,FRONT,Heavy duty,2018
-"Shock Absorber - 2018 Ford F150 3.5L EcoBoost",F-150,SHK-009,3.5L EcoBoost,REAR,Heavy duty,2018
-"Premium Brake Pad - 1992 Acura Vigor 2.5L",Vigor,BRK-005,2.5L,FRONT,Ceramic,1992
-"Premium Brake Pad - 1992 Acura Vigor 2.5L",Vigor,BRK-006,2.5L,REAR,Ceramic,1992
-"Street Sport Pad - 1963-1969 AC Cobra 4.7L",Cobra,JAYczd5,4.7L,FRONT,2000 Street Sport,1963-1969
-"Premium Street Pad - 1963-1969 AC Cobra 4.7L",Cobra,JAYwzd5C,4.7L,FRONT,Premium Street,1963-1969
-"Flagship Range Pad - 1963-1969 AC Cobra 4.7L",Cobra,JAYjzd5R,4.7L,FRONT,Our Flagship range,1963-1969`;
+    // Working Fitments Example - Has proper structure but tests AI extraction
+    // This file has Year, Make, Model in separate columns OR in descriptions (tests AI flexibility)
+    const fitmentsExample = `Year,Make,Model,Part Number,Product Description,Position,Engine,Submodel,Notes
+2023,Ford,F-150,SHK-001,Pro Performance Shock for 2023 Ford F-150 5.0L,FRONT,5.0L V8,Platinum,Heavy duty application
+2024,Chevrolet,Silverado 1500,SHK-003,Ultra Shock fits 2024 Chevy Silverado 1500 6.2L,FRONT,6.2L,LT,Standard replacement
+2023,Toyota,Tacoma,SHK-005,Economy Shock - 2023 Toyota Tacoma 2.7L I4,FRONT,2.7L I4,SR,Budget option
+2021,BMW,X5,BRK-001,Premium Brake Pad Set - 2021 BMW X5 3.0L I6 M50i,FRONT,3.0L I6,M50i,Ceramic pads
+2011,KIA,Optima,ROT-001,Performance Rotor - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,OEM Plus
+2012,KIA,Optima,ROT-001,Performance Rotor - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,OEM Plus
+2011,KIA,Optima,JAYczadj,Street Sport Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,2000 Street Sport
+2012,KIA,Optima,JAYczadj,Street Sport Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,2000 Street Sport
+2011,KIA,Optima,JAYwzadjC,Premium Street Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,Premium Street
+2012,KIA,Optima,JAYwzadjC,Premium Street Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,Premium Street
+2011,KIA,Optima,JAYjzadjR,Flagship Range Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,Our Flagship range
+2012,KIA,Optima,JAYjzadjR,Flagship Range Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,Our Flagship range
+2011,KIA,Optima,JAYmzadjNPC,NPC Fastest Street Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,NPC Fastest Street and Race Pads
+2012,KIA,Optima,JAYmzadjNPC,NPC Fastest Street Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,NPC Fastest Street and Race Pads
+2011,KIA,Optima,UXzjjm,OEM Plus Pad - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,OEM Plus
+2012,KIA,Optima,UXzjjm,OEM Plus Pad - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,OEM Plus
+2011,KIA,Optima,JAYczadm,2000 Street Sport Pad - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,2000 Street Sport
+2012,KIA,Optima,JAYczadm,2000 Street Sport Pad - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,2000 Street Sport
+2011,KIA,Optima,JAYwzadmC,Premium Street Pad - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,Premium Street
+2012,KIA,Optima,JAYwzadmC,Premium Street Pad - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,Premium Street
+2011,KIA,Optima,PATowaw,Rotors - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,Rotors
+2012,KIA,Optima,PATowaw,Rotors - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,Rotors
+2011,KIA,Optima,DANowaw,GD Rotors - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,GD Rotors
+2012,KIA,Optima,DANowaw,GD Rotors - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,GD Rotors
+2011,KIA,Optima,BOBowaw,USR Rotors - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,USR Rotors
+2012,KIA,Optima,BOBowaw,USR Rotors - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,USR Rotors
+2011,KIA,Optima,PATodaa,Rotors - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,Rotors
+2012,KIA,Optima,PATodaa,Rotors - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,Rotors
+2011,KIA,Optima,GXodaa,GD Rotors - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,GD Rotors
+2012,KIA,Optima,GXodaa,GD Rotors - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,GD Rotors
+2011,KIA,Optima,BOBodaa,USR Rotors - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,USR Rotors
+2012,KIA,Optima,BOBodaa,USR Rotors - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,USR Rotors
+2022,Honda,CR-V,SHK-007,Shock Absorber - 2022 Honda CR-V 1.5L Turbo EX-L,FRONT,1.5L Turbo,EX-L,Premium finish
+2022,Honda,CR-V,WHEEL-001,Alloy Wheel 18x8 - 2022 Honda CR-V 1.5L Turbo,FRONT,1.5L Turbo,EX-L,18" Alloy
+2005,Chevrolet,Impala,BRK-003,Performance Brake Pad - 2005 Chevrolet Impala 3.8L,FRONT,3.8L,,Ceramic
+2005,Chevrolet,Impala,BRK-004,Performance Brake Pad - 2005 Chevrolet Impala 3.8L,REAR,3.8L,,Ceramic
+2018,Ford,F-150,SHK-008,Shock Absorber - 2018 Ford F150 3.5L EcoBoost,FRONT,3.5L EcoBoost,,Heavy duty
+2018,Ford,F-150,SHK-009,Shock Absorber - 2018 Ford F150 3.5L EcoBoost,REAR,3.5L EcoBoost,,Heavy duty
+1992,Acura,Vigor,BRK-005,Premium Brake Pad - 1992 Acura Vigor 2.5L,FRONT,2.5L,,Ceramic
+1992,Acura,Vigor,BRK-006,Premium Brake Pad - 1992 Acura Vigor 2.5L,REAR,2.5L,,Ceramic
+1963,AC,Cobra,JAYczd5,Street Sport Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,2000 Street Sport
+1964,AC,Cobra,JAYczd5,Street Sport Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,2000 Street Sport
+1965,AC,Cobra,JAYczd5,Street Sport Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,2000 Street Sport
+1966,AC,Cobra,JAYczd5,Street Sport Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,2000 Street Sport
+1967,AC,Cobra,JAYczd5,Street Sport Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,2000 Street Sport
+1968,AC,Cobra,JAYczd5,Street Sport Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,2000 Street Sport
+1969,AC,Cobra,JAYczd5,Street Sport Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,2000 Street Sport
+1963,AC,Cobra,JAYwzd5C,Premium Street Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Premium Street
+1964,AC,Cobra,JAYwzd5C,Premium Street Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Premium Street
+1965,AC,Cobra,JAYwzd5C,Premium Street Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Premium Street
+1966,AC,Cobra,JAYwzd5C,Premium Street Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Premium Street
+1967,AC,Cobra,JAYwzd5C,Premium Street Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Premium Street
+1968,AC,Cobra,JAYwzd5C,Premium Street Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Premium Street
+1969,AC,Cobra,JAYwzd5C,Premium Street Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Premium Street
+1963,AC,Cobra,JAYjzd5R,Flagship Range Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Our Flagship range
+1964,AC,Cobra,JAYjzd5R,Flagship Range Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Our Flagship range
+1965,AC,Cobra,JAYjzd5R,Flagship Range Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Our Flagship range
+1966,AC,Cobra,JAYjzd5R,Flagship Range Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Our Flagship range
+1967,AC,Cobra,JAYjzd5R,Flagship Range Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Our Flagship range
+1968,AC,Cobra,JAYjzd5R,Flagship Range Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Our Flagship range
+1969,AC,Cobra,JAYjzd5R,Flagship Range Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Our Flagship range`;
 
-    // Messy Products Example - Tests AI's ability to handle inconsistent formats
-    const productsExample = `SKU,Item Name,Product Details,Category,Type,Specs,Cost,Weight,Compatibility
-P-12345,Pro Performance Shock,"Heavy-duty shock absorber designed for trucks and SUVs. Fits 2023 Ford F-150 5.0L V8 models. Length: 18.5 inches, Travel: 6.5 inches, Load capacity: 2000 lbs.",Shock Absorber,Suspension,"Length: 18.5in, Travel: 6.5in, Load: 2000lbs",$89.99,4.2 lbs,"Fits most 1/2 ton trucks - Ford F-150, Chevy Silverado, Ram 1500"
-P-67890,Ultra Shock,"Standard replacement shock absorber. Universal fitment for most vehicles. Length: 16 inches, Travel: 5 inches, Load capacity: 1500 lbs.",Shock Absorber,Suspension,"Length: 16in, Travel: 5in, Load: 1500lbs",$49.99,3.1 lbs,Universal fitment
-P-11111,Economy Shock,"Budget-friendly shock absorber for basic replacement needs. Length: 15 inches, Travel: 4.5 inches, Load capacity: 1200 lbs.",Shock Absorber,Suspension,"Length: 15in, Travel: 4.5in, Load: 1200lbs",$29.99,2.8 lbs,Basic replacement
-P-22222,18" Alloy Wheel,"Premium aluminum alloy wheel. Size: 18x8 inches, Offset: +35mm, Bolt Pattern: 5x114.3. Fits 2022 Honda CR-V and similar vehicles.",Wheel,Rims,"Size: 18x8, Offset: +35, Bolt Pattern: 5x114.3",$199.99,22.5 lbs,"Multiple vehicle fitment - Honda CR-V, Toyota RAV4, Nissan Rogue"
-P-33333,Performance Brake Pad,"Ceramic brake pad set for high-performance vehicles. Material: Ceramic, Thickness: 12mm, Friction coefficient: 0.42. Fits 2021 BMW X5 3.0L I6 models.",Brake,Brake Pads,"Material: Ceramic, Thickness: 12mm, Friction: 0.42",$79.99,2.1 lbs,"High-performance vehicles - BMW X5, Mercedes GLE, Audi Q7"
-P-44444,LED Headlight Bulb,"Ultra-bright LED replacement bulb. Power: 60W, Lumens: 6000, Color temperature: 6000K. Universal H4/H7 fitment.",Lighting,Bulbs,"Power: 60W, Lumens: 6000, Color: 6000K",$39.99,0.3 lbs,"Universal H4/H7 fitment - Most vehicles"
-P-55555,Air Filter,"High-flow air filter for improved engine performance. Size: 12x8x2 inches, Material: Cotton gauze, Air flow: +15% over stock. Fits most 4-cylinder and V6 engines.",Engine,Air Filter,"Size: 12x8x2in, Material: Cotton gauze, Flow: +15%",$24.99,0.5 lbs,"Multiple applications - Most 4-cyl and V6 engines"
-P-66666,Oil Filter,"Standard oil filter for regular maintenance. Thread size: 3/4-16, Gasket diameter: 2.5 inches, Capacity: 1 quart. Universal fitment.",Engine,Oil Filter,"Thread: 3/4-16, Gasket: 2.5in, Capacity: 1qt",$8.99,0.2 lbs,"Universal fitment - Most vehicles"
-SHK-001,Pro Performance Shock,"Heavy-duty shock absorber for 2023 Ford F-150 5.0L V8 Platinum trim. Front left position.",Shock Absorber,Suspension,"Length: 18.5in, Travel: 6.5in, Load: 2000lbs",$89.99,4.2 lbs,"2023 Ford F-150 5.0L V8"
-BRK-001,Performance Brake Pad,"Ceramic brake pad set for 2021 BMW X5 3.0L I6 M50i. Front position.",Brake,Brake Pads,"Material: Ceramic, Thickness: 12mm, Friction: 0.42",$79.99,2.1 lbs,"2021 BMW X5 3.0L I6 M50i"
-ROT-001,Performance Rotor,"OEM Plus rotor for 2011-2012 KIA Optima 2.4L. Front position. Rotor diameter: 11.8 inches (300mm).",Brake,Rotors,"Diameter: 11.8in (300mm), Bolt Pattern: 5x114.3",$129.99,15.2 lbs,"2011-2012 KIA Optima 2.4L"
-JAYczadj,Street Sport Pad,"2000 Street Sport brake pad for 2011-2012 KIA Optima 2.4L. Front position.",Brake,Brake Pads,"Material: Ceramic, Thickness: 28mm new, 26mm min",$59.99,1.8 lbs,"2011-2012 KIA Optima 2.4L"
-JAYwzadjC,Premium Street Pad,"Premium Street brake pad for 2011-2012 KIA Optima 2.4L. Front position.",Brake,Brake Pads,"Material: Ceramic, Thickness: 28mm new, 26mm min",$69.99,1.9 lbs,"2011-2012 KIA Optima 2.4L"
-JAYjzadjR,Flagship Range Pad,"Our Flagship range brake pad for 2011-2012 KIA Optima 2.4L. Front position.",Brake,Brake Pads,"Material: Ceramic, Thickness: 28mm new, 26mm min",$79.99,2.0 lbs,"2011-2012 KIA Optima 2.4L"
-JAYmzadjNPC,NPC Fastest Street Pad,"NPC Fastest Street and Race Pads for 2011-2012 KIA Optima 2.4L. Front position.",Brake,Brake Pads,"Material: Ceramic, Thickness: 28mm new, 26mm min",$89.99,2.1 lbs,"2011-2012 KIA Optima 2.4L"
-UXzjjm,OEM Plus Pad,"OEM Plus brake pad for 2011-2012 KIA Optima 2.4L. Rear position.",Brake,Brake Pads,"Material: Ceramic, Thickness: 28mm new, 26mm min",$59.99,1.8 lbs,"2011-2012 KIA Optima 2.4L"
-PATowaw,Rotors,"Rotors for 2011-2012 KIA Optima 2.4L. Front position. Rotor diameter: 11.8 inches (300mm).",Brake,Rotors,"Diameter: 11.8in (300mm), Bolt Pattern: 5x114.3",$129.99,15.2 lbs,"2011-2012 KIA Optima 2.4L"
-DANowaw,GD Rotors,"GD Rotors for 2011-2012 KIA Optima 2.4L. Front position. Rotor diameter: 11.8 inches (300mm).",Brake,Rotors,"Diameter: 11.8in (300mm), Bolt Pattern: 5x114.3",$139.99,15.5 lbs,"2011-2012 KIA Optima 2.4L"
-BOBowaw,USR Rotors,"USR Rotors for 2011-2012 KIA Optima 2.4L. Front position. Rotor diameter: 11.8 inches (300mm).",Brake,Rotors,"Diameter: 11.8in (300mm), Bolt Pattern: 5x114.3",$149.99,15.8 lbs,"2011-2012 KIA Optima 2.4L"`;
+    // Working Products Example - Has proper structure with Part ID and Description
+    const productsExample = `Part ID,Part Name,Description,Category,Part Type,Specifications,Price,Weight,Compatibility
+P-12345,Pro Performance Shock,Heavy-duty shock absorber designed for trucks and SUVs. Fits 2023 Ford F-150 5.0L V8 models. Length: 18.5 inches, Travel: 6.5 inches, Load capacity: 2000 lbs.,Shock Absorber,Suspension,"Length: 18.5in, Travel: 6.5in, Load: 2000lbs",89.99,4.2,Fits most 1/2 ton trucks - Ford F-150, Chevy Silverado, Ram 1500
+P-67890,Ultra Shock,Standard replacement shock absorber. Universal fitment for most vehicles. Length: 16 inches, Travel: 5 inches, Load capacity: 1500 lbs.,Shock Absorber,Suspension,"Length: 16in, Travel: 5in, Load: 1500lbs",49.99,3.1,Universal fitment
+P-11111,Economy Shock,Budget-friendly shock absorber for basic replacement needs. Length: 15 inches, Travel: 4.5 inches, Load capacity: 1200 lbs.,Shock Absorber,Suspension,"Length: 15in, Travel: 4.5in, Load: 1200lbs",29.99,2.8,Basic replacement
+P-22222,18" Alloy Wheel,Premium aluminum alloy wheel. Size: 18x8 inches, Offset: +35mm, Bolt Pattern: 5x114.3. Fits 2022 Honda CR-V and similar vehicles.,Wheel,Rims,"Size: 18x8, Offset: +35, Bolt Pattern: 5x114.3",199.99,22.5,Multiple vehicle fitment - Honda CR-V, Toyota RAV4, Nissan Rogue
+P-33333,Performance Brake Pad,Ceramic brake pad set for high-performance vehicles. Material: Ceramic, Thickness: 12mm, Friction coefficient: 0.42. Fits 2021 BMW X5 3.0L I6 models.,Brake,Brake Pads,"Material: Ceramic, Thickness: 12mm, Friction: 0.42",79.99,2.1,High-performance vehicles - BMW X5, Mercedes GLE, Audi Q7
+P-44444,LED Headlight Bulb,Ultra-bright LED replacement bulb. Power: 60W, Lumens: 6000, Color temperature: 6000K. Universal H4/H7 fitment.,Lighting,Bulbs,"Power: 60W, Lumens: 6000, Color: 6000K",39.99,0.3,Universal H4/H7 fitment - Most vehicles
+P-55555,Air Filter,High-flow air filter for improved engine performance. Size: 12x8x2 inches, Material: Cotton gauze, Air flow: +15% over stock. Fits most 4-cylinder and V6 engines.,Engine,Air Filter,"Size: 12x8x2in, Material: Cotton gauze, Flow: +15%",24.99,0.5,Multiple applications - Most 4-cyl and V6 engines
+P-66666,Oil Filter,Standard oil filter for regular maintenance. Thread size: 3/4-16, Gasket diameter: 2.5 inches, Capacity: 1 quart. Universal fitment.,Engine,Oil Filter,"Thread: 3/4-16, Gasket: 2.5in, Capacity: 1qt",8.99,0.2,Universal fitment - Most vehicles
+SHK-001,Pro Performance Shock,Heavy-duty shock absorber for 2023 Ford F-150 5.0L V8 Platinum trim. Front left position.,Shock Absorber,Suspension,"Length: 18.5in, Travel: 6.5in, Load: 2000lbs",89.99,4.2,2023 Ford F-150 5.0L V8
+BRK-001,Performance Brake Pad,Ceramic brake pad set for 2021 BMW X5 3.0L I6 M50i. Front position.,Brake,Brake Pads,"Material: Ceramic, Thickness: 12mm, Friction: 0.42",79.99,2.1,2021 BMW X5 3.0L I6 M50i
+ROT-001,Performance Rotor,OEM Plus rotor for 2011-2012 KIA Optima 2.4L. Front position. Rotor diameter: 11.8 inches (300mm).,Brake,Rotors,"Diameter: 11.8in (300mm), Bolt Pattern: 5x114.3",129.99,15.2,2011-2012 KIA Optima 2.4L
+JAYczadj,Street Sport Pad,2000 Street Sport brake pad for 2011-2012 KIA Optima 2.4L. Front position.,Brake,Brake Pads,"Material: Ceramic, Thickness: 28mm new, 26mm min",59.99,1.8,2011-2012 KIA Optima 2.4L
+JAYwzadjC,Premium Street Pad,Premium Street brake pad for 2011-2012 KIA Optima 2.4L. Front position.,Brake,Brake Pads,"Material: Ceramic, Thickness: 28mm new, 26mm min",69.99,1.9,2011-2012 KIA Optima 2.4L
+JAYjzadjR,Flagship Range Pad,Our Flagship range brake pad for 2011-2012 KIA Optima 2.4L. Front position.,Brake,Brake Pads,"Material: Ceramic, Thickness: 28mm new, 26mm min",79.99,2.0,2011-2012 KIA Optima 2.4L
+JAYmzadjNPC,NPC Fastest Street Pad,NPC Fastest Street and Race Pads for 2011-2012 KIA Optima 2.4L. Front position.,Brake,Brake Pads,"Material: Ceramic, Thickness: 28mm new, 26mm min",89.99,2.1,2011-2012 KIA Optima 2.4L
+UXzjjm,OEM Plus Pad,OEM Plus brake pad for 2011-2012 KIA Optima 2.4L. Rear position.,Brake,Brake Pads,"Material: Ceramic, Thickness: 28mm new, 26mm min",59.99,1.8,2011-2012 KIA Optima 2.4L
+PATowaw,Rotors,Rotors for 2011-2012 KIA Optima 2.4L. Front position. Rotor diameter: 11.8 inches (300mm).,Brake,Rotors,"Diameter: 11.8in (300mm), Bolt Pattern: 5x114.3",129.99,15.2,2011-2012 KIA Optima 2.4L
+DANowaw,GD Rotors,GD Rotors for 2011-2012 KIA Optima 2.4L. Front position. Rotor diameter: 11.8 inches (300mm).,Brake,Rotors,"Diameter: 11.8in (300mm), Bolt Pattern: 5x114.3",139.99,15.5,2011-2012 KIA Optima 2.4L
+BOBowaw,USR Rotors,USR Rotors for 2011-2012 KIA Optima 2.4L. Front position. Rotor diameter: 11.8 inches (300mm).,Brake,Rotors,"Diameter: 11.8in (300mm), Bolt Pattern: 5x114.3",149.99,15.8,2011-2012 KIA Optima 2.4L
+BP-12345,Brake Pad Kit,Complete brake pad kit with front and rear pads. Material: Ceramic, Color: Black,Brake,Brake Pads,"Material: Ceramic, Color: Black",129.99,4.5,Universal fitment
+BP-12345-FRONT,Brake Pad Front,Front brake pad only. Material: Ceramic, Color: Black,Brake,Brake Pads,"Material: Ceramic, Color: Black",69.99,2.2,Universal fitment
+BP-12345-REAR,Brake Pad Rear,Rear brake pad only. Material: Ceramic, Color: Black,Brake,Brake Pads,"Material: Ceramic, Color: Black",59.99,2.3,Universal fitment`;
 
     const content = type === "fitments" ? fitmentsExample : productsExample;
     const filename =
