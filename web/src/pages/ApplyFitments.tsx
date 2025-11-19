@@ -18,7 +18,7 @@ import {
   Textarea,
   Table,
   Progress,
-  Tooltip,
+  // Tooltip,
   ActionIcon,
   Modal,
   Divider,
@@ -29,6 +29,7 @@ import {
   Loader,
   TagsInput,
   Pagination,
+  Tooltip,
 } from "@mantine/core";
 import {
   IconBrain,
@@ -47,13 +48,17 @@ import {
   IconFileText,
   IconEdit,
   IconCheck,
-  IconX,
-  // IconEye,
-  IconClock,
-  IconAlertCircle,
+  // IconX,
+  // // IconEye,
+  // IconClock,
+  // IconAlertCircle,
   IconCheckbox,
   IconCloudUpload,
   IconFileCheck,
+  IconClock,
+  IconX,
+  IconAlertCircle,
+  // IconFileCheck,
 } from "@tabler/icons-react";
 import { dataUploadService, vcdbService } from "../api/services";
 import { useAsyncOperation, useApi } from "../hooks/useApi";
@@ -126,7 +131,7 @@ export default function ApplyFitments() {
     []
   ) as any;
 
-  // Extract jobs array from API response
+  // // Extract jobs array from API response
   const aiFitmentJobs = Array.isArray(aiFitmentJobsResponse?.data)
     ? aiFitmentJobsResponse.data
     : Array.isArray(aiFitmentJobsResponse)
@@ -1345,7 +1350,12 @@ export default function ApplyFitments() {
     const config = statusConfig[status] || statusConfig.in_progress;
 
     return (
-      <Badge color={config.color} variant="light" leftSection={config.icon}>
+      <Badge
+        style={{ cursor: "pointer" }}
+        color={config.color}
+        variant="light"
+        leftSection={config.icon}
+      >
         {config.label}
       </Badge>
     );
@@ -2705,14 +2715,10 @@ export default function ApplyFitments() {
                                   <Table.Td>
                                     {job.job_type === "upload" ? (
                                       <Tooltip label={job.product_file_name}>
-                                        <Badge variant="light" color="blue">
-                                          File Upload
-                                        </Badge>
+                                        <Text size="sm">File Upload</Text>
                                       </Tooltip>
                                     ) : (
-                                      <Badge variant="light" color="green">
-                                        Product Selection
-                                      </Badge>
+                                      <Text size="sm">Manual Update</Text>
                                     )}
                                   </Table.Td>
                                   <Table.Td>

@@ -39,6 +39,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../api/client";
 import { useEntity } from "../hooks/useEntity";
 import CoverageWrapper from "./CoverageNew/CoverageWrapper";
+import JobHistoryDashboard from "../components/JobHistoryDashboard";
 
 interface AnalyticsData {
   totalFitments: number;
@@ -724,6 +725,9 @@ const Analytics: React.FC = () => {
             </Card>
           </Grid.Col>
         </Grid>
+
+        {/* Job History Section */}
+        <JobHistoryDashboard />
 
         {/* Top Makes and Yearly Stats */}
         <Grid>

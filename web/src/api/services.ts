@@ -28,6 +28,36 @@ export interface PotentialFitmentsMethod {
   method: "similarity" | "base-vehicle";
 }
 
+export interface SourceEvidence {
+  fitment: {
+    partId: string;
+    year: number;
+    makeName: string;
+    modelName: string;
+    subModelName: string;
+    driveTypeName: string;
+    fuelTypeName: string;
+    position?: string;
+    fitmentTitle?: string;
+  };
+  similarity?: number;
+  relationship?: string;
+  matchedAttributes: {
+    matched: string[];
+    differences: string[];
+    matchCount: number;
+    totalAttributes: number;
+  };
+}
+
+export interface ConfidenceBreakdown {
+  baseVehicleMatch: number;
+  partTypeMatch: number;
+  yearProximity: number;
+  attributeMatches: number;
+  total: number;
+}
+
 export interface PotentiallyMissingConfiguration {
   id: string;
   vehicleId: string;
@@ -43,6 +73,8 @@ export interface PotentiallyMissingConfiguration {
   relevance: number;
   method?: string;
   explanation?: string;
+  sourceEvidence?: SourceEvidence[];
+  confidenceBreakdown?: ConfidenceBreakdown;
 }
 
 export interface PartWithFitments {
@@ -252,6 +284,47 @@ export const uploadsService = {
     apiClient.post(`/api/uploads/${uploadId}/vcdb-validate`),
   publish: (uploadId: string) =>
     apiClient.post(`/api/uploads/${uploadId}/publish`),
+};
+
+// Fitment Rules Upload Service (local storage only)
+export const fitmentRulesService = {
+  uploadFile: (file: File, dataType: "fitments" | "products") => {
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("dataType", dataType);
+    return apiClient.post("/api/fitment-rules/upload", fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+  aiMap: (
+    uploadId: string,
+    dataType?: "fitments" | "products",
+    entityConfig?: {
+      requiredVcdbFields?: string[];
+      optionalVcdbFields?: string[];
+      requiredProductFields?: string[];
+      partNumberSkuDescription?: string;
+      ptidMatch?: boolean;
+      seekParentChild?: boolean;
+      parentChildExample?: string;
+      additionalAttributes?: any[];
+    }
+  ) => {
+    return apiClient.post(`/api/uploads/${uploadId}/ai-map`, {
+      dataType: dataType,
+      entityConfig: entityConfig || {},
+    });
+  },
+  transform: (uploadId: string) =>
+    apiClient.post(`/api/uploads/${uploadId}/transform`),
+  validate: (uploadId: string) =>
+    apiClient.post(`/api/uploads/${uploadId}/vcdb-validate`),
+  publish: (uploadId: string) =>
+    apiClient.post(`/api/uploads/${uploadId}/publish`),
+  download: (uploadId: string) =>
+    apiClient.get(`/api/uploads/${uploadId}/download`, {
+      responseType: "blob",
+    }),
 };
 
 export const reviewService = {

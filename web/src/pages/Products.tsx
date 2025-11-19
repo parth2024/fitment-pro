@@ -73,14 +73,19 @@ export default function Products() {
     []
   ) as any;
 
-  // Extract products array
-  const productsDataRaw = productsResponse?.data || [];
+  // Extract products array and total count from API response
+  // Note: useApi already returns response.data, so productsResponse is the data object
+  const productsDataRaw = productsResponse || {};
   const productsData = Array.isArray(productsDataRaw)
     ? productsDataRaw
-    : productsDataRaw?.results || [];
-  const computedTotal = Array.isArray(productsDataRaw)
-    ? productsData.length
-    : productsDataRaw?.count ?? productsData.length;
+    : productsDataRaw?.results || productsDataRaw?.data || [];
+
+  // Get total count from API response (prioritize count, then total_count, then fallback)
+  const computedTotal =
+    productsDataRaw?.count ??
+    productsDataRaw?.total_count ??
+    (Array.isArray(productsDataRaw) ? productsDataRaw.length : 0);
+
   useEffect(() => {
     setTotalCount(computedTotal);
   }, [computedTotal]);
@@ -162,7 +167,16 @@ export default function Products() {
   // Display list (server-side filtering used; fallback to client filter if array-only)
   const filteredProducts = useMemo(() => {
     if (!Array.isArray(productsData)) return [];
-    if (productsResponse?.data?.results !== undefined) return productsData; // server-side
+    // If API response has pagination structure (results/count), use server-side filtering
+    // Only do client-side filtering if response is a plain array (legacy)
+    // Note: useApi already returns response.data, so productsResponse is the data object
+    if (
+      productsResponse?.results !== undefined ||
+      productsResponse?.count !== undefined
+    ) {
+      return productsData; // Server-side pagination/filtering already applied
+    }
+    // Legacy: client-side filtering for plain array responses
     if (!searchQuery) return productsData;
     const query = searchQuery.toLowerCase();
     return productsData.filter((product: any) =>
@@ -563,15 +577,23 @@ export default function Products() {
                     <Group justify="space-between" align="center">
                       <Group gap="xs">
                         <Text size="sm" c="dimmed">
-                          Page {page} of{" "}
-                          {Math.max(
-                            1,
-                            Math.ceil(
-                              totalCount /
-                                (typeof pageSize === "string"
-                                  ? parseInt(pageSize)
-                                  : pageSize)
-                            )
+                          Showing {filteredProducts.length} of {totalCount}{" "}
+                          products
+                          {totalCount > 0 && (
+                            <>
+                              {" "}
+                              (Page {page} of{" "}
+                              {Math.max(
+                                1,
+                                Math.ceil(
+                                  totalCount /
+                                    (typeof pageSize === "string"
+                                      ? parseInt(pageSize)
+                                      : pageSize)
+                                )
+                              )}
+                              )
+                            </>
                           )}
                         </Text>
                         <Select
@@ -585,20 +607,24 @@ export default function Products() {
                           allowDeselect={false}
                         />
                       </Group>
-                      <Pagination
-                        total={Math.max(
-                          1,
-                          Math.ceil(
-                            totalCount /
-                              (typeof pageSize === "string"
-                                ? parseInt(pageSize)
-                                : pageSize)
-                          )
-                        )}
-                        value={page}
-                        onChange={(p) => setPage(p)}
-                        size="sm"
-                      />
+                      {totalCount > 0 && (
+                        <Pagination
+                          total={Math.max(
+                            1,
+                            Math.ceil(
+                              totalCount /
+                                (typeof pageSize === "string"
+                                  ? parseInt(pageSize)
+                                  : pageSize)
+                            )
+                          )}
+                          value={page}
+                          onChange={(p) => setPage(p)}
+                          size="sm"
+                          withEdges
+                          siblings={1}
+                        />
+                      )}
                     </Group>
                   </Stack>
                 </Card>
