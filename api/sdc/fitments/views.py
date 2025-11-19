@@ -1836,9 +1836,27 @@ def get_similarity_recommendations(part_id):
         # Calculate similarity using cosine similarity
         similarity_matrix = cosine_similarity(all_features, existing_features)
         
-        # Calculate average similarity scores for each configuration
+        # Calculate average similarity scores for each configuration with source evidence
         similarity_scores = {}
         existing_config_keys = set()
+        
+        # Store existing fitments for source evidence
+        existing_fitments_by_config = {}
+        for fitment in existing_fitments:
+            key = f"{fitment.year}_{fitment.makeName}_{fitment.modelName}_{fitment.subModelName}"
+            if key not in existing_fitments_by_config:
+                existing_fitments_by_config[key] = []
+            existing_fitments_by_config[key].append({
+                'partId': fitment.partId,
+                'year': fitment.year,
+                'makeName': fitment.makeName,
+                'modelName': fitment.modelName,
+                'subModelName': fitment.subModelName,
+                'driveTypeName': fitment.driveTypeName,
+                'fuelTypeName': fitment.fuelTypeName,
+                'position': fitment.position,
+                'fitmentTitle': fitment.fitmentTitle
+            })
         
         for config in existing_configs:
             key = f"{config['year']}_{config['makeName']}_{config['modelName']}_{config['subModelName']}"
@@ -1849,9 +1867,28 @@ def get_similarity_recommendations(part_id):
             
             if config_key not in existing_config_keys:  # Don't recommend existing ones
                 avg_similarity = np.mean(similarity_matrix[i])
+                
+                # Find most similar existing configurations for source evidence
+                similar_sources = []
+                for j, existing_config in enumerate(existing_configs):
+                    similarity_value = similarity_matrix[i][j]
+                    if similarity_value > 0.3:  # Only include meaningful similarities
+                        existing_key = f"{existing_config['year']}_{existing_config['makeName']}_{existing_config['modelName']}_{existing_config['subModelName']}"
+                        if existing_key in existing_fitments_by_config:
+                            for fitment_data in existing_fitments_by_config[existing_key][:2]:  # Limit to 2 examples
+                                similar_sources.append({
+                                    'fitment': fitment_data,
+                                    'similarity': float(similarity_value),
+                                    'matchedAttributes': _calculate_matched_attributes(config, existing_config)
+                                })
+                
+                # Sort by similarity and take top 3
+                similar_sources = sorted(similar_sources, key=lambda x: x['similarity'], reverse=True)[:3]
+                
                 similarity_scores[config_key] = {
                     'score': avg_similarity,
-                    'config': config
+                    'config': config,
+                    'sourceEvidence': similar_sources
                 }
         
         # Get top recommendations
@@ -1867,6 +1904,9 @@ def get_similarity_recommendations(part_id):
             # Generate AI explanation based on similarity analysis
             explanation = _generate_similarity_explanation(config, score, existing_configs)
             
+            # Build confidence breakdown
+            confidence_breakdown = _build_confidence_breakdown(config, score, data.get('sourceEvidence', []))
+            
             recommendations.append({
                 'id': config_key,
                 'vehicleId': f"{config['year']}_{config['makeName']}_{config['modelName']}",
@@ -1881,7 +1921,9 @@ def get_similarity_recommendations(part_id):
                 'bodyType': config['bodyTypeName'],
                 'relevance': relevance,
                 'method': 'similarity',
-                'explanation': explanation
+                'explanation': explanation,
+                'sourceEvidence': data.get('sourceEvidence', []),
+                'confidenceBreakdown': confidence_breakdown
             })
         
         return recommendations
@@ -1922,8 +1964,45 @@ def get_base_vehicle_recommendations(part_id):
             for config in related_fitments:
                 config_key = f"{config['year']}_{config['makeName']}_{config['modelName']}_{config['subModelName']}"
                 
+                # Get source fitments that share the same base vehicle
+                source_fitments = Fitment.objects.filter(
+                    baseVehicleId=base_vehicle_id,
+                    partId=part_id,
+                    isDeleted=False
+                )[:3]  # Get up to 3 source fitments
+                
+                source_evidence = []
+                for source_fitment in source_fitments:
+                    source_evidence.append({
+                        'fitment': {
+                            'partId': source_fitment.partId,
+                            'year': source_fitment.year,
+                            'makeName': source_fitment.makeName,
+                            'modelName': source_fitment.modelName,
+                            'subModelName': source_fitment.subModelName,
+                            'driveTypeName': source_fitment.driveTypeName,
+                            'fuelTypeName': source_fitment.fuelTypeName,
+                            'position': source_fitment.position,
+                            'fitmentTitle': source_fitment.fitmentTitle
+                        },
+                        'relationship': 'same_base_vehicle',
+                        'matchedAttributes': _calculate_matched_attributes_base_vehicle(config, {
+                            'year': source_fitment.year,
+                            'makeName': source_fitment.makeName,
+                            'modelName': source_fitment.modelName,
+                            'subModelName': source_fitment.subModelName,
+                            'driveTypeName': source_fitment.driveTypeName,
+                            'fuelTypeName': source_fitment.fuelTypeName,
+                            'bodyNumDoors': source_fitment.bodyNumDoors,
+                            'bodyTypeName': source_fitment.bodyTypeName
+                        })
+                    })
+                
                 # Generate AI explanation based on base vehicle relationship
                 explanation = _generate_base_vehicle_explanation(config, base_vehicle_id)
+                
+                # Build confidence breakdown
+                confidence_breakdown = _build_confidence_breakdown_base_vehicle(config, source_evidence)
                 
                 recommendations.append({
                     'id': config_key,
@@ -1939,7 +2018,9 @@ def get_base_vehicle_recommendations(part_id):
                     'bodyType': config['bodyTypeName'],
                     'relevance': 85,  # High confidence for base vehicle method
                     'method': 'base-vehicle',
-                    'explanation': explanation
+                    'explanation': explanation,
+                    'sourceEvidence': source_evidence,
+                    'confidenceBreakdown': confidence_breakdown
                 })
         
         # Remove duplicates and sort by relevance
@@ -2429,6 +2510,155 @@ def _generate_base_vehicle_explanation(config, base_vehicle_id):
     except Exception as e:
         logger.error(f"Error generating base vehicle explanation: {str(e)}")
         return "AI-generated base vehicle compatibility analysis"
+
+
+def _calculate_matched_attributes(config, existing_config):
+    """Calculate which attributes matched between config and existing config"""
+    matched = []
+    differences = []
+    
+    if config['year'] == existing_config['year']:
+        matched.append('year')
+    else:
+        year_diff = abs(config['year'] - existing_config['year'])
+        differences.append(f"year ({year_diff} year{'s' if year_diff > 1 else ''} difference)")
+    
+    if config['makeName'] == existing_config['makeName']:
+        matched.append('make')
+    else:
+        differences.append('make')
+    
+    if config['modelName'] == existing_config['modelName']:
+        matched.append('model')
+    else:
+        differences.append('model')
+    
+    if config['subModelName'] == existing_config['subModelName']:
+        matched.append('submodel')
+    else:
+        differences.append('submodel')
+    
+    if config['driveTypeName'] == existing_config['driveTypeName']:
+        matched.append('driveType')
+    else:
+        differences.append('driveType')
+    
+    if config['fuelTypeName'] == existing_config['fuelTypeName']:
+        matched.append('fuelType')
+    else:
+        differences.append('fuelType')
+    
+    if config['bodyNumDoors'] == existing_config['bodyNumDoors']:
+        matched.append('bodyNumDoors')
+    else:
+        differences.append('bodyNumDoors')
+    
+    if config['bodyTypeName'] == existing_config['bodyTypeName']:
+        matched.append('bodyType')
+    else:
+        differences.append('bodyType')
+    
+    return {
+        'matched': matched,
+        'differences': differences,
+        'matchCount': len(matched),
+        'totalAttributes': 8
+    }
+
+
+def _calculate_matched_attributes_base_vehicle(config, existing_config):
+    """Calculate matched attributes for base vehicle method"""
+    return _calculate_matched_attributes(config, existing_config)
+
+
+def _build_confidence_breakdown(config, score, source_evidence):
+    """Build detailed confidence breakdown showing how score was calculated"""
+    breakdown = {
+        'baseVehicleMatch': 0,
+        'partTypeMatch': 0,
+        'yearProximity': 0,
+        'attributeMatches': 0,
+        'total': int(score * 100)
+    }
+    
+    if source_evidence:
+        # Calculate breakdown from source evidence
+        for evidence in source_evidence[:3]:  # Use top 3 sources
+            matched = evidence.get('matchedAttributes', {})
+            match_count = matched.get('matchCount', 0)
+            total_attrs = matched.get('totalAttributes', 8)
+            match_ratio = match_count / total_attrs if total_attrs > 0 else 0
+            
+            # Base vehicle match contributes 40%
+            if matched.get('matched', []):
+                breakdown['baseVehicleMatch'] += 40 * match_ratio / len(source_evidence)
+            
+            # Attribute matches contribute 30%
+            breakdown['attributeMatches'] += 30 * match_ratio / len(source_evidence)
+        
+        # Year proximity (if applicable)
+        if source_evidence:
+            year_diffs = []
+            for evidence in source_evidence:
+                fitment = evidence.get('fitment', {})
+                if 'year' in fitment:
+                    year_diff = abs(config['year'] - fitment['year'])
+                    year_diffs.append(year_diff)
+            
+            if year_diffs:
+                avg_year_diff = sum(year_diffs) / len(year_diffs)
+                if avg_year_diff <= 1:
+                    breakdown['yearProximity'] = 15
+                elif avg_year_diff <= 3:
+                    breakdown['yearProximity'] = 10
+                elif avg_year_diff <= 5:
+                    breakdown['yearProximity'] = 5
+        
+        # Part type match (assumed if we're recommending for same part)
+        breakdown['partTypeMatch'] = 15
+    
+    return breakdown
+
+
+def _build_confidence_breakdown_base_vehicle(config, source_evidence):
+    """Build confidence breakdown for base vehicle method"""
+    breakdown = {
+        'baseVehicleMatch': 50,  # High weight for base vehicle match
+        'partTypeMatch': 20,
+        'yearProximity': 0,
+        'attributeMatches': 15,
+        'total': 85
+    }
+    
+    if source_evidence:
+        # Calculate attribute matches
+        total_match_score = 0
+        for evidence in source_evidence:
+            matched = evidence.get('matchedAttributes', {})
+            match_count = matched.get('matchCount', 0)
+            total_attrs = matched.get('totalAttributes', 8)
+            match_ratio = match_count / total_attrs if total_attrs > 0 else 0
+            total_match_score += match_ratio
+        
+        if source_evidence:
+            breakdown['attributeMatches'] = int(15 * (total_match_score / len(source_evidence)))
+        
+        # Year proximity
+        year_diffs = []
+        for evidence in source_evidence:
+            fitment = evidence.get('fitment', {})
+            if 'year' in fitment:
+                year_diff = abs(config['year'] - fitment['year'])
+                year_diffs.append(year_diff)
+        
+        if year_diffs:
+            avg_year_diff = sum(year_diffs) / len(year_diffs)
+            if avg_year_diff <= 1:
+                breakdown['yearProximity'] = 10
+            elif avg_year_diff <= 3:
+                breakdown['yearProximity'] = 5
+    
+    return breakdown
 
 
 @api_view(['POST'])

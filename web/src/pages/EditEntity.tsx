@@ -18,7 +18,6 @@ import {
   // Divider,
   Tabs,
   MultiSelect,
-  Checkbox,
   FileInput,
   Accordion,
   ActionIcon,
@@ -42,6 +41,7 @@ import { useParams, useLocation } from "react-router-dom";
 import apiClient from "../api/client";
 import { vcdbService } from "../api/services";
 import { useProfessionalToast } from "../hooks/useProfessionalToast";
+import FitmentRulesUpload from "../components/FitmentRulesUpload";
 
 interface Entity {
   id: string;
@@ -76,11 +76,16 @@ interface EntityFormData {
   optional_vcdb_fields: string[];
   // Products Configuration
   required_product_fields: string[];
+  part_number_sku_description: string;
+  seek_parent_child_relationships: boolean;
+  parent_child_example_format: string;
+  ptid_match: boolean;
   additional_attributes: Array<{
     name: string;
     value: string;
     uom: string;
     is_entity_specific: boolean;
+    acpn_recommendations: boolean;
   }>;
   uploaded_files: File[];
 }
@@ -199,6 +204,10 @@ const EditEntity: React.FC = () => {
     optional_vcdb_fields: [],
     // Products Configuration
     required_product_fields: [],
+    part_number_sku_description: "",
+    seek_parent_child_relationships: false,
+    parent_child_example_format: "",
+    ptid_match: false,
     additional_attributes: [],
     uploaded_files: [],
   });
@@ -243,10 +252,21 @@ const EditEntity: React.FC = () => {
             fitmentSettings.required_product_fields ||
             entityData.required_product_fields ||
             [],
-          additional_attributes:
+          part_number_sku_description:
+            fitmentSettings.part_number_sku_description || "",
+          seek_parent_child_relationships:
+            fitmentSettings.seek_parent_child_relationships || false,
+          parent_child_example_format:
+            fitmentSettings.parent_child_example_format || "",
+          ptid_match: fitmentSettings.ptid_match || false,
+          additional_attributes: (
             fitmentSettings.additional_attributes ||
             entityData.additional_attributes ||
-            [],
+            []
+          ).map((attr: any) => ({
+            ...attr,
+            acpn_recommendations: attr.acpn_recommendations || false,
+          })),
           uploaded_files: [],
         });
       } catch (error) {
@@ -525,6 +545,11 @@ const EditEntity: React.FC = () => {
           required_vcdb_fields: formData.required_vcdb_fields,
           optional_vcdb_fields: formData.optional_vcdb_fields,
           required_product_fields: formData.required_product_fields,
+          part_number_sku_description: formData.part_number_sku_description,
+          seek_parent_child_relationships:
+            formData.seek_parent_child_relationships,
+          parent_child_example_format: formData.parent_child_example_format,
+          ptid_match: formData.ptid_match,
           additional_attributes: formData.additional_attributes,
         },
       };
@@ -1098,6 +1123,27 @@ const EditEntity: React.FC = () => {
                       Save VCDB Config
                     </Button>
                   </Group>
+
+                  {/* Divider */}
+                  <div
+                    style={{
+                      marginTop: "2rem",
+                      marginBottom: "1rem",
+                      borderTop: "2px solid #e5e7eb",
+                      paddingTop: "2rem",
+                    }}
+                  >
+                    <Title order={3} style={{ color: "#2c3e50" }}>
+                      Data Upload & VCDB Mapping
+                    </Title>
+                    <Text size="sm" c="dimmed">
+                      Upload your fitment or product files and let AI
+                      automatically map columns to VCDB standards
+                    </Text>
+                  </div>
+
+                  {/* Fitment Rules Upload Component */}
+                  <FitmentRulesUpload />
                 </Stack>
               </Tabs.Panel>
 
@@ -1106,13 +1152,22 @@ const EditEntity: React.FC = () => {
                   <div>
                     <Group gap="xs" mb="xs">
                       <Text fw={600} size="sm" style={{ color: "#1a1a1a" }}>
-                        Source to Part identifier Field(s)
+                        Required Product Fields
                       </Text>
                       <Tooltip label="Configure required product fields and additional attributes">
                         <IconInfoCircle size={16} color="#9ca3af" />
                       </Tooltip>
                     </Group>
                     <Stack gap="md">
+                      <Text
+                        size="sm"
+                        c="dimmed"
+                        mb="xs"
+                        style={{ fontStyle: "italic" }}
+                      >
+                        Only one Single label Source-to-Part Identifier
+                        Fields(s)
+                      </Text>
                       <MultiSelect
                         placeholder="Select required product fields"
                         data={REQUIRED_PRODUCT_FIELDS}
@@ -1125,6 +1180,7 @@ const EditEntity: React.FC = () => {
                         }
                         searchable
                         clearable
+                        maxValues={1}
                         styles={{
                           label: {
                             fontWeight: 500,
@@ -1138,6 +1194,110 @@ const EditEntity: React.FC = () => {
                           },
                         }}
                       />
+                      {/* Part Number with SKU Description - Always shown as Part Number is required */}
+                      <Group grow align="flex-start">
+                        <TextInput
+                          label="Part Number"
+                          value="Part Number"
+                          disabled
+                          required
+                          styles={{
+                            label: {
+                              fontWeight: 500,
+                              fontSize: "14px",
+                              marginBottom: "6px",
+                            },
+                            input: {
+                              borderRadius: "8px",
+                              fontSize: "14px",
+                              fontWeight: 500,
+                            },
+                          }}
+                        />
+                        <TextInput
+                          label="SKU Description"
+                          placeholder="Describe the unique part identifier in upload file (SKU)"
+                          value={formData.part_number_sku_description}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              part_number_sku_description: e.target.value,
+                            })
+                          }
+                          styles={{
+                            label: {
+                              fontWeight: 500,
+                              fontSize: "14px",
+                              marginBottom: "6px",
+                            },
+                            input: {
+                              borderRadius: "8px",
+                              fontSize: "14px",
+                              fontWeight: 500,
+                            },
+                          }}
+                        />
+                      </Group>
+                      {/* PTID Match Toggle */}
+                      <Switch
+                        label="PTID Match"
+                        checked={formData.ptid_match}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            ptid_match: e.currentTarget.checked,
+                          })
+                        }
+                        styles={{
+                          label: {
+                            fontWeight: 500,
+                            fontSize: "14px",
+                          },
+                        }}
+                      />
+                      {/* Parent/Child Relationships */}
+                      <Switch
+                        label="Seek out parent/child relationships?"
+                        checked={formData.seek_parent_child_relationships}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            seek_parent_child_relationships:
+                              e.currentTarget.checked,
+                          })
+                        }
+                        styles={{
+                          label: {
+                            fontWeight: 500,
+                            fontSize: "14px",
+                          },
+                        }}
+                      />
+                      {formData.seek_parent_child_relationships && (
+                        <TextInput
+                          label="Example Format of Child Data"
+                          placeholder="Enter example format of child data"
+                          value={formData.parent_child_example_format}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              parent_child_example_format: e.target.value,
+                            })
+                          }
+                          styles={{
+                            label: {
+                              fontWeight: 500,
+                              fontSize: "14px",
+                              marginBottom: "6px",
+                            },
+                            input: {
+                              borderRadius: "8px",
+                              fontSize: "14px",
+                              fontWeight: 500,
+                            },
+                          }}
+                        />
+                      )}
                     </Stack>
                   </div>
 
@@ -1259,9 +1419,9 @@ const EditEntity: React.FC = () => {
                                     </Grid.Col>
                                   </Grid>
                                   <Group mt="sm">
-                                    <Checkbox
-                                      label="Entity Specific"
-                                      checked={attr.is_entity_specific}
+                                    <Switch
+                                      label="Global Attribute"
+                                      checked={!attr.is_entity_specific}
                                       onChange={(e) => {
                                         const newAttrs = [
                                           ...formData.additional_attributes,
@@ -1269,12 +1429,44 @@ const EditEntity: React.FC = () => {
                                         newAttrs[index] = {
                                           ...attr,
                                           is_entity_specific:
+                                            !e.currentTarget.checked,
+                                        };
+                                        setFormData({
+                                          ...formData,
+                                          additional_attributes: newAttrs,
+                                        });
+                                      }}
+                                      styles={{
+                                        label: {
+                                          fontWeight: 500,
+                                          fontSize: "14px",
+                                        },
+                                      }}
+                                    />
+                                    <Switch
+                                      label="ACPN recommendations"
+                                      checked={
+                                        attr.acpn_recommendations || false
+                                      }
+                                      onChange={(e) => {
+                                        const newAttrs = [
+                                          ...formData.additional_attributes,
+                                        ];
+                                        newAttrs[index] = {
+                                          ...attr,
+                                          acpn_recommendations:
                                             e.currentTarget.checked,
                                         };
                                         setFormData({
                                           ...formData,
                                           additional_attributes: newAttrs,
                                         });
+                                      }}
+                                      styles={{
+                                        label: {
+                                          fontWeight: 500,
+                                          fontSize: "14px",
+                                        },
                                       }}
                                     />
                                   </Group>
@@ -1294,6 +1486,7 @@ const EditEntity: React.FC = () => {
                                       value: "",
                                       uom: "",
                                       is_entity_specific: false,
+                                      acpn_recommendations: false,
                                     },
                                   ],
                                 });
@@ -1323,7 +1516,7 @@ const EditEntity: React.FC = () => {
                         background: "#2563eb",
                       }}
                     >
-                      Save Product Config
+                      Save
                     </Button>
                   </Group>
                 </Stack>

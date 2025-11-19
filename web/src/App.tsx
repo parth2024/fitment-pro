@@ -18,12 +18,12 @@ import {
   // IconUpload,
   IconFile,
   // IconDatabase,
-  IconHistory,
   IconChevronDown,
   IconChevronRight,
   IconTag,
   IconFileExport,
   IconChartBar,
+  // IconUpload,
 } from "@tabler/icons-react";
 import {
   Routes,
@@ -105,13 +105,13 @@ const baseNavigationItems: NavigationItem[] = [
     icon: IconTable,
     color: "teal",
     children: [
-      {
-        label: "History",
-        value: "fitments-jobs",
-        path: "/fitments/jobs",
-        icon: IconHistory,
-        color: "teal",
-      },
+      // {
+      //   label: "History",
+      //   value: "fitments-jobs",
+      //   path: "/fitments/jobs",
+      //   icon: IconHistory,
+      //   color: "teal",
+      // },
     ],
   },
   {
@@ -129,11 +129,11 @@ const baseNavigationItems: NavigationItem[] = [
     color: "purple",
   },
   // {
-  //   label: "Bulk Upload",
-  //   value: "bulk-upload",
-  //   path: "/bulk-upload",
-  //   icon: IconUpload,
-  //   color: "orange",
+  // label: "Bulk Upl oad",
+  // value: "bulk-upload",
+  // path: "/bulk-upload",
+  // icon: IconUpload,
+  // color: "orange",
   // },
   // {
   //   label: "Potential Fitments",
@@ -511,7 +511,7 @@ function App() {
                 <IconCar size={18} color="white" stroke={2.2} />
               </div> */}
               <div>
-                {/* <Title
+                <Title
                   order={4}
                   style={{
                     color: "#1a1a1a",
@@ -522,7 +522,7 @@ function App() {
                   }}
                 >
                   Fitmentpro.ai
-                </Title> */}
+                </Title>
               </div>
             </Group>
           </div>

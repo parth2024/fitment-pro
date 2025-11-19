@@ -29,6 +29,7 @@ import {
   Loader,
   TagsInput,
   Pagination,
+  Tooltip,
 } from "@mantine/core";
 import {
   IconBrain,
@@ -53,6 +54,10 @@ import {
   // IconAlertCircle,
   IconCheckbox,
   IconCloudUpload,
+  IconFileCheck,
+  IconClock,
+  IconX,
+  IconAlertCircle,
   // IconFileCheck,
 } from "@tabler/icons-react";
 import { dataUploadService, vcdbService } from "../api/services";
@@ -80,18 +85,18 @@ const DROPDOWN_FIELD_ALIASES: Record<string, string> = {
 const PRODUCT_DROPDOWN_FIELDS = new Set(["parts", "positions"]);
 
 // AI Fitment Job interface
-// interface AiFitmentJob {
-//   id: string;
-//   created_at: string;
-//   created_by: string;
-//   product_file_name?: string;
-//   product_count: number;
-//   status: "in_progress" | "completed" | "failed" | "review_required";
-//   fitments_count: number;
-//   approved_count: number;
-//   rejected_count: number;
-//   job_type: "upload" | "selection";
-// }
+interface AiFitmentJob {
+  id: string;
+  created_at: string;
+  created_by: string;
+  product_file_name?: string;
+  product_count: number;
+  status: "in_progress" | "completed" | "failed" | "review_required";
+  fitments_count: number;
+  approved_count: number;
+  rejected_count: number;
+  job_type: "upload" | "selection";
+}
 
 type ManualSelectionMode = "makeModelYear" | "baseVehicleId";
 
@@ -121,17 +126,17 @@ export default function ApplyFitments() {
   ) as any;
 
   // AI Fitment Jobs API
-  const { refetch: refetchJobs } = useApi(
+  const { data: aiFitmentJobsResponse, refetch: refetchJobs } = useApi(
     () => dataUploadService.getAiFitmentJobs({ tenant_id: currentEntity?.id }),
     []
   ) as any;
 
   // // Extract jobs array from API response
-  // const aiFitmentJobs = Array.isArray(aiFitmentJobsResponse?.data)
-  //   ? aiFitmentJobsResponse.data
-  //   : Array.isArray(aiFitmentJobsResponse)
-  //   ? aiFitmentJobsResponse
-  //   : [];
+  const aiFitmentJobs = Array.isArray(aiFitmentJobsResponse?.data)
+    ? aiFitmentJobsResponse.data
+    : Array.isArray(aiFitmentJobsResponse)
+    ? aiFitmentJobsResponse
+    : [];
 
   // Set the latest session ID when sessions data is available
   useEffect(() => {
@@ -267,7 +272,7 @@ export default function ApplyFitments() {
   >(null);
   const [jobFitments, setJobFitments] = useState<any[]>([]);
   const [selectedJobFitments, setSelectedJobFitments] = useState<string[]>([]);
-  const [loadingJobFitments] = useState(false);
+  const [loadingJobFitments, setLoadingJobFitments] = useState(false);
   const [approvingFitments, setApprovingFitments] = useState(false);
 
   // Edit fitment states
@@ -809,27 +814,27 @@ export default function ApplyFitments() {
   };
 
   // Review AI Fitment Job
-  // const handleReviewJob = async (jobId: string) => {
-  //   setSelectedJobForReview(jobId);
-  //   setLoadingJobFitments(true);
+  const handleReviewJob = async (jobId: string) => {
+    setSelectedJobForReview(jobId);
+    setLoadingJobFitments(true);
 
-  //   try {
-  //     // Review AI fitment job
-  //     const result: any = await dataUploadService.reviewAiFitmentJob(jobId);
+    try {
+      // Review AI fitment job
+      const result: any = await dataUploadService.reviewAiFitmentJob(jobId);
 
-  //     if (result && result.data) {
-  //       const fitments = result.data.fitments || result.data || [];
-  //       setJobFitments(fitments);
-  //       setSelectedJobFitments(fitments.map((f: any) => f.id));
-  //       showSuccess(`Loaded ${fitments.length} fitments for review`);
-  //     }
-  //   } catch (error: any) {
-  //     console.error("Failed to load job fitments:", error);
-  //     showError("Failed to load job fitments for review");
-  //   } finally {
-  //     setLoadingJobFitments(false);
-  //   }
-  // };
+      if (result && result.data) {
+        const fitments = result.data.fitments || result.data || [];
+        setJobFitments(fitments);
+        setSelectedJobFitments(fitments.map((f: any) => f.id));
+        showSuccess(`Loaded ${fitments.length} fitments for review`);
+      }
+    } catch (error: any) {
+      console.error("Failed to load job fitments:", error);
+      showError("Failed to load job fitments for review");
+    } finally {
+      setLoadingJobFitments(false);
+    }
+  };
 
   // Approve AI Fitments
   const handleApproveJobFitments = async () => {
@@ -1315,46 +1320,46 @@ export default function ApplyFitments() {
   );
 
   // Render job status badge
-  // const renderStatusBadge = (status: string) => {
-  //   const statusConfig: Record<
-  //     string,
-  //     { color: string; label: string; icon: any }
-  //   > = {
-  //     in_progress: {
-  //       color: "blue",
-  //       label: "In Progress",
-  //       icon: <IconClock size={14} />,
-  //     },
-  //     completed: {
-  //       color: "green",
-  //       label: "Completed",
-  //       icon: <IconCheck size={14} />,
-  //     },
-  //     failed: {
-  //       color: "red",
-  //       label: "Failed",
-  //       icon: <IconX size={14} />,
-  //     },
-  //     review_required: {
-  //       color: "orange",
-  //       label: "Review Required",
-  //       icon: <IconAlertCircle size={14} />,
-  //     },
-  //   };
+  const renderStatusBadge = (status: string) => {
+    const statusConfig: Record<
+      string,
+      { color: string; label: string; icon: any }
+    > = {
+      in_progress: {
+        color: "blue",
+        label: "In Progress",
+        icon: <IconClock size={14} />,
+      },
+      completed: {
+        color: "green",
+        label: "Completed",
+        icon: <IconCheck size={14} />,
+      },
+      failed: {
+        color: "red",
+        label: "Failed",
+        icon: <IconX size={14} />,
+      },
+      review_required: {
+        color: "orange",
+        label: "Review Required",
+        icon: <IconAlertCircle size={14} />,
+      },
+    };
 
-  //   const config = statusConfig[status] || statusConfig.in_progress;
+    const config = statusConfig[status] || statusConfig.in_progress;
 
-  //   return (
-  //     <Badge
-  //       style={{ cursor: "pointer" }}
-  //       color={config.color}
-  //       variant="light"
-  //       leftSection={config.icon}
-  //     >
-  //       {config.label}
-  //     </Badge>
-  //   );
-  // };
+    return (
+      <Badge
+        style={{ cursor: "pointer" }}
+        color={config.color}
+        variant="light"
+        leftSection={config.icon}
+      >
+        {config.label}
+      </Badge>
+    );
+  };
 
   // Filter products based on search (for Step 1)
   const filteredProductsStep1 = useMemo(() => {
@@ -2257,7 +2262,7 @@ export default function ApplyFitments() {
                       Select Products
                     </Tabs.Tab>
                   )}
-                  {/* <Tabs.Tab
+                  <Tabs.Tab
                     value="jobs"
                     leftSection={<IconFileCheck size={16} />}
                     rightSection={
@@ -2275,7 +2280,7 @@ export default function ApplyFitments() {
                     }
                   >
                     AI Jobs & Progress
-                  </Tabs.Tab> */}
+                  </Tabs.Tab>
                 </Tabs.List>
 
                 {/* Upload Product Data Tab - Only show if upload method was selected in step 1 */}
@@ -2637,7 +2642,7 @@ export default function ApplyFitments() {
                 </Tabs.Panel>
 
                 {/* AI Jobs & Progress Tab */}
-                {/* <Tabs.Panel value="jobs">
+                <Tabs.Panel value="jobs">
                   <Stack gap="lg">
                     <Group justify="space-between">
                       <div>
@@ -2655,10 +2660,10 @@ export default function ApplyFitments() {
                       >
                         Refresh
                       </Button>
-                    </Group> */}
+                    </Group>
 
-                {/* Jobs Table */}
-                {/* {!aiFitmentJobs || aiFitmentJobs.length === 0 ? (
+                    {/* Jobs Table */}
+                    {!aiFitmentJobs || aiFitmentJobs.length === 0 ? (
                       <Alert color="blue" variant="light">
                         <Text size="sm">
                           No AI fitment jobs yet. Upload products or select
@@ -2767,7 +2772,7 @@ export default function ApplyFitments() {
                       </Card>
                     )}
                   </Stack>
-                </Tabs.Panel> */}
+                </Tabs.Panel>
               </Tabs>
             </Stack>
           </Card>
