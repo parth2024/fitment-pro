@@ -18,6 +18,7 @@ import {
   Center,
   Pagination,
   Select,
+  Menu,
 } from "@mantine/core";
 import {
   IconUpload,
@@ -32,6 +33,9 @@ import {
   IconArrowsSort,
   IconSortAscending,
   IconSortDescending,
+  IconDownload,
+  IconFileText,
+  IconFileSpreadsheet,
 } from "@tabler/icons-react";
 import { useProfessionalToast } from "../hooks/useProfessionalToast";
 import { dataUploadService } from "../api/services";
@@ -55,6 +59,7 @@ export default function Products() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [showUpload, setShowUpload] = useState(false);
   const uploadSectionRef = useRef<HTMLDivElement | null>(null);
+  const [exportLoading, setExportLoading] = useState(false);
 
   // API hooks
   const { data: productsResponse, refetch: refetchProducts } = useApi(
@@ -212,6 +217,30 @@ export default function Products() {
     setTimeout(() => {
       uploadSectionRef.current?.scrollIntoView({ behavior: "smooth" });
     }, 0);
+  };
+
+  const handleExport = async (format: "csv" | "xlsx") => {
+    setExportLoading(true);
+    try {
+      const response = await dataUploadService.exportProducts(format);
+
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `products_export.${format}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      showSuccess(`Products exported as ${format.toUpperCase()}`);
+    } catch (error) {
+      console.error("Export error:", error);
+      showError("Failed to export products");
+    } finally {
+      setExportLoading(false);
+    }
   };
 
   return (
@@ -453,14 +482,43 @@ export default function Products() {
                           }}
                           style={{ flex: 1, minWidth: 0 }}
                         />
-                        <Button
-                          size="sm"
-                          leftSection={<IconUpload size={14} />}
-                          onClick={handleClickUploadTop}
-                          style={{ whiteSpace: "nowrap", flexShrink: 0 }}
-                        >
-                          Upload Product
-                        </Button>
+                        <Group gap="xs">
+                          <Menu shadow="md" width={200}>
+                            <Menu.Target>
+                              <Button
+                                leftSection={<IconDownload size={16} />}
+                                loading={exportLoading}
+                                size="sm"
+                                color="blue"
+                                style={{ background: "#2563eb" }}
+                              >
+                                Export
+                              </Button>
+                            </Menu.Target>
+                            <Menu.Dropdown>
+                              <Menu.Item
+                                leftSection={<IconFileText size={14} />}
+                                onClick={() => handleExport("csv")}
+                              >
+                                Export as CSV
+                              </Menu.Item>
+                              <Menu.Item
+                                leftSection={<IconFileSpreadsheet size={14} />}
+                                onClick={() => handleExport("xlsx")}
+                              >
+                                Export as XLSX
+                              </Menu.Item>
+                            </Menu.Dropdown>
+                          </Menu>
+                          <Button
+                            size="sm"
+                            leftSection={<IconUpload size={14} />}
+                            onClick={handleClickUploadTop}
+                            style={{ whiteSpace: "nowrap", flexShrink: 0 }}
+                          >
+                            Upload Product
+                          </Button>
+                        </Group>
                       </Group>
                     </Stack>
 

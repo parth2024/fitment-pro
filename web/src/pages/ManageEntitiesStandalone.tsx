@@ -341,7 +341,7 @@ const ManageEntitiesStandalone: React.FC = () => {
                     margin: 0,
                   }}
                 >
-                  Fitmentpro.ai
+                  FitmentPro.ai
                 </Title>
                 <Text
                   size="xs"

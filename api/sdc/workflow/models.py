@@ -63,6 +63,8 @@ class NormalizationResult(models.Model):
     row_index = models.IntegerField()
     mapped_entities = models.JSONField()
     confidence = models.FloatField()
+    confidence_explanation = models.TextField(blank=True, null=True)
+    ai_reasoning = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=40, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
     reviewed_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)

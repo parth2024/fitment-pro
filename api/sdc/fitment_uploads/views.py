@@ -139,7 +139,8 @@ def process_ai_fitment(request):
                 position=fitment_data['position'],
                 quantity=fitment_data['quantity'],
                 confidence=fitment_data['confidence'],
-                ai_reasoning=fitment_data['ai_reasoning']
+                ai_reasoning=fitment_data.get('ai_reasoning', ''),
+                confidence_explanation=fitment_data.get('confidence_explanation', '')
             )
             ai_results.append(ai_result)
         

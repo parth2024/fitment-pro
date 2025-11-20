@@ -20,6 +20,8 @@ import {
   Tabs,
   Checkbox,
   Alert,
+  Collapse,
+  Paper,
 } from "@mantine/core";
 import {
   IconHistory,
@@ -34,6 +36,9 @@ import {
   IconBrain,
   IconFileText,
   IconAlertCircle,
+  IconChevronDown,
+  IconChevronUp,
+  IconSparkles,
 } from "@tabler/icons-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import apiClient from "../api/client";
@@ -95,6 +100,7 @@ export default function JobHistoryDashboard() {
   const [loadingReviewData, setLoadingReviewData] = useState(false);
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
   const [approving, setApproving] = useState(false);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
   const location = useLocation();
   const { showSuccess, showError } = useProfessionalToast();
@@ -258,6 +264,16 @@ export default function JobHistoryDashboard() {
     setSelectedRowIds(newSet);
   };
 
+  const toggleRowExpansion = (rowId: string) => {
+    const newSet = new Set(expandedRows);
+    if (newSet.has(rowId)) {
+      newSet.delete(rowId);
+    } else {
+      newSet.add(rowId);
+    }
+    setExpandedRows(newSet);
+  };
+
   const formatDate = (dateString?: string) => {
     if (!dateString) return "N/A";
     return new Date(dateString).toLocaleString();
@@ -272,6 +288,26 @@ export default function JobHistoryDashboard() {
     return status
       .replace(/_/g, " ")
       .replace(/\w+/g, (word) => word.charAt(0).toUpperCase() + word.slice(1));
+  };
+
+  // Truncate AI reasoning based on confidence score (100-150 words)
+  const truncateAIReasoning = (text: string, confidence: number) => {
+    if (!text) return "";
+
+    // Determine word limit based on confidence score
+    // Higher confidence = more words (up to 150), lower confidence = fewer words (down to 100)
+    const minWords = 100;
+    const maxWords = 150;
+    const wordLimit = Math.round(minWords + (maxWords - minWords) * confidence);
+
+    const words = text.trim().split(/\s+/);
+
+    if (words.length <= wordLimit) {
+      return text;
+    }
+
+    const truncated = words.slice(0, wordLimit).join(" ");
+    return truncated + "...";
   };
 
   const statusOptions = useMemo(() => {
@@ -517,6 +553,7 @@ export default function JobHistoryDashboard() {
           setSelectedJob(null);
           setReviewData(null);
           setSelectedRowIds(new Set());
+          setExpandedRows(new Set());
         }}
         title={
           <Group gap="sm">
@@ -533,8 +570,20 @@ export default function JobHistoryDashboard() {
         }
         size="90%"
         styles={{
-          body: { padding: 0 },
+          body: {
+            padding: 0,
+            display: "flex",
+            flexDirection: "column",
+            height: "85vh",
+            maxHeight: "900px",
+            minHeight: "600px",
+          },
           header: { padding: "20px 24px", borderBottom: "1px solid #e9ecef" },
+          content: {
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+          },
         }}
       >
         {loadingReviewData ? (
@@ -543,7 +592,16 @@ export default function JobHistoryDashboard() {
             <Text mt="md">Loading review data...</Text>
           </Center>
         ) : reviewData ? (
-          <Stack gap="md" p="md">
+          <Stack
+            gap="md"
+            p="md"
+            style={{
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
             {/* Header Info */}
             <Card
               withBorder
@@ -613,7 +671,15 @@ export default function JobHistoryDashboard() {
               </Stack>
             </Alert>
 
-            <Tabs defaultValue="original">
+            <Tabs
+              defaultValue="original"
+              style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+              }}
+            >
               <Tabs.List>
                 <Tabs.Tab
                   value="original"
@@ -626,7 +692,16 @@ export default function JobHistoryDashboard() {
                 </Tabs.Tab>
               </Tabs.List>
 
-              <Tabs.Panel value="original" pt="md">
+              <Tabs.Panel
+                value="original"
+                pt="md"
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  overflow: "hidden",
+                }}
+              >
                 <Card withBorder padding="xs" radius="md" mb="sm">
                   <Group gap="xs" p="xs">
                     <IconFileText size={16} color="#6b7280" />
@@ -638,7 +713,7 @@ export default function JobHistoryDashboard() {
                     </Text>
                   </Group>
                 </Card>
-                <ScrollArea h={450}>
+                <ScrollArea style={{ flex: 1, minHeight: 0 }}>
                   <Table striped highlightOnHover>
                     <Table.Thead>
                       <Table.Tr>
@@ -755,7 +830,16 @@ export default function JobHistoryDashboard() {
                 </ScrollArea>
               </Tabs.Panel>
 
-              <Tabs.Panel value="ai" pt="md">
+              <Tabs.Panel
+                value="ai"
+                pt="md"
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  overflow: "hidden",
+                }}
+              >
                 <Card withBorder padding="xs" radius="md" mb="sm">
                   <Group gap="xs" p="xs">
                     <IconBrain size={16} color="#8b5cf6" />
@@ -767,7 +851,7 @@ export default function JobHistoryDashboard() {
                     </Text>
                   </Group>
                 </Card>
-                <ScrollArea h={450}>
+                <ScrollArea style={{ flex: 1, minHeight: 0 }}>
                   <Table striped highlightOnHover>
                     <Table.Thead>
                       <Table.Tr>
@@ -815,15 +899,26 @@ export default function JobHistoryDashboard() {
                         </Table.Th>
                         <Table.Th style={{ width: 80 }}>Row #</Table.Th>
                         <Table.Th style={{ width: 120 }}>Confidence</Table.Th>
+                        <Table.Th style={{ width: 300 }}>
+                          <Group gap="xs">
+                            <IconBrain size={14} color="#8b5cf6" />
+                            <Text size="xs" fw={600}>
+                              AI Summary
+                            </Text>
+                          </Group>
+                        </Table.Th>
                         {reviewData.aiGeneratedRows[0] &&
                           Object.keys(reviewData.aiGeneratedRows[0])
                             .filter(
                               (key) =>
                                 !key.startsWith("_") &&
                                 key !== "confidence" &&
-                                key !== "status"
+                                key !== "status" &&
+                                key !== "ai_reasoning" &&
+                                key !== "aiReasoning" &&
+                                key !== "confidence_explanation"
                             )
-                            .slice(0, 7)
+                            .slice(0, 5)
                             .map((key) => (
                               <Table.Th key={key}>
                                 <Text size="xs" fw={600}>
@@ -831,7 +926,7 @@ export default function JobHistoryDashboard() {
                                 </Text>
                               </Table.Th>
                             ))}
-                        <Table.Th style={{ width: 100 }}>Actions</Table.Th>
+                        <Table.Th style={{ width: 150 }}>Actions</Table.Th>
                       </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
@@ -841,79 +936,333 @@ export default function JobHistoryDashboard() {
                           const rowId =
                             row._normalization_result_id || `ai_${idx}`;
                           const isSelected = selectedRowIds.has(rowId);
+                          const isExpanded = expandedRows.has(rowId);
+                          const confidence =
+                            row._confidence || row.confidence || 0;
+                          const aiReasoning =
+                            row.ai_reasoning ||
+                            row.aiReasoning ||
+                            row._ai_reasoning ||
+                            "";
+                          const confidenceExplanation =
+                            row.confidence_explanation ||
+                            row._confidence_explanation ||
+                            "";
+
                           return (
-                            <Table.Tr key={idx}>
-                              <Table.Td>
-                                <Checkbox
-                                  checked={isSelected}
-                                  onChange={() => toggleRowSelection(rowId)}
-                                />
-                              </Table.Td>
-                              <Table.Td>
-                                <Text size="sm" fw={500}>
-                                  {row._row_index}
-                                </Text>
-                              </Table.Td>
-                              <Table.Td>
-                                <Badge
-                                  color={
-                                    row._confidence >= 0.9
-                                      ? "green"
-                                      : row._confidence >= 0.7
-                                      ? "yellow"
-                                      : "red"
-                                  }
-                                  variant="light"
-                                  size="sm"
-                                  style={{ minWidth: 70 }}
-                                >
-                                  {Math.round((row._confidence || 0) * 100)}%
-                                </Badge>
-                              </Table.Td>
-                              {Object.keys(row)
-                                .filter(
-                                  (key) =>
-                                    !key.startsWith("_") &&
-                                    key !== "confidence" &&
-                                    key !== "status"
-                                )
-                                .slice(0, 9)
-                                .map((key) => (
-                                  <Table.Td key={key}>
-                                    <Text size="sm">
-                                      {String(row[key] || "").slice(0, 50)}
-                                    </Text>
-                                  </Table.Td>
-                                ))}
-                              <Table.Td>
-                                <Group gap="xs">
-                                  <Tooltip label="Approve">
-                                    <ActionIcon
-                                      color="green"
-                                      variant="light"
-                                      size="sm"
-                                      onClick={() => toggleRowSelection(rowId)}
+                            <>
+                              <Table.Tr key={idx}>
+                                <Table.Td>
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onChange={() => toggleRowSelection(rowId)}
+                                  />
+                                </Table.Td>
+                                <Table.Td>
+                                  <Text size="sm" fw={500}>
+                                    {row._row_index || idx + 1}
+                                  </Text>
+                                </Table.Td>
+                                <Table.Td>
+                                  <Badge
+                                    color={
+                                      confidence >= 0.9
+                                        ? "green"
+                                        : confidence >= 0.7
+                                        ? "yellow"
+                                        : "red"
+                                    }
+                                    variant="light"
+                                    size="sm"
+                                    style={{ minWidth: 70 }}
+                                  >
+                                    {Math.round(confidence * 100)}%
+                                  </Badge>
+                                </Table.Td>
+                                <Table.Td>
+                                  <Stack gap={4}>
+                                    {confidenceExplanation && (
+                                      <Paper
+                                        p="xs"
+                                        radius="sm"
+                                        style={{
+                                          backgroundColor: "#fff7ed",
+                                          border: "1px solid #fed7aa",
+                                        }}
+                                      >
+                                        <Group gap={4} mb={2}>
+                                          <IconSparkles
+                                            size={12}
+                                            color="#f59e0b"
+                                          />
+                                          <Text size="xs" fw={600} c="dark">
+                                            Why {Math.round(confidence * 100)}%?
+                                          </Text>
+                                        </Group>
+                                        <Text
+                                          size="xs"
+                                          c="dimmed"
+                                          style={{
+                                            whiteSpace: "pre-wrap",
+                                            lineHeight: 1.4,
+                                          }}
+                                        >
+                                          {truncateAIReasoning(
+                                            confidenceExplanation,
+                                            confidence
+                                          )}
+                                        </Text>
+                                      </Paper>
+                                    )}
+                                    {/* {aiReasoning && (
+                                      <Paper
+                                        p="xs"
+                                        radius="sm"
+                                        style={{
+                                          backgroundColor: "#f5f3ff",
+                                          border: "1px solid #ddd6fe",
+                                        }}
+                                      >
+                                        <Group gap={4} mb={2}>
+                                          <IconBrain
+                                            size={12}
+                                            color="#8b5cf6"
+                                          />
+                                          <Text size="xs" fw={600} c="dark">
+                                            AI Reasoning:
+                                          </Text>
+                                        </Group>
+                                        <Text
+                                          size="xs"
+                                          c="dimmed"
+                                          style={{
+                                            whiteSpace: "pre-wrap",
+                                            lineHeight: 1.4,
+                                          }}
+                                        >
+                                          {truncateAIReasoning(
+                                            aiReasoning,
+                                            confidence
+                                          )}
+                                        </Text>
+                                      </Paper>
+                                    )} */}
+                                    {!confidenceExplanation && !aiReasoning && (
+                                      <Text
+                                        size="xs"
+                                        c="dimmed"
+                                        style={{ fontStyle: "italic" }}
+                                      >
+                                        No AI summary available
+                                      </Text>
+                                    )}
+                                  </Stack>
+                                </Table.Td>
+                                {Object.keys(row)
+                                  .filter(
+                                    (key) =>
+                                      !key.startsWith("_") &&
+                                      key !== "confidence" &&
+                                      key !== "status" &&
+                                      key !== "ai_reasoning" &&
+                                      key !== "aiReasoning" &&
+                                      key !== "confidence_explanation"
+                                  )
+                                  .slice(0, 5)
+                                  .map((key) => (
+                                    <Table.Td key={key}>
+                                      <Text size="sm">
+                                        {String(row[key] || "").slice(0, 50)}
+                                        {String(row[key] || "").length > 50 &&
+                                          "..."}
+                                      </Text>
+                                    </Table.Td>
+                                  ))}
+                                <Table.Td>
+                                  <Group gap="xs">
+                                    {(aiReasoning || confidenceExplanation) && (
+                                      <Tooltip
+                                        label={
+                                          isExpanded
+                                            ? "Hide AI Details"
+                                            : "View AI Reasoning"
+                                        }
+                                      >
+                                        <ActionIcon
+                                          color="blue"
+                                          variant="light"
+                                          size="sm"
+                                          onClick={() =>
+                                            toggleRowExpansion(rowId)
+                                          }
+                                        >
+                                          {isExpanded ? (
+                                            <IconChevronUp size={14} />
+                                          ) : (
+                                            <IconChevronDown size={14} />
+                                          )}
+                                        </ActionIcon>
+                                      </Tooltip>
+                                    )}
+                                    <Tooltip
+                                      label={
+                                        isSelected ? "Deselect" : "Approve"
+                                      }
                                     >
-                                      <IconCheck size={14} />
-                                    </ActionIcon>
-                                  </Tooltip>
-                                  <Tooltip label="Reject">
-                                    <ActionIcon
-                                      color="red"
-                                      variant="light"
-                                      size="sm"
-                                      onClick={() => {
-                                        const newSet = new Set(selectedRowIds);
-                                        newSet.delete(rowId);
-                                        setSelectedRowIds(newSet);
-                                      }}
+                                      <ActionIcon
+                                        color={isSelected ? "green" : "gray"}
+                                        variant={
+                                          isSelected ? "filled" : "light"
+                                        }
+                                        size="sm"
+                                        onClick={() =>
+                                          toggleRowSelection(rowId)
+                                        }
+                                      >
+                                        <IconCheck size={14} />
+                                      </ActionIcon>
+                                    </Tooltip>
+                                    <Tooltip label="Reject">
+                                      <ActionIcon
+                                        color="red"
+                                        variant="light"
+                                        size="sm"
+                                        onClick={() => {
+                                          const newSet = new Set(
+                                            selectedRowIds
+                                          );
+                                          newSet.delete(rowId);
+                                          setSelectedRowIds(newSet);
+                                        }}
+                                      >
+                                        <IconX size={14} />
+                                      </ActionIcon>
+                                    </Tooltip>
+                                  </Group>
+                                </Table.Td>
+                              </Table.Tr>
+                              {isExpanded &&
+                                (aiReasoning || confidenceExplanation) && (
+                                  <Table.Tr>
+                                    <Table.Td
+                                      colSpan={100}
+                                      style={{ padding: 0, border: 0 }}
                                     >
-                                      <IconX size={14} />
-                                    </ActionIcon>
-                                  </Tooltip>
-                                </Group>
-                              </Table.Td>
-                            </Table.Tr>
+                                      <Collapse in={isExpanded}>
+                                        <Paper
+                                          p="md"
+                                          m="xs"
+                                          radius="md"
+                                          style={{
+                                            backgroundColor: "#f8f9fa",
+                                            border: "1px solid #e9ecef",
+                                          }}
+                                        >
+                                          <Stack gap="sm">
+                                            <Group gap="xs" mb="xs">
+                                              <IconBrain
+                                                size={18}
+                                                color="#8b5cf6"
+                                              />
+                                              <Text fw={600} size="sm" c="dark">
+                                                AI Analysis & Confidence
+                                                Breakdown
+                                              </Text>
+                                            </Group>
+
+                                            {confidenceExplanation && (
+                                              <Card
+                                                withBorder
+                                                padding="sm"
+                                                radius="md"
+                                                style={{
+                                                  backgroundColor: "white",
+                                                }}
+                                              >
+                                                <Group gap="xs" mb="xs">
+                                                  <IconSparkles
+                                                    size={14}
+                                                    color="#f59e0b"
+                                                  />
+                                                  <Text
+                                                    fw={600}
+                                                    size="xs"
+                                                    c="dark"
+                                                  >
+                                                    Confidence Score Breakdown
+                                                  </Text>
+                                                </Group>
+                                                <Text
+                                                  size="xs"
+                                                  c="dimmed"
+                                                  style={{
+                                                    whiteSpace: "pre-wrap",
+                                                  }}
+                                                >
+                                                  {confidenceExplanation}
+                                                </Text>
+                                              </Card>
+                                            )}
+
+                                            {aiReasoning && (
+                                              <Card
+                                                withBorder
+                                                padding="sm"
+                                                radius="md"
+                                                style={{
+                                                  backgroundColor: "white",
+                                                }}
+                                              >
+                                                <Group gap="xs" mb="xs">
+                                                  <IconBrain
+                                                    size={14}
+                                                    color="#8b5cf6"
+                                                  />
+                                                  <Text
+                                                    fw={600}
+                                                    size="xs"
+                                                    c="dark"
+                                                  >
+                                                    AI Reasoning
+                                                  </Text>
+                                                </Group>
+                                                <Text
+                                                  size="xs"
+                                                  c="dimmed"
+                                                  style={{
+                                                    whiteSpace: "pre-wrap",
+                                                    lineHeight: 1.6,
+                                                  }}
+                                                >
+                                                  {truncateAIReasoning(
+                                                    aiReasoning,
+                                                    confidence
+                                                  )}
+                                                </Text>
+                                              </Card>
+                                            )}
+
+                                            {!confidenceExplanation &&
+                                              !aiReasoning && (
+                                                <Text
+                                                  size="xs"
+                                                  c="dimmed"
+                                                  style={{
+                                                    fontStyle: "italic",
+                                                  }}
+                                                >
+                                                  No AI reasoning or confidence
+                                                  breakdown available for this
+                                                  row.
+                                                </Text>
+                                              )}
+                                          </Stack>
+                                        </Paper>
+                                      </Collapse>
+                                    </Table.Td>
+                                  </Table.Tr>
+                                )}
+                            </>
                           );
                         })}
                     </Table.Tbody>
@@ -926,10 +1275,12 @@ export default function JobHistoryDashboard() {
               withBorder
               padding="md"
               radius="md"
-              mt="md"
+              mt="auto"
               style={{
                 backgroundColor: "#f8f9fa",
                 borderTop: "2px solid #2563eb",
+                flexShrink: 0,
+                marginTop: "auto",
               }}
             >
               <Group justify="space-between" align="center">

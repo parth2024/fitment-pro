@@ -70,7 +70,7 @@ const Login: React.FC = () => {
         <Stack gap="lg">
           <div style={{ textAlign: "center" }}>
             <Title order={2} mb="xs">
-              Welcome to Fitmentpro.ai
+              Welcome to FitmentPro.ai
             </Title>
             <Text c="dimmed">Sign in to access the Mass Fitment Tool</Text>
           </div>
