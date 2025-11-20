@@ -96,6 +96,35 @@ const Analytics: React.FC = () => {
   const selectedEntityIds = currentEntity ? [currentEntity.id] : [];
   const hasCheckedUrlParam = React.useRef(false);
 
+  // Scroll to Jobs History section if coming from publish for review
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("scrollToJobs") === "true") {
+      setTimeout(() => {
+        const jobHistorySection = document.getElementById(
+          "job-history-section"
+        );
+        if (jobHistorySection) {
+          jobHistorySection.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+          // Highlight the section briefly
+          jobHistorySection.style.transition = "background-color 0.3s";
+          jobHistorySection.style.backgroundColor = "#f0f9ff";
+          setTimeout(() => {
+            if (jobHistorySection) {
+              jobHistorySection.style.backgroundColor = "";
+            }
+          }, 2000);
+          // Clean up URL
+          urlParams.delete("scrollToJobs");
+          window.history.replaceState({}, "", window.location.pathname);
+        }
+      }, 500);
+    }
+  }, []);
+
   const navigationShortcuts: NavigationShortcut[] = [
     {
       title: "Apply Fitments",
