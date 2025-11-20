@@ -321,9 +321,21 @@ export const fitmentRulesService = {
     apiClient.post(`/api/uploads/${uploadId}/vcdb-validate`),
   publish: (uploadId: string) =>
     apiClient.post(`/api/uploads/${uploadId}/publish`),
+  publishForReview: (uploadId: string) =>
+    apiClient.post(`/api/uploads/${uploadId}/publish-for-review`),
   download: (uploadId: string) =>
     apiClient.get(`/api/uploads/${uploadId}/download`, {
       responseType: "blob",
+    }),
+  exportInvalidRows: (uploadId: string) =>
+    apiClient.get(`/api/uploads/${uploadId}/export-invalid-rows`, {
+      responseType: "blob",
+    }),
+  getJobReviewData: (jobId: string) =>
+    apiClient.get(`/api/workflow/jobs/${jobId}/review-data`),
+  approveJobRows: (jobId: string, approvedRowIds: string[]) =>
+    apiClient.post(`/api/workflow/jobs/${jobId}/approve`, {
+      approvedRowIds,
     }),
 };
 

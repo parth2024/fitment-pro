@@ -113,9 +113,8 @@ export default function FitmentRulesUpload() {
   const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([
     { step: 0, label: "Upload File", status: "pending" },
     { step: 1, label: "AI Mapping", status: "pending" },
-    { step: 2, label: "Transform Data", status: "pending" },
-    { step: 3, label: "Validation", status: "pending" },
-    { step: 4, label: "Review", status: "pending" },
+    { step: 2, label: "Validation", status: "pending" },
+    { step: 3, label: "Review & Finalize", status: "pending" },
   ]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -124,7 +123,6 @@ export default function FitmentRulesUpload() {
   const [reviewData, setReviewData] = useState<any>(null);
   const [publishResult, setPublishResult] = useState<any>(null);
   const [isPublishing, setIsPublishing] = useState(false);
-  const [transformationResult, setTransformationResult] = useState<any>(null);
   // const [recommendations, setRecommendations] = useState<Record<string, any[]>>(
   //   {}
   // );
@@ -191,7 +189,6 @@ export default function FitmentRulesUpload() {
     setUploadProgress(0);
     setPublishResult(null);
     setReviewData(null);
-    setTransformationResult(null);
     setIsProcessing(false);
     setIsPublishing(false);
     resetProcessingSteps();
@@ -201,9 +198,8 @@ export default function FitmentRulesUpload() {
     setProcessingSteps([
       { step: 0, label: "Upload File", status: "pending" },
       { step: 1, label: "AI Mapping", status: "pending" },
-      { step: 2, label: "Transform Data", status: "pending" },
-      { step: 3, label: "Validation", status: "pending" },
-      { step: 4, label: "Review", status: "pending" },
+      { step: 2, label: "Validation", status: "pending" },
+      { step: 3, label: "Review & Finalize", status: "pending" },
     ]);
   };
 
@@ -274,6 +270,11 @@ export default function FitmentRulesUpload() {
       // Trigger AI mapping with the upload ID directly
       await handleAiMappingWithId(newUploadId);
 
+      // Automatically trigger transformation after AI mapping (backend handles it)
+      // Then move to validation step
+      setActiveStep(2);
+      await handleValidation(newUploadId);
+
       setUploadProgress(100);
     } catch (error: any) {
       console.error("Upload error:", error);
@@ -326,8 +327,17 @@ export default function FitmentRulesUpload() {
         "completed",
         `Found ${mappings.length} column mappings`
       );
-      // Stay on step 1 (AI Mapping) so user can review mappings
-      // User will click "Continue to Transformation" to proceed to step 2
+
+      // Automatically trigger transformation (backend handles it silently)
+      try {
+        await fitmentRulesService.transform(idToUse);
+      } catch (error) {
+        console.error("Transformation error:", error);
+        // Continue anyway - transformation happens in backend
+      }
+
+      // Move to validation step
+      setActiveStep(2);
     } catch (error: any) {
       updateStepStatus(1, "error", error.message || "AI mapping failed");
       showError(error.message || "Failed to process AI mapping");
@@ -350,18 +360,21 @@ export default function FitmentRulesUpload() {
       const response = await fitmentRulesService.transform(uploadId);
       const result = response.data;
 
-      setTransformationResult(result);
       setUploadProgress(75);
       updateStepStatus(
         2,
         "completed",
-        `Transformed ${result.originalRows} → ${result.transformedRows} rows`
+        `Transformed ${result.originalRows || 0} → ${
+          result.transformedRows || 0
+        } rows`
       );
       showSuccess(
-        `Data transformation complete! ${result.transformationsApplied} transformations applied.`
+        `Data transformation complete! ${
+          result.transformationsApplied || 0
+        } transformations applied.`
       );
 
-      // Stay on transformation step - user will click "Continue to Validation" button
+      // Transformation happens automatically, move to validation
     } catch (error: any) {
       const errorMessage =
         error.response?.data?.error ||
@@ -376,22 +389,23 @@ export default function FitmentRulesUpload() {
     }
   };
 
-  const handleValidation = async () => {
-    if (!uploadId) {
+  const handleValidation = async (idToUse?: string) => {
+    const uploadIdToUse = idToUse || uploadId;
+    if (!uploadIdToUse) {
       showError("Please upload a file first.");
       return;
     }
 
     try {
       setIsProcessing(true);
-      updateStepStatus(3, "in_progress", "Validating against VCDB...");
+      updateStepStatus(2, "in_progress", "Validating against VCDB...");
       setUploadProgress(80);
 
-      const response = await fitmentRulesService.validate(uploadId);
+      const response = await fitmentRulesService.validate(uploadIdToUse);
       const results = response.data;
 
       setUploadProgress(90);
-      updateStepStatus(3, "completed", "Validation completed");
+      updateStepStatus(2, "completed", "Validation completed");
       // Stay on validation step - user will click "Continue to Review" button
       showSuccess("Validation completed successfully");
 
@@ -441,7 +455,7 @@ export default function FitmentRulesUpload() {
         }
       }
     } catch (error: any) {
-      updateStepStatus(3, "error", error.message || "Validation failed");
+      updateStepStatus(2, "error", error.message || "Validation failed");
       showError(error.message || "Failed to validate file");
     } finally {
       setIsProcessing(false);
@@ -474,101 +488,44 @@ export default function FitmentRulesUpload() {
     );
   };
 
-  const handlePublish = async (autoPublish: boolean = false) => {
+  const handlePublish = async () => {
     if (!uploadId) {
       showError("No upload found. Please upload a file first.");
       return;
     }
 
-    if (!autoPublish && reviewData?.errors && reviewData.errors.length > 0) {
-      showError("Please fix validation errors before publishing.");
-      return;
-    }
-
     try {
       setIsPublishing(true);
-      updateStepStatus(4, "in_progress", "Loading data to database...");
+      updateStepStatus(3, "in_progress", "Creating review job...");
       setUploadProgress(95);
 
-      const response = await fitmentRulesService.publish(uploadId);
+      const response = await fitmentRulesService.publishForReview(uploadId);
       const result = response.data;
 
-      console.log("Publish response:", result);
-      console.log("Created count:", result.createdCount);
-      console.log("Error count:", result.errorCount);
+      console.log("Publish for review response:", result);
 
       setPublishResult(result);
       setUploadProgress(100);
-      const recordTypePlural =
-        dataType === "fitments" ? "fitments" : "products";
 
       updateStepStatus(
-        4,
+        3,
         "completed",
-        `Published ${result.result?.publishedCount || 0} records, Created ${
-          result.createdCount || 0
-        } ${recordTypePlural}`
+        `Job created with status: ${result.status || "pending"}`
       );
 
-      if (result.createdCount === 0 && result.errorCount > 0) {
-        showError(
-          `Publish completed but no ${recordTypePlural} were created. ${result.errorCount} errors occurred. Check console for details.`
-        );
-      } else if (result.createdCount > 0) {
-        showSuccess(
-          `✅ Successfully created ${
-            result.createdCount
-          } ${recordTypePlural} in the database! You can now view them in the ${
-            dataType === "fitments"
-              ? "Fitment Management"
-              : "Product Management"
-          } page.`
-        );
-      } else {
-        showSuccess(
-          `✅ Data processed successfully! ${
-            result.result?.publishedCount || 0
-          } records published.`
-        );
-      }
+      showSuccess(
+        `✅ Data published for review! Job ID: ${
+          result.jobId || result.id
+        }. Redirecting to Jobs History...`
+      );
 
-      // Download the file
-      try {
-        const downloadResponse = await fitmentRulesService.download(uploadId);
-        const blob = new Blob([downloadResponse.data], {
-          type: "text/csv",
-        });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = result.filename || "published_data.csv";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-
-        showSuccess(
-          `Successfully published ${
-            result.result?.publishedCount || 0
-          } records and downloaded file!`
-        );
-      } catch (downloadError: any) {
-        // If download fails, still show success for publish
-        showSuccess(
-          `Successfully published ${
-            result.result?.publishedCount || 0
-          } records to FitmentPro.ai!`
-        );
-        console.error("Download failed:", downloadError);
-      }
-
-      // Redirect to analytics page after successful publish
+      // Redirect to analytics page and scroll to Jobs History section
       setTimeout(() => {
-        navigate("/analytics");
+        navigate("/analytics?scrollToJobs=true");
       }, 1500);
     } catch (error: any) {
-      updateStepStatus(4, "error", error.message || "Publishing failed");
-      showError(error.message || "Failed to publish data");
+      updateStepStatus(3, "error", error.message || "Publishing failed");
+      showError(error.message || "Failed to publish for review");
     } finally {
       setIsPublishing(false);
     }
@@ -1104,242 +1061,34 @@ export default function FitmentRulesUpload() {
               </Text>
             </Alert>
 
-            {/* Continue to Transformation Button */}
+            {/* Continue to Validation Button */}
             <Group justify="flex-end" mt="md">
               <Button
                 leftSection={<IconChecks size={16} />}
-                onClick={() => {
+                onClick={async () => {
+                  // Transformation happens automatically in backend
+                  try {
+                    await handleTransform();
+                  } catch (error) {
+                    console.error("Transformation error:", error);
+                  }
                   setActiveStep(2);
-                  handleTransform();
+                  await handleValidation();
                 }}
                 disabled={isProcessing}
                 loading={isProcessing && activeStep === 2}
                 size="md"
                 color="blue"
               >
-                Continue to Transformation
+                Continue to Validation
               </Button>
             </Group>
           </Stack>
         </Card>
       )}
 
-      {/* Transformation Step */}
-      {activeStep === 2 && (
-        <Card withBorder padding="lg" radius="md">
-          <Stack gap="md">
-            <Group justify="space-between">
-              <div>
-                <Title order={4} mb="xs">
-                  2. Data Transformation
-                </Title>
-                <Text size="sm" c="dimmed">
-                  {transformationResult
-                    ? "Data has been transformed and standardized"
-                    : "Transforming data (splitting year ranges, standardizing units, extracting attributes...)"}
-                </Text>
-              </div>
-            </Group>
-
-            {isProcessing && !transformationResult && (
-              <Center p="xl">
-                <Loader size="lg" />
-                <Text mt="md" size="sm" c="dimmed">
-                  Processing transformations...
-                </Text>
-              </Center>
-            )}
-
-            {transformationResult && (
-              <>
-                <Group>
-                  <Paper p="md" withBorder style={{ flex: 1 }}>
-                    <Stack gap="xs">
-                      <Text size="sm" c="dimmed">
-                        Original Rows
-                      </Text>
-                      <Text size="xl" fw={700}>
-                        {transformationResult.originalRows}
-                      </Text>
-                    </Stack>
-                  </Paper>
-                  <Paper p="md" withBorder style={{ flex: 1 }}>
-                    <Stack gap="xs">
-                      <Text size="sm" c="dimmed">
-                        Transformed Rows
-                      </Text>
-                      <Text size="xl" fw={700} c="blue">
-                        {transformationResult.transformedRows}
-                      </Text>
-                    </Stack>
-                  </Paper>
-                  <Paper p="md" withBorder style={{ flex: 1 }}>
-                    <Stack gap="xs">
-                      <Text size="sm" c="dimmed">
-                        Transformations Applied
-                      </Text>
-                      <Text size="xl" fw={700} c="green">
-                        {transformationResult.transformationsApplied}
-                      </Text>
-                    </Stack>
-                  </Paper>
-                </Group>
-
-                {transformationResult.transformations &&
-                  transformationResult.transformations.length > 0 && (
-                    <Card withBorder padding="md" radius="md">
-                      <Title order={5} mb="md">
-                        Transformations Applied
-                      </Title>
-                      <ScrollArea h={200}>
-                        <Stack gap="xs">
-                          {transformationResult.transformations
-                            .slice(0, 20)
-                            .map((t: any, idx: number) => (
-                              <Paper key={idx} p="xs" withBorder>
-                                <Group gap="xs">
-                                  <Badge size="sm" color="blue" variant="light">
-                                    {t.type}
-                                  </Badge>
-                                  <Text size="sm">
-                                    {t.type === "year_range_split" && (
-                                      <>
-                                        Row {t.row}: Split "{t.original}" into{" "}
-                                        {t.split_into.length} years
-                                      </>
-                                    )}
-                                    {t.type === "position_extraction" && (
-                                      <>
-                                        Row {t.row}: Extracted "{t.extracted}"
-                                        from {t.field}
-                                      </>
-                                    )}
-                                    {t.type === "unit_conversion" && (
-                                      <>
-                                        Row {t.row}: Converted {t.from} to{" "}
-                                        {t.to}
-                                      </>
-                                    )}
-                                    {t.type === "attribute_split" && (
-                                      <>
-                                        Row {t.row}: Split {t.field} into
-                                        separate attributes
-                                      </>
-                                    )}
-                                    {t.type === "part_number_consolidation" && (
-                                      <>
-                                        Row {t.row}: Consolidated from{" "}
-                                        {t.source} to {t.target}
-                                      </>
-                                    )}
-                                  </Text>
-                                </Group>
-                              </Paper>
-                            ))}
-                        </Stack>
-                      </ScrollArea>
-                    </Card>
-                  )}
-
-                {/* Extraction/Inference Metadata Display */}
-                {transformationResult.extractionMetadata &&
-                  transformationResult.extractionMetadata.extraction_summary &&
-                  Object.keys(
-                    transformationResult.extractionMetadata.extraction_summary
-                  ).length > 0 && (
-                    <Card
-                      withBorder
-                      padding="md"
-                      radius="md"
-                      style={{ backgroundColor: "#f0f9ff" }}
-                    >
-                      <Group mb="md" align="center">
-                        <IconBrain size={20} color="#2563eb" />
-                        <Title order={5}>Data Extraction & Inference</Title>
-                        <Badge color="blue" variant="light">
-                          {transformationResult.extractionMetadata
-                            .extracted_fields?.length || 0}{" "}
-                          fields extracted
-                        </Badge>
-                      </Group>
-                      <Text size="sm" c="dimmed" mb="md">
-                        The AI extracted missing data from descriptions and
-                        other columns to handle messy input formats.
-                      </Text>
-                      <Stack gap="sm">
-                        {Object.entries(
-                          transformationResult.extractionMetadata
-                            .extraction_summary
-                        ).map(([field, summary]: [string, any]) => (
-                          <Paper
-                            key={field}
-                            p="sm"
-                            withBorder
-                            style={{ backgroundColor: "white" }}
-                          >
-                            <Group justify="space-between" align="flex-start">
-                              <div style={{ flex: 1 }}>
-                                <Group gap="xs" mb="xs">
-                                  <Badge
-                                    color="green"
-                                    variant="light"
-                                    size="sm"
-                                  >
-                                    {field}
-                                  </Badge>
-                                  <Text size="sm" fw={500}>
-                                    {summary.count}{" "}
-                                    {summary.count === 1
-                                      ? "extraction"
-                                      : "extractions"}
-                                  </Text>
-                                </Group>
-                                <Stack gap={4}>
-                                  <Text size="xs" c="dimmed">
-                                    Methods:{" "}
-                                    {summary.methods?.join(", ") || "N/A"}
-                                  </Text>
-                                  <Text size="xs" c="dimmed">
-                                    Sources:{" "}
-                                    {summary.sources?.slice(0, 3).join(", ") ||
-                                      "N/A"}
-                                    {summary.sources?.length > 3 &&
-                                      ` (+${summary.sources.length - 3} more)`}
-                                  </Text>
-                                </Stack>
-                              </div>
-                            </Group>
-                          </Paper>
-                        ))}
-                      </Stack>
-                    </Card>
-                  )}
-
-                {/* Continue to Validation Button */}
-                <Group justify="flex-end" mt="md">
-                  <Button
-                    leftSection={<IconChecks size={16} />}
-                    onClick={async () => {
-                      setActiveStep(3);
-                      // Small delay to show the validation step UI
-                      await new Promise((resolve) => setTimeout(resolve, 300));
-                      await handleValidation();
-                    }}
-                    disabled={isProcessing}
-                    size="md"
-                    color="blue"
-                  >
-                    Continue to Validation
-                  </Button>
-                </Group>
-              </>
-            )}
-          </Stack>
-        </Card>
-      )}
-
       {/* Validation Step */}
-      {activeStep === 3 && (
+      {activeStep === 2 && (
         <Card withBorder padding="lg" radius="md">
           <Stack gap="md">
             <Group justify="space-between">
@@ -1374,7 +1123,7 @@ export default function FitmentRulesUpload() {
                 <Button
                   leftSection={<IconChecks size={16} />}
                   onClick={() => {
-                    setActiveStep(4);
+                    setActiveStep(3);
                   }}
                   color="blue"
                   size="md"
@@ -1388,7 +1137,7 @@ export default function FitmentRulesUpload() {
       )}
 
       {/* Review Step */}
-      {activeStep >= 4 && (
+      {activeStep >= 3 && (
         <Card withBorder padding="lg" radius="md">
           <Stack gap="md">
             <Group justify="space-between">
@@ -2023,32 +1772,62 @@ export default function FitmentRulesUpload() {
                 <Group justify="space-between" mt="md">
                   <Button
                     variant="light"
-                    color="gray"
-                    onClick={() => {
-                      setActiveStep(1);
-                    }}
-                    disabled={isPublishing}
-                  >
-                    Back to Mappings
-                  </Button>
-                  {!publishResult && (
-                    <Button
-                      leftSection={<IconCheck size={16} />}
-                      color="green"
-                      onClick={() => handlePublish(false)}
-                      disabled={
-                        (reviewData?.errors && reviewData.errors.length > 0) ||
-                        isPublishing
+                    color="red"
+                    leftSection={<IconFileSpreadsheet size={16} />}
+                    onClick={async () => {
+                      if (!uploadId) return;
+                      try {
+                        const response =
+                          await fitmentRulesService.exportInvalidRows(uploadId);
+                        const blob = new Blob([response.data], {
+                          type: "text/csv",
+                        });
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement("a");
+                        link.href = url;
+                        link.download = `invalid_rows_${uploadId}.csv`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        window.URL.revokeObjectURL(url);
+                        showSuccess("Invalid rows exported successfully");
+                      } catch (error: any) {
+                        showError(
+                          error.message || "Failed to export invalid rows"
+                        );
                       }
-                      loading={isPublishing}
+                    }}
+                    disabled={
+                      !reviewData?.errors || reviewData.errors.length === 0
+                    }
+                  >
+                    Export Invalid Rows
+                  </Button>
+                  <Group>
+                    <Button
+                      variant="light"
+                      color="gray"
+                      onClick={() => {
+                        setActiveStep(1);
+                      }}
+                      disabled={isPublishing}
                     >
-                      {isPublishing
-                        ? "Publishing..."
-                        : reviewData?.errors && reviewData.errors.length > 0
-                        ? "Fix Errors First"
-                        : "Complete & Publish"}
+                      Back to Mappings
                     </Button>
-                  )}
+                    {!publishResult && (
+                      <Button
+                        leftSection={<IconCheck size={16} />}
+                        color="blue"
+                        onClick={() => handlePublish()}
+                        disabled={isPublishing}
+                        loading={isPublishing}
+                      >
+                        {isPublishing
+                          ? "Publishing for Review..."
+                          : "Publish for Review"}
+                      </Button>
+                    )}
+                  </Group>
                 </Group>
               </Stack>
             ) : (

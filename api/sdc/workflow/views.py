@@ -3063,3 +3063,578 @@ def apply_fitments_batch(request):
         except Exception:
             continue
     return Response({"created": created})
+
+
+@api_view(["POST"])
+def publish_for_review(request, upload_id: str):
+    """
+    Publish data for review - creates a job with 'pending' status instead of loading to DB.
+    The data will be reviewed and approved later.
+    """
+    upload = Upload.objects.get(id=upload_id)
+    
+    # Get tenant
+    try:
+        tenant_obj = get_tenant_from_request(request)
+    except Http404:
+        tenant_obj = upload.tenant if upload.tenant_id else Tenant.objects.filter(slug="default").first()
+    
+    if not tenant_obj:
+        return Response(
+            {"error": "No tenant found. Cannot publish data without a tenant."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Create job with 'pending' status
+    job = Job.objects.create(
+        tenant_id=str(tenant_obj.id),
+        upload_id=upload.id,
+        job_type="publish",
+        status="pending",
+        params={
+            "dataType": upload.preflight_report.get("dataType", "fitments") if upload.preflight_report else "fitments",
+        },
+    )
+    
+    # Store validation results and normalization results in job.result for review
+    validation_job = Job.objects.filter(
+        upload_id=upload.id,
+        job_type="vcdb-validate",
+        status="completed"
+    ).order_by("-created_at").first()
+    
+    normalization_results = NormalizationResult.objects.filter(
+        upload_id=upload.id
+    ).order_by("row_index")
+    
+    # Store review data in job.result
+    review_data = {
+        "totalRows": normalization_results.count() if normalization_results.exists() else 0,
+        "validRows": 0,
+        "invalidRows": 0,
+        "errors": [],
+        "normalizationResults": [],
+    }
+    
+    if validation_job and validation_job.result:
+        review_data["errors"] = validation_job.result.get("errors", [])
+        review_data["validRows"] = validation_job.result.get("validRows", 0)
+        review_data["invalidRows"] = len(review_data["errors"])
+    
+    # Store normalization results metadata (not full data to avoid huge JSON)
+    if normalization_results.exists():
+        review_data["normalizationResults"] = [
+            {
+                "id": str(nr.id),
+                "rowIndex": nr.row_index,
+                "status": nr.status,
+                "confidence": nr.confidence,
+            }
+            for nr in normalization_results[:1000]  # Limit to first 1000 for metadata
+        ]
+    
+    job.result = review_data
+    job.save()
+    
+    return Response({
+        "id": str(job.id),
+        "jobId": str(job.id),
+        "status": job.status,
+        "message": "Job created for review",
+        "totalRows": review_data["totalRows"],
+        "validRows": review_data["validRows"],
+        "invalidRows": review_data["invalidRows"],
+    })
+
+
+@api_view(["GET"])
+def export_invalid_rows(request, upload_id: str):
+    """
+    Export invalid rows from validation as CSV.
+    """
+    import pandas as pd
+    from django.http import HttpResponse
+    
+    upload = Upload.objects.get(id=upload_id)
+    
+    # Get validation job
+    validation_job = Job.objects.filter(
+        upload_id=upload.id,
+        job_type="vcdb-validate",
+        status="completed"
+    ).order_by("-created_at").first()
+    
+    if not validation_job or not validation_job.result:
+        return Response(
+            {"error": "No validation results found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    errors = validation_job.result.get("errors", [])
+    if not errors:
+        return Response(
+            {"error": "No invalid rows found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    # Get error row indices
+    error_row_indices = set()
+    for error in errors:
+        row_num = error.get("row")
+        if row_num and row_num > 0:
+            error_row_indices.add(row_num - 2)  # Convert to 0-based index
+    
+    # Read the original file
+    if upload.file_format == "xlsx":
+        df = pd.read_excel(upload.storage_url)
+    else:
+        delimiter = upload.preflight_report.get("delimiter", ",") if upload.preflight_report else ","
+        encoding = upload.preflight_report.get("encoding", "utf-8") if upload.preflight_report else "utf-8"
+        df = pd.read_csv(upload.storage_url, delimiter=delimiter, encoding=encoding)
+    
+    # Filter to only error rows
+    invalid_df = df[df.index.isin(error_row_indices)].copy()
+    
+    # Add error messages as a column
+    error_messages = {}
+    for error in errors:
+        row_idx = error.get("row", 0) - 2
+        if row_idx in error_messages:
+            error_messages[row_idx] += "; " + str(error.get("message", ""))
+        else:
+            error_messages[row_idx] = str(error.get("message", ""))
+    
+    invalid_df["_error_message"] = invalid_df.index.map(lambda x: error_messages.get(x, ""))
+    
+    # Convert to CSV
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="invalid_rows_{upload_id}.csv"'
+    invalid_df.to_csv(response, index=False)
+    return response
+
+
+@api_view(["GET"])
+def get_job_review_data(request, job_id: str):
+    """
+    Get original and AI-generated rows for a job review.
+    """
+    import pandas as pd
+    import traceback
+    
+    try:
+        # Get tenant from request for filtering
+        try:
+            tenant = get_tenant_from_request(request)
+            job = Job.objects.get(id=job_id, tenant=tenant)
+        except Http404:
+            # If tenant not found in header, try without tenant filter
+            job = Job.objects.get(id=job_id)
+        except Job.DoesNotExist:
+            return Response(
+                {"error": "Job not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+    except Job.DoesNotExist:
+        return Response(
+            {"error": "Job not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        print(f"Error getting job: {str(e)}")
+        traceback.print_exc()
+        return Response(
+            {"error": f"Error getting job: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    
+    try:
+        upload = job.upload
+        if not upload:
+            return Response(
+                {"error": "Upload not found for this job"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+    except Exception as e:
+        print(f"Error getting upload: {str(e)}")
+        traceback.print_exc()
+        return Response(
+            {"error": f"Error getting upload: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    
+    # Get normalization results (these contain the AI-generated/mapped data)
+    try:
+        normalization_results = NormalizationResult.objects.filter(
+            upload_id=upload.id
+        ).order_by("row_index")
+        
+        # Create a mapping for faster lookup
+        nr_by_row_index = {nr.row_index: nr for nr in normalization_results}
+    except Exception as e:
+        print(f"Error getting normalization results: {str(e)}")
+        traceback.print_exc()
+        nr_by_row_index = {}
+    
+    # Read original file
+    try:
+        if upload.file_format == "xlsx":
+            original_df = pd.read_excel(upload.storage_url)
+        else:
+            delimiter = upload.preflight_report.get("delimiter", ",") if upload.preflight_report else ","
+            encoding = upload.preflight_report.get("encoding", "utf-8") if upload.preflight_report else "utf-8"
+            original_df = pd.read_csv(upload.storage_url, delimiter=delimiter, encoding=encoding)
+    except Exception as e:
+        print(f"Error reading file: {str(e)}")
+        traceback.print_exc()
+        return Response(
+            {"error": f"Failed to read original file: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    
+    # Get validation errors
+    try:
+        validation_job = Job.objects.filter(
+            upload_id=upload.id,
+            job_type="vcdb-validate",
+            status="completed"
+        ).order_by("-created_at").first()
+        
+        error_rows = set()
+        if validation_job and validation_job.result:
+            errors = validation_job.result.get("errors", [])
+            for error in errors:
+                row_num = error.get("row")
+                if row_num and row_num > 0:
+                    error_rows.add(row_num - 2)  # Convert to 0-based index
+    except Exception as e:
+        print(f"Error getting validation errors: {str(e)}")
+        traceback.print_exc()
+        error_rows = set()
+    
+    # Build response data
+    original_rows = []
+    ai_generated_rows = []
+    
+    try:
+        # Limit to first 1000 rows for performance
+        max_rows = min(1000, len(original_df))
+        
+        for idx in range(max_rows):
+            try:
+                # Original row - convert to dict and handle NaN values
+                original_row = original_df.iloc[idx].to_dict()
+                # Convert NaN/None to empty strings for JSON serialization
+                for key, value in original_row.items():
+                    try:
+                        if value is None:
+                            original_row[key] = ""
+                        elif isinstance(value, float) and (pd.isna(value) or str(value) == 'nan'):
+                            original_row[key] = ""
+                        elif pd.isna(value):
+                            original_row[key] = ""
+                        else:
+                            # Convert to string for JSON serialization, but keep numbers as numbers
+                            if isinstance(value, (int, float, bool)):
+                                original_row[key] = value
+                            else:
+                                original_row[key] = str(value) if value is not None else ""
+                    except Exception:
+                        # If any error occurs, just convert to string
+                        original_row[key] = str(value) if value is not None else ""
+                
+                original_row["_row_index"] = idx + 1
+                original_row["_has_error"] = idx in error_rows
+                original_rows.append(original_row)
+                
+                # AI-generated row (from normalization result)
+                row_index_1_based = idx + 1
+                nr = nr_by_row_index.get(row_index_1_based)
+                
+                if nr and nr.mapped_entities:
+                    ai_row = nr.mapped_entities.copy()
+                    # Ensure all values are JSON-serializable
+                    for key, value in ai_row.items():
+                        try:
+                            if value is None:
+                                ai_row[key] = ""
+                            elif isinstance(value, float) and (pd.isna(value) or str(value) == 'nan'):
+                                ai_row[key] = ""
+                            elif isinstance(value, (str, int, float, bool, list, dict)):
+                                # These types are already JSON-serializable
+                                ai_row[key] = value
+                            else:
+                                # Convert other types to string
+                                ai_row[key] = str(value) if value is not None else ""
+                        except Exception:
+                            # If any error occurs, just convert to string
+                            ai_row[key] = str(value) if value is not None else ""
+                    
+                    ai_row["_row_index"] = row_index_1_based
+                    ai_row["_confidence"] = float(nr.confidence) if nr.confidence else 0.0
+                    ai_row["_status"] = str(nr.status) if nr.status else "pending"
+                    ai_row["_normalization_result_id"] = str(nr.id)
+                    ai_generated_rows.append(ai_row)
+                else:
+                    # If no normalization result, use original row
+                    ai_row = original_row.copy()
+                    ai_row["_confidence"] = 0.0
+                    ai_row["_status"] = "pending"
+                    ai_row["_normalization_result_id"] = None
+                    ai_generated_rows.append(ai_row)
+            except Exception as e:
+                print(f"Error processing row {idx}: {str(e)}")
+                traceback.print_exc()
+                # Continue with next row
+                continue
+        
+        return Response({
+            "jobId": str(job.id),
+            "dataType": upload.preflight_report.get("dataType", "fitments") if upload.preflight_report else "fitments",
+            "originalRows": original_rows,
+            "aiGeneratedRows": ai_generated_rows,
+            "totalRows": len(original_df),
+            "errorRows": list(error_rows),
+        })
+    except Exception as e:
+        print(f"Error building response: {str(e)}")
+        traceback.print_exc()
+        return Response(
+            {"error": f"Error building response: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(["POST"])
+def approve_job_rows(request, job_id: str):
+    """
+    Approve selected rows from a job and load them to the database.
+    """
+    try:
+        job = Job.objects.get(id=job_id)
+    except Job.DoesNotExist:
+        return Response(
+            {"error": "Job not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    if job.status != "pending":
+        return Response(
+            {"error": f"Job status is {job.status}, only pending jobs can be approved"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    approved_row_ids = request.data.get("approvedRowIds", [])
+    if not approved_row_ids:
+        return Response(
+            {"error": "No rows selected for approval"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    upload = job.upload
+    data_type = job.params.get("dataType", "fitments") if job.params else "fitments"
+    
+    # Get tenant
+    tenant_obj = job.tenant if job.tenant_id else Tenant.objects.filter(slug="default").first()
+    if not tenant_obj:
+        return Response(
+            {"error": "No tenant found"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Get normalization results for approved rows
+    approved_nr_ids = [uuid.UUID(rid) for rid in approved_row_ids if rid]
+    normalization_results = NormalizationResult.objects.filter(
+        id__in=approved_nr_ids,
+        upload_id=upload.id
+    )
+    
+    created_count = 0
+    error_count = 0
+    
+    if data_type == "fitments":
+        from fitments.models import Fitment
+        
+        for nr in normalization_results:
+            try:
+                mapped_entities = nr.mapped_entities or {}
+                if not mapped_entities:
+                    continue
+                
+                # Extract required fields (same logic as publish function)
+                part_id = str(mapped_entities.get("partId", "")).strip()
+                if not part_id:
+                    part_id = str(mapped_entities.get("part_id", "")).strip()
+                if not part_id:
+                    part_id = str(mapped_entities.get("partNumber", "")).strip()
+                if not part_id:
+                    continue
+                
+                year_val = mapped_entities.get("year", "")
+                if not year_val:
+                    continue
+                
+                year_str = str(year_val).strip()
+                if "-" in year_str:
+                    try:
+                        year = int(year_str.split("-")[0].strip())
+                    except:
+                        continue
+                else:
+                    try:
+                        year = int(float(year_val))
+                    except:
+                        continue
+                
+                make_name = str(mapped_entities.get("makeName", "")).strip()
+                if not make_name:
+                    make_name = str(mapped_entities.get("make", "")).strip()
+                
+                model_name = str(mapped_entities.get("modelName", "")).strip()
+                if not model_name:
+                    model_name = str(mapped_entities.get("model", "")).strip()
+                
+                if not make_name or not model_name:
+                    continue
+                
+                # Normalize make/model
+                make_name = make_name.title()
+                known_uppercase_makes = ["KIA", "BMW", "AUDI", "ACURA", "INFINITI", "LEXUS", "AC"]
+                if make_name.upper() in known_uppercase_makes:
+                    make_name = make_name.upper()
+                
+                model_name = model_name.title()
+                if "-" in model_name:
+                    parts = model_name.split("-")
+                    model_name = "-".join([p.title() if p else "" for p in parts])
+                
+                position_val = str(mapped_entities.get("position", "")).strip() or "Front"
+                position_id = int(mapped_entities.get("positionId", 1)) if mapped_entities.get("positionId") else 1
+                
+                source_metadata = {
+                    "uploadId": str(upload.id),
+                    "uploadFilename": upload.filename,
+                    "normalizationResultId": str(nr.id),
+                    "rowIndex": nr.row_index,
+                    "approvedAt": timezone.now().isoformat(),
+                    "dataType": data_type,
+                    "jobId": str(job.id),
+                }
+                
+                fitment_notes = f"Approved from upload {upload.filename} ({upload.id}), row {nr.row_index}"
+                
+                fitment = Fitment(
+                    tenant=tenant_obj,
+                    partId=part_id,
+                    year=year,
+                    makeName=make_name,
+                    modelName=model_name,
+                    subModelName=str(mapped_entities.get("submodel", "")).strip() or "",
+                    driveTypeName=str(mapped_entities.get("driveType", "")).strip() or "",
+                    fuelTypeName=str(mapped_entities.get("engine", "")).strip() or "",
+                    bodyNumDoors=int(mapped_entities.get("bodyNumDoors", 0)) if mapped_entities.get("bodyNumDoors") else 0,
+                    bodyTypeName=str(mapped_entities.get("body", "")).strip() or "",
+                    ptid=str(mapped_entities.get("ptid", "")).strip() or "0",
+                    partTypeDescriptor=str(mapped_entities.get("productType", "")).strip() or "",
+                    uom="EA",
+                    quantity=int(mapped_entities.get("quantity", 1)) if mapped_entities.get("quantity") else 1,
+                    fitmentTitle=f"{year} {make_name} {model_name} - {part_id}",
+                    fitmentDescription=str(mapped_entities.get("description", "")).strip() or "",
+                    fitmentNotes=fitment_notes,
+                    position=position_val,
+                    positionId=position_id,
+                    liftHeight=str(mapped_entities.get("liftHeight", "")).strip() or "",
+                    wheelType=str(mapped_entities.get("wheelType", "")).strip() or "",
+                    baseVehicleId=f"{year}_{make_name}_{model_name}",
+                    fitmentType="manual_fitment",
+                    createdBy="data_upload",
+                    updatedBy="data_upload",
+                    dynamicFields={
+                        "sourceUpload": source_metadata,
+                    },
+                )
+                fitment.save()
+                created_count += 1
+                
+                # Mark normalization result as approved
+                nr.status = "approved"
+                nr.save()
+                
+            except Exception as e:
+                error_count += 1
+                print(f"Error creating fitment from NormalizationResult {nr.id}: {str(e)}")
+                continue
+    
+    elif data_type == "products":
+        from data_uploads.models import ProductData
+        
+        for nr in normalization_results:
+            try:
+                mapped_entities = nr.mapped_entities or {}
+                if not mapped_entities:
+                    continue
+                
+                part_id = str(mapped_entities.get("partId", "")).strip()
+                if not part_id:
+                    part_id = str(mapped_entities.get("part_id", "")).strip()
+                if not part_id:
+                    part_id = str(mapped_entities.get("partNumber", "")).strip()
+                if not part_id:
+                    part_id = str(mapped_entities.get("sku", "")).strip()
+                if not part_id:
+                    continue
+                
+                description = str(mapped_entities.get("description", "")).strip()
+                if not description:
+                    description = str(mapped_entities.get("partName", "")).strip()
+                if not description:
+                    description = part_id
+                
+                specifications = {}
+                for key, value in mapped_entities.items():
+                    if key not in ["partId", "part_id", "partNumber", "sku", "description", "partName", "name"]:
+                        if value:
+                            specifications[key] = value
+                
+                product = ProductData(
+                    tenant=tenant_obj,
+                    part_id=part_id,
+                    description=description,
+                    specifications=specifications,
+                    source_upload_id=str(upload.id),
+                    source_metadata={
+                        "normalizationResultId": str(nr.id),
+                        "rowIndex": nr.row_index,
+                        "approvedAt": timezone.now().isoformat(),
+                        "jobId": str(job.id),
+                    },
+                )
+                product.save()
+                created_count += 1
+                
+                # Mark normalization result as approved
+                nr.status = "approved"
+                nr.save()
+                
+            except Exception as e:
+                error_count += 1
+                print(f"Error creating product from NormalizationResult {nr.id}: {str(e)}")
+                continue
+    
+    # Update job status
+    job.status = "published"
+    job.finished_at = timezone.now()
+    job.result = {
+        **(job.result or {}),
+        "approvedCount": created_count,
+        "errorCount": error_count,
+        "publishedAt": timezone.now().isoformat(),
+    }
+    job.save()
+    
+    return Response({
+        "message": "Rows approved and loaded to database",
+        "approvedCount": created_count,
+        "errorCount": error_count,
+        "jobId": str(job.id),
+        "status": job.status,
+    })

@@ -21,7 +21,7 @@ from tenants.views import TenantListCreateView, TenantDetailView, get_current_te
 from tenants.views_auth import login_view, logout_view, current_user_view, user_roles_view, refresh_token_view
 # from vcdb.views import version, year_range, configurations  # These views don't exist in the new VCDB implementation
 from fitments.views import export_fitments_advanced_csv, export_fitments_advanced_xlsx, fitments_root, coverage, property_values, validate, submit, export_csv, coverage_export, export_ai_fitments, ai_fitments_list, applied_fitments_list, fitment_filter_options, fitment_detail, update_fitment, delete_fitment, validate_fitments_csv, submit_validated_fitments, get_validation_results, detailed_coverage, coverage_trends, coverage_gaps, get_potential_fitments, get_parts_with_fitments, apply_potential_fitments, analytics_dashboard, approve_fitments, reject_fitments, bulk_delete_fitments
-from workflow.views import uploads as wf_uploads, ai_map, transform_data, vcdb_validate, review_queue, review_actions, publish, download_published_file, presets as wf_presets, preset_detail, ai_fitments, apply_fitments_batch, fitment_rules_upload, job_history
+from workflow.views import uploads as wf_uploads, ai_map, transform_data, vcdb_validate, review_queue, review_actions, publish, download_published_file, presets as wf_presets, preset_detail, ai_fitments, apply_fitments_batch, fitment_rules_upload, job_history, publish_for_review, export_invalid_rows, get_job_review_data, approve_job_rows
 
 
 
@@ -84,7 +84,11 @@ urlpatterns = [
     path('api/uploads/<str:upload_id>/transform', transform_data),
     path('api/uploads/<str:upload_id>/vcdb-validate', vcdb_validate),
     path('api/uploads/<str:upload_id>/publish', publish),
+    path('api/uploads/<str:upload_id>/publish-for-review', publish_for_review),
+    path('api/uploads/<str:upload_id>/export-invalid-rows', export_invalid_rows),
     path('api/uploads/<str:upload_id>/download', download_published_file),
+    path('api/workflow/jobs/<str:job_id>/review-data', get_job_review_data),
+    path('api/workflow/jobs/<str:job_id>/approve', approve_job_rows),
     # Fitment Rules Upload (local storage only)
     path('api/fitment-rules/upload', fitment_rules_upload),
     # Job History
