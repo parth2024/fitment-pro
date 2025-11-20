@@ -1534,16 +1534,16 @@ BP-12345-REAR,Brake Pad Rear,Rear brake pad only. Material: Ceramic, Color: Blac
                 )}
 
                 {/* AI Recommendations with Transparent Scoring */}
-                {loadingRecommendations && (
+                {/* {loadingRecommendations && (
                   <Card withBorder p="md">
                     <Group>
                       <Loader size="sm" />
                       <Text size="sm">Loading AI recommendations...</Text>
                     </Group>
                   </Card>
-                )}
+                )} */}
 
-                {!loadingRecommendations &&
+                {/* {!loadingRecommendations &&
                   Object.keys(recommendations).length > 0 && (
                     <Card
                       withBorder
@@ -1669,7 +1669,6 @@ BP-12345-REAR,Brake Pad Rear,Rear brake pad only. Material: Ceramic, Color: Blac
                                           )}
                                       </Group>
 
-                                      {/* Expanded Details with Source Evidence */}
                                       {isExpanded &&
                                         config.sourceEvidence &&
                                         config.sourceEvidence.length > 0 && (
@@ -1682,7 +1681,6 @@ BP-12345-REAR,Brake Pad Rear,Rear brake pad only. Material: Ceramic, Color: Blac
                                             }}
                                           >
                                             <Stack gap="sm">
-                                              {/* Confidence Breakdown */}
                                               {config.confidenceBreakdown && (
                                                 <Paper
                                                   p="xs"
@@ -1781,7 +1779,6 @@ BP-12345-REAR,Brake Pad Rear,Rear brake pad only. Material: Ceramic, Color: Blac
                                                 </Paper>
                                               )}
 
-                                              {/* Source Evidence */}
                                               <div>
                                                 <Text
                                                   size="xs"
@@ -1930,7 +1927,6 @@ BP-12345-REAR,Brake Pad Rear,Rear brake pad only. Material: Ceramic, Color: Blac
                                                 </Stack>
                                               </div>
 
-                                              {/* Explanation */}
                                               {config.explanation && (
                                                 <Paper
                                                   p="xs"
@@ -1963,7 +1959,7 @@ BP-12345-REAR,Brake Pad Rear,Rear brake pad only. Material: Ceramic, Color: Blac
                         )}
                       </Stack>
                     </Card>
-                  )}
+                  )} */}
 
                 {/* Success Message */}
                 {(!reviewData.errors || reviewData.errors.length === 0) && (
