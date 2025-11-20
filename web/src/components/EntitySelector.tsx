@@ -10,12 +10,12 @@ import {
   Loader,
   Alert,
   Menu,
-  ActionIcon,
+  // ActionIcon,
   TextInput,
 } from "@mantine/core";
 import {
   IconBuilding,
-  IconRefresh,
+  // IconRefresh,
   IconInfoCircle,
   IconPlus,
   IconSettings,
@@ -408,9 +408,9 @@ export const EntitySelector: React.FC<EntitySelectorProps> = ({
     }
   };
 
-  const handleRefresh = () => {
-    fetchEntities();
-  };
+  // const handleRefresh = () => {
+  //   fetchEntities();
+  // };
 
   // // Debug function to check localStorage
   // const debugLocalStorage = () => {
@@ -601,7 +601,7 @@ export const EntitySelector: React.FC<EntitySelectorProps> = ({
             </Menu.Dropdown>
           </Menu>
 
-          <ActionIcon
+          {/* <ActionIcon
             variant="subtle"
             size="sm"
             onClick={handleRefresh}
@@ -609,7 +609,7 @@ export const EntitySelector: React.FC<EntitySelectorProps> = ({
             style={{ borderRadius: "6px" }}
           >
             {switching ? <Loader size={14} /> : <IconRefresh size={16} />}
-          </ActionIcon>
+          </ActionIcon> */}
         </Group>
 
         {/* Create Entity Modal */}
@@ -637,9 +637,9 @@ export const EntitySelector: React.FC<EntitySelectorProps> = ({
                 Current Entity
               </Text>
             </Group>
-            <Button variant="subtle" size="xs" onClick={handleRefresh}>
+            {/* <Button variant="subtle" size="xs" onClick={handleRefresh}>
               <IconRefresh size={14} />
-            </Button>
+            </Button> */}
           </Group>
 
           {currentEntity ? (

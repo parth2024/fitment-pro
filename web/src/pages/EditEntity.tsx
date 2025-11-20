@@ -108,17 +108,17 @@ interface FitmentJob {
 
 // VCDB Field Options
 
-const VCDB_REQUIRED_FIELDS = [
-  "Part Number",
-  // "Year (model year)",
-  // "Make (manufacturer, e.g., Ford, Toyota)",
-  // "Model (e.g., F-150, Camry)",
-  // "Submodel / Trim (e.g., XLT, Limited, SE)",
-  // "Body Type (e.g., Sedan, SUV, Pickup)",
-  // "Body Number of Doors (2-door, 4-door, etc.)",
-  // "Drive Type (FWD, RWD, AWD, 4WD)",
-  // "Fuel Type (Gasoline, Diesel, Hybrid, Electric)",
-];
+// const VCDB_REQUIRED_FIELDS = [
+//   "Part Number",
+//   // "Year (model year)",
+//   // "Make (manufacturer, e.g., Ford, Toyota)",
+//   // "Model (e.g., F-150, Camry)",
+//   // "Submodel / Trim (e.g., XLT, Limited, SE)",
+//   // "Body Type (e.g., Sedan, SUV, Pickup)",
+//   // "Body Number of Doors (2-door, 4-door, etc.)",
+//   // "Drive Type (FWD, RWD, AWD, 4WD)",
+//   // "Fuel Type (Gasoline, Diesel, Hybrid, Electric)",
+// ];
 
 const VCDB_OPTIONAL_FIELDS = [
   // "Engine Base (engine code or family ID)",
@@ -141,6 +141,7 @@ const VCDB_OPTIONAL_FIELDS = [
   "Body Number of Doors (2-door, 4-door, etc.)",
   "Drive Type (FWD, RWD, AWD, 4WD)",
   "Fuel Type (Gas)",
+  "Transmission Code",
 ];
 
 const REQUIRED_PRODUCT_FIELDS = [
@@ -771,6 +772,7 @@ const EditEntity: React.FC = () => {
                 >
                   Part Rules
                 </Tabs.Tab>
+                <Tabs.Tab value="data-upload">Data Upload</Tabs.Tab>
               </Tabs.List>
 
               <Tabs.Panel value="basic">
@@ -1011,7 +1013,7 @@ const EditEntity: React.FC = () => {
                         background: "#2563eb",
                       }}
                     >
-                      Save Basic Info
+                      Save
                     </Button>
                   </Group>
                 </Stack>
@@ -1065,7 +1067,7 @@ const EditEntity: React.FC = () => {
                       <MultiSelect
                         label="Source to VCDB identifier Field(s)"
                         placeholder="Select required fields"
-                        data={VCDB_REQUIRED_FIELDS}
+                        data={VCDB_OPTIONAL_FIELDS}
                         value={formData.required_vcdb_fields}
                         onChange={(value) =>
                           setFormData({
@@ -1130,26 +1132,22 @@ const EditEntity: React.FC = () => {
                         background: "#2563eb",
                       }}
                     >
-                      Save VCDB Config
+                      Save
                     </Button>
                   </Group>
+                </Stack>
+              </Tabs.Panel>
 
-                  {/* Divider */}
-                  <div
-                    style={{
-                      marginTop: "2rem",
-                      marginBottom: "1rem",
-                      borderTop: "2px solid #e5e7eb",
-                      paddingTop: "2rem",
-                    }}
-                  >
-                    <Title order={3} style={{ color: "#2c3e50" }}>
+              <Tabs.Panel value="data-upload">
+                <Stack gap="lg">
+                  <div>
+                    {/* <Title order={3} style={{ color: "#2c3e50" }}>
                       Data Upload & VCDB Mapping
                     </Title>
                     <Text size="sm" c="dimmed">
                       Upload your fitment or product files and let AI
                       automatically map columns to VCDB standards
-                    </Text>
+                    </Text> */}
                   </div>
 
                   {/* Fitment Rules Upload Component */}
@@ -1525,7 +1523,7 @@ const EditEntity: React.FC = () => {
                     </Accordion>
                   </div>
 
-                  <Group justify="flex-end" mt="md">
+                  <Group justify="center" mt="md">
                     <Button
                       leftSection={<IconDeviceFloppy size={18} />}
                       onClick={() => handleUpdate("product")}

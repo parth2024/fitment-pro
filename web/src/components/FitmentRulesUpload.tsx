@@ -31,9 +31,9 @@ import {
   IconFileSpreadsheet,
   IconBrain,
   IconInfoCircle,
-  IconDownload,
-  IconChevronDown,
-  IconChevronUp,
+  // IconDownload,
+  // IconChevronDown,
+  // IconChevronUp,
   IconEdit,
 } from "@tabler/icons-react";
 import { useProfessionalToast } from "../hooks/useProfessionalToast";
@@ -113,9 +113,8 @@ export default function FitmentRulesUpload() {
   const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([
     { step: 0, label: "Upload File", status: "pending" },
     { step: 1, label: "AI Mapping", status: "pending" },
-    { step: 2, label: "Transform Data", status: "pending" },
-    { step: 3, label: "Validation", status: "pending" },
-    { step: 4, label: "Review", status: "pending" },
+    { step: 2, label: "Validation", status: "pending" },
+    { step: 3, label: "Review & Finalize", status: "pending" },
   ]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -124,14 +123,13 @@ export default function FitmentRulesUpload() {
   const [reviewData, setReviewData] = useState<any>(null);
   const [publishResult, setPublishResult] = useState<any>(null);
   const [isPublishing, setIsPublishing] = useState(false);
-  const [transformationResult, setTransformationResult] = useState<any>(null);
-  const [recommendations, setRecommendations] = useState<Record<string, any[]>>(
-    {}
-  );
-  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
-  const [expandedRecommendations, setExpandedRecommendations] = useState<
-    Set<string>
-  >(new Set());
+  // const [recommendations, setRecommendations] = useState<Record<string, any[]>>(
+  //   {}
+  // );
+  // const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+  // const [expandedRecommendations, setExpandedRecommendations] = useState<
+  //   Set<string>
+  // >(new Set());
   const [editingMappingIndex, setEditingMappingIndex] = useState<number | null>(
     null
   );
@@ -191,7 +189,6 @@ export default function FitmentRulesUpload() {
     setUploadProgress(0);
     setPublishResult(null);
     setReviewData(null);
-    setTransformationResult(null);
     setIsProcessing(false);
     setIsPublishing(false);
     resetProcessingSteps();
@@ -201,9 +198,8 @@ export default function FitmentRulesUpload() {
     setProcessingSteps([
       { step: 0, label: "Upload File", status: "pending" },
       { step: 1, label: "AI Mapping", status: "pending" },
-      { step: 2, label: "Transform Data", status: "pending" },
-      { step: 3, label: "Validation", status: "pending" },
-      { step: 4, label: "Review", status: "pending" },
+      { step: 2, label: "Validation", status: "pending" },
+      { step: 3, label: "Review & Finalize", status: "pending" },
     ]);
   };
 
@@ -274,6 +270,11 @@ export default function FitmentRulesUpload() {
       // Trigger AI mapping with the upload ID directly
       await handleAiMappingWithId(newUploadId);
 
+      // Automatically trigger transformation after AI mapping (backend handles it)
+      // Then move to validation step
+      setActiveStep(2);
+      await handleValidation(newUploadId);
+
       setUploadProgress(100);
     } catch (error: any) {
       console.error("Upload error:", error);
@@ -326,8 +327,17 @@ export default function FitmentRulesUpload() {
         "completed",
         `Found ${mappings.length} column mappings`
       );
-      // Stay on step 1 (AI Mapping) so user can review mappings
-      // User will click "Continue to Transformation" to proceed to step 2
+
+      // Automatically trigger transformation (backend handles it silently)
+      try {
+        await fitmentRulesService.transform(idToUse);
+      } catch (error) {
+        console.error("Transformation error:", error);
+        // Continue anyway - transformation happens in backend
+      }
+
+      // Move to validation step
+      setActiveStep(2);
     } catch (error: any) {
       updateStepStatus(1, "error", error.message || "AI mapping failed");
       showError(error.message || "Failed to process AI mapping");
@@ -350,18 +360,21 @@ export default function FitmentRulesUpload() {
       const response = await fitmentRulesService.transform(uploadId);
       const result = response.data;
 
-      setTransformationResult(result);
       setUploadProgress(75);
       updateStepStatus(
         2,
         "completed",
-        `Transformed ${result.originalRows} → ${result.transformedRows} rows`
+        `Transformed ${result.originalRows || 0} → ${
+          result.transformedRows || 0
+        } rows`
       );
       showSuccess(
-        `Data transformation complete! ${result.transformationsApplied} transformations applied.`
+        `Data transformation complete! ${
+          result.transformationsApplied || 0
+        } transformations applied.`
       );
 
-      // Stay on transformation step - user will click "Continue to Validation" button
+      // Transformation happens automatically, move to validation
     } catch (error: any) {
       const errorMessage =
         error.response?.data?.error ||
@@ -376,22 +389,23 @@ export default function FitmentRulesUpload() {
     }
   };
 
-  const handleValidation = async () => {
-    if (!uploadId) {
+  const handleValidation = async (idToUse?: string) => {
+    const uploadIdToUse = idToUse || uploadId;
+    if (!uploadIdToUse) {
       showError("Please upload a file first.");
       return;
     }
 
     try {
       setIsProcessing(true);
-      updateStepStatus(3, "in_progress", "Validating against VCDB...");
+      updateStepStatus(2, "in_progress", "Validating against VCDB...");
       setUploadProgress(80);
 
-      const response = await fitmentRulesService.validate(uploadId);
+      const response = await fitmentRulesService.validate(uploadIdToUse);
       const results = response.data;
 
       setUploadProgress(90);
-      updateStepStatus(3, "completed", "Validation completed");
+      updateStepStatus(2, "completed", "Validation completed");
       // Stay on validation step - user will click "Continue to Review" button
       showSuccess("Validation completed successfully");
 
@@ -409,7 +423,7 @@ export default function FitmentRulesUpload() {
         results?.uniquePartIds &&
         results.uniquePartIds.length > 0
       ) {
-        setLoadingRecommendations(true);
+        // setLoadingRecommendations(true);
         try {
           const recommendationsMap: Record<string, any[]> = {};
 
@@ -433,15 +447,15 @@ export default function FitmentRulesUpload() {
             }
           }
 
-          setRecommendations(recommendationsMap);
+          // setRecommendations(recommendationsMap);
         } catch (error) {
           console.error("Failed to fetch recommendations:", error);
         } finally {
-          setLoadingRecommendations(false);
+          // setLoadingRecommendations(false);
         }
       }
     } catch (error: any) {
-      updateStepStatus(3, "error", error.message || "Validation failed");
+      updateStepStatus(2, "error", error.message || "Validation failed");
       showError(error.message || "Failed to validate file");
     } finally {
       setIsProcessing(false);
@@ -474,101 +488,44 @@ export default function FitmentRulesUpload() {
     );
   };
 
-  const handlePublish = async (autoPublish: boolean = false) => {
+  const handlePublish = async () => {
     if (!uploadId) {
       showError("No upload found. Please upload a file first.");
       return;
     }
 
-    if (!autoPublish && reviewData?.errors && reviewData.errors.length > 0) {
-      showError("Please fix validation errors before publishing.");
-      return;
-    }
-
     try {
       setIsPublishing(true);
-      updateStepStatus(4, "in_progress", "Loading data to database...");
+      updateStepStatus(3, "in_progress", "Creating review job...");
       setUploadProgress(95);
 
-      const response = await fitmentRulesService.publish(uploadId);
+      const response = await fitmentRulesService.publishForReview(uploadId);
       const result = response.data;
 
-      console.log("Publish response:", result);
-      console.log("Created count:", result.createdCount);
-      console.log("Error count:", result.errorCount);
+      console.log("Publish for review response:", result);
 
       setPublishResult(result);
       setUploadProgress(100);
-      const recordTypePlural =
-        dataType === "fitments" ? "fitments" : "products";
 
       updateStepStatus(
-        4,
+        3,
         "completed",
-        `Published ${result.result?.publishedCount || 0} records, Created ${
-          result.createdCount || 0
-        } ${recordTypePlural}`
+        `Job created with status: ${result.status || "pending"}`
       );
 
-      if (result.createdCount === 0 && result.errorCount > 0) {
-        showError(
-          `Publish completed but no ${recordTypePlural} were created. ${result.errorCount} errors occurred. Check console for details.`
-        );
-      } else if (result.createdCount > 0) {
-        showSuccess(
-          `✅ Successfully created ${
-            result.createdCount
-          } ${recordTypePlural} in the database! You can now view them in the ${
-            dataType === "fitments"
-              ? "Fitment Management"
-              : "Product Management"
-          } page.`
-        );
-      } else {
-        showSuccess(
-          `✅ Data processed successfully! ${
-            result.result?.publishedCount || 0
-          } records published.`
-        );
-      }
+      showSuccess(
+        `✅ Data published for review! Job ID: ${
+          result.jobId || result.id
+        }. Redirecting to Jobs History...`
+      );
 
-      // Download the file
-      try {
-        const downloadResponse = await fitmentRulesService.download(uploadId);
-        const blob = new Blob([downloadResponse.data], {
-          type: "text/csv",
-        });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = result.filename || "published_data.csv";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-
-        showSuccess(
-          `Successfully published ${
-            result.result?.publishedCount || 0
-          } records and downloaded file!`
-        );
-      } catch (downloadError: any) {
-        // If download fails, still show success for publish
-        showSuccess(
-          `Successfully published ${
-            result.result?.publishedCount || 0
-          } records to FitmentPro.ai!`
-        );
-        console.error("Download failed:", downloadError);
-      }
-
-      // Redirect to analytics page after successful publish
+      // Redirect to analytics page and scroll to Jobs History section
       setTimeout(() => {
-        navigate("/analytics");
+        navigate("/analytics?scrollToJobs=true");
       }, 1500);
     } catch (error: any) {
-      updateStepStatus(4, "error", error.message || "Publishing failed");
-      showError(error.message || "Failed to publish data");
+      updateStepStatus(3, "error", error.message || "Publishing failed");
+      showError(error.message || "Failed to publish for review");
     } finally {
       setIsPublishing(false);
     }
@@ -600,115 +557,115 @@ export default function FitmentRulesUpload() {
     }
   };
 
-  const handleDownloadExample = (type: string) => {
-    // Working Fitments Example - Has proper structure but tests AI extraction
-    // This file has Year, Make, Model in separate columns OR in descriptions (tests AI flexibility)
-    const fitmentsExample = `Year,Make,Model,Part Number,Product Description,Position,Engine,Submodel,Notes
-2023,Ford,F-150,SHK-001,Pro Performance Shock for 2023 Ford F-150 5.0L,FRONT,5.0L V8,Platinum,Heavy duty application
-2024,Chevrolet,Silverado 1500,SHK-003,Ultra Shock fits 2024 Chevy Silverado 1500 6.2L,FRONT,6.2L,LT,Standard replacement
-2023,Toyota,Tacoma,SHK-005,Economy Shock - 2023 Toyota Tacoma 2.7L I4,FRONT,2.7L I4,SR,Budget option
-2021,BMW,X5,BRK-001,Premium Brake Pad Set - 2021 BMW X5 3.0L I6 M50i,FRONT,3.0L I6,M50i,Ceramic pads
-2011,KIA,Optima,ROT-001,Performance Rotor - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,OEM Plus
-2012,KIA,Optima,ROT-001,Performance Rotor - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,OEM Plus
-2011,KIA,Optima,JAYczadj,Street Sport Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,2000 Street Sport
-2012,KIA,Optima,JAYczadj,Street Sport Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,2000 Street Sport
-2011,KIA,Optima,JAYwzadjC,Premium Street Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,Premium Street
-2012,KIA,Optima,JAYwzadjC,Premium Street Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,Premium Street
-2011,KIA,Optima,JAYjzadjR,Flagship Range Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,Our Flagship range
-2012,KIA,Optima,JAYjzadjR,Flagship Range Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,Our Flagship range
-2011,KIA,Optima,JAYmzadjNPC,NPC Fastest Street Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,NPC Fastest Street and Race Pads
-2012,KIA,Optima,JAYmzadjNPC,NPC Fastest Street Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,NPC Fastest Street and Race Pads
-2011,KIA,Optima,UXzjjm,OEM Plus Pad - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,OEM Plus
-2012,KIA,Optima,UXzjjm,OEM Plus Pad - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,OEM Plus
-2011,KIA,Optima,JAYczadm,2000 Street Sport Pad - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,2000 Street Sport
-2012,KIA,Optima,JAYczadm,2000 Street Sport Pad - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,2000 Street Sport
-2011,KIA,Optima,JAYwzadmC,Premium Street Pad - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,Premium Street
-2012,KIA,Optima,JAYwzadmC,Premium Street Pad - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,Premium Street
-2011,KIA,Optima,PATowaw,Rotors - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,Rotors
-2012,KIA,Optima,PATowaw,Rotors - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,Rotors
-2011,KIA,Optima,DANowaw,GD Rotors - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,GD Rotors
-2012,KIA,Optima,DANowaw,GD Rotors - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,GD Rotors
-2011,KIA,Optima,BOBowaw,USR Rotors - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,USR Rotors
-2012,KIA,Optima,BOBowaw,USR Rotors - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,USR Rotors
-2011,KIA,Optima,PATodaa,Rotors - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,Rotors
-2012,KIA,Optima,PATodaa,Rotors - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,Rotors
-2011,KIA,Optima,GXodaa,GD Rotors - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,GD Rotors
-2012,KIA,Optima,GXodaa,GD Rotors - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,GD Rotors
-2011,KIA,Optima,BOBodaa,USR Rotors - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,USR Rotors
-2012,KIA,Optima,BOBodaa,USR Rotors - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,USR Rotors
-2022,Honda,CR-V,SHK-007,Shock Absorber - 2022 Honda CR-V 1.5L Turbo EX-L,FRONT,1.5L Turbo,EX-L,Premium finish
-2022,Honda,CR-V,WHEEL-001,Alloy Wheel 18x8 - 2022 Honda CR-V 1.5L Turbo,FRONT,1.5L Turbo,EX-L,18" Alloy
-2005,Chevrolet,Impala,BRK-003,Performance Brake Pad - 2005 Chevrolet Impala 3.8L,FRONT,3.8L,,Ceramic
-2005,Chevrolet,Impala,BRK-004,Performance Brake Pad - 2005 Chevrolet Impala 3.8L,REAR,3.8L,,Ceramic
-2018,Ford,F-150,SHK-008,Shock Absorber - 2018 Ford F150 3.5L EcoBoost,FRONT,3.5L EcoBoost,,Heavy duty
-2018,Ford,F-150,SHK-009,Shock Absorber - 2018 Ford F150 3.5L EcoBoost,REAR,3.5L EcoBoost,,Heavy duty
-1992,Acura,Vigor,BRK-005,Premium Brake Pad - 1992 Acura Vigor 2.5L,FRONT,2.5L,,Ceramic
-1992,Acura,Vigor,BRK-006,Premium Brake Pad - 1992 Acura Vigor 2.5L,REAR,2.5L,,Ceramic
-1963,AC,Cobra,JAYczd5,Street Sport Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,2000 Street Sport
-1964,AC,Cobra,JAYczd5,Street Sport Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,2000 Street Sport
-1965,AC,Cobra,JAYczd5,Street Sport Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,2000 Street Sport
-1966,AC,Cobra,JAYczd5,Street Sport Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,2000 Street Sport
-1967,AC,Cobra,JAYczd5,Street Sport Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,2000 Street Sport
-1968,AC,Cobra,JAYczd5,Street Sport Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,2000 Street Sport
-1969,AC,Cobra,JAYczd5,Street Sport Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,2000 Street Sport
-1963,AC,Cobra,JAYwzd5C,Premium Street Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Premium Street
-1964,AC,Cobra,JAYwzd5C,Premium Street Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Premium Street
-1965,AC,Cobra,JAYwzd5C,Premium Street Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Premium Street
-1966,AC,Cobra,JAYwzd5C,Premium Street Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Premium Street
-1967,AC,Cobra,JAYwzd5C,Premium Street Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Premium Street
-1968,AC,Cobra,JAYwzd5C,Premium Street Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Premium Street
-1969,AC,Cobra,JAYwzd5C,Premium Street Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Premium Street
-1963,AC,Cobra,JAYjzd5R,Flagship Range Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Our Flagship range
-1964,AC,Cobra,JAYjzd5R,Flagship Range Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Our Flagship range
-1965,AC,Cobra,JAYjzd5R,Flagship Range Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Our Flagship range
-1966,AC,Cobra,JAYjzd5R,Flagship Range Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Our Flagship range
-1967,AC,Cobra,JAYjzd5R,Flagship Range Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Our Flagship range
-1968,AC,Cobra,JAYjzd5R,Flagship Range Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Our Flagship range
-1969,AC,Cobra,JAYjzd5R,Flagship Range Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Our Flagship range`;
+  //   const handleDownloadExample = (type: string) => {
+  //     // Working Fitments Example - Has proper structure but tests AI extraction
+  //     // This file has Year, Make, Model in separate columns OR in descriptions (tests AI flexibility)
+  //     const fitmentsExample = `Year,Make,Model,Part Number,Product Description,Position,Engine,Submodel,Notes
+  // 2023,Ford,F-150,SHK-001,Pro Performance Shock for 2023 Ford F-150 5.0L,FRONT,5.0L V8,Platinum,Heavy duty application
+  // 2024,Chevrolet,Silverado 1500,SHK-003,Ultra Shock fits 2024 Chevy Silverado 1500 6.2L,FRONT,6.2L,LT,Standard replacement
+  // 2023,Toyota,Tacoma,SHK-005,Economy Shock - 2023 Toyota Tacoma 2.7L I4,FRONT,2.7L I4,SR,Budget option
+  // 2021,BMW,X5,BRK-001,Premium Brake Pad Set - 2021 BMW X5 3.0L I6 M50i,FRONT,3.0L I6,M50i,Ceramic pads
+  // 2011,KIA,Optima,ROT-001,Performance Rotor - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,OEM Plus
+  // 2012,KIA,Optima,ROT-001,Performance Rotor - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,OEM Plus
+  // 2011,KIA,Optima,JAYczadj,Street Sport Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,2000 Street Sport
+  // 2012,KIA,Optima,JAYczadj,Street Sport Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,2000 Street Sport
+  // 2011,KIA,Optima,JAYwzadjC,Premium Street Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,Premium Street
+  // 2012,KIA,Optima,JAYwzadjC,Premium Street Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,Premium Street
+  // 2011,KIA,Optima,JAYjzadjR,Flagship Range Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,Our Flagship range
+  // 2012,KIA,Optima,JAYjzadjR,Flagship Range Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,Our Flagship range
+  // 2011,KIA,Optima,JAYmzadjNPC,NPC Fastest Street Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,NPC Fastest Street and Race Pads
+  // 2012,KIA,Optima,JAYmzadjNPC,NPC Fastest Street Pad - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,NPC Fastest Street and Race Pads
+  // 2011,KIA,Optima,UXzjjm,OEM Plus Pad - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,OEM Plus
+  // 2012,KIA,Optima,UXzjjm,OEM Plus Pad - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,OEM Plus
+  // 2011,KIA,Optima,JAYczadm,2000 Street Sport Pad - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,2000 Street Sport
+  // 2012,KIA,Optima,JAYczadm,2000 Street Sport Pad - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,2000 Street Sport
+  // 2011,KIA,Optima,JAYwzadmC,Premium Street Pad - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,Premium Street
+  // 2012,KIA,Optima,JAYwzadmC,Premium Street Pad - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,Premium Street
+  // 2011,KIA,Optima,PATowaw,Rotors - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,Rotors
+  // 2012,KIA,Optima,PATowaw,Rotors - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,Rotors
+  // 2011,KIA,Optima,DANowaw,GD Rotors - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,GD Rotors
+  // 2012,KIA,Optima,DANowaw,GD Rotors - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,GD Rotors
+  // 2011,KIA,Optima,BOBowaw,USR Rotors - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,USR Rotors
+  // 2012,KIA,Optima,BOBowaw,USR Rotors - 2011-2012 KIA Optima 2.4L,FRONT,2.4L,,USR Rotors
+  // 2011,KIA,Optima,PATodaa,Rotors - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,Rotors
+  // 2012,KIA,Optima,PATodaa,Rotors - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,Rotors
+  // 2011,KIA,Optima,GXodaa,GD Rotors - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,GD Rotors
+  // 2012,KIA,Optima,GXodaa,GD Rotors - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,GD Rotors
+  // 2011,KIA,Optima,BOBodaa,USR Rotors - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,USR Rotors
+  // 2012,KIA,Optima,BOBodaa,USR Rotors - 2011-2012 KIA Optima 2.4L,REAR,2.4L,,USR Rotors
+  // 2022,Honda,CR-V,SHK-007,Shock Absorber - 2022 Honda CR-V 1.5L Turbo EX-L,FRONT,1.5L Turbo,EX-L,Premium finish
+  // 2022,Honda,CR-V,WHEEL-001,Alloy Wheel 18x8 - 2022 Honda CR-V 1.5L Turbo,FRONT,1.5L Turbo,EX-L,18" Alloy
+  // 2005,Chevrolet,Impala,BRK-003,Performance Brake Pad - 2005 Chevrolet Impala 3.8L,FRONT,3.8L,,Ceramic
+  // 2005,Chevrolet,Impala,BRK-004,Performance Brake Pad - 2005 Chevrolet Impala 3.8L,REAR,3.8L,,Ceramic
+  // 2018,Ford,F-150,SHK-008,Shock Absorber - 2018 Ford F150 3.5L EcoBoost,FRONT,3.5L EcoBoost,,Heavy duty
+  // 2018,Ford,F-150,SHK-009,Shock Absorber - 2018 Ford F150 3.5L EcoBoost,REAR,3.5L EcoBoost,,Heavy duty
+  // 1992,Acura,Vigor,BRK-005,Premium Brake Pad - 1992 Acura Vigor 2.5L,FRONT,2.5L,,Ceramic
+  // 1992,Acura,Vigor,BRK-006,Premium Brake Pad - 1992 Acura Vigor 2.5L,REAR,2.5L,,Ceramic
+  // 1963,AC,Cobra,JAYczd5,Street Sport Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,2000 Street Sport
+  // 1964,AC,Cobra,JAYczd5,Street Sport Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,2000 Street Sport
+  // 1965,AC,Cobra,JAYczd5,Street Sport Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,2000 Street Sport
+  // 1966,AC,Cobra,JAYczd5,Street Sport Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,2000 Street Sport
+  // 1967,AC,Cobra,JAYczd5,Street Sport Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,2000 Street Sport
+  // 1968,AC,Cobra,JAYczd5,Street Sport Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,2000 Street Sport
+  // 1969,AC,Cobra,JAYczd5,Street Sport Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,2000 Street Sport
+  // 1963,AC,Cobra,JAYwzd5C,Premium Street Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Premium Street
+  // 1964,AC,Cobra,JAYwzd5C,Premium Street Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Premium Street
+  // 1965,AC,Cobra,JAYwzd5C,Premium Street Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Premium Street
+  // 1966,AC,Cobra,JAYwzd5C,Premium Street Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Premium Street
+  // 1967,AC,Cobra,JAYwzd5C,Premium Street Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Premium Street
+  // 1968,AC,Cobra,JAYwzd5C,Premium Street Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Premium Street
+  // 1969,AC,Cobra,JAYwzd5C,Premium Street Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Premium Street
+  // 1963,AC,Cobra,JAYjzd5R,Flagship Range Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Our Flagship range
+  // 1964,AC,Cobra,JAYjzd5R,Flagship Range Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Our Flagship range
+  // 1965,AC,Cobra,JAYjzd5R,Flagship Range Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Our Flagship range
+  // 1966,AC,Cobra,JAYjzd5R,Flagship Range Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Our Flagship range
+  // 1967,AC,Cobra,JAYjzd5R,Flagship Range Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Our Flagship range
+  // 1968,AC,Cobra,JAYjzd5R,Flagship Range Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Our Flagship range
+  // 1969,AC,Cobra,JAYjzd5R,Flagship Range Pad - 1963-1969 AC Cobra 4.7L,FRONT,4.7L,,Our Flagship range`;
 
-    // Working Products Example - Has proper structure with Part ID and Description
-    const productsExample = `Part ID,Part Name,Description,Category,Part Type,Specifications,Price,Weight,Compatibility
-P-12345,Pro Performance Shock,Heavy-duty shock absorber designed for trucks and SUVs. Fits 2023 Ford F-150 5.0L V8 models. Length: 18.5 inches, Travel: 6.5 inches, Load capacity: 2000 lbs.,Shock Absorber,Suspension,"Length: 18.5in, Travel: 6.5in, Load: 2000lbs",89.99,4.2,Fits most 1/2 ton trucks - Ford F-150, Chevy Silverado, Ram 1500
-P-67890,Ultra Shock,Standard replacement shock absorber. Universal fitment for most vehicles. Length: 16 inches, Travel: 5 inches, Load capacity: 1500 lbs.,Shock Absorber,Suspension,"Length: 16in, Travel: 5in, Load: 1500lbs",49.99,3.1,Universal fitment
-P-11111,Economy Shock,Budget-friendly shock absorber for basic replacement needs. Length: 15 inches, Travel: 4.5 inches, Load capacity: 1200 lbs.,Shock Absorber,Suspension,"Length: 15in, Travel: 4.5in, Load: 1200lbs",29.99,2.8,Basic replacement
-P-22222,18" Alloy Wheel,Premium aluminum alloy wheel. Size: 18x8 inches, Offset: +35mm, Bolt Pattern: 5x114.3. Fits 2022 Honda CR-V and similar vehicles.,Wheel,Rims,"Size: 18x8, Offset: +35, Bolt Pattern: 5x114.3",199.99,22.5,Multiple vehicle fitment - Honda CR-V, Toyota RAV4, Nissan Rogue
-P-33333,Performance Brake Pad,Ceramic brake pad set for high-performance vehicles. Material: Ceramic, Thickness: 12mm, Friction coefficient: 0.42. Fits 2021 BMW X5 3.0L I6 models.,Brake,Brake Pads,"Material: Ceramic, Thickness: 12mm, Friction: 0.42",79.99,2.1,High-performance vehicles - BMW X5, Mercedes GLE, Audi Q7
-P-44444,LED Headlight Bulb,Ultra-bright LED replacement bulb. Power: 60W, Lumens: 6000, Color temperature: 6000K. Universal H4/H7 fitment.,Lighting,Bulbs,"Power: 60W, Lumens: 6000, Color: 6000K",39.99,0.3,Universal H4/H7 fitment - Most vehicles
-P-55555,Air Filter,High-flow air filter for improved engine performance. Size: 12x8x2 inches, Material: Cotton gauze, Air flow: +15% over stock. Fits most 4-cylinder and V6 engines.,Engine,Air Filter,"Size: 12x8x2in, Material: Cotton gauze, Flow: +15%",24.99,0.5,Multiple applications - Most 4-cyl and V6 engines
-P-66666,Oil Filter,Standard oil filter for regular maintenance. Thread size: 3/4-16, Gasket diameter: 2.5 inches, Capacity: 1 quart. Universal fitment.,Engine,Oil Filter,"Thread: 3/4-16, Gasket: 2.5in, Capacity: 1qt",8.99,0.2,Universal fitment - Most vehicles
-SHK-001,Pro Performance Shock,Heavy-duty shock absorber for 2023 Ford F-150 5.0L V8 Platinum trim. Front left position.,Shock Absorber,Suspension,"Length: 18.5in, Travel: 6.5in, Load: 2000lbs",89.99,4.2,2023 Ford F-150 5.0L V8
-BRK-001,Performance Brake Pad,Ceramic brake pad set for 2021 BMW X5 3.0L I6 M50i. Front position.,Brake,Brake Pads,"Material: Ceramic, Thickness: 12mm, Friction: 0.42",79.99,2.1,2021 BMW X5 3.0L I6 M50i
-ROT-001,Performance Rotor,OEM Plus rotor for 2011-2012 KIA Optima 2.4L. Front position. Rotor diameter: 11.8 inches (300mm).,Brake,Rotors,"Diameter: 11.8in (300mm), Bolt Pattern: 5x114.3",129.99,15.2,2011-2012 KIA Optima 2.4L
-JAYczadj,Street Sport Pad,2000 Street Sport brake pad for 2011-2012 KIA Optima 2.4L. Front position.,Brake,Brake Pads,"Material: Ceramic, Thickness: 28mm new, 26mm min",59.99,1.8,2011-2012 KIA Optima 2.4L
-JAYwzadjC,Premium Street Pad,Premium Street brake pad for 2011-2012 KIA Optima 2.4L. Front position.,Brake,Brake Pads,"Material: Ceramic, Thickness: 28mm new, 26mm min",69.99,1.9,2011-2012 KIA Optima 2.4L
-JAYjzadjR,Flagship Range Pad,Our Flagship range brake pad for 2011-2012 KIA Optima 2.4L. Front position.,Brake,Brake Pads,"Material: Ceramic, Thickness: 28mm new, 26mm min",79.99,2.0,2011-2012 KIA Optima 2.4L
-JAYmzadjNPC,NPC Fastest Street Pad,NPC Fastest Street and Race Pads for 2011-2012 KIA Optima 2.4L. Front position.,Brake,Brake Pads,"Material: Ceramic, Thickness: 28mm new, 26mm min",89.99,2.1,2011-2012 KIA Optima 2.4L
-UXzjjm,OEM Plus Pad,OEM Plus brake pad for 2011-2012 KIA Optima 2.4L. Rear position.,Brake,Brake Pads,"Material: Ceramic, Thickness: 28mm new, 26mm min",59.99,1.8,2011-2012 KIA Optima 2.4L
-PATowaw,Rotors,Rotors for 2011-2012 KIA Optima 2.4L. Front position. Rotor diameter: 11.8 inches (300mm).,Brake,Rotors,"Diameter: 11.8in (300mm), Bolt Pattern: 5x114.3",129.99,15.2,2011-2012 KIA Optima 2.4L
-DANowaw,GD Rotors,GD Rotors for 2011-2012 KIA Optima 2.4L. Front position. Rotor diameter: 11.8 inches (300mm).,Brake,Rotors,"Diameter: 11.8in (300mm), Bolt Pattern: 5x114.3",139.99,15.5,2011-2012 KIA Optima 2.4L
-BOBowaw,USR Rotors,USR Rotors for 2011-2012 KIA Optima 2.4L. Front position. Rotor diameter: 11.8 inches (300mm).,Brake,Rotors,"Diameter: 11.8in (300mm), Bolt Pattern: 5x114.3",149.99,15.8,2011-2012 KIA Optima 2.4L
-BP-12345,Brake Pad Kit,Complete brake pad kit with front and rear pads. Material: Ceramic, Color: Black,Brake,Brake Pads,"Material: Ceramic, Color: Black",129.99,4.5,Universal fitment
-BP-12345-FRONT,Brake Pad Front,Front brake pad only. Material: Ceramic, Color: Black,Brake,Brake Pads,"Material: Ceramic, Color: Black",69.99,2.2,Universal fitment
-BP-12345-REAR,Brake Pad Rear,Rear brake pad only. Material: Ceramic, Color: Black,Brake,Brake Pads,"Material: Ceramic, Color: Black",59.99,2.3,Universal fitment`;
+  //     // Working Products Example - Has proper structure with Part ID and Description
+  //     const productsExample = `Part ID,Part Name,Description,Category,Part Type,Specifications,Price,Weight,Compatibility
+  // P-12345,Pro Performance Shock,Heavy-duty shock absorber designed for trucks and SUVs. Fits 2023 Ford F-150 5.0L V8 models. Length: 18.5 inches, Travel: 6.5 inches, Load capacity: 2000 lbs.,Shock Absorber,Suspension,"Length: 18.5in, Travel: 6.5in, Load: 2000lbs",89.99,4.2,Fits most 1/2 ton trucks - Ford F-150, Chevy Silverado, Ram 1500
+  // P-67890,Ultra Shock,Standard replacement shock absorber. Universal fitment for most vehicles. Length: 16 inches, Travel: 5 inches, Load capacity: 1500 lbs.,Shock Absorber,Suspension,"Length: 16in, Travel: 5in, Load: 1500lbs",49.99,3.1,Universal fitment
+  // P-11111,Economy Shock,Budget-friendly shock absorber for basic replacement needs. Length: 15 inches, Travel: 4.5 inches, Load capacity: 1200 lbs.,Shock Absorber,Suspension,"Length: 15in, Travel: 4.5in, Load: 1200lbs",29.99,2.8,Basic replacement
+  // P-22222,18" Alloy Wheel,Premium aluminum alloy wheel. Size: 18x8 inches, Offset: +35mm, Bolt Pattern: 5x114.3. Fits 2022 Honda CR-V and similar vehicles.,Wheel,Rims,"Size: 18x8, Offset: +35, Bolt Pattern: 5x114.3",199.99,22.5,Multiple vehicle fitment - Honda CR-V, Toyota RAV4, Nissan Rogue
+  // P-33333,Performance Brake Pad,Ceramic brake pad set for high-performance vehicles. Material: Ceramic, Thickness: 12mm, Friction coefficient: 0.42. Fits 2021 BMW X5 3.0L I6 models.,Brake,Brake Pads,"Material: Ceramic, Thickness: 12mm, Friction: 0.42",79.99,2.1,High-performance vehicles - BMW X5, Mercedes GLE, Audi Q7
+  // P-44444,LED Headlight Bulb,Ultra-bright LED replacement bulb. Power: 60W, Lumens: 6000, Color temperature: 6000K. Universal H4/H7 fitment.,Lighting,Bulbs,"Power: 60W, Lumens: 6000, Color: 6000K",39.99,0.3,Universal H4/H7 fitment - Most vehicles
+  // P-55555,Air Filter,High-flow air filter for improved engine performance. Size: 12x8x2 inches, Material: Cotton gauze, Air flow: +15% over stock. Fits most 4-cylinder and V6 engines.,Engine,Air Filter,"Size: 12x8x2in, Material: Cotton gauze, Flow: +15%",24.99,0.5,Multiple applications - Most 4-cyl and V6 engines
+  // P-66666,Oil Filter,Standard oil filter for regular maintenance. Thread size: 3/4-16, Gasket diameter: 2.5 inches, Capacity: 1 quart. Universal fitment.,Engine,Oil Filter,"Thread: 3/4-16, Gasket: 2.5in, Capacity: 1qt",8.99,0.2,Universal fitment - Most vehicles
+  // SHK-001,Pro Performance Shock,Heavy-duty shock absorber for 2023 Ford F-150 5.0L V8 Platinum trim. Front left position.,Shock Absorber,Suspension,"Length: 18.5in, Travel: 6.5in, Load: 2000lbs",89.99,4.2,2023 Ford F-150 5.0L V8
+  // BRK-001,Performance Brake Pad,Ceramic brake pad set for 2021 BMW X5 3.0L I6 M50i. Front position.,Brake,Brake Pads,"Material: Ceramic, Thickness: 12mm, Friction: 0.42",79.99,2.1,2021 BMW X5 3.0L I6 M50i
+  // ROT-001,Performance Rotor,OEM Plus rotor for 2011-2012 KIA Optima 2.4L. Front position. Rotor diameter: 11.8 inches (300mm).,Brake,Rotors,"Diameter: 11.8in (300mm), Bolt Pattern: 5x114.3",129.99,15.2,2011-2012 KIA Optima 2.4L
+  // JAYczadj,Street Sport Pad,2000 Street Sport brake pad for 2011-2012 KIA Optima 2.4L. Front position.,Brake,Brake Pads,"Material: Ceramic, Thickness: 28mm new, 26mm min",59.99,1.8,2011-2012 KIA Optima 2.4L
+  // JAYwzadjC,Premium Street Pad,Premium Street brake pad for 2011-2012 KIA Optima 2.4L. Front position.,Brake,Brake Pads,"Material: Ceramic, Thickness: 28mm new, 26mm min",69.99,1.9,2011-2012 KIA Optima 2.4L
+  // JAYjzadjR,Flagship Range Pad,Our Flagship range brake pad for 2011-2012 KIA Optima 2.4L. Front position.,Brake,Brake Pads,"Material: Ceramic, Thickness: 28mm new, 26mm min",79.99,2.0,2011-2012 KIA Optima 2.4L
+  // JAYmzadjNPC,NPC Fastest Street Pad,NPC Fastest Street and Race Pads for 2011-2012 KIA Optima 2.4L. Front position.,Brake,Brake Pads,"Material: Ceramic, Thickness: 28mm new, 26mm min",89.99,2.1,2011-2012 KIA Optima 2.4L
+  // UXzjjm,OEM Plus Pad,OEM Plus brake pad for 2011-2012 KIA Optima 2.4L. Rear position.,Brake,Brake Pads,"Material: Ceramic, Thickness: 28mm new, 26mm min",59.99,1.8,2011-2012 KIA Optima 2.4L
+  // PATowaw,Rotors,Rotors for 2011-2012 KIA Optima 2.4L. Front position. Rotor diameter: 11.8 inches (300mm).,Brake,Rotors,"Diameter: 11.8in (300mm), Bolt Pattern: 5x114.3",129.99,15.2,2011-2012 KIA Optima 2.4L
+  // DANowaw,GD Rotors,GD Rotors for 2011-2012 KIA Optima 2.4L. Front position. Rotor diameter: 11.8 inches (300mm).,Brake,Rotors,"Diameter: 11.8in (300mm), Bolt Pattern: 5x114.3",139.99,15.5,2011-2012 KIA Optima 2.4L
+  // BOBowaw,USR Rotors,USR Rotors for 2011-2012 KIA Optima 2.4L. Front position. Rotor diameter: 11.8 inches (300mm).,Brake,Rotors,"Diameter: 11.8in (300mm), Bolt Pattern: 5x114.3",149.99,15.8,2011-2012 KIA Optima 2.4L
+  // BP-12345,Brake Pad Kit,Complete brake pad kit with front and rear pads. Material: Ceramic, Color: Black,Brake,Brake Pads,"Material: Ceramic, Color: Black",129.99,4.5,Universal fitment
+  // BP-12345-FRONT,Brake Pad Front,Front brake pad only. Material: Ceramic, Color: Black,Brake,Brake Pads,"Material: Ceramic, Color: Black",69.99,2.2,Universal fitment
+  // BP-12345-REAR,Brake Pad Rear,Rear brake pad only. Material: Ceramic, Color: Black,Brake,Brake Pads,"Material: Ceramic, Color: Black",59.99,2.3,Universal fitment`;
 
-    const content = type === "fitments" ? fitmentsExample : productsExample;
-    const filename =
-      type === "fitments" ? "example_fitments.csv" : "example_products.csv";
+  //     const content = type === "fitments" ? fitmentsExample : productsExample;
+  //     const filename =
+  //       type === "fitments" ? "example_fitments.csv" : "example_products.csv";
 
-    // Create blob and download
-    const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
+  //     // Create blob and download
+  //     const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+  //     const link = document.createElement("a");
+  //     const url = URL.createObjectURL(blob);
 
-    link.setAttribute("href", url);
-    link.setAttribute("download", filename);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  //     link.setAttribute("href", url);
+  //     link.setAttribute("download", filename);
+  //     link.style.visibility = "hidden";
+  //     document.body.appendChild(link);
+  //     link.click();
+  //     document.body.removeChild(link);
 
-    showSuccess(`Downloaded ${filename}`);
-  };
+  //     showSuccess(`Downloaded ${filename}`);
+  //   };
 
   return (
     <Stack gap="xl">
@@ -716,9 +673,9 @@ BP-12345-REAR,Brake Pad Rear,Rear brake pad only. Material: Ceramic, Color: Blac
       <Card withBorder padding="lg" radius="md">
         <Stack gap="md">
           <div>
-            <Title order={4} mb="xs" style={{ color: "#2c3e50" }}>
+            {/* <Title order={4} mb="xs" style={{ color: "#2c3e50" }}>
               Select Data Type
-            </Title>
+            </Title> */}
             <Text size="sm" c="dimmed" mb="md">
               Choose whether you're uploading Fitments or Products data
             </Text>
@@ -758,7 +715,7 @@ BP-12345-REAR,Brake Pad Rear,Rear brake pad only. Material: Ceramic, Color: Blac
           </Group>
 
           {/* Download Example File Buttons */}
-          <div
+          {/* <div
             style={{
               marginTop: "1rem",
               paddingTop: "1rem",
@@ -792,7 +749,7 @@ BP-12345-REAR,Brake Pad Rear,Rear brake pad only. Material: Ceramic, Color: Blac
               Use these templates to format your data correctly. The example
               files show the expected column structure.
             </Text>
-          </div>
+          </div> */}
         </Stack>
       </Card>
 
@@ -1104,242 +1061,34 @@ BP-12345-REAR,Brake Pad Rear,Rear brake pad only. Material: Ceramic, Color: Blac
               </Text>
             </Alert>
 
-            {/* Continue to Transformation Button */}
+            {/* Continue to Validation Button */}
             <Group justify="flex-end" mt="md">
               <Button
                 leftSection={<IconChecks size={16} />}
-                onClick={() => {
+                onClick={async () => {
+                  // Transformation happens automatically in backend
+                  try {
+                    await handleTransform();
+                  } catch (error) {
+                    console.error("Transformation error:", error);
+                  }
                   setActiveStep(2);
-                  handleTransform();
+                  await handleValidation();
                 }}
                 disabled={isProcessing}
                 loading={isProcessing && activeStep === 2}
                 size="md"
                 color="blue"
               >
-                Continue to Transformation
+                Continue to Validation
               </Button>
             </Group>
           </Stack>
         </Card>
       )}
 
-      {/* Transformation Step */}
-      {activeStep === 2 && (
-        <Card withBorder padding="lg" radius="md">
-          <Stack gap="md">
-            <Group justify="space-between">
-              <div>
-                <Title order={4} mb="xs">
-                  2. Data Transformation
-                </Title>
-                <Text size="sm" c="dimmed">
-                  {transformationResult
-                    ? "Data has been transformed and standardized"
-                    : "Transforming data (splitting year ranges, standardizing units, extracting attributes...)"}
-                </Text>
-              </div>
-            </Group>
-
-            {isProcessing && !transformationResult && (
-              <Center p="xl">
-                <Loader size="lg" />
-                <Text mt="md" size="sm" c="dimmed">
-                  Processing transformations...
-                </Text>
-              </Center>
-            )}
-
-            {transformationResult && (
-              <>
-                <Group>
-                  <Paper p="md" withBorder style={{ flex: 1 }}>
-                    <Stack gap="xs">
-                      <Text size="sm" c="dimmed">
-                        Original Rows
-                      </Text>
-                      <Text size="xl" fw={700}>
-                        {transformationResult.originalRows}
-                      </Text>
-                    </Stack>
-                  </Paper>
-                  <Paper p="md" withBorder style={{ flex: 1 }}>
-                    <Stack gap="xs">
-                      <Text size="sm" c="dimmed">
-                        Transformed Rows
-                      </Text>
-                      <Text size="xl" fw={700} c="blue">
-                        {transformationResult.transformedRows}
-                      </Text>
-                    </Stack>
-                  </Paper>
-                  <Paper p="md" withBorder style={{ flex: 1 }}>
-                    <Stack gap="xs">
-                      <Text size="sm" c="dimmed">
-                        Transformations Applied
-                      </Text>
-                      <Text size="xl" fw={700} c="green">
-                        {transformationResult.transformationsApplied}
-                      </Text>
-                    </Stack>
-                  </Paper>
-                </Group>
-
-                {transformationResult.transformations &&
-                  transformationResult.transformations.length > 0 && (
-                    <Card withBorder padding="md" radius="md">
-                      <Title order={5} mb="md">
-                        Transformations Applied
-                      </Title>
-                      <ScrollArea h={200}>
-                        <Stack gap="xs">
-                          {transformationResult.transformations
-                            .slice(0, 20)
-                            .map((t: any, idx: number) => (
-                              <Paper key={idx} p="xs" withBorder>
-                                <Group gap="xs">
-                                  <Badge size="sm" color="blue" variant="light">
-                                    {t.type}
-                                  </Badge>
-                                  <Text size="sm">
-                                    {t.type === "year_range_split" && (
-                                      <>
-                                        Row {t.row}: Split "{t.original}" into{" "}
-                                        {t.split_into.length} years
-                                      </>
-                                    )}
-                                    {t.type === "position_extraction" && (
-                                      <>
-                                        Row {t.row}: Extracted "{t.extracted}"
-                                        from {t.field}
-                                      </>
-                                    )}
-                                    {t.type === "unit_conversion" && (
-                                      <>
-                                        Row {t.row}: Converted {t.from} to{" "}
-                                        {t.to}
-                                      </>
-                                    )}
-                                    {t.type === "attribute_split" && (
-                                      <>
-                                        Row {t.row}: Split {t.field} into
-                                        separate attributes
-                                      </>
-                                    )}
-                                    {t.type === "part_number_consolidation" && (
-                                      <>
-                                        Row {t.row}: Consolidated from{" "}
-                                        {t.source} to {t.target}
-                                      </>
-                                    )}
-                                  </Text>
-                                </Group>
-                              </Paper>
-                            ))}
-                        </Stack>
-                      </ScrollArea>
-                    </Card>
-                  )}
-
-                {/* Extraction/Inference Metadata Display */}
-                {transformationResult.extractionMetadata &&
-                  transformationResult.extractionMetadata.extraction_summary &&
-                  Object.keys(
-                    transformationResult.extractionMetadata.extraction_summary
-                  ).length > 0 && (
-                    <Card
-                      withBorder
-                      padding="md"
-                      radius="md"
-                      style={{ backgroundColor: "#f0f9ff" }}
-                    >
-                      <Group mb="md" align="center">
-                        <IconBrain size={20} color="#2563eb" />
-                        <Title order={5}>Data Extraction & Inference</Title>
-                        <Badge color="blue" variant="light">
-                          {transformationResult.extractionMetadata
-                            .extracted_fields?.length || 0}{" "}
-                          fields extracted
-                        </Badge>
-                      </Group>
-                      <Text size="sm" c="dimmed" mb="md">
-                        The AI extracted missing data from descriptions and
-                        other columns to handle messy input formats.
-                      </Text>
-                      <Stack gap="sm">
-                        {Object.entries(
-                          transformationResult.extractionMetadata
-                            .extraction_summary
-                        ).map(([field, summary]: [string, any]) => (
-                          <Paper
-                            key={field}
-                            p="sm"
-                            withBorder
-                            style={{ backgroundColor: "white" }}
-                          >
-                            <Group justify="space-between" align="flex-start">
-                              <div style={{ flex: 1 }}>
-                                <Group gap="xs" mb="xs">
-                                  <Badge
-                                    color="green"
-                                    variant="light"
-                                    size="sm"
-                                  >
-                                    {field}
-                                  </Badge>
-                                  <Text size="sm" fw={500}>
-                                    {summary.count}{" "}
-                                    {summary.count === 1
-                                      ? "extraction"
-                                      : "extractions"}
-                                  </Text>
-                                </Group>
-                                <Stack gap={4}>
-                                  <Text size="xs" c="dimmed">
-                                    Methods:{" "}
-                                    {summary.methods?.join(", ") || "N/A"}
-                                  </Text>
-                                  <Text size="xs" c="dimmed">
-                                    Sources:{" "}
-                                    {summary.sources?.slice(0, 3).join(", ") ||
-                                      "N/A"}
-                                    {summary.sources?.length > 3 &&
-                                      ` (+${summary.sources.length - 3} more)`}
-                                  </Text>
-                                </Stack>
-                              </div>
-                            </Group>
-                          </Paper>
-                        ))}
-                      </Stack>
-                    </Card>
-                  )}
-
-                {/* Continue to Validation Button */}
-                <Group justify="flex-end" mt="md">
-                  <Button
-                    leftSection={<IconChecks size={16} />}
-                    onClick={async () => {
-                      setActiveStep(3);
-                      // Small delay to show the validation step UI
-                      await new Promise((resolve) => setTimeout(resolve, 300));
-                      await handleValidation();
-                    }}
-                    disabled={isProcessing}
-                    size="md"
-                    color="blue"
-                  >
-                    Continue to Validation
-                  </Button>
-                </Group>
-              </>
-            )}
-          </Stack>
-        </Card>
-      )}
-
       {/* Validation Step */}
-      {activeStep === 3 && (
+      {activeStep === 2 && (
         <Card withBorder padding="lg" radius="md">
           <Stack gap="md">
             <Group justify="space-between">
@@ -1374,7 +1123,7 @@ BP-12345-REAR,Brake Pad Rear,Rear brake pad only. Material: Ceramic, Color: Blac
                 <Button
                   leftSection={<IconChecks size={16} />}
                   onClick={() => {
-                    setActiveStep(4);
+                    setActiveStep(3);
                   }}
                   color="blue"
                   size="md"
@@ -1388,7 +1137,7 @@ BP-12345-REAR,Brake Pad Rear,Rear brake pad only. Material: Ceramic, Color: Blac
       )}
 
       {/* Review Step */}
-      {activeStep >= 4 && (
+      {activeStep >= 3 && (
         <Card withBorder padding="lg" radius="md">
           <Stack gap="md">
             <Group justify="space-between">
@@ -1534,16 +1283,16 @@ BP-12345-REAR,Brake Pad Rear,Rear brake pad only. Material: Ceramic, Color: Blac
                 )}
 
                 {/* AI Recommendations with Transparent Scoring */}
-                {loadingRecommendations && (
+                {/* {loadingRecommendations && (
                   <Card withBorder p="md">
                     <Group>
                       <Loader size="sm" />
                       <Text size="sm">Loading AI recommendations...</Text>
                     </Group>
                   </Card>
-                )}
+                )} */}
 
-                {!loadingRecommendations &&
+                {/* {!loadingRecommendations &&
                   Object.keys(recommendations).length > 0 && (
                     <Card
                       withBorder
@@ -1669,7 +1418,6 @@ BP-12345-REAR,Brake Pad Rear,Rear brake pad only. Material: Ceramic, Color: Blac
                                           )}
                                       </Group>
 
-                                      {/* Expanded Details with Source Evidence */}
                                       {isExpanded &&
                                         config.sourceEvidence &&
                                         config.sourceEvidence.length > 0 && (
@@ -1682,7 +1430,6 @@ BP-12345-REAR,Brake Pad Rear,Rear brake pad only. Material: Ceramic, Color: Blac
                                             }}
                                           >
                                             <Stack gap="sm">
-                                              {/* Confidence Breakdown */}
                                               {config.confidenceBreakdown && (
                                                 <Paper
                                                   p="xs"
@@ -1781,7 +1528,6 @@ BP-12345-REAR,Brake Pad Rear,Rear brake pad only. Material: Ceramic, Color: Blac
                                                 </Paper>
                                               )}
 
-                                              {/* Source Evidence */}
                                               <div>
                                                 <Text
                                                   size="xs"
@@ -1930,7 +1676,6 @@ BP-12345-REAR,Brake Pad Rear,Rear brake pad only. Material: Ceramic, Color: Blac
                                                 </Stack>
                                               </div>
 
-                                              {/* Explanation */}
                                               {config.explanation && (
                                                 <Paper
                                                   p="xs"
@@ -1963,7 +1708,7 @@ BP-12345-REAR,Brake Pad Rear,Rear brake pad only. Material: Ceramic, Color: Blac
                         )}
                       </Stack>
                     </Card>
-                  )}
+                  )} */}
 
                 {/* Success Message */}
                 {(!reviewData.errors || reviewData.errors.length === 0) && (
@@ -2027,32 +1772,62 @@ BP-12345-REAR,Brake Pad Rear,Rear brake pad only. Material: Ceramic, Color: Blac
                 <Group justify="space-between" mt="md">
                   <Button
                     variant="light"
-                    color="gray"
-                    onClick={() => {
-                      setActiveStep(1);
-                    }}
-                    disabled={isPublishing}
-                  >
-                    Back to Mappings
-                  </Button>
-                  {!publishResult && (
-                    <Button
-                      leftSection={<IconCheck size={16} />}
-                      color="green"
-                      onClick={() => handlePublish(false)}
-                      disabled={
-                        (reviewData?.errors && reviewData.errors.length > 0) ||
-                        isPublishing
+                    color="red"
+                    leftSection={<IconFileSpreadsheet size={16} />}
+                    onClick={async () => {
+                      if (!uploadId) return;
+                      try {
+                        const response =
+                          await fitmentRulesService.exportInvalidRows(uploadId);
+                        const blob = new Blob([response.data], {
+                          type: "text/csv",
+                        });
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement("a");
+                        link.href = url;
+                        link.download = `invalid_rows_${uploadId}.csv`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        window.URL.revokeObjectURL(url);
+                        showSuccess("Invalid rows exported successfully");
+                      } catch (error: any) {
+                        showError(
+                          error.message || "Failed to export invalid rows"
+                        );
                       }
-                      loading={isPublishing}
+                    }}
+                    disabled={
+                      !reviewData?.errors || reviewData.errors.length === 0
+                    }
+                  >
+                    Export Invalid Rows
+                  </Button>
+                  <Group>
+                    <Button
+                      variant="light"
+                      color="gray"
+                      onClick={() => {
+                        setActiveStep(1);
+                      }}
+                      disabled={isPublishing}
                     >
-                      {isPublishing
-                        ? "Publishing..."
-                        : reviewData?.errors && reviewData.errors.length > 0
-                        ? "Fix Errors First"
-                        : "Complete & Publish"}
+                      Back to Mappings
                     </Button>
-                  )}
+                    {!publishResult && (
+                      <Button
+                        leftSection={<IconCheck size={16} />}
+                        color="blue"
+                        onClick={() => handlePublish()}
+                        disabled={isPublishing}
+                        loading={isPublishing}
+                      >
+                        {isPublishing
+                          ? "Publishing for Review..."
+                          : "Publish for Review"}
+                      </Button>
+                    )}
+                  </Group>
                 </Group>
               </Stack>
             ) : (
