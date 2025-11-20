@@ -664,6 +664,12 @@ export const dataUploadService = {
   getProductData: (params?: any) =>
     apiClient.get("/api/data-uploads/products/", { params }),
 
+  // Export products
+  exportProducts: (format: "csv" | "xlsx") =>
+    apiClient.get(`/api/data-uploads/products/export-${format}/`, {
+      responseType: "blob",
+    }),
+
   // Get new data status (with database counts)
   getNewDataStatus: () => apiClient.get("/api/data-uploads/data-status/"),
 

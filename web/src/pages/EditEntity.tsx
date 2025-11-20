@@ -198,6 +198,13 @@ const EditEntity: React.FC = () => {
     "Body Type (e.g., Sedan, SUV, Pickup)",
   ];
 
+  // Default VCDB output fields (Year, Make, Model)
+  const DEFAULT_OPTIONAL_VCDB_FIELDS = [
+    "Year (model year)",
+    "Make (manufacturer, e.g., Ford, Toyota)",
+    "Model (e.g., F-150, Camry)",
+  ];
+
   const [formData, setFormData] = useState<EntityFormData>({
     name: "",
     slug: "",
@@ -212,7 +219,7 @@ const EditEntity: React.FC = () => {
     // Fitments Configuration
     vcdb_categories: [],
     required_vcdb_fields: DEFAULT_REQUIRED_VCDB_FIELDS,
-    optional_vcdb_fields: [],
+    optional_vcdb_fields: DEFAULT_OPTIONAL_VCDB_FIELDS,
     // Products Configuration
     required_product_fields: [],
     part_number_sku_description: "",
@@ -257,7 +264,7 @@ const EditEntity: React.FC = () => {
           optional_vcdb_fields:
             fitmentSettings.optional_vcdb_fields ||
             entityData.optional_vcdb_fields ||
-            [],
+            DEFAULT_OPTIONAL_VCDB_FIELDS,
           // Products Configuration - read from fitment_settings
           required_product_fields:
             fitmentSettings.required_product_fields ||

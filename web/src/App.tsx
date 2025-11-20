@@ -521,7 +521,7 @@ function App() {
                     margin: 0,
                   }}
                 >
-                  Fitmentpro.ai
+                  FitmentPro.ai
                 </Title>
               </div>
             </Group>

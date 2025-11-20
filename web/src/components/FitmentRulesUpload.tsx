@@ -114,7 +114,7 @@ export default function FitmentRulesUpload() {
     { step: 0, label: "Upload File", status: "pending" },
     { step: 1, label: "AI Mapping", status: "pending" },
     { step: 2, label: "Validation", status: "pending" },
-    { step: 3, label: "Review & Finalize", status: "pending" },
+    { step: 3, label: "Publish for Review", status: "pending" },
   ]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -199,7 +199,7 @@ export default function FitmentRulesUpload() {
       { step: 0, label: "Upload File", status: "pending" },
       { step: 1, label: "AI Mapping", status: "pending" },
       { step: 2, label: "Validation", status: "pending" },
-      { step: 3, label: "Review & Finalize", status: "pending" },
+      { step: 3, label: "Publish for Review", status: "pending" },
     ]);
   };
 
@@ -845,14 +845,38 @@ export default function FitmentRulesUpload() {
           )}
 
           <Group justify="flex-end">
-            <Button
-              leftSection={<IconCloudUpload size={16} />}
-              onClick={handleUpload}
-              disabled={!file || isProcessing}
-              loading={isProcessing && activeStep === 0}
+            <Tooltip
+              label={
+                uploadId !== null || columnMappings.length > 0 || activeStep > 0
+                  ? "File already uploaded. Reset to upload a new file."
+                  : !file
+                  ? "Please select a file first"
+                  : ""
+              }
+              disabled={
+                !(
+                  uploadId !== null ||
+                  columnMappings.length > 0 ||
+                  activeStep > 0 ||
+                  !file
+                )
+              }
             >
-              Upload File
-            </Button>
+              <Button
+                leftSection={<IconCloudUpload size={16} />}
+                onClick={handleUpload}
+                disabled={
+                  !file ||
+                  isProcessing ||
+                  uploadId !== null ||
+                  columnMappings.length > 0 ||
+                  activeStep > 0
+                }
+                loading={isProcessing && activeStep === 0}
+              >
+                Upload File
+              </Button>
+            </Tooltip>
           </Group>
         </Stack>
       </Card>
@@ -1018,15 +1042,17 @@ export default function FitmentRulesUpload() {
                         </Table.Td>
                         <Table.Td>
                           <Group gap="xs">
-                            <Tooltip label="Accept mapping">
-                              <ActionIcon
-                                color="green"
-                                variant="light"
-                                onClick={() => handleAcceptMapping(index)}
-                              >
-                                <IconCheck size={16} />
-                              </ActionIcon>
-                            </Tooltip>
+                            {mapping.status !== "auto" && (
+                              <Tooltip label="Accept mapping">
+                                <ActionIcon
+                                  color="green"
+                                  variant="light"
+                                  onClick={() => handleAcceptMapping(index)}
+                                >
+                                  <IconCheck size={16} />
+                                </ActionIcon>
+                              </Tooltip>
+                            )}
                             <Tooltip label="Reject mapping">
                               <ActionIcon
                                 color="red"
@@ -1139,7 +1165,7 @@ export default function FitmentRulesUpload() {
             <Group justify="space-between">
               <div>
                 <Title order={4} mb="xs">
-                  Review & Finalize
+                  Publish for Review
                 </Title>
                 <Text size="sm" c="dimmed">
                   Review validation results and finalize your data

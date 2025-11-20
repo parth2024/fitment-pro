@@ -187,7 +187,8 @@ Generate 15-20 fitments. Return ONLY JSON array:
                         "position": fitment.get("position", "Front"),
                         "quantity": fitment.get("quantity", 1),
                         "confidence": min(max(fitment.get("confidence", 0.7), 0.0), 1.0),
-                        "ai_reasoning": fitment.get("ai_reasoning", "AI-generated fitment based on automotive compatibility analysis")
+                        "ai_reasoning": fitment.get("ai_reasoning", "AI-generated fitment based on automotive compatibility analysis"),
+                        "confidence_explanation": fitment.get("confidence_explanation", "")
                     }
                     cleaned_fitments.append(cleaned_fitment)
                 else:

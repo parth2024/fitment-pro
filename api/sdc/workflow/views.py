@@ -53,6 +53,8 @@ def get_or_create_upload_job(upload, data_type="fitments"):
                 "currentStage": "ai-mapping",
             },
         )
+    
+    return job  # Make sure to return the job
     return job
 
 
@@ -529,6 +531,108 @@ CRITICAL REQUIREMENTS:
     job.save()
 
     return Response({"jobId": str(job.id), "suggestions": suggestions})
+
+
+def _generate_ai_reasoning_and_confidence(row_data: dict, column_mappings: list, data_type: str, original_row: dict = None) -> tuple:
+    """
+    Generate AI reasoning and confidence explanation for a row based on mapping quality.
+    
+    Returns:
+        tuple: (confidence_score, confidence_explanation, ai_reasoning)
+    """
+    # Calculate confidence based on mapped fields quality
+    required_fields_fitments = ["year", "makeName", "modelName", "partId"]
+    required_fields_products = ["partId", "description"]
+    
+    required_fields = required_fields_fitments if data_type == "fitments" else required_fields_products
+    
+    # Count how many required fields are present
+    present_required = sum(1 for field in required_fields if field in row_data and row_data.get(field) and str(row_data.get(field)).strip())
+    total_required = len(required_fields)
+    
+    # Base confidence on required fields presence
+    base_confidence = (present_required / total_required) * 0.6  # 60% weight for required fields
+    
+    # Additional confidence from optional fields
+    optional_fields_present = sum(1 for field in row_data.keys() if field not in required_fields and row_data.get(field) and str(row_data.get(field)).strip())
+    optional_confidence = min(0.3, optional_fields_present * 0.05)  # Up to 30% for optional fields
+    
+    # Quality bonus (data looks complete and well-formed)
+    quality_bonus = 0.1 if present_required == total_required and optional_fields_present >= 3 else 0.0
+    
+    confidence = min(0.95, base_confidence + optional_confidence + quality_bonus)
+    
+    # Generate confidence explanation
+    confidence_factors = []
+    if present_required == total_required:
+        confidence_factors.append(f"All {total_required} required fields ({', '.join(required_fields)}) are present and populated")
+    else:
+        missing = [f for f in required_fields if f not in row_data or not row_data.get(f) or not str(row_data.get(f)).strip()]
+        confidence_factors.append(f"Missing required fields: {', '.join(missing)}")
+    
+    if optional_fields_present > 0:
+        confidence_factors.append(f"{optional_fields_present} additional optional fields mapped")
+    
+    # Check data quality
+    if data_type == "fitments":
+        year = row_data.get("year", "")
+        make = row_data.get("makeName", "")
+        model = row_data.get("modelName", "")
+        if year and make and model:
+            try:
+                year_int = int(float(str(year).split("-")[0]))
+                if 1990 <= year_int <= 2030:
+                    confidence_factors.append("Year value is within valid range (1990-2030)")
+                else:
+                    confidence_factors.append(f"Year value {year_int} is outside typical range")
+            except:
+                confidence_factors.append("Year format may need validation")
+    
+    confidence_explanation = f"Confidence Score: {int(confidence * 100)}%. " + " | ".join(confidence_factors)
+    
+    # Generate AI reasoning
+    reasoning_parts = []
+    if data_type == "fitments":
+        year = row_data.get("year", "")
+        make = row_data.get("makeName", "")
+        model = row_data.get("modelName", "")
+        part_id = row_data.get("partId", "")
+        
+        if year and make and model:
+            reasoning_parts.append(f"Successfully mapped vehicle information: {year} {make} {model}")
+        
+        if part_id:
+            reasoning_parts.append(f"Part identifier '{part_id}' extracted and mapped")
+        
+        position = row_data.get("position", "")
+        if position:
+            reasoning_parts.append(f"Position '{position}' identified")
+        
+        # Check for technical specifications
+        tech_fields = ["rotorDiameter", "boltPattern", "engine", "subModelName"]
+        tech_present = [f for f in tech_fields if f in row_data and row_data.get(f)]
+        if tech_present:
+            reasoning_parts.append(f"Technical specifications extracted: {', '.join(tech_present)}")
+    else:  # products
+        part_id = row_data.get("partId", "")
+        description = row_data.get("description", "")
+        
+        if part_id:
+            reasoning_parts.append(f"Product identifier '{part_id}' mapped")
+        
+        if description:
+            desc_preview = str(description)[:100] + "..." if len(str(description)) > 100 else str(description)
+            reasoning_parts.append(f"Product description extracted: {desc_preview}")
+    
+    # Add mapping quality note
+    if present_required == total_required:
+        reasoning_parts.append("All required fields successfully mapped from source data")
+    else:
+        reasoning_parts.append("Some required fields may need manual review or additional data extraction")
+    
+    ai_reasoning = ". ".join(reasoning_parts) if reasoning_parts else "Data mapping completed using AI column mapping and transformation rules."
+    
+    return confidence, confidence_explanation, ai_reasoning
 
 
 def _fallback_column_mapping(headers: list, data_type: str) -> list:
@@ -1214,6 +1318,9 @@ def transform_data(request, upload_id: str):
             encoding = upload.preflight_report.get("encoding", "utf-8") if upload.preflight_report else "utf-8"
             df = pd.read_csv(upload.storage_url, delimiter=delimiter, encoding=encoding)
         
+        # Keep original dataframe for reference
+        original_df = df.copy()
+        
         # Get AI mappings from the same job (single job tracks all stages)
         ai_map_job = job  # Use the same job we're updating
         
@@ -1466,11 +1573,28 @@ def vcdb_validate(request, upload_id: str):
        - No duplicate records
     5. Return validation results with errors and warnings
     """
-    upload = Upload.objects.get(id=upload_id)
+    try:
+        upload = Upload.objects.get(id=upload_id)
+    except Upload.DoesNotExist:
+        return Response(
+            {"error": "Upload not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        return Response(
+            {"error": f"Error getting upload: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
     
     # Get or create the single job for this upload
     data_type = upload.preflight_report.get("dataType", "fitments") if upload.preflight_report else "fitments"
-    job = get_or_create_upload_job(upload, data_type)
+    try:
+        job = get_or_create_upload_job(upload, data_type)
+    except Exception as e:
+        return Response(
+            {"error": f"Error getting/creating job: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
     
     # Update job status to validating
     job.status = "validating"
@@ -1503,10 +1627,10 @@ def vcdb_validate(request, upload_id: str):
         # If using transformed file, columns are already mapped - no need to apply mappings again
         # If using original file, apply column mappings
         mapped_df = df.copy()
+        # Get AI mappings from the same job (single job tracks all stages) - define outside if block
+        ai_map_job = job  # Use the same job we're updating
+        
         if not is_transformed:
-            # Get AI mappings from the same job (single job tracks all stages)
-            ai_map_job = job  # Use the same job we're updating
-            
             column_mappings = {}
             if ai_map_job and ai_map_job.result:
                 mappings = ai_map_job.result.get("columnMappings", [])
@@ -1534,8 +1658,12 @@ def vcdb_validate(request, upload_id: str):
         total_rows = len(mapped_df)
         
         # Get entity configuration for validation
-        tenant = upload.tenant
-        fitment_settings = tenant.fitment_settings if tenant and hasattr(tenant, 'fitment_settings') else {}
+        try:
+            tenant = upload.tenant
+            fitment_settings = tenant.fitment_settings if tenant and hasattr(tenant, 'fitment_settings') else {}
+        except Exception:
+            tenant = None
+            fitment_settings = {}
         data_type = upload.preflight_report.get("dataType", "fitments") if upload.preflight_report else "fitments"
         
         # Mapping from display names to actual field names
@@ -1930,15 +2058,47 @@ def vcdb_validate(request, upload_id: str):
                         if part_id:
                             unique_part_ids.add(part_id)
                     
+                    # Generate AI reasoning and confidence explanation for this row
+                    column_mappings_list = ai_map_job.result.get("columnMappings", []) if ai_map_job and ai_map_job.result else []
+                    # Get original row data for context (handle index alignment)
+                    original_row_dict = {}
+                    try:
+                        # Use df (the original dataframe before mapping) instead of original_df
+                        if 'df' in locals() and idx < len(df):
+                            original_row_dict = df.iloc[idx].to_dict()
+                    except Exception:
+                        # If df not available or index mismatch, use empty dict
+                        original_row_dict = {}
+                    
+                    confidence_score, confidence_explanation, ai_reasoning = _generate_ai_reasoning_and_confidence(
+                        mapped_entities,
+                        column_mappings_list,
+                        data_type,
+                        original_row_dict
+                    )
+                    
+                    # Build defaults dict, only include new fields if they exist in the model
+                    defaults = {
+                        "mapped_entities": mapped_entities,
+                        "confidence": confidence_score,
+                        "status": "pending",
+                    }
+                    # Only add new fields if migration has been run (fields exist in model)
+                    try:
+                        # Test if fields exist by checking model fields
+                        if hasattr(NormalizationResult, 'confidence_explanation'):
+                            defaults["confidence_explanation"] = confidence_explanation
+                        if hasattr(NormalizationResult, 'ai_reasoning'):
+                            defaults["ai_reasoning"] = ai_reasoning
+                    except Exception:
+                        # If check fails, just skip the new fields
+                        pass
+                    
                     nr, created_flag = NormalizationResult.objects.update_or_create(
                         tenant_id=upload.tenant_id,
                         upload_id=upload.id,
                         row_index=row_num,
-                        defaults={
-                            "mapped_entities": mapped_entities,
-                            "confidence": 0.85,  # Default confidence
-                            "status": "pending",
-                        },
+                        defaults=defaults,
                     )
                     if created_flag:
                         created.append({"id": str(nr.id), "rowIndex": nr.row_index, "confidence": nr.confidence})
@@ -3190,14 +3350,19 @@ def export_invalid_rows(request, upload_id: str):
     
     upload = Upload.objects.get(id=upload_id)
     
-    # Get validation job
+    # Get the single job for this upload (now uses data-upload type)
     validation_job = Job.objects.filter(
         upload_id=upload.id,
-        job_type="vcdb-validate",
-        status="completed"
+        job_type="data-upload"
     ).order_by("-created_at").first()
     
-    if not validation_job or not validation_job.result:
+    if not validation_job:
+        return Response(
+            {"error": "No job found for this upload"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    if not validation_job.result:
         return Response(
             {"error": "No validation results found"},
             status=status.HTTP_404_NOT_FOUND
@@ -3406,6 +3571,13 @@ def get_job_review_data(request, job_id: str):
                     ai_row["_confidence"] = float(nr.confidence) if nr.confidence else 0.0
                     ai_row["_status"] = str(nr.status) if nr.status else "pending"
                     ai_row["_normalization_result_id"] = str(nr.id)
+                    # Include AI reasoning and confidence explanation (use getattr for backward compatibility)
+                    confidence_explanation = getattr(nr, 'confidence_explanation', None) or ""
+                    ai_reasoning = getattr(nr, 'ai_reasoning', None) or ""
+                    ai_row["confidence_explanation"] = confidence_explanation
+                    ai_row["ai_reasoning"] = ai_reasoning
+                    ai_row["_confidence_explanation"] = confidence_explanation
+                    ai_row["_ai_reasoning"] = ai_reasoning
                     ai_generated_rows.append(ai_row)
                 else:
                     # If no normalization result, use original row
