@@ -83,6 +83,7 @@ interface Job {
     validRows?: number;
     approvedCount?: number;
     rejectedCount?: number;
+    errors?: any[];
   };
 }
 
@@ -212,6 +213,17 @@ export default function JobHistoryDashboard() {
   };
 
   const handleReviewClick = async (job: Job) => {
+    // Check if job has validation errors
+    if (
+      (job.result?.errorCount && job.result.errorCount > 0) ||
+      (job.result?.errors && job.result.errors.length > 0)
+    ) {
+      showError(
+        "Cannot review: This job has validation errors. Please fix the errors before reviewing."
+      );
+      return;
+    }
+
     setSelectedJob(job);
     setReviewModalOpen(true);
     setLoadingReviewData(true);
@@ -500,11 +512,42 @@ export default function JobHistoryDashboard() {
                     <Table.Td>
                       <Group gap="xs">
                         {job.status === "pending" && (
-                          <Tooltip label="Review job">
+                          <Tooltip
+                            label={
+                              (job.result?.errorCount &&
+                                job.result.errorCount > 0) ||
+                              (job.result?.errors &&
+                                job.result.errors.length > 0)
+                                ? "Cannot review: Please fix validation errors first"
+                                : "Review job"
+                            }
+                          >
                             <ActionIcon
                               color="blue"
                               variant="light"
                               onClick={() => handleReviewClick(job)}
+                              disabled={
+                                (job.result?.errorCount &&
+                                  job.result.errorCount > 0) ||
+                                (job.result?.errors &&
+                                  job.result.errors.length > 0)
+                              }
+                              style={{
+                                opacity:
+                                  (job.result?.errorCount &&
+                                    job.result.errorCount > 0) ||
+                                  (job.result?.errors &&
+                                    job.result.errors.length > 0)
+                                    ? 0.5
+                                    : 1,
+                                cursor:
+                                  (job.result?.errorCount &&
+                                    job.result.errorCount > 0) ||
+                                  (job.result?.errors &&
+                                    job.result.errors.length > 0)
+                                    ? "not-allowed"
+                                    : "pointer",
+                              }}
                             >
                               <IconEye size={16} />
                             </ActionIcon>

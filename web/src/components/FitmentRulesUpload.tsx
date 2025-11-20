@@ -1837,17 +1837,28 @@ export default function FitmentRulesUpload() {
                       Back to Mappings
                     </Button>
                     {!publishResult && (
-                      <Button
-                        leftSection={<IconCheck size={16} />}
-                        color="blue"
-                        onClick={() => handlePublish()}
-                        disabled={isPublishing}
-                        loading={isPublishing}
+                      <Tooltip
+                        label={
+                          reviewData?.errors && reviewData.errors.length > 0
+                            ? "Cannot publish: Please fix validation errors first"
+                            : ""
+                        }
                       >
-                        {isPublishing
-                          ? "Publishing for Review..."
-                          : "Publish for Review"}
-                      </Button>
+                        <Button
+                          leftSection={<IconCheck size={16} />}
+                          color="blue"
+                          onClick={() => handlePublish()}
+                          disabled={
+                            isPublishing ||
+                            (reviewData?.errors && reviewData.errors.length > 0)
+                          }
+                          loading={isPublishing}
+                        >
+                          {isPublishing
+                            ? "Publishing for Review..."
+                            : "Publish for Review"}
+                        </Button>
+                      </Tooltip>
                     )}
                   </Group>
                 </Group>

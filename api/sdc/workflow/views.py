@@ -55,7 +55,6 @@ def get_or_create_upload_job(upload, data_type="fitments"):
         )
     
     return job  # Make sure to return the job
-    return job
 
 
 @api_view(["GET", "POST"]) 
@@ -1797,6 +1796,28 @@ def vcdb_validate(request, upload_id: str):
         # Track duplicates (outside loop)
         existing_keys = set()
         
+        # First, try to map common column names to partId before validation
+        # Check for common part number column names
+        part_id_column_names = [
+            'partid', 'part_id', 'partnumber', 'part_number', 'partnum', 'part num',
+            'sku', 'item#', 'item_number', 'productid', 'product_id', 'productcode', 'product_code',
+            'part #', 'part#', 'item code', 'itemcode', 'pn', 'p/n', 'partno', 'part no'
+        ]
+        
+        # Find potential partId column by checking column names (case-insensitive)
+        part_id_source_col = None
+        for col in mapped_df.columns:
+            col_lower = str(col).lower().strip()
+            if col_lower in part_id_column_names or 'part' in col_lower or 'sku' in col_lower or 'item' in col_lower:
+                # Check if this column has values
+                if mapped_df[col].notna().any() and (mapped_df[col].astype(str).str.strip() != '').any():
+                    part_id_source_col = col
+                    break
+        
+        # If found a potential partId column but partId column doesn't exist or is empty, copy values
+        if part_id_source_col and ('partId' not in mapped_df.columns or mapped_df['partId'].isna().all() or (mapped_df['partId'].astype(str).str.strip() == '').all()):
+            mapped_df['partId'] = mapped_df[part_id_source_col]
+        
         # Last resort: Try to extract missing required fields from all columns if still missing
         # This handles cases where extraction didn't work in transform step
         for idx, row in mapped_df.iterrows():
@@ -1853,13 +1874,37 @@ def vcdb_validate(request, upload_id: str):
                                         mapped_df.loc[idx, field] = model
                                         break
                             
-                            # Extract partId
+                            # Extract partId - improved pattern matching
                             elif field == "partId":
-                                part_pattern = r'\b([A-Z]{2,}\d{2,}[A-Z0-9\-]*)\b'
-                                part_match = re.search(part_pattern, col_value)
+                                # First, try direct value if it looks like a part number
+                                col_value_clean = col_value.strip()
+                                # More flexible patterns for part numbers
+                                # Pattern 1: Alphanumeric codes (e.g., BP-12345, ABC123, 12345-ABC)
+                                part_pattern1 = r'\b([A-Z0-9]{2,}[\-]?[A-Z0-9]{2,}[A-Z0-9\-]*)\b'
+                                # Pattern 2: Numbers with letters (e.g., 12345A, A12345)
+                                part_pattern2 = r'\b([A-Z]?\d{3,}[A-Z0-9\-]*|[A-Z]{2,}\d{2,}[A-Z0-9\-]*)\b'
+                                # Pattern 3: Common part number formats
+                                part_pattern3 = r'\b(?:PART|SKU|ITEM|PN)[\s#:]*([A-Z0-9\-]{3,})\b'
+                                
+                                part_match = None
+                                # Try patterns in order
+                                for pattern in [part_pattern3, part_pattern1, part_pattern2]:
+                                    part_match = re.search(pattern, col_value_clean, re.IGNORECASE)
+                                    if part_match:
+                                        break
+                                
+                                # If no match with patterns, try direct value if it looks valid
+                                if not part_match and len(col_value_clean) >= 3 and len(col_value_clean) <= 50:
+                                    # Check if it's not a date, year, or other common non-part fields
+                                    if not re.match(r'^\d{4}$', col_value_clean) and not re.match(r'^(19|20)\d{2}$', col_value_clean):
+                                        # If it contains letters and numbers, or just alphanumeric
+                                        if re.match(r'^[A-Z0-9\-]+$', col_value_clean.upper()):
+                                            part_match = type('obj', (object,), {'group': lambda x: col_value_clean})()
+                                
                                 if part_match:
-                                    part_id = part_match.group(1).strip()
-                                    if len(part_id) >= 3:
+                                    part_id = part_match.group(1) if hasattr(part_match, 'group') else str(part_match)
+                                    part_id = str(part_id).strip().upper()  # Normalize to uppercase
+                                    if len(part_id) >= 2:  # More lenient minimum length
                                         mapped_df.loc[idx, field] = part_id
                                         break
         
