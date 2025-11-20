@@ -3692,11 +3692,112 @@ def approve_job_rows(request, job_id: str):
         )
     
     # Get normalization results for approved rows
-    approved_nr_ids = [uuid.UUID(rid) for rid in approved_row_ids if rid]
-    normalization_results = NormalizationResult.objects.filter(
+    # Handle both UUIDs (normalization result IDs) and row indices (for rows without normalization results)
+    approved_nr_ids = []
+    approved_row_indices = []
+    
+    for rid in approved_row_ids:
+        if not rid:
+            continue
+        rid_str = str(rid).strip()
+        # Check if it's a UUID format
+        try:
+            approved_nr_ids.append(uuid.UUID(rid_str))
+        except (ValueError, AttributeError):
+            # Not a UUID, might be a row index like "ai_0" or "original_1"
+            # Extract numeric part if possible
+            if rid_str.startswith("ai_") or rid_str.startswith("original_"):
+                try:
+                    # Extract the index part
+                    idx_part = rid_str.split("_")[-1]
+                    row_idx = int(idx_part) + 1  # Convert to 1-based row index
+                    approved_row_indices.append(row_idx)
+                except:
+                    pass
+    
+    # Get normalization results by ID
+    normalization_results_list = list(NormalizationResult.objects.filter(
         id__in=approved_nr_ids,
         upload_id=upload.id
-    )
+    ))
+    
+    # Also get normalization results by row index if any row indices were provided
+    if approved_row_indices:
+        nr_by_index = NormalizationResult.objects.filter(
+            upload_id=upload.id,
+            row_index__in=approved_row_indices
+        )
+        # Combine both querysets, avoiding duplicates
+        all_nr_ids = set(nr.id for nr in normalization_results_list)
+        for nr in nr_by_index:
+            if nr.id not in all_nr_ids:
+                normalization_results_list.append(nr)
+    
+    normalization_results = normalization_results_list
+    
+    # If still no results and we have row indices, try to create normalization results from original data
+    if not normalization_results and approved_row_indices:
+        # Read original file and create normalization results on the fly
+        import pandas as pd
+        try:
+            if upload.file_format == "xlsx":
+                df = pd.read_excel(upload.storage_url)
+            else:
+                delimiter = upload.preflight_report.get("delimiter", ",") if upload.preflight_report else ","
+                encoding = upload.preflight_report.get("encoding", "utf-8") if upload.preflight_report else "utf-8"
+                df = pd.read_csv(upload.storage_url, delimiter=delimiter, encoding=encoding)
+            
+            # Get AI mappings if available
+            column_mappings = {}
+            if job.result:
+                mappings = job.result.get("columnMappings", [])
+                for mapping in mappings:
+                    source = mapping.get("source")
+                    target = mapping.get("target")
+                    if source and target:
+                        column_mappings[source] = target
+            
+            # Create normalization results for selected rows
+            for row_idx in approved_row_indices:
+                if row_idx > len(df):
+                    continue
+                
+                # Get row data
+                row_data = df.iloc[row_idx - 1].to_dict()  # Convert 1-based to 0-based
+                
+                # Apply column mappings
+                mapped_entities = {}
+                for source_col, target_col in column_mappings.items():
+                    if source_col in row_data and pd.notna(row_data[source_col]):
+                        mapped_entities[target_col] = row_data[source_col]
+                
+                # Also include unmapped columns
+                for col, val in row_data.items():
+                    if col not in column_mappings and pd.notna(val):
+                        mapped_entities[col] = val
+                
+                # Create normalization result
+                nr = NormalizationResult.objects.create(
+                    tenant_id=upload.tenant_id,
+                    upload_id=upload.id,
+                    row_index=row_idx,
+                    mapped_entities=mapped_entities,
+                    confidence=0.8,  # Default confidence for manually created
+                    status="pending"
+                )
+                normalization_results = list(normalization_results) + [nr]
+        except Exception as e:
+            print(f"Error creating normalization results from original data: {str(e)}")
+            import traceback
+            traceback.print_exc()
+    
+    # Ensure normalization_results is a list
+    if not isinstance(normalization_results, list):
+        normalization_results = list(normalization_results) if normalization_results else []
+    
+    print(f"DEBUG: Found {len(normalization_results)} normalization results for approval")
+    print(f"DEBUG: Approved row IDs: {approved_row_ids}")
+    print(f"DEBUG: Data type: {data_type}")
     
     created_count = 0
     error_count = 0
@@ -3860,6 +3961,7 @@ def approve_job_rows(request, job_id: str):
                 )
                 product.save()
                 created_count += 1
+                print(f"DEBUG: Successfully created product {part_id} from NormalizationResult {nr.id}")
                 
                 # Mark normalization result as approved
                 nr.status = "approved"
@@ -3868,6 +3970,8 @@ def approve_job_rows(request, job_id: str):
             except Exception as e:
                 error_count += 1
                 print(f"Error creating product from NormalizationResult {nr.id}: {str(e)}")
+                import traceback
+                traceback.print_exc()
                 continue
     
     # Update job status
