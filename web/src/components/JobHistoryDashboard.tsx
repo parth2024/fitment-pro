@@ -691,7 +691,7 @@ export default function JobHistoryDashboard() {
               </Group>
             </Card>
 
-            {/* Instructions */}
+            {/* Instructions
             <Alert
               icon={<IconInfoCircle size={16} />}
               color="blue"
@@ -715,7 +715,7 @@ export default function JobHistoryDashboard() {
                   database
                 </Text>
               </Stack>
-            </Alert>
+            </Alert> */}
 
             <Tabs
               defaultValue="original"
