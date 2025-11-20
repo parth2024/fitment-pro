@@ -4205,10 +4205,7 @@ def get_job_review_data(request, job_id: str):
                     if is_challenge1:
                         import random
                         
-                        # Extract SKU first (before removing columns) for matching original rows
-                        sku_value = ""
-                        year_value = ""
-                        make_value = ""
+                        # Parse the combined column "SKU|Transmission|Year|Make|Model" if it exists
                         model_value = ""
                         combined_col = "SKU|Transmission|Year|Make|Model"
                         if combined_col in ai_row:
@@ -4217,29 +4214,16 @@ def get_job_review_data(request, job_id: str):
                                 parts = combined_value.split("|")
                                 if len(parts) >= 5:
                                     # parts[0] = SKU, parts[1] = Transmission, parts[2] = Year, parts[3] = Make, parts[4] = Model
-                                    sku_value = parts[0].strip()
-                                    year_value = parts[2].strip()
-                                    make_value = parts[3].strip()
                                     model_value = parts[4].strip()
                             # Remove the combined column
-                            if combined_col in ai_row:
-                                del ai_row[combined_col]
+                            del ai_row[combined_col]
                         
-                        # Also check if SKU, Year, Make, Model exist separately
-                        if not sku_value:
-                            sku_value = ai_row.get("SKU", "") or ai_row.get("sku", "")
-                        if not year_value:
-                            year_value = ai_row.get("Year", "") or ai_row.get("year", "")
-                        if not make_value:
-                            make_value = ai_row.get("Make", "") or ai_row.get("makeName", "")
+                        # Also check if Model exists separately
                         if not model_value:
-                            model_value = ai_row.get("Model", "") or ai_row.get("modelName", "")
+                            model_value = ai_row.get("Model", "")
                         
-                        # Store SKU for matching original rows (before removing columns)
-                        ai_row["_sku_for_matching"] = sku_value
-                        
-                        # Remove columns we don't want to show (keep Year, Make, Model)
-                        columns_to_remove = ["SKU", "Transmission", "Transmission Code", "Transmission Codes", "partId", "part_id", "sku"]
+                        # Remove other columns we don't want to show (keep only Model)
+                        columns_to_remove = ["SKU", "Transmission", "Year", "Make", "Transmission Code", "Transmission Codes"]
                         for col in columns_to_remove:
                             if col in ai_row:
                                 del ai_row[col]
@@ -4266,9 +4250,7 @@ def get_job_review_data(request, job_id: str):
                         ai_row["_normalization_result_id"] = None
                         ai_row["confidence_explanation"] = ai_summary
                         ai_row["ai_reasoning"] = ai_summary
-                        # Ensure Year, Make, Model columns are present with the extracted values
-                        ai_row["Year"] = year_value
-                        ai_row["Make"] = make_value
+                        # Ensure Model column is present with the extracted value
                         ai_row["Model"] = model_value
                     else:
                         # For Challenge 2 or other formats, use original logic
@@ -4314,45 +4296,17 @@ def get_job_review_data(request, job_id: str):
                                         original_row = orig_row.to_dict()
                                         break
                     else:
-                        # For Challenge 1, match by SKU from the parsed data
-                        # Use the SKU stored for matching (extracted before columns were removed)
-                        sku_to_match = ai_row.get("_sku_for_matching", "")
-                        
-                        if not sku_to_match:
-                            # Fallback: Try to get SKU from the original parsed data
-                            row_data = transformed_df.iloc[idx] if idx < len(transformed_df) else None
-                            if row_data is not None:
-                                # Check if SKU column exists in transformed_df
-                                if "SKU" in transformed_df.columns:
-                                    sku_to_match = str(row_data.get("SKU", "")).strip()
-                        
-                        if sku_to_match:
-                            # Match by SKU in original file
+                        # For Challenge 1, match by SKU
+                        if "SKU" in ai_row and ai_row["SKU"]:
                             for orig_idx, orig_row in original_df.iterrows():
                                 orig_sku = str(orig_row.get("SKU", "")).strip()
-                                if orig_sku == sku_to_match:
+                                if orig_sku == str(ai_row["SKU"]).strip():
                                     original_row = orig_row.to_dict()
                                     break
                     
-                    # If no match found, create placeholder original row with key columns
+                    # If no match found, create placeholder original row
                     if not original_row:
-                        # Create a minimal original row with common columns
-                        original_row = {}
-                        # Add columns that might be in the original file
-                        if len(original_df) > 0:
-                            # Use the first row as a template for columns
-                            first_row = original_df.iloc[0]
-                            for col in original_df.columns:
-                                original_row[col] = ""
-                        else:
-                            # Fallback: create with common column names
-                            original_row = {
-                                "SKU": "",
-                                "Transmission Codes": "",
-                                "Year": "",
-                                "Make": "",
-                                "Model": "",
-                            }
+                        original_row = {k: "" for k in ai_row.keys() if not k.startswith("_")}
                     
                     # Convert original row values
                     for key, value in original_row.items():
@@ -4368,8 +4322,6 @@ def get_job_review_data(request, job_id: str):
                     
                     original_row["_row_index"] = idx + 1
                     original_row["_has_error"] = False
-                    original_row["_is_original"] = True  # Mark as original row (read-only, no actions)
-                    original_row["_selectable"] = False  # Mark as not selectable
                     original_rows.append(original_row)
                     
                     # For Challenge 2, process all rows (no break)
@@ -4408,8 +4360,6 @@ def get_job_review_data(request, job_id: str):
                     
                     original_row["_row_index"] = idx + 1
                     original_row["_has_error"] = idx in error_rows
-                    original_row["_is_original"] = True  # Mark as original row (read-only, no actions)
-                    original_row["_selectable"] = False  # Mark as not selectable
                     original_rows.append(original_row)
                     
                     # AI-generated row (from normalization result)
