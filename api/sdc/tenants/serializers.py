@@ -54,10 +54,23 @@ class TenantUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tenant
         fields = [
-            'name', 'description', 'fitment_settings', 'ai_instructions',
+            'name', 'slug', 'description', 'fitment_settings', 'ai_instructions',
             'contact_email', 'contact_phone', 'company_address', 'is_active', 'is_default',
             'default_fitment_method', 'required_product_fields', 'additional_attributes'
         ]
+    
+    def validate_slug(self, value):
+        # Treat empty strings as None
+        if value is not None and isinstance(value, str) and value.strip() == "":
+            return None
+        # Check uniqueness but exclude current instance
+        if value and self.instance:
+            if Tenant.objects.filter(slug=value).exclude(id=self.instance.id).exists():
+                raise serializers.ValidationError("A tenant with this slug already exists.")
+        elif value:
+            if Tenant.objects.filter(slug=value).exists():
+                raise serializers.ValidationError("A tenant with this slug already exists.")
+        return value
     
     def update(self, instance, validated_data):
         # Extract product configuration fields
