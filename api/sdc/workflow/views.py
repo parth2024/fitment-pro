@@ -3659,12 +3659,18 @@ def approve_job_rows(request, job_id: str):
     """
     Approve selected rows from a job and load them to the database.
     """
+    import traceback
     try:
         job = Job.objects.get(id=job_id)
     except Job.DoesNotExist:
         return Response(
             {"error": "Job not found"},
             status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        return Response(
+            {"error": f"Error getting job: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
     
     if job.status != "pending":
@@ -3680,15 +3686,28 @@ def approve_job_rows(request, job_id: str):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    upload = job.upload
+    try:
+        upload = job.upload
+    except Exception as e:
+        return Response(
+            {"error": f"Error getting upload: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    
     data_type = job.params.get("dataType", "fitments") if job.params else "fitments"
     
     # Get tenant
-    tenant_obj = job.tenant if job.tenant_id else Tenant.objects.filter(slug="default").first()
-    if not tenant_obj:
+    try:
+        tenant_obj = job.tenant if job.tenant_id else Tenant.objects.filter(slug="default").first()
+        if not tenant_obj:
+            return Response(
+                {"error": "No tenant found"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    except Exception as e:
         return Response(
-            {"error": "No tenant found"},
-            status=status.HTTP_400_BAD_REQUEST
+            {"error": f"Error getting tenant: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
     
     # Get normalization results for approved rows
@@ -3957,8 +3976,10 @@ def approve_job_rows(request, job_id: str):
             try:
                 mapped_entities = nr.mapped_entities or {}
                 if not mapped_entities:
+                    print(f"DEBUG: Empty mapped_entities for NormalizationResult {nr.id}")
                     continue
                 
+                # Extract part_id - try multiple field names
                 part_id = str(mapped_entities.get("partId", "")).strip()
                 if not part_id:
                     part_id = str(mapped_entities.get("part_id", "")).strip()
@@ -3967,50 +3988,111 @@ def approve_job_rows(request, job_id: str):
                 if not part_id:
                     part_id = str(mapped_entities.get("sku", "")).strip()
                 if not part_id:
+                    part_id = str(mapped_entities.get("id", "")).strip()
+                if not part_id:
                     # Try case-insensitive search in all keys
                     for key, value in mapped_entities.items():
+                        if not value:
+                            continue
                         key_lower = str(key).lower()
-                        if any(term in key_lower for term in ["part", "sku", "item", "product"]) and value:
+                        if any(term in key_lower for term in ["part", "sku", "item", "product", "id"]) and value:
                             part_id = str(value).strip()
-                            if part_id:
+                            if part_id and len(part_id) > 0:
                                 break
                 
                 if not part_id:
                     print(f"DEBUG: No partId found in mapped_entities for NormalizationResult {nr.id}. Keys: {list(mapped_entities.keys())}")
-                    # Mark as rejected
                     nr.status = "rejected"
                     nr.save()
                     error_count += 1
                     continue
                 
+                # Extract description - required field
                 description = str(mapped_entities.get("description", "")).strip()
                 if not description:
                     description = str(mapped_entities.get("partName", "")).strip()
                 if not description:
+                    description = str(mapped_entities.get("name", "")).strip()
+                if not description:
+                    description = str(mapped_entities.get("desc", "")).strip()
+                if not description:
+                    # Use part_id as fallback description
                     description = part_id
                 
-                specifications = {}
-                for key, value in mapped_entities.items():
-                    if key not in ["partId", "part_id", "partNumber", "sku", "description", "partName", "name"]:
-                        if value:
-                            specifications[key] = value
+                # Extract optional fields
+                category = str(mapped_entities.get("category", "")).strip()[:100] if mapped_entities.get("category") else ""
+                part_type = str(mapped_entities.get("partType", "")).strip()[:100] if mapped_entities.get("partType") else ""
+                if not part_type:
+                    part_type = str(mapped_entities.get("part_type", "")).strip()[:100] if mapped_entities.get("part_type") else ""
+                compatibility = str(mapped_entities.get("compatibility", "")).strip()[:100] if mapped_entities.get("compatibility") else ""
+                brand = str(mapped_entities.get("brand", "")).strip()[:100] if mapped_entities.get("brand") else ""
+                sku = str(mapped_entities.get("sku", "")).strip()[:100] if mapped_entities.get("sku") else ""
                 
-                product = ProductData(
-                    tenant=tenant_obj,
+                # Extract price and weight (handle numeric conversion)
+                price = None
+                if mapped_entities.get("price"):
+                    try:
+                        price = float(mapped_entities.get("price"))
+                    except:
+                        pass
+                
+                weight = None
+                if mapped_entities.get("weight"):
+                    try:
+                        weight = float(mapped_entities.get("weight"))
+                    except:
+                        pass
+                
+                dimensions = str(mapped_entities.get("dimensions", "")).strip()[:200] if mapped_entities.get("dimensions") else ""
+                
+                # Build specifications from remaining fields
+                specifications = {}
+                excluded_keys = ["partId", "part_id", "partNumber", "sku", "id", "description", "partName", "name", "desc", 
+                               "category", "partType", "part_type", "compatibility", "brand", "price", "weight", "dimensions"]
+                for key, value in mapped_entities.items():
+                    if key not in excluded_keys and value:
+                        try:
+                            # Ensure value is JSON-serializable
+                            if isinstance(value, (str, int, float, bool, list, dict)):
+                                specifications[key] = value
+                            else:
+                                specifications[key] = str(value)
+                        except:
+                            pass
+                
+                # Use update_or_create to handle unique constraint on (part_id, tenant)
+                product, created = ProductData.objects.update_or_create(
                     part_id=part_id,
-                    description=description,
-                    specifications=specifications,
-                    source_upload_id=str(upload.id),
-                    source_metadata={
-                        "normalizationResultId": str(nr.id),
-                        "rowIndex": nr.row_index,
-                        "approvedAt": timezone.now().isoformat(),
-                        "jobId": str(job.id),
-                    },
+                    tenant=tenant_obj,
+                    defaults={
+                        "description": description,
+                        "category": category,
+                        "part_type": part_type,
+                        "compatibility": compatibility,
+                        "specifications": specifications,
+                        "brand": brand,
+                        "sku": sku,
+                        "price": price,
+                        "weight": weight,
+                        "dimensions": dimensions,
+                        "source_file_name": upload.filename,
+                    }
                 )
+                
+                # Store metadata in specifications if needed
+                if not product.specifications:
+                    product.specifications = {}
+                product.specifications["_source_metadata"] = {
+                    "normalizationResultId": str(nr.id),
+                    "rowIndex": nr.row_index,
+                    "approvedAt": timezone.now().isoformat(),
+                    "jobId": str(job.id),
+                    "uploadId": str(upload.id),
+                }
                 product.save()
+                
                 created_count += 1
-                print(f"DEBUG: Successfully created product {part_id} from NormalizationResult {nr.id}")
+                print(f"DEBUG: Successfully {'created' if created else 'updated'} product {part_id} from NormalizationResult {nr.id}")
                 
                 # Mark normalization result as approved
                 nr.status = "approved"
@@ -4030,15 +4112,26 @@ def approve_job_rows(request, job_id: str):
                 continue
     
     # Update job status
-    job.status = "published"
-    job.finished_at = timezone.now()
-    job.result = {
-        **(job.result or {}),
-        "approvedCount": created_count,
-        "errorCount": error_count,
-        "publishedAt": timezone.now().isoformat(),
-    }
-    job.save()
+    try:
+        job.status = "published"
+        job.finished_at = timezone.now()
+        job.result = {
+            **(job.result or {}),
+            "approvedCount": created_count,
+            "errorCount": error_count,
+            "publishedAt": timezone.now().isoformat(),
+        }
+        job.save()
+    except Exception as e:
+        print(f"DEBUG: Error updating job status: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response(
+            {"error": f"Error updating job status: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    
+    print(f"DEBUG: Approval complete - Created: {created_count}, Errors: {error_count}")
     
     return Response({
         "message": "Rows approved and loaded to database",
