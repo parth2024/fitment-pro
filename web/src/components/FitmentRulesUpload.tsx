@@ -270,11 +270,7 @@ export default function FitmentRulesUpload() {
       // Trigger AI mapping with the upload ID directly
       await handleAiMappingWithId(newUploadId);
 
-      // Automatically trigger transformation after AI mapping (backend handles it)
-      // Then move to validation step
-      setActiveStep(2);
-      await handleValidation(newUploadId);
-
+      // Don't automatically move to validation - wait for user to click "Continue to Validation"
       setUploadProgress(100);
     } catch (error: any) {
       console.error("Upload error:", error);
@@ -336,8 +332,7 @@ export default function FitmentRulesUpload() {
         // Continue anyway - transformation happens in backend
       }
 
-      // Move to validation step
-      setActiveStep(2);
+      // Stay on step 1 (Column Mapping) - user will click "Continue to Validation" to proceed
     } catch (error: any) {
       updateStepStatus(1, "error", error.message || "AI mapping failed");
       showError(error.message || "Failed to process AI mapping");
@@ -883,8 +878,8 @@ export default function FitmentRulesUpload() {
         </Card>
       )}
 
-      {/* AI Mapping Results */}
-      {columnMappings.length > 0 && !isProcessing && (
+      {/* AI Mapping Results - Only show on step 1 */}
+      {activeStep === 1 && columnMappings.length > 0 && !isProcessing && (
         <Card withBorder padding="lg" radius="md">
           <Stack gap="md">
             <Group justify="space-between">
@@ -1072,11 +1067,12 @@ export default function FitmentRulesUpload() {
                   } catch (error) {
                     console.error("Transformation error:", error);
                   }
+                  // Move to validation step
                   setActiveStep(2);
                   await handleValidation();
                 }}
-                disabled={isProcessing}
-                loading={isProcessing && activeStep === 2}
+                disabled={isProcessing || activeStep > 1}
+                loading={isProcessing}
                 size="md"
                 color="blue"
               >

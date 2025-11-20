@@ -29,6 +29,33 @@ def _storage_dir() -> str:
     return base
 
 
+def get_or_create_upload_job(upload, data_type="fitments"):
+    """
+    Get or create a single job for an upload that tracks the entire data upload flow.
+    This ensures we have one job per upload instead of multiple jobs for each step.
+    """
+    # Try to find existing job for this upload with type "data-upload"
+    job = Job.objects.filter(
+        upload_id=upload.id,
+        job_type="data-upload"
+    ).order_by("-created_at").first()
+    
+    if not job:
+        # Create new job for this upload
+        job = Job.objects.create(
+            tenant_id=upload.tenant_id,
+            upload_id=upload.id,
+            job_type="data-upload",
+            status="ai-mapping",
+            params={
+                "presetId": upload.preset_id,
+                "dataType": data_type,
+                "currentStage": "ai-mapping",
+            },
+        )
+    return job
+
+
 @api_view(["GET", "POST"]) 
 def uploads(request):
     if request.method == "GET":
@@ -104,15 +131,18 @@ def uploads(request):
 
 @api_view(["POST"]) 
 def ai_map(request, upload_id: str):
-    # create job
+    # Get or create single job for this upload
     upload = Upload.objects.get(id=upload_id)
-    job = Job.objects.create(
-        tenant_id=upload.tenant_id,
-        upload_id=upload.id,
-        job_type="ai-map",
-        status="queued",
-        params={"presetId": upload.preset_id},
-    )
+    data_type = request.data.get("dataType") or (upload.preflight_report.get("dataType") if upload.preflight_report else "fitments")
+    job = get_or_create_upload_job(upload, data_type)
+    
+    # Update job status to ai-mapping
+    job.status = "ai-mapping"
+    job.params = job.params or {}
+    job.params["currentStage"] = "ai-mapping"
+    job.params["dataType"] = data_type
+    job.started_at = job.started_at or timezone.now()
+    job.save()
     
     # Read file and extract headers + sample data
     import pandas as pd
@@ -465,9 +495,11 @@ CRITICAL REQUIREMENTS:
                 content = content[:-3]
             
             suggestions = json.loads(content.strip())
-            job.status = "completed"
+            # Update job status - AI mapping completed, moving to transformation
+            job.status = "transforming"
+            job.params = job.params or {}
+            job.params["currentStage"] = "transforming"
             job.result = suggestions
-            job.finished_at = timezone.now()
             job.save()
             
         except Exception as e:
@@ -476,7 +508,10 @@ CRITICAL REQUIREMENTS:
             suggestions = {
                 "columnMappings": _fallback_column_mapping(headers, data_type),
             }
-            job.status = "completed"
+            # Update job status - AI mapping completed, moving to transformation
+            job.status = "transforming"
+            job.params = job.params or {}
+            job.params["currentStage"] = "transforming"
             job.result = suggestions
             job.finished_at = timezone.now()
             job.save()
@@ -486,9 +521,11 @@ CRITICAL REQUIREMENTS:
         suggestions = {
             "columnMappings": _fallback_column_mapping(headers, data_type),
     }
-    job.status = "completed"
+    # Update job status - AI mapping completed, moving to transformation
+    job.status = "transforming"
+    job.params = job.params or {}
+    job.params["currentStage"] = "transforming"
     job.result = suggestions
-    job.finished_at = timezone.now()
     job.save()
 
     return Response({"jobId": str(job.id), "suggestions": suggestions})
@@ -1135,13 +1172,15 @@ def transform_data(request, upload_id: str):
     """
     upload = Upload.objects.get(id=upload_id)
     
-    # Create transformation job
-    job = Job.objects.create(
-        tenant_id=upload.tenant_id,
-        upload_id=upload.id,
-        job_type="transform",
-        status="queued",
-    )
+    # Get or create the single job for this upload
+    data_type = upload.preflight_report.get("dataType", "fitments") if upload.preflight_report else "fitments"
+    job = get_or_create_upload_job(upload, data_type)
+    
+    # Update job status to transforming
+    job.status = "transforming"
+    job.params = job.params or {}
+    job.params["currentStage"] = "transforming"
+    job.save()
     
     try:
         import pandas as pd
@@ -1175,12 +1214,8 @@ def transform_data(request, upload_id: str):
             encoding = upload.preflight_report.get("encoding", "utf-8") if upload.preflight_report else "utf-8"
             df = pd.read_csv(upload.storage_url, delimiter=delimiter, encoding=encoding)
         
-        # Get AI mappings
-        ai_map_job = Job.objects.filter(
-            upload_id=upload.id,
-            job_type="ai-map",
-            status="completed"
-        ).order_by("-created_at").first()
+        # Get AI mappings from the same job (single job tracks all stages)
+        ai_map_job = job  # Use the same job we're updating
         
         column_mappings = {}
         if ai_map_job and ai_map_job.result:
@@ -1373,15 +1408,16 @@ def transform_data(request, upload_id: str):
         print(f"DEBUG: Saving transformed file with columns: {list(transformed_df.columns)}")
         print(f"DEBUG: Transformed file path: {transformed_file_path}")
         
-        # Update job status
-        job.status = "completed"
+        # Update job status - transformation completed, moving to validation
+        job.status = "validating"
+        job.params = job.params or {}
+        job.params["currentStage"] = "validating"
         job.result = {
             "transformations_applied": transformations_applied,
             "original_rows": len(mapped_df),
             "transformed_rows": len(transformed_df),
             "transformed_file_path": transformed_file_path
         }
-        job.finished_at = timezone.now()
         job.save()
         
         # Update upload with transformed file path
@@ -1432,13 +1468,15 @@ def vcdb_validate(request, upload_id: str):
     """
     upload = Upload.objects.get(id=upload_id)
     
-    # Create validation job
-    job = Job.objects.create(
-        tenant_id=upload.tenant_id,
-        upload_id=upload.id,
-        job_type="vcdb-validate",
-        status="queued",
-    )
+    # Get or create the single job for this upload
+    data_type = upload.preflight_report.get("dataType", "fitments") if upload.preflight_report else "fitments"
+    job = get_or_create_upload_job(upload, data_type)
+    
+    # Update job status to validating
+    job.status = "validating"
+    job.params = job.params or {}
+    job.params["currentStage"] = "validating"
+    job.save()
     
     try:
         import pandas as pd
@@ -1466,12 +1504,8 @@ def vcdb_validate(request, upload_id: str):
         # If using original file, apply column mappings
         mapped_df = df.copy()
         if not is_transformed:
-            # Get AI mappings from previous AI mapping job
-            ai_map_job = Job.objects.filter(
-                upload_id=upload.id,
-                job_type="ai-map",
-                status="completed"
-            ).order_by("-created_at").first()
+            # Get AI mappings from the same job (single job tracks all stages)
+            ai_map_job = job  # Use the same job we're updating
             
             column_mappings = {}
             if ai_map_job and ai_map_job.result:
@@ -1909,17 +1943,20 @@ def vcdb_validate(request, upload_id: str):
                     if created_flag:
                         created.append({"id": str(nr.id), "rowIndex": nr.row_index, "confidence": nr.confidence})
 
-        # Update job status
-        job.status = "completed"
+        # Update job status - validation completed, ready for review
+        job.status = "pending"
+        job.params = job.params or {}
+        job.params["currentStage"] = "pending"
         job.result = {
             "totalRows": total_rows,
             "validRows": valid_rows,
             "errorCount": len(errors),
             "warningCount": len(warnings),
             "created": len(created),
-            "uniquePartIds": list(unique_part_ids)  # Include for frontend to fetch recommendations
+            "uniquePartIds": list(unique_part_ids),  # Include for frontend to fetch recommendations
+            "errors": errors,
+            "warnings": warnings
         }
-        job.finished_at = timezone.now()
         job.save()
         
         return Response({
@@ -2802,8 +2839,8 @@ def job_history(request):
     if search_query:
         jobs_qs = jobs_qs.filter(upload__filename__icontains=search_query)
     
-    # Paginate
-    paginator = Paginator(jobs_qs, 5)  # 10 items per page
+    # Paginate - show more jobs per page for better UX
+    paginator = Paginator(jobs_qs, 20)  # 20 items per page
     page_obj = paginator.get_page(page_num)
     
     # Serialize jobs
@@ -3085,23 +3122,19 @@ def publish_for_review(request, upload_id: str):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    # Create job with 'pending' status
-    job = Job.objects.create(
-        tenant_id=str(tenant_obj.id),
-        upload_id=upload.id,
-        job_type="publish",
-        status="pending",
-        params={
-            "dataType": upload.preflight_report.get("dataType", "fitments") if upload.preflight_report else "fitments",
-        },
-    )
+    # Get or create the single job for this upload (should already exist)
+    data_type = upload.preflight_report.get("dataType", "fitments") if upload.preflight_report else "fitments"
+    job = get_or_create_upload_job(upload, data_type)
     
-    # Store validation results and normalization results in job.result for review
-    validation_job = Job.objects.filter(
-        upload_id=upload.id,
-        job_type="vcdb-validate",
-        status="completed"
-    ).order_by("-created_at").first()
+    # Update job status to pending (ready for review)
+    job.status = "pending"
+    job.params = job.params or {}
+    job.params["currentStage"] = "pending"
+    job.params["dataType"] = data_type
+    job.save()
+    
+    # Get validation results from the same job (job.result already contains validation data)
+    validation_job = job  # Use the same job we just updated
     
     normalization_results = NormalizationResult.objects.filter(
         upload_id=upload.id

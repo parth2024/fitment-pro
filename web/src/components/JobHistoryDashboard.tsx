@@ -35,7 +35,7 @@ import {
   IconFileText,
   IconAlertCircle,
 } from "@tabler/icons-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import apiClient from "../api/client";
 import { fitmentRulesService } from "../api/services";
 import { useProfessionalToast } from "../hooks/useProfessionalToast";
@@ -96,6 +96,7 @@ export default function JobHistoryDashboard() {
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
   const [approving, setApproving] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { showSuccess, showError } = useProfessionalToast();
 
   const fetchJobs = async () => {
@@ -124,6 +125,17 @@ export default function JobHistoryDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, statusFilter, typeFilter, searchQuery]);
 
+  // Refresh when navigating to Analytics with scrollToJobs parameter
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    if (urlParams.get("scrollToJobs") === "true") {
+      // Refresh jobs when coming from publish for review
+      setTimeout(() => {
+        fetchJobs();
+      }, 300);
+    }
+  }, [location.search]);
+
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case "completed":
@@ -134,9 +146,14 @@ export default function JobHistoryDashboard() {
         return "red";
       case "in_progress":
       case "processing":
+      case "ai-mapping":
+      case "transforming":
+      case "validating":
         return "blue";
       case "queued":
         return "yellow";
+      case "pending":
+        return "orange";
       default:
         return "gray";
     }
@@ -164,6 +181,7 @@ export default function JobHistoryDashboard() {
       transform: "Transform",
       "vcdb-validate": "Validation",
       publish: "Publish",
+      "data-upload": "Data Upload",
       upload: "Upload",
     };
     return labels[type] || type;
@@ -351,6 +369,7 @@ export default function JobHistoryDashboard() {
           <Select
             placeholder="Filter by type"
             data={[
+              { value: "data-upload", label: "Data Upload" },
               { value: "publish", label: "Publish" },
               { value: "transform", label: "Transform" },
               { value: "ai-map", label: "AI Mapping" },
