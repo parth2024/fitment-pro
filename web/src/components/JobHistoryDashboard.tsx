@@ -39,6 +39,7 @@ import {
   IconChevronDown,
   IconChevronUp,
   IconSparkles,
+  IconDownload,
 } from "@tabler/icons-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import apiClient from "../api/client";
@@ -733,26 +734,24 @@ export default function JobHistoryDashboard() {
                 >
                   Original Rows (
                   {
-                    reviewData.originalRows
-                      .slice(0, 100)
-                      .filter((row: any, idx: number) => {
-                        const rowId =
-                          row._normalization_result_id || `original_${idx}`;
-                        return !removedRowIds.has(rowId);
-                      }).length
+                    reviewData.originalRows.filter((row: any, idx: number) => {
+                      const rowId =
+                        row._normalization_result_id || `original_${idx}`;
+                      return !removedRowIds.has(rowId);
+                    }).length
                   }
                   )
                 </Tabs.Tab>
                 <Tabs.Tab value="ai" leftSection={<IconBrain size={16} />}>
                   AI Generated Rows (
                   {
-                    reviewData.aiGeneratedRows
-                      .slice(0, 100)
-                      .filter((row: any, idx: number) => {
+                    reviewData.aiGeneratedRows.filter(
+                      (row: any, idx: number) => {
                         const rowId =
                           row._normalization_result_id || `ai_${idx}`;
                         return !removedRowIds.has(rowId);
-                      }).length
+                      }
+                    ).length
                   }
                   )
                 </Tabs.Tab>
@@ -788,7 +787,6 @@ export default function JobHistoryDashboard() {
                             checked={
                               reviewData.originalRows.length > 0 &&
                               reviewData.originalRows
-                                .slice(0, 100)
                                 .filter((row: any, idx: number) => {
                                   const rowId =
                                     row._normalization_result_id ||
@@ -806,7 +804,6 @@ export default function JobHistoryDashboard() {
                               if (e.currentTarget.checked) {
                                 const newSet = new Set(selectedRowIds);
                                 reviewData.originalRows
-                                  .slice(0, 100)
                                   .filter((row: any, idx: number) => {
                                     const rowId =
                                       row._normalization_result_id ||
@@ -822,14 +819,14 @@ export default function JobHistoryDashboard() {
                                 setSelectedRowIds(newSet);
                               } else {
                                 const newSet = new Set(selectedRowIds);
-                                reviewData.originalRows
-                                  .slice(0, 100)
-                                  .forEach((row: any, idx: number) => {
+                                reviewData.originalRows.forEach(
+                                  (row: any, idx: number) => {
                                     const rowId =
                                       row._normalization_result_id ||
                                       `original_${idx}`;
                                     newSet.delete(rowId);
-                                  });
+                                  }
+                                );
                                 setSelectedRowIds(newSet);
                               }
                             }}
@@ -853,7 +850,6 @@ export default function JobHistoryDashboard() {
                     </Table.Thead>
                     <Table.Tbody>
                       {reviewData.originalRows
-                        .slice(0, 100)
                         .filter((row: any, idx: number) => {
                           const rowId =
                             row._normalization_result_id || `original_${idx}`;
@@ -949,14 +945,170 @@ export default function JobHistoryDashboard() {
                 }}
               >
                 <Card withBorder padding="xs" radius="md" mb="sm">
-                  <Group gap="xs" p="xs">
-                    <IconBrain size={16} color="#8b5cf6" />
-                    <Text size="sm" fw={500}>
-                      AI Processed & Mapped Data
-                    </Text>
-                    <Text size="xs" c="dimmed" ml="auto">
-                      Review AI transformations and mappings
-                    </Text>
+                  <Group gap="xs" p="xs" justify="space-between">
+                    <Group gap="xs">
+                      <IconBrain size={16} color="#8b5cf6" />
+                      <Text size="sm" fw={500}>
+                        AI Processed & Mapped Data
+                      </Text>
+                    </Group>
+                    <Group gap="xs">
+                      <Button
+                        size="xs"
+                        variant="light"
+                        leftSection={<IconDownload size={14} />}
+                        onClick={() => {
+                          if (
+                            !reviewData ||
+                            !reviewData.aiGeneratedRows ||
+                            reviewData.aiGeneratedRows.length === 0
+                          ) {
+                            showError("No AI-generated rows to export");
+                            return;
+                          }
+
+                          // Prepare CSV data
+                          const rows = reviewData.aiGeneratedRows;
+                          const headers: string[] = [];
+                          const headerSet = new Set<string>();
+
+                          // Collect all unique headers (excluding internal fields)
+                          rows.forEach((row: any) => {
+                            Object.keys(row).forEach((key) => {
+                              if (
+                                !key.startsWith("_") &&
+                                key !== "confidence_explanation" &&
+                                key !== "ai_reasoning" &&
+                                key !== "status"
+                              ) {
+                                if (!headerSet.has(key)) {
+                                  headerSet.add(key);
+                                  headers.push(key);
+                                }
+                              }
+                            });
+                          });
+
+                          // Add metadata columns
+                          const csvHeaders = [
+                            "Row #",
+                            "Confidence",
+                            "AI Summary",
+                            ...headers,
+                          ];
+
+                          // Convert rows to CSV
+                          const csvRows = rows.map((row: any, idx: number) => {
+                            const csvRow = [
+                              row._row_index || idx + 1,
+                              `${Math.round(
+                                (row._confidence || row.confidence || 0) * 100
+                              )}%`,
+                              row.confidence_explanation ||
+                                row.ai_reasoning ||
+                                "",
+                            ];
+
+                            headers.forEach((header) => {
+                              const value = row[header];
+                              if (value === null || value === undefined) {
+                                csvRow.push("");
+                              } else if (typeof value === "object") {
+                                csvRow.push(JSON.stringify(value));
+                              } else {
+                                csvRow.push(String(value).replace(/"/g, '""')); // Escape quotes
+                              }
+                            });
+
+                            return csvRow.map((cell) => `"${cell}"`).join(",");
+                          });
+
+                          // Combine header and rows
+                          const csvContent = [
+                            csvHeaders.map((h) => `"${h}"`).join(","),
+                            ...csvRows,
+                          ].join("\n");
+
+                          // Create and download file
+                          const blob = new Blob([csvContent], {
+                            type: "text/csv;charset=utf-8;",
+                          });
+                          const link = document.createElement("a");
+                          const url = URL.createObjectURL(blob);
+                          link.setAttribute("href", url);
+                          link.setAttribute(
+                            "download",
+                            `ai_generated_rows_${
+                              selectedJob?.id || "export"
+                            }.csv`
+                          );
+                          link.style.visibility = "hidden";
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+
+                          showSuccess(
+                            `Exported ${rows.length} AI-generated rows to CSV`
+                          );
+                        }}
+                      >
+                        Export CSV
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="light"
+                        leftSection={<IconFileSpreadsheet size={14} />}
+                        onClick={async () => {
+                          if (
+                            !reviewData ||
+                            !reviewData.aiGeneratedRows ||
+                            reviewData.aiGeneratedRows.length === 0
+                          ) {
+                            showError("No AI-generated rows to export");
+                            return;
+                          }
+
+                          if (!selectedJob) {
+                            showError("Job not selected");
+                            return;
+                          }
+
+                          try {
+                            // Call backend endpoint to export as XLSX
+                            const response = await apiClient.get(
+                              `/api/workflow/jobs/${selectedJob.id}/export-xlsx/`,
+                              {
+                                responseType: "blob",
+                              }
+                            );
+
+                            // Create download link
+                            const blob = new Blob([response.data], {
+                              type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            });
+                            const url = window.URL.createObjectURL(blob);
+                            const link = document.createElement("a");
+                            link.href = url;
+                            link.download = `ai_generated_rows_${selectedJob.id}.xlsx`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            window.URL.revokeObjectURL(url);
+
+                            showSuccess(
+                              `Exported ${reviewData.aiGeneratedRows.length} AI-generated rows to XLSX`
+                            );
+                          } catch (error) {
+                            console.error("Export XLSX error:", error);
+                            showError(
+                              "Failed to export as XLSX. Please try CSV export instead."
+                            );
+                          }
+                        }}
+                      >
+                        Export XLSX
+                      </Button>
+                    </Group>
                   </Group>
                 </Card>
                 <ScrollArea style={{ flex: 1, minHeight: 0 }}>
@@ -968,7 +1120,6 @@ export default function JobHistoryDashboard() {
                             checked={
                               reviewData.aiGeneratedRows.length > 0 &&
                               reviewData.aiGeneratedRows
-                                .slice(0, 100)
                                 .filter((row: any, idx: number) => {
                                   const rowId =
                                     row._normalization_result_id || `ai_${idx}`;
@@ -984,7 +1135,6 @@ export default function JobHistoryDashboard() {
                               if (e.currentTarget.checked) {
                                 const newSet = new Set(selectedRowIds);
                                 reviewData.aiGeneratedRows
-                                  .slice(0, 100)
                                   .filter((row: any, idx: number) => {
                                     const rowId =
                                       row._normalization_result_id ||
@@ -1000,14 +1150,14 @@ export default function JobHistoryDashboard() {
                                 setSelectedRowIds(newSet);
                               } else {
                                 const newSet = new Set(selectedRowIds);
-                                reviewData.aiGeneratedRows
-                                  .slice(0, 100)
-                                  .forEach((row: any, idx: number) => {
+                                reviewData.aiGeneratedRows.forEach(
+                                  (row: any, idx: number) => {
                                     const rowId =
                                       row._normalization_result_id ||
                                       `ai_${idx}`;
                                     newSet.delete(rowId);
-                                  });
+                                  }
+                                );
                                 setSelectedRowIds(newSet);
                               }
                             }}
@@ -1047,7 +1197,6 @@ export default function JobHistoryDashboard() {
                     </Table.Thead>
                     <Table.Tbody>
                       {reviewData.aiGeneratedRows
-                        .slice(0, 100)
                         .filter((row: any, idx: number) => {
                           const rowId =
                             row._normalization_result_id || `ai_${idx}`;
