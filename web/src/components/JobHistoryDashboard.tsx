@@ -734,26 +734,24 @@ export default function JobHistoryDashboard() {
                 >
                   Original Rows (
                   {
-                    reviewData.originalRows
-                      .slice(0, 100)
-                      .filter((row: any, idx: number) => {
-                        const rowId =
-                          row._normalization_result_id || `original_${idx}`;
-                        return !removedRowIds.has(rowId);
-                      }).length
+                    reviewData.originalRows.filter((row: any, idx: number) => {
+                      const rowId =
+                        row._normalization_result_id || `original_${idx}`;
+                      return !removedRowIds.has(rowId);
+                    }).length
                   }
                   )
                 </Tabs.Tab>
                 <Tabs.Tab value="ai" leftSection={<IconBrain size={16} />}>
                   AI Generated Rows (
                   {
-                    reviewData.aiGeneratedRows
-                      .slice(0, 100)
-                      .filter((row: any, idx: number) => {
+                    reviewData.aiGeneratedRows.filter(
+                      (row: any, idx: number) => {
                         const rowId =
                           row._normalization_result_id || `ai_${idx}`;
                         return !removedRowIds.has(rowId);
-                      }).length
+                      }
+                    ).length
                   }
                   )
                 </Tabs.Tab>
@@ -789,7 +787,6 @@ export default function JobHistoryDashboard() {
                             checked={
                               reviewData.originalRows.length > 0 &&
                               reviewData.originalRows
-                                .slice(0, 100)
                                 .filter((row: any, idx: number) => {
                                   const rowId =
                                     row._normalization_result_id ||
@@ -807,7 +804,6 @@ export default function JobHistoryDashboard() {
                               if (e.currentTarget.checked) {
                                 const newSet = new Set(selectedRowIds);
                                 reviewData.originalRows
-                                  .slice(0, 100)
                                   .filter((row: any, idx: number) => {
                                     const rowId =
                                       row._normalization_result_id ||
@@ -823,14 +819,14 @@ export default function JobHistoryDashboard() {
                                 setSelectedRowIds(newSet);
                               } else {
                                 const newSet = new Set(selectedRowIds);
-                                reviewData.originalRows
-                                  .slice(0, 100)
-                                  .forEach((row: any, idx: number) => {
+                                reviewData.originalRows.forEach(
+                                  (row: any, idx: number) => {
                                     const rowId =
                                       row._normalization_result_id ||
                                       `original_${idx}`;
                                     newSet.delete(rowId);
-                                  });
+                                  }
+                                );
                                 setSelectedRowIds(newSet);
                               }
                             }}
@@ -854,7 +850,6 @@ export default function JobHistoryDashboard() {
                     </Table.Thead>
                     <Table.Tbody>
                       {reviewData.originalRows
-                        .slice(0, 100)
                         .filter((row: any, idx: number) => {
                           const rowId =
                             row._normalization_result_id || `original_${idx}`;
@@ -1125,7 +1120,6 @@ export default function JobHistoryDashboard() {
                             checked={
                               reviewData.aiGeneratedRows.length > 0 &&
                               reviewData.aiGeneratedRows
-                                .slice(0, 100)
                                 .filter((row: any, idx: number) => {
                                   const rowId =
                                     row._normalization_result_id || `ai_${idx}`;
@@ -1141,7 +1135,6 @@ export default function JobHistoryDashboard() {
                               if (e.currentTarget.checked) {
                                 const newSet = new Set(selectedRowIds);
                                 reviewData.aiGeneratedRows
-                                  .slice(0, 100)
                                   .filter((row: any, idx: number) => {
                                     const rowId =
                                       row._normalization_result_id ||
@@ -1157,14 +1150,14 @@ export default function JobHistoryDashboard() {
                                 setSelectedRowIds(newSet);
                               } else {
                                 const newSet = new Set(selectedRowIds);
-                                reviewData.aiGeneratedRows
-                                  .slice(0, 100)
-                                  .forEach((row: any, idx: number) => {
+                                reviewData.aiGeneratedRows.forEach(
+                                  (row: any, idx: number) => {
                                     const rowId =
                                       row._normalization_result_id ||
                                       `ai_${idx}`;
                                     newSet.delete(rowId);
-                                  });
+                                  }
+                                );
                                 setSelectedRowIds(newSet);
                               }
                             }}
@@ -1204,7 +1197,6 @@ export default function JobHistoryDashboard() {
                     </Table.Thead>
                     <Table.Tbody>
                       {reviewData.aiGeneratedRows
-                        .slice(0, 100)
                         .filter((row: any, idx: number) => {
                           const rowId =
                             row._normalization_result_id || `ai_${idx}`;
