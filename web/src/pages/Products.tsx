@@ -302,7 +302,7 @@ export default function Products() {
                     </Group>
                   </div>
                   <Group gap="sm">
-                    <Button
+                    {/* <Button
                       variant="outline"
                       size="sm"
                       leftSection={<IconRefresh size={14} />}
@@ -312,7 +312,7 @@ export default function Products() {
                       }}
                     >
                       Refresh
-                    </Button>
+                    </Button> */}
                     {dataStatus?.products?.exists && (
                       <Button
                         size="sm"
