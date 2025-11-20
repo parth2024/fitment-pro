@@ -725,7 +725,7 @@ const NewEntitySettings: React.FC = () => {
                     loading={submitting}
                     size="md"
                   >
-                    Save Product Configuration
+                    Save
                   </Button>
                 </Group>
               </Stack>
