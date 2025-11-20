@@ -1444,6 +1444,180 @@ def get_product_files(request):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
+def export_products_csv(request):
+    """Export products to CSV format with filtering support"""
+    try:
+        # Get tenant ID from header
+        tenant_id = request.headers.get('X-Tenant-ID')
+        
+        # Get query parameters for filtering (same as get_product_data)
+        category = request.GET.get('category')
+        part_type = request.GET.get('part_type')
+        search = request.GET.get('search')
+        
+        # Build query (same logic as get_product_data)
+        queryset = ProductData.objects.all()
+        
+        # Filter by tenant if provided
+        if tenant_id:
+            try:
+                from tenants.models import Tenant
+                tenant = Tenant.objects.get(id=tenant_id)
+                queryset = queryset.filter(tenant=tenant)
+            except Tenant.DoesNotExist:
+                return Response(
+                    {"error": "Invalid tenant ID"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        if category:
+            queryset = queryset.filter(category__icontains=category)
+        if part_type:
+            queryset = queryset.filter(part_type__icontains=part_type)
+        if search:
+            q = (
+                Q(description__icontains=search)
+                | Q(part_id__icontains=search)
+                | Q(category__icontains=search)
+                | Q(brand__icontains=search)
+                | Q(sku__icontains=search)
+            )
+            queryset = queryset.filter(q)
+        
+        # Get all products (no pagination for export)
+        products = queryset.order_by('part_id')
+        
+        # Prepare data for export
+        products_data = []
+        for record in products:
+            products_data.append({
+                'id': record.id,
+                'part_id': record.part_id,
+                'description': record.description,
+                'category': record.category or '',
+                'part_type': record.part_type or '',
+                'compatibility': record.compatibility or '',
+                'specifications': json.dumps(record.specifications) if record.specifications else '',
+                'brand': record.brand or '',
+                'sku': record.sku or '',
+                'price': float(record.price) if record.price else '',
+                'weight': float(record.weight) if record.weight else '',
+                'dimensions': record.dimensions or '',
+                'created_at': record.created_at.isoformat() if record.created_at else '',
+                'updated_at': record.updated_at.isoformat() if record.updated_at else '',
+            })
+        
+        if not products_data:
+            return Response(
+                {"error": "No products found to export"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Create DataFrame and export to CSV
+        df = pd.DataFrame(products_data)
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="products_export.csv"'
+        df.to_csv(response, index=False, encoding='utf-8')
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error exporting products to CSV: {str(e)}")
+        return Response(
+            {"error": "Failed to export products"}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def export_products_xlsx(request):
+    """Export products to XLSX format with filtering support"""
+    try:
+        # Get tenant ID from header
+        tenant_id = request.headers.get('X-Tenant-ID')
+        
+        # Get query parameters for filtering (same as get_product_data)
+        category = request.GET.get('category')
+        part_type = request.GET.get('part_type')
+        search = request.GET.get('search')
+        
+        # Build query (same logic as get_product_data)
+        queryset = ProductData.objects.all()
+        
+        # Filter by tenant if provided
+        if tenant_id:
+            try:
+                from tenants.models import Tenant
+                tenant = Tenant.objects.get(id=tenant_id)
+                queryset = queryset.filter(tenant=tenant)
+            except Tenant.DoesNotExist:
+                return Response(
+                    {"error": "Invalid tenant ID"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        if category:
+            queryset = queryset.filter(category__icontains=category)
+        if part_type:
+            queryset = queryset.filter(part_type__icontains=part_type)
+        if search:
+            q = (
+                Q(description__icontains=search)
+                | Q(part_id__icontains=search)
+                | Q(category__icontains=search)
+                | Q(brand__icontains=search)
+                | Q(sku__icontains=search)
+            )
+            queryset = queryset.filter(q)
+        
+        # Get all products (no pagination for export)
+        products = queryset.order_by('part_id')
+        
+        # Prepare data for export
+        products_data = []
+        for record in products:
+            products_data.append({
+                'id': record.id,
+                'part_id': record.part_id,
+                'description': record.description,
+                'category': record.category or '',
+                'part_type': record.part_type or '',
+                'compatibility': record.compatibility or '',
+                'specifications': json.dumps(record.specifications) if record.specifications else '',
+                'brand': record.brand or '',
+                'sku': record.sku or '',
+                'price': float(record.price) if record.price else None,
+                'weight': float(record.weight) if record.weight else None,
+                'dimensions': record.dimensions or '',
+                'created_at': record.created_at.isoformat() if record.created_at else '',
+                'updated_at': record.updated_at.isoformat() if record.updated_at else '',
+            })
+        
+        if not products_data:
+            return Response(
+                {"error": "No products found to export"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Create DataFrame and export to XLSX
+        df = pd.DataFrame(products_data)
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="products_export.xlsx"'
+        df.to_excel(response, index=False, engine='openpyxl')
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error exporting products to XLSX: {str(e)}")
+        return Response(
+            {"error": "Failed to export products"}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
 def get_data_status(request):
     """Get the current status of uploaded and processed data"""
     try:

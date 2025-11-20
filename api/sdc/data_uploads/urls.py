@@ -14,6 +14,10 @@ urlpatterns = [
     
     # Data retrieval endpoints
     path('vcdb/', views.get_vcdb_data, name='get_vcdb_data'),
+    # Product export endpoints (more specific routes first)
+    path('products/export-csv/', views.export_products_csv, name='export_products_csv'),
+    path('products/export-xlsx/', views.export_products_xlsx, name='export_products_xlsx'),
+    # Product data endpoint (less specific route after)
     path('products/', views.get_product_data, name='get_product_data'),
     path('product-files/', views.get_product_files, name='get_product_files'),
     
