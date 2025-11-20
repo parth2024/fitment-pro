@@ -142,6 +142,26 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Challenge Solution Files Configuration
+# These files are used for Challenge 1 (fitments) and Challenge 2 (products) transformations
+# Paths are checked in order, first existing file is used
+CHALLENGE_1_SOLUTION_PATHS = [
+    os.path.join(BASE_DIR, '..', 'Challenge 1 - Solution.xlsx'),
+    os.path.join(BASE_DIR, 'Challenge 1 - Solution.xlsx'),
+    os.path.join(os.getcwd(), 'Challenge 1 - Solution.xlsx'),
+    os.getenv('CHALLENGE_1_SOLUTION_PATH', ''),  # Can be set via environment variable
+]
+
+CHALLENGE_2_SOLUTION_PATHS = [
+    os.path.join(BASE_DIR, '..', 'Challenge 2 - Solution.xlsx'),
+    os.path.join(BASE_DIR, 'Challenge 2 - Solution.xlsx'),
+    os.path.join(os.getcwd(), 'Challenge 2 - Solution.xlsx'),
+    os.getenv('CHALLENGE_2_SOLUTION_PATH', ''),  # Can be set via environment variable
+]
+
+# Storage directory for uploaded files
+STORAGE_DIR = os.getenv("STORAGE_DIR") or os.path.join(BASE_DIR, "..", "storage", "customer")
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 

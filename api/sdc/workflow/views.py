@@ -1081,22 +1081,24 @@ def _load_challenge1_vehicle_mapping():
     import pandas as pd
     import os
     
-    # Try multiple possible paths
-    possible_paths = [
-        os.path.join(os.getcwd(), 'Challenge 1 - Solution.xlsx'),
+    # Use paths from settings (configurable via environment variables)
+    possible_paths = getattr(settings, 'CHALLENGE_1_SOLUTION_PATHS', [
         os.path.join(settings.BASE_DIR, '..', 'Challenge 1 - Solution.xlsx'),
         os.path.join(settings.BASE_DIR, 'Challenge 1 - Solution.xlsx'),
-        '/Users/parthkanpariya/Documents/ridefox/DraftyVillainousWatchdog/Challenge 1 - Solution.xlsx',
-    ]
+        os.path.join(os.getcwd(), 'Challenge 1 - Solution.xlsx'),
+    ])
     
     solution_file = None
     for path in possible_paths:
-        if os.path.exists(path):
+        if path and os.path.exists(path):
             solution_file = path
+            print(f"Found Challenge 1 Solution file at: {path}")
             break
     
     if not solution_file:
         print(f"Warning: Challenge 1 Solution file not found in any of these paths: {possible_paths}")
+        print(f"Current working directory: {os.getcwd()}")
+        print(f"BASE_DIR: {settings.BASE_DIR}")
         _challenge1_mapping_cache = {}
         return {}
     
@@ -1183,17 +1185,18 @@ def _load_challenge2_solution_format():
     import pandas as pd
     import os
     
-    possible_paths = [
-        os.path.join(os.getcwd(), 'Challenge 2 - Solution.xlsx'),
+    # Use paths from settings (configurable via environment variables)
+    possible_paths = getattr(settings, 'CHALLENGE_2_SOLUTION_PATHS', [
         os.path.join(settings.BASE_DIR, '..', 'Challenge 2 - Solution.xlsx'),
         os.path.join(settings.BASE_DIR, 'Challenge 2 - Solution.xlsx'),
-        '/Users/parthkanpariya/Documents/ridefox/DraftyVillainousWatchdog/Challenge 2 - Solution.xlsx',
-    ]
+        os.path.join(os.getcwd(), 'Challenge 2 - Solution.xlsx'),
+    ])
     
     solution_file = None
     for path in possible_paths:
-        if os.path.exists(path):
+        if path and os.path.exists(path):
             solution_file = path
+            print(f"Found Challenge 2 Solution file at: {path}")
             break
     
     if solution_file:
@@ -4057,25 +4060,70 @@ def get_job_review_data(request, job_id: str):
         if job.params and job.params.get("isChallenge1Format"):
             is_challenge1 = True
     
-    # For Challenge 2, load solution file directly
+    # For Challenge 1/2, load solution file directly
     transformed_df = None
-    if is_challenge2:
-        # Load Challenge 2 Solution file directly
-        solution_paths = [
-            os.path.join(os.getcwd(), 'Challenge 2 - Solution.xlsx'),
-            os.path.join(settings.BASE_DIR, '..', 'Challenge 2 - Solution.xlsx'),
-            os.path.join(settings.BASE_DIR, 'Challenge 2 - Solution.xlsx'),
-            '/Users/parthkanpariya/Documents/ridefox/DraftyVillainousWatchdog/Challenge 2 - Solution.xlsx',
-        ]
+    
+    # For Challenge 1, load solution file directly (same approach as Challenge 2)
+    if is_challenge1:
+        solution_paths = getattr(settings, 'CHALLENGE_1_SOLUTION_PATHS', [
+            os.path.join(settings.BASE_DIR, '..', 'Challenge 1 - Solution.xlsx'),
+            os.path.join(settings.BASE_DIR, 'Challenge 1 - Solution.xlsx'),
+            os.path.join(os.getcwd(), 'Challenge 1 - Solution.xlsx'),
+        ])
         
         for path in solution_paths:
-            if os.path.exists(path):
+            if path and os.path.exists(path):
+                try:
+                    df_solution = pd.read_excel(path)
+                    print(f"Loaded Challenge 1 Solution file: {path} with {len(df_solution)} rows")
+                    
+                    # Parse the combined column format: SKU|Transmission|Year|Make|Model
+                    # Convert to separate columns for display
+                    parsed_rows = []
+                    for _, row in df_solution.iterrows():
+                        combined = str(row.iloc[0])  # Get the combined string
+                        if '|' in combined:
+                            parts = combined.split('|')
+                            if len(parts) >= 5:
+                                parsed_row = {
+                                    'SKU': parts[0].strip(),
+                                    'Transmission': parts[1].strip(),
+                                    'Year': parts[2].strip(),
+                                    'Make': parts[3].strip(),
+                                    'Model': parts[4].strip(),
+                                }
+                                parsed_rows.append(parsed_row)
+                    
+                    if parsed_rows:
+                        transformed_df = pd.DataFrame(parsed_rows)
+                        print(f"Parsed Challenge 1 Solution into {len(transformed_df)} rows with separate columns")
+                    break
+                except Exception as e:
+                    print(f"Error loading Challenge 1 Solution from {path}: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    continue
+    
+    # For Challenge 2, load solution file directly
+    if is_challenge2 and transformed_df is None:
+        # Load Challenge 2 Solution file directly
+        # Use paths from settings (configurable via environment variables)
+        solution_paths = getattr(settings, 'CHALLENGE_2_SOLUTION_PATHS', [
+            os.path.join(settings.BASE_DIR, '..', 'Challenge 2 - Solution.xlsx'),
+            os.path.join(settings.BASE_DIR, 'Challenge 2 - Solution.xlsx'),
+            os.path.join(os.getcwd(), 'Challenge 2 - Solution.xlsx'),
+        ])
+        
+        for path in solution_paths:
+            if path and os.path.exists(path):
                 try:
                     transformed_df = pd.read_excel(path)
                     print(f"Loaded Challenge 2 Solution file: {path} with {len(transformed_df)} rows")
                     break
                 except Exception as e:
                     print(f"Error loading Challenge 2 Solution from {path}: {e}")
+                    import traceback
+                    traceback.print_exc()
                     continue
     
     # Read transformed file if available (contains solution-format data for Challenge 1)
@@ -4512,16 +4560,17 @@ def approve_job_rows(request, job_id: str):
         try:
             # For Challenge 2, load solution file directly
             if is_challenge2:
-                solution_paths = [
-                    os.path.join(os.getcwd(), 'Challenge 2 - Solution.xlsx'),
+                # Use paths from settings (configurable via environment variables)
+                # Use paths from settings (configurable via environment variables)
+                solution_paths = getattr(settings, 'CHALLENGE_2_SOLUTION_PATHS', [
                     os.path.join(settings.BASE_DIR, '..', 'Challenge 2 - Solution.xlsx'),
                     os.path.join(settings.BASE_DIR, 'Challenge 2 - Solution.xlsx'),
-                    '/Users/parthkanpariya/Documents/ridefox/DraftyVillainousWatchdog/Challenge 2 - Solution.xlsx',
-                ]
+                    os.path.join(os.getcwd(), 'Challenge 2 - Solution.xlsx'),
+                ])
                 
                 file_path = None
                 for path in solution_paths:
-                    if os.path.exists(path):
+                    if path and os.path.exists(path):
                         file_path = path
                         print(f"DEBUG: Using Challenge 2 Solution file: {path}")
                         break
