@@ -3735,17 +3735,38 @@ def approve_job_rows(request, job_id: str):
     
     normalization_results = normalization_results_list
     
-    # If still no results and we have row indices, try to create normalization results from original data
+    # If still no results and we have row indices, try to find them by row_index directly
+    # This handles cases where IDs weren't found but row indices are provided
     if not normalization_results and approved_row_indices:
-        # Read original file and create normalization results on the fly
+        print(f"DEBUG: No normalization results found by ID, trying to find by row_index: {approved_row_indices}")
+        nr_by_index = list(NormalizationResult.objects.filter(
+            upload_id=upload.id,
+            row_index__in=approved_row_indices
+        ))
+        if nr_by_index:
+            normalization_results_list.extend(nr_by_index)
+            normalization_results = normalization_results_list
+            print(f"DEBUG: Found {len(nr_by_index)} normalization results by row_index")
+    
+    # Last resort: Try to create normalization results from transformed data if they don't exist
+    if not normalization_results and approved_row_indices:
+        print(f"DEBUG: Creating normalization results on-the-fly for row indices: {approved_row_indices}")
         import pandas as pd
         try:
+            # Try to read the transformed file first, otherwise original
+            file_path = upload.storage_url
+            if upload.preflight_report and upload.preflight_report.get("transformed_file_path"):
+                transformed_path = upload.preflight_report.get("transformed_file_path")
+                import os
+                if os.path.exists(transformed_path):
+                    file_path = transformed_path
+            
             if upload.file_format == "xlsx":
-                df = pd.read_excel(upload.storage_url)
+                df = pd.read_excel(file_path)
             else:
                 delimiter = upload.preflight_report.get("delimiter", ",") if upload.preflight_report else ","
                 encoding = upload.preflight_report.get("encoding", "utf-8") if upload.preflight_report else "utf-8"
-                df = pd.read_csv(upload.storage_url, delimiter=delimiter, encoding=encoding)
+                df = pd.read_csv(file_path, delimiter=delimiter, encoding=encoding)
             
             # Get AI mappings if available
             column_mappings = {}
@@ -3758,36 +3779,50 @@ def approve_job_rows(request, job_id: str):
                         column_mappings[source] = target
             
             # Create normalization results for selected rows
+            created_nrs = []
             for row_idx in approved_row_indices:
                 if row_idx > len(df):
+                    print(f"DEBUG: Row index {row_idx} is out of range (max: {len(df)})")
                     continue
                 
-                # Get row data
-                row_data = df.iloc[row_idx - 1].to_dict()  # Convert 1-based to 0-based
-                
-                # Apply column mappings
-                mapped_entities = {}
-                for source_col, target_col in column_mappings.items():
-                    if source_col in row_data and pd.notna(row_data[source_col]):
-                        mapped_entities[target_col] = row_data[source_col]
-                
-                # Also include unmapped columns
-                for col, val in row_data.items():
-                    if col not in column_mappings and pd.notna(val):
-                        mapped_entities[col] = val
-                
-                # Create normalization result
-                nr = NormalizationResult.objects.create(
-                    tenant_id=upload.tenant_id,
-                    upload_id=upload.id,
-                    row_index=row_idx,
-                    mapped_entities=mapped_entities,
-                    confidence=0.8,  # Default confidence for manually created
-                    status="pending"
-                )
-                normalization_results = list(normalization_results) + [nr]
+                try:
+                    # Get row data (0-based index)
+                    row_data = df.iloc[row_idx - 1].to_dict()
+                    
+                    # Apply column mappings
+                    mapped_entities = {}
+                    for source_col, target_col in column_mappings.items():
+                        if source_col in row_data and pd.notna(row_data[source_col]):
+                            val = row_data[source_col]
+                            mapped_entities[target_col] = str(val).strip() if val is not None else ""
+                    
+                    # Also include all columns (mapped or not)
+                    for col, val in row_data.items():
+                        if pd.notna(val) and val != "":
+                            mapped_entities[col] = str(val).strip()
+                    
+                    # Create normalization result
+                    nr = NormalizationResult.objects.create(
+                        tenant_id=upload.tenant_id,
+                        upload_id=upload.id,
+                        row_index=row_idx,
+                        mapped_entities=mapped_entities,
+                        confidence=0.8,  # Default confidence for manually created
+                        status="pending"
+                    )
+                    created_nrs.append(nr)
+                    print(f"DEBUG: Created normalization result {nr.id} for row {row_idx}")
+                except Exception as e:
+                    print(f"DEBUG: Error creating normalization result for row {row_idx}: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+            
+            if created_nrs:
+                normalization_results_list.extend(created_nrs)
+                normalization_results = normalization_results_list
+                print(f"DEBUG: Created {len(created_nrs)} normalization results on-the-fly")
         except Exception as e:
-            print(f"Error creating normalization results from original data: {str(e)}")
+            print(f"DEBUG: Error creating normalization results from file: {str(e)}")
             import traceback
             traceback.print_exc()
     
@@ -3932,6 +3967,20 @@ def approve_job_rows(request, job_id: str):
                 if not part_id:
                     part_id = str(mapped_entities.get("sku", "")).strip()
                 if not part_id:
+                    # Try case-insensitive search in all keys
+                    for key, value in mapped_entities.items():
+                        key_lower = str(key).lower()
+                        if any(term in key_lower for term in ["part", "sku", "item", "product"]) and value:
+                            part_id = str(value).strip()
+                            if part_id:
+                                break
+                
+                if not part_id:
+                    print(f"DEBUG: No partId found in mapped_entities for NormalizationResult {nr.id}. Keys: {list(mapped_entities.keys())}")
+                    # Mark as rejected
+                    nr.status = "rejected"
+                    nr.save()
+                    error_count += 1
                     continue
                 
                 description = str(mapped_entities.get("description", "")).strip()
@@ -3972,6 +4021,12 @@ def approve_job_rows(request, job_id: str):
                 print(f"Error creating product from NormalizationResult {nr.id}: {str(e)}")
                 import traceback
                 traceback.print_exc()
+                # Mark normalization result as rejected
+                try:
+                    nr.status = "rejected"
+                    nr.save()
+                except:
+                    pass
                 continue
     
     # Update job status
