@@ -1011,7 +1011,7 @@ const EditEntity: React.FC = () => {
                         background: "#2563eb",
                       }}
                     >
-                      Save Basic Info
+                      Save
                     </Button>
                   </Group>
                 </Stack>
@@ -1130,7 +1130,7 @@ const EditEntity: React.FC = () => {
                         background: "#2563eb",
                       }}
                     >
-                      Save VCDB Config
+                      Save
                     </Button>
                   </Group>
 
@@ -1525,7 +1525,7 @@ const EditEntity: React.FC = () => {
                     </Accordion>
                   </div>
 
-                  <Group justify="flex-end" mt="md">
+                  <Group justify="center" mt="md">
                     <Button
                       leftSection={<IconDeviceFloppy size={18} />}
                       onClick={() => handleUpdate("product")}
