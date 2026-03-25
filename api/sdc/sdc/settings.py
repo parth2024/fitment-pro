@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 
 from pathlib import Path
 import os
+import dj_database_url
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -29,7 +30,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "True").lower() == "true"
 
-ALLOWED_HOSTS = ["*"]  # Allow all hosts for Replit environment
+ALLOWED_HOSTS = [h for h in os.environ.get("ALLOWED_HOSTS", "").split(",") if h] + ["localhost", "127.0.0.1"]
 
 
 # Application definition
@@ -102,20 +103,10 @@ WSGI_APPLICATION = 'sdc.wsgi.application'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': "fitmentpro_db",
-        'USER': "fitmentpro_user",
-        'PASSWORD': "fitmentpro_pass",
-        'HOST': "ec2-65-0-133-50.ap-south-1.compute.amazonaws.com",
-        # 'HOST': "localhost",
-        'PORT': "5432",
-        'OPTIONS': {
-            'connect_timeout': 60,
-            'options': '-c statement_timeout=300000',  # 5 minutes
-        },
-        'CONN_MAX_AGE': 0,  # Don't persist connections
-    }
+    'default': dj_database_url.config(
+        default=os.environ.get('DATABASE_URL', "postgresql://fitmentpro_user:fitmentpro_pass@ec2-65-0-133-50.ap-south-1.compute.amazonaws.com:5432/fitmentpro_db"),
+        conn_max_age=0,
+    )
 }
 
 
@@ -172,17 +163,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_CREDENTIALS = True
 
 # Explicitly set CORS origins
-CORS_ALLOWED_ORIGINS = [
-    "https://fitment-pro-w23j.vercel.app",
-    "http://localhost:3000",
-    "http://localhost:5001",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:5001",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    "http://localhost:8001",
-    "http://127.0.0.1:8001",
-]
+CORS_ALLOWED_ORIGINS = [h for h in os.environ.get("CORS_ALLOWED_ORIGINS", "https://fitment-pro-w23j.vercel.app,http://localhost:3000,http://localhost:5001,http://127.0.0.1:3000,http://127.0.0.1:5001,http://localhost:8000,http://127.0.0.1:8000,http://localhost:8001,http://127.0.0.1:8001").split(",") if h]
 
 # Allow all headers and methods
 CORS_ALLOW_ALL_HEADERS = True
@@ -210,17 +191,7 @@ CORS_ALLOW_HEADERS = [
 ]
 
 # CSRF trusted origins
-CSRF_TRUSTED_ORIGINS = [
-    "https://fitment-pro-w23j.vercel.app",
-    "http://localhost:3000",
-    "http://localhost:5001",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:5001",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    "http://localhost:8001",
-    "http://127.0.0.1:8001",
-]
+CSRF_TRUSTED_ORIGINS = [h for h in os.environ.get("CORS_ALLOWED_ORIGINS", "https://fitment-pro-w23j.vercel.app,http://localhost:3000,http://localhost:5001,http://127.0.0.1:3000,http://127.0.0.1:5001,http://localhost:8000,http://127.0.0.1:8000,http://localhost:8001,http://127.0.0.1:8001").split(",") if h]
 
 # Additional CORS settings to prevent header duplication
 CORS_EXPOSE_HEADERS = [
@@ -290,10 +261,8 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Celery Configuration
-CELERY_BROKER_URL = 'redis://localhost:6379/0'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
-# CELERY_BROKER_URL = 'redis://:fitment123@ec2-35-154-11-183.ap-south-1.compute.amazonaws.com:6379/0'
-# CELERY_RESULT_BACKEND = 'redis://:fitment123@ec2-35-154-11-183.ap-south-1.compute.amazonaws.com:6379/0'
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -317,4 +286,3 @@ CELERY_BROKER_CONNECTION_MAX_RETRIES = 10  # Max retry attempts
 
 # Celery Beat Schedule
 from .celery_beat_schedule import CELERY_BEAT_SCHEDULE, CELERY_BEAT_SCHEDULER
-
